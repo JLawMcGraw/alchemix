@@ -1,0 +1,125 @@
+/* Login Page Styles */
+
+.loginPage {
+  min-height: 100vh;
+  background-color: var(--color-ui-bg-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3);
+}
+
+.loginContainer {
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* Logo Section */
+.logoSection {
+  text-align: center;
+}
+
+.logoIcon {
+  font-size: 64px;
+  margin-bottom: var(--space-2);
+}
+
+.logoTitle {
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  color: var(--color-primary);
+  margin: 0 0 var(--space-1) 0;
+}
+
+.logoTagline {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+/* Login Card */
+.loginCard {
+  width: 100%;
+}
+
+.cardTitle {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  color: var(--color-text-body);
+  margin: 0 0 var(--space-1) 0;
+}
+
+.cardSubtitle {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-4) 0;
+}
+
+/* Form */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.errorMessage {
+  padding: var(--space-2);
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius);
+  color: var(--color-error);
+  font-size: var(--text-sm);
+  font-family: var(--font-body);
+  text-align: center;
+}
+
+/* Switch Mode */
+.switchMode {
+  margin-top: var(--space-3);
+  text-align: center;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.switchModeBtn {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.switchModeBtn:hover:not(:disabled) {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+.switchModeBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .loginPage {
+    padding: var(--space-2);
+  }
+
+  .logoIcon {
+    font-size: 48px;
+  }
+
+  .logoTitle {
+    font-size: var(--text-2xl);
+  }
+}

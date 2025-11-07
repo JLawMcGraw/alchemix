@@ -1,0 +1,208 @@
+/* Dashboard Styles */
+
+.dashboard {
+  min-height: calc(100vh - 72px);
+  background-color: var(--color-ui-bg-base);
+  padding: var(--space-4) var(--space-3);
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* Header Section */
+.header {
+  text-align: center;
+  padding: var(--space-4) 0;
+}
+
+.greeting {
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  color: var(--color-text-body);
+  margin: 0 0 var(--space-2) 0;
+}
+
+.stats {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.stats strong {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.lowStock {
+  color: var(--color-secondary);
+}
+
+/* Action Buttons */
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.primaryAction {
+  font-size: var(--text-lg);
+  padding: var(--space-2) var(--space-4);
+}
+
+.secondaryActions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* Overview Cards */
+.overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--space-3);
+}
+
+.overviewCard {
+  transition: transform var(--transition-base);
+}
+
+.overviewCard:hover {
+  transform: translateY(-2px);
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.cardTitle {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--color-text-body);
+  margin: 0;
+}
+
+.viewAllBtn {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.viewAllBtn:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+.cardContent {
+  min-height: 120px;
+}
+
+/* Empty State */
+.emptyState {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-style: italic;
+  text-align: center;
+  padding: var(--space-3) 0;
+}
+
+/* Bottle List */
+.bottleList,
+.recipeList,
+.favoriteList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.bottleItem,
+.recipeItem,
+.favoriteItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2);
+  background-color: var(--color-ui-bg-base);
+  border-radius: var(--radius);
+  transition: background-color var(--transition-fast);
+}
+
+.bottleItem:hover,
+.recipeItem:hover,
+.favoriteItem:hover {
+  background-color: rgba(61, 214, 193, 0.05);
+}
+
+.bottleName,
+.recipeName,
+.favoriteName {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--color-text-body);
+}
+
+.bottleType,
+.recipeIngredients {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.favoriteItem {
+  gap: var(--space-2);
+}
+
+.favoriteIcon {
+  font-size: 18px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .dashboard {
+    padding: var(--space-3) var(--space-2);
+  }
+
+  .greeting {
+    font-size: var(--text-2xl);
+  }
+
+  .stats {
+    font-size: var(--text-base);
+  }
+
+  .secondaryActions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .secondaryActions button {
+    width: 100%;
+  }
+
+  .overview {
+    grid-template-columns: 1fr;
+  }
+}
