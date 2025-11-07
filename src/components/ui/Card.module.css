@@ -1,0 +1,36 @@
+/* Card Styles */
+
+.card {
+  background-color: var(--color-ui-bg-surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-base);
+}
+
+/* Padding Variants */
+.padding-none {
+  padding: 0;
+}
+
+.padding-sm {
+  padding: var(--space-2);
+}
+
+.padding-md {
+  padding: var(--space-3);
+}
+
+.padding-lg {
+  padding: var(--space-4);
+}
+
+/* Hover Effect */
+.hover:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+/* Clickable */
+.clickable {
+  cursor: pointer;
+}
