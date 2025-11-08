@@ -4,6 +4,55 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-11-07 - Modal System Architecture (Session 3)
+
+**Context**: Implemented modal and notification system for inventory management
+
+**Implementation**:
+```typescript
+// Modal Components Created:
+// 1. CSVUploadModal - Reusable for bottles and recipes
+// 2. AddBottleModal - 12-field bottle creation form
+// 3. EditBottleModal - Pre-filled editing form
+// 4. DeleteConfirmModal - Reusable confirmation dialog
+// 5. Toast system - ToastProvider + useToast hook
+
+// Integration Pattern:
+// - Modals use React state for open/close
+// - Each modal has onClose callback
+// - Forms have async onSubmit handlers
+// - Toast notifications for all user actions
+```
+
+**Architecture Decisions**:
+- **ToastProvider in Root Layout**: Wraps entire app for global toast access
+- **Modal State in Page Components**: Each page manages its own modal states
+- **Reusable Modals**: CSVUploadModal and DeleteConfirmModal accept props for different use cases
+- **Form Modals**: Separate Add and Edit modals to keep logic simple (could be merged later)
+- **Error Handling**: Try-catch in handlers, toast on error, re-throw to keep modal open
+
+**User Feedback Received**:
+> "this is a good start needs a lot of critique and extra work"
+
+**Known Issues to Address**:
+- Form validation is basic (only browser required attribute)
+- No client-side validation feedback
+- CSV import has no preview before upload
+- No loading states during async operations
+- Mobile responsiveness not tested
+- Forms could have better UX (field organization, visual hierarchy)
+
+**Future Improvements**:
+- Add real-time validation with error messages under fields
+- CSV preview modal showing first 5 rows
+- Loading spinners in modals during API calls
+- Better form layouts with sections/groups
+- Field-level help text/tooltips
+- Merge Add/Edit modals into single FormModal with mode prop
+- Add keyboard navigation (Escape to close, Enter to submit)
+
+---
+
 ## 2025-11-07 - Node.js v24 Incompatibility with better-sqlite3
 
 **Context**: Attempted to install backend dependencies on new PC with Node.js v24.11.0
