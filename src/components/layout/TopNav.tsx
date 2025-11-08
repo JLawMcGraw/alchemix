@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
+import { Home, Wine, Sparkles, BookOpen, Star, LogOut } from 'lucide-react';
 import styles from './TopNav.module.css';
 
 export const TopNav: React.FC = () => {
@@ -27,11 +28,11 @@ export const TopNav: React.FC = () => {
   }
 
   const navItems = [
-    { href: '/dashboard', label: 'Dashboard', icon: '🏠' },
-    { href: '/bar', label: 'My Bar', icon: '🍾' },
-    { href: '/ai', label: 'AI Bartender', icon: '🧪' },
-    { href: '/recipes', label: 'Recipes', icon: '📖' },
-    { href: '/favorites', label: 'Favorites', icon: '⭐' },
+    { href: '/dashboard', label: 'Dashboard', Icon: Home },
+    { href: '/bar', label: 'My Bar', Icon: Wine },
+    { href: '/ai', label: 'AI Bartender', Icon: Sparkles },
+    { href: '/recipes', label: 'Recipes', Icon: BookOpen },
+    { href: '/favorites', label: 'Favorites', Icon: Star },
   ];
 
   return (
@@ -45,25 +46,29 @@ export const TopNav: React.FC = () => {
 
         {/* Navigation Links */}
         <div className={styles.navLinks}>
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`${styles.navLink} ${
-                pathname === item.href ? styles.active : ''
-              }`}
-            >
-              <span className={styles.navIcon}>{item.icon}</span>
-              <span className={styles.navLabel}>{item.label}</span>
-            </Link>
-          ))}
+          {navItems.map((item) => {
+            const Icon = item.Icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`${styles.navLink} ${
+                  pathname === item.href ? styles.active : ''
+                }`}
+              >
+                <Icon className={styles.navIcon} size={18} />
+                <span className={styles.navLabel}>{item.label}</span>
+              </Link>
+            );
+          })}
         </div>
 
         {/* User Menu */}
         <div className={styles.userMenu}>
           <span className={styles.userEmail}>{user?.email}</span>
           <button onClick={handleLogout} className={styles.logoutBtn}>
-            Logout
+            <LogOut size={16} />
+            <span>Logout</span>
           </button>
         </div>
       </div>

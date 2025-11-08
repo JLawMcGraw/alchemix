@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Star, Sparkles, X, User } from 'lucide-react';
 import styles from './favorites.module.css';
 
 type TabType = 'favorites' | 'history';
@@ -26,6 +27,10 @@ export default function FavoritesPage() {
     return null;
   }
 
+  // Ensure arrays
+  const favoritesArray = Array.isArray(favorites) ? favorites : [];
+  const chatArray = Array.isArray(chatHistory) ? chatHistory : [];
+
   const handleRemoveFavorite = async (id: number) => {
     if (confirm('Remove this from favorites?')) {
       try {
@@ -37,7 +42,7 @@ export default function FavoritesPage() {
   };
 
   // Group chat history by date
-  const groupedHistory = chatHistory.reduce((acc, message) => {
+  const groupedHistory = chatArray.reduce((acc, message) => {
     const date = new Date(message.timestamp).toLocaleDateString();
     if (!acc[date]) {
       acc[date] = [];
@@ -51,7 +56,10 @@ export default function FavoritesPage() {
       <div className={styles.container}>
         {/* Header */}
         <div className={styles.header}>
-          <h1 className={styles.title}>⭐ Favorites</h1>
+          <h1 className={styles.title}>
+            <Star size={32} style={{ marginRight: '12px', verticalAlign: 'middle' }} />
+            Favorites
+          </h1>
           <p className={styles.subtitle}>
             Your saved recipes and conversation history
           </p>
@@ -63,23 +71,23 @@ export default function FavoritesPage() {
             onClick={() => setActiveTab('favorites')}
             className={`${styles.tab} ${activeTab === 'favorites' ? styles.activeTab : ''}`}
           >
-            Favorites ({favorites.length})
+            Favorites ({favoritesArray.length})
           </button>
           <button
             onClick={() => setActiveTab('history')}
             className={`${styles.tab} ${activeTab === 'history' ? styles.activeTab : ''}`}
           >
-            History ({chatHistory.length})
+            History ({chatArray.length})
           </button>
         </div>
 
         {/* Content */}
         {activeTab === 'favorites' ? (
           // Favorites Tab
-          favorites.length === 0 ? (
+          favoritesArray.length === 0 ? (
             <Card padding="lg">
               <div className={styles.emptyState}>
-                <div className={styles.emptyIcon}>⭐</div>
+                <Star size={64} className={styles.emptyIcon} strokeWidth={1.5} />
                 <h3 className={styles.emptyTitle}>No favorites yet</h3>
                 <p className={styles.emptyText}>
                   Your lab's waiting for its next experiment. Save recipes to see them here!
@@ -95,7 +103,7 @@ export default function FavoritesPage() {
             </Card>
           ) : (
             <div className={styles.favoritesGrid}>
-              {favorites.map((favorite) => (
+              {favoritesArray.map((favorite) => (
                 <Card
                   key={favorite.id}
                   padding="md"
@@ -103,13 +111,13 @@ export default function FavoritesPage() {
                   className={styles.favoriteCard}
                 >
                   <div className={styles.favoriteHeader}>
-                    <div className={styles.favoriteIcon}>⭐</div>
+                    <Star size={28} className={styles.favoriteIcon} fill="currentColor" />
                     <button
                       onClick={() => favorite.id && handleRemoveFavorite(favorite.id)}
                       className={styles.removeBtn}
                       title="Remove from favorites"
                     >
-                      ✕
+                      <X size={18} />
                     </button>
                   </div>
                   <h3 className={styles.favoriteName}>
@@ -127,10 +135,10 @@ export default function FavoritesPage() {
           )
         ) : (
           // History Tab
-          chatHistory.length === 0 ? (
+          chatArray.length === 0 ? (
             <Card padding="lg">
               <div className={styles.emptyState}>
-                <div className={styles.emptyIcon}>🧪</div>
+                <Sparkles size={64} className={styles.emptyIcon} strokeWidth={1.5} />
                 <h3 className={styles.emptyTitle}>No conversation history</h3>
                 <p className={styles.emptyText}>
                   Start chatting with the AI Bartender to see your history here
@@ -154,7 +162,17 @@ export default function FavoritesPage() {
                       {messages.map((message, index) => (
                         <li key={index} className={styles.historyItem}>
                           <span className={styles.messageRole}>
-                            {message.role === 'user' ? '👤 You' : '🧪 Lab Assistant'}
+                            {message.role === 'user' ? (
+                              <>
+                                <User size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+                                You
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+                                Lab Assistant
+                              </>
+                            )}
                           </span>
                           <p className={styles.messageContent}>
                             {message.content.length > 100

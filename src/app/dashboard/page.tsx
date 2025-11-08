@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Sparkles, Wine, Upload, BookOpen, Star } from 'lucide-react';
 import styles from './dashboard.module.css';
 
 export default function DashboardPage() {
@@ -28,7 +29,10 @@ export default function DashboardPage() {
   }
 
   // Calculate stats
-  const lowStockCount = bottles.filter((b) => {
+  const bottlesArray = Array.isArray(bottles) ? bottles : [];
+  const recipesArray = Array.isArray(recipes) ? recipes : [];
+  const favoritesArray = Array.isArray(favorites) ? favorites : [];
+  const lowStockCount = bottlesArray.filter((b) => {
     const qty = b['Quantity (ml)'] || 0;
     return qty < 200; // Less than 200ml is "low stock"
   }).length;
@@ -42,7 +46,7 @@ export default function DashboardPage() {
             Ready for your next experiment?
           </h1>
           <p className={styles.stats}>
-            You've got <strong>{bottles.length} bottles</strong>
+            You've got <strong>{bottlesArray.length} bottles</strong>
             {lowStockCount > 0 && (
               <span className={styles.lowStock}>
                 {' '}and <strong>{lowStockCount} low-stock spirits</strong>
@@ -59,7 +63,8 @@ export default function DashboardPage() {
             onClick={() => router.push('/ai')}
             className={styles.primaryAction}
           >
-            🧪 Ask the AI Bartender
+            <Sparkles size={20} style={{ marginRight: '8px' }} />
+            Ask the AI Bartender
           </Button>
           <div className={styles.secondaryActions}>
             <Button
@@ -67,13 +72,16 @@ export default function DashboardPage() {
               size="md"
               onClick={() => router.push('/bar')}
             >
-              🍾 Add New Bottle
+              <Wine size={18} style={{ marginRight: '6px' }} />
+              Add New Bottle
             </Button>
             <Button variant="outline" size="md">
-              📤 Import Bar Stock CSV
+              <Upload size={18} style={{ marginRight: '6px' }} />
+              Import Bar Stock CSV
             </Button>
             <Button variant="outline" size="md">
-              📤 Import Recipes CSV
+              <Upload size={18} style={{ marginRight: '6px' }} />
+              Import Recipes CSV
             </Button>
           </div>
         </section>
@@ -83,7 +91,10 @@ export default function DashboardPage() {
           {/* My Bar Overview */}
           <Card padding="md" className={styles.overviewCard}>
             <div className={styles.cardHeader}>
-              <h3 className={styles.cardTitle}>🍾 My Bar Overview</h3>
+              <h3 className={styles.cardTitle}>
+                <Wine size={20} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+                My Bar Overview
+              </h3>
               <button
                 onClick={() => router.push('/bar')}
                 className={styles.viewAllBtn}
@@ -92,13 +103,13 @@ export default function DashboardPage() {
               </button>
             </div>
             <div className={styles.cardContent}>
-              {bottles.length === 0 ? (
+              {bottlesArray.length === 0 ? (
                 <p className={styles.emptyState}>
                   No bottles yet. Start building your bar!
                 </p>
               ) : (
                 <ul className={styles.bottleList}>
-                  {bottles.slice(0, 3).map((bottle) => (
+                  {bottlesArray.slice(0, 3).map((bottle) => (
                     <li key={bottle.id} className={styles.bottleItem}>
                       <span className={styles.bottleName}>{bottle.name}</span>
                       <span className={styles.bottleType}>
@@ -114,7 +125,10 @@ export default function DashboardPage() {
           {/* Recent Recipes */}
           <Card padding="md" className={styles.overviewCard}>
             <div className={styles.cardHeader}>
-              <h3 className={styles.cardTitle}>📖 Recent Recipes</h3>
+              <h3 className={styles.cardTitle}>
+                <BookOpen size={20} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+                Recent Recipes
+              </h3>
               <button
                 onClick={() => router.push('/recipes')}
                 className={styles.viewAllBtn}
@@ -123,13 +137,13 @@ export default function DashboardPage() {
               </button>
             </div>
             <div className={styles.cardContent}>
-              {recipes.length === 0 ? (
+              {recipesArray.length === 0 ? (
                 <p className={styles.emptyState}>
                   No recipes yet. Import your collection!
                 </p>
               ) : (
                 <ul className={styles.recipeList}>
-                  {recipes.slice(0, 3).map((recipe) => (
+                  {recipesArray.slice(0, 3).map((recipe) => (
                     <li key={recipe.id} className={styles.recipeItem}>
                       <span className={styles.recipeName}>{recipe.name}</span>
                       <span className={styles.recipeIngredients}>
@@ -145,7 +159,10 @@ export default function DashboardPage() {
           {/* Favorites / History */}
           <Card padding="md" className={styles.overviewCard}>
             <div className={styles.cardHeader}>
-              <h3 className={styles.cardTitle}>⭐ Favorites</h3>
+              <h3 className={styles.cardTitle}>
+                <Star size={20} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+                Favorites
+              </h3>
               <button
                 onClick={() => router.push('/favorites')}
                 className={styles.viewAllBtn}
@@ -154,15 +171,15 @@ export default function DashboardPage() {
               </button>
             </div>
             <div className={styles.cardContent}>
-              {favorites.length === 0 ? (
+              {favoritesArray.length === 0 ? (
                 <p className={styles.emptyState}>
                   No favorites yet. Save your favorite drinks!
                 </p>
               ) : (
                 <ul className={styles.favoriteList}>
-                  {favorites.slice(0, 2).map((favorite) => (
+                  {favoritesArray.slice(0, 2).map((favorite) => (
                     <li key={favorite.id} className={styles.favoriteItem}>
-                      <span className={styles.favoriteIcon}>⭐</span>
+                      <Star size={18} className={styles.favoriteIcon} />
                       <span className={styles.favoriteName}>
                         {favorite.recipe_name || 'Saved Recipe'}
                       </span>

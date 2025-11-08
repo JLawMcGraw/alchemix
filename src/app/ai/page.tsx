@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Sparkles, Send, User } from 'lucide-react';
 import type { ChatMessage } from '@/types';
 import styles from './ai.module.css';
 
@@ -29,6 +30,9 @@ export default function AIPage() {
   if (!isAuthenticated) {
     return null;
   }
+
+  // Ensure chatHistory is an array
+  const chatArray = Array.isArray(chatHistory) ? chatHistory : [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,12 +63,15 @@ export default function AIPage() {
         {/* Header */}
         <div className={styles.header}>
           <div>
-            <h1 className={styles.title}>🧪 AI Bartender</h1>
+            <h1 className={styles.title}>
+              <Sparkles size={32} style={{ marginRight: '12px', verticalAlign: 'middle' }} />
+              AI Bartender
+            </h1>
             <p className={styles.subtitle}>
               Your cocktail lab assistant powered by AI
             </p>
           </div>
-          {chatHistory.length > 0 && (
+          {chatArray.length > 0 && (
             <Button variant="outline" size="sm" onClick={handleClearChat}>
               Clear Chat
             </Button>
@@ -75,9 +82,9 @@ export default function AIPage() {
         <div className={styles.chatContainer}>
           {/* Messages */}
           <div className={styles.messages}>
-            {chatHistory.length === 0 ? (
+            {chatArray.length === 0 ? (
               <div className={styles.emptyState}>
-                <div className={styles.emptyIcon}>🧪</div>
+                <Sparkles size={64} className={styles.emptyIcon} strokeWidth={1.5} />
                 <h3 className={styles.emptyTitle}>Start Your Experiment</h3>
                 <p className={styles.emptyText}>
                   Ask the Lab Assistant for cocktail recommendations based on your
@@ -107,7 +114,7 @@ export default function AIPage() {
               </div>
             ) : (
               <>
-                {chatHistory.map((message, index) => (
+                {chatArray.map((message, index) => (
                   <div
                     key={index}
                     className={`${styles.message} ${
@@ -115,7 +122,7 @@ export default function AIPage() {
                     }`}
                   >
                     <div className={styles.messageIcon}>
-                      {message.role === 'user' ? '👤' : '🧪'}
+                      {message.role === 'user' ? <User size={24} /> : <Sparkles size={24} />}
                     </div>
                     <Card
                       padding="md"
@@ -134,7 +141,9 @@ export default function AIPage() {
                 ))}
                 {loading && (
                   <div className={`${styles.message} ${styles.aiMessage}`}>
-                    <div className={styles.messageIcon}>🧪</div>
+                    <div className={styles.messageIcon}>
+                      <Sparkles size={24} />
+                    </div>
                     <Card padding="md" className={styles.aiBubble}>
                       <div className={styles.typing}>
                         <span></span>
@@ -160,7 +169,7 @@ export default function AIPage() {
               disabled={loading}
             />
             <Button type="submit" variant="primary" disabled={loading || !input.trim()}>
-              Send
+              <Send size={18} />
             </Button>
           </form>
         </div>

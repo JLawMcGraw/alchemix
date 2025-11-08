@@ -86,7 +86,7 @@
 }
 
 .emptyIcon {
-  font-size: 64px;
+  color: var(--color-text-muted);
   margin-bottom: var(--space-3);
 }
 

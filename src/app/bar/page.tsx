@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Wine, Upload, Plus, Edit2, Trash2, Martini } from 'lucide-react';
 import type { Bottle } from '@/types';
 import styles from './bar.module.css';
 
@@ -25,14 +26,17 @@ export default function BarPage() {
     return null;
   }
 
+  // Ensure bottles is always an array
+  const bottlesArray = Array.isArray(bottles) ? bottles : [];
+
   // Get unique liquor types for filter
-  const liquorTypes = ['all', ...new Set(bottles.map((b) => b['Liquor Type']).filter(Boolean))];
+  const liquorTypes = ['all', ...new Set(bottlesArray.map((b) => b['Liquor Type']).filter(Boolean))];
 
   // Filter bottles
   const filteredBottles =
     filterType === 'all'
-      ? bottles
-      : bottles.filter((b) => b['Liquor Type'] === filterType);
+      ? bottlesArray
+      : bottlesArray.filter((b) => b['Liquor Type'] === filterType);
 
   const handleDelete = async (id: number) => {
     if (confirm('Are you sure you want to delete this bottle?')) {
@@ -50,17 +54,22 @@ export default function BarPage() {
         {/* Header */}
         <div className={styles.header}>
           <div>
-            <h1 className={styles.title}>🍾 My Bar</h1>
+            <h1 className={styles.title}>
+              <Wine size={32} style={{ marginRight: '12px', verticalAlign: 'middle' }} />
+              My Bar
+            </h1>
             <p className={styles.subtitle}>
               {filteredBottles.length} {filteredBottles.length === 1 ? 'bottle' : 'bottles'}
             </p>
           </div>
           <div className={styles.actions}>
             <Button variant="outline" size="md">
-              📤 Import CSV
+              <Upload size={18} />
+              Import CSV
             </Button>
             <Button variant="primary" size="md">
-              ➕ Add Bottle
+              <Plus size={18} />
+              Add Bottle
             </Button>
           </div>
         </div>
@@ -88,13 +97,14 @@ export default function BarPage() {
         {filteredBottles.length === 0 ? (
           <Card padding="lg">
             <div className={styles.emptyState}>
-              <div className={styles.emptyIcon}>🍸</div>
+              <Martini size={64} className={styles.emptyIcon} strokeWidth={1.5} />
               <h3 className={styles.emptyTitle}>Your bar is empty</h3>
               <p className={styles.emptyText}>
                 Start building your collection by adding bottles or importing from CSV
               </p>
               <Button variant="primary" size="md">
-                ➕ Add Your First Bottle
+                <Plus size={18} />
+                Add Your First Bottle
               </Button>
             </div>
           </Card>
@@ -136,14 +146,14 @@ export default function BarPage() {
                           className={styles.actionBtn}
                           title="Edit"
                         >
-                          ✏️
+                          <Edit2 size={16} />
                         </button>
                         <button
                           className={styles.actionBtn}
                           onClick={() => bottle.id && handleDelete(bottle.id)}
                           title="Delete"
                         >
-                          🗑️
+                          <Trash2 size={16} />
                         </button>
                       </td>
                     </tr>

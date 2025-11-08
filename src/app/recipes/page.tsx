@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { BookOpen, Upload, Star, Martini } from 'lucide-react';
 import type { Recipe } from '@/types';
 import styles from './recipes.module.css';
 
@@ -27,11 +28,15 @@ export default function RecipesPage() {
     return null;
   }
 
+  // Ensure arrays
+  const recipesArray = Array.isArray(recipes) ? recipes : [];
+  const favoritesArray = Array.isArray(favorites) ? favorites : [];
+
   // Get unique spirit types
-  const spiritTypes = ['all', ...new Set(recipes.map((r) => r.spirit_type).filter(Boolean))];
+  const spiritTypes = ['all', ...new Set(recipesArray.map((r) => r.spirit_type).filter(Boolean))];
 
   // Filter recipes
-  const filteredRecipes = recipes.filter((recipe) => {
+  const filteredRecipes = recipesArray.filter((recipe) => {
     const matchesSearch = searchQuery
       ? recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         recipe.ingredients?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -41,13 +46,13 @@ export default function RecipesPage() {
   });
 
   const isFavorited = (recipeId: number) => {
-    return favorites.some((fav) => fav.recipe_id === recipeId);
+    return favoritesArray.some((fav) => fav.recipe_id === recipeId);
   };
 
   const handleToggleFavorite = async (recipe: Recipe) => {
     if (!recipe.id) return;
 
-    const favorite = favorites.find((fav) => fav.recipe_id === recipe.id);
+    const favorite = favoritesArray.find((fav) => fav.recipe_id === recipe.id);
     try {
       if (favorite && favorite.id) {
         await removeFavorite(favorite.id);
@@ -68,13 +73,17 @@ export default function RecipesPage() {
         {/* Header */}
         <div className={styles.header}>
           <div>
-            <h1 className={styles.title}>📖 Recipes</h1>
+            <h1 className={styles.title}>
+              <BookOpen size={32} style={{ marginRight: '12px', verticalAlign: 'middle' }} />
+              Recipes
+            </h1>
             <p className={styles.subtitle}>
               {filteredRecipes.length} {filteredRecipes.length === 1 ? 'recipe' : 'recipes'}
             </p>
           </div>
           <Button variant="outline" size="md">
-            📤 Import CSV
+            <Upload size={18} />
+            Import CSV
           </Button>
         </div>
 
@@ -104,7 +113,7 @@ export default function RecipesPage() {
         {filteredRecipes.length === 0 ? (
           <Card padding="lg">
             <div className={styles.emptyState}>
-              <div className={styles.emptyIcon}>🍹</div>
+              <Martini size={64} className={styles.emptyIcon} strokeWidth={1.5} />
               <h3 className={styles.emptyTitle}>No recipes found</h3>
               <p className={styles.emptyText}>
                 {searchQuery || filterSpirit !== 'all'
@@ -113,7 +122,8 @@ export default function RecipesPage() {
               </p>
               {!searchQuery && filterSpirit === 'all' && (
                 <Button variant="primary" size="md">
-                  📤 Import Recipes
+                  <Upload size={18} />
+                  Import Recipes
                 </Button>
               )}
             </div>
@@ -129,7 +139,7 @@ export default function RecipesPage() {
               >
                 {/* Recipe Image Placeholder */}
                 <div className={styles.recipeImage}>
-                  <span className={styles.recipeImageIcon}>🍸</span>
+                  <Martini size={48} className={styles.recipeImageIcon} strokeWidth={1.5} />
                 </div>
 
                 {/* Recipe Content */}
@@ -143,7 +153,10 @@ export default function RecipesPage() {
                       }`}
                       title={isFavorited(recipe.id!) ? 'Remove from favorites' : 'Add to favorites'}
                     >
-                      {isFavorited(recipe.id!) ? '⭐' : '☆'}
+                      <Star
+                        size={20}
+                        fill={isFavorited(recipe.id!) ? 'currentColor' : 'none'}
+                      />
                     </button>
                   </div>
 

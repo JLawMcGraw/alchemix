@@ -93,7 +93,7 @@
 }
 
 .emptyIcon {
-  font-size: 64px;
+  color: var(--color-text-muted);
   margin-bottom: var(--space-3);
 }
 
@@ -139,7 +139,7 @@
 }
 
 .recipeImageIcon {
-  font-size: 64px;
+  color: white;
   opacity: 0.5;
 }
 
@@ -170,19 +170,21 @@
 .favoriteBtn {
   background: none;
   border: none;
-  font-size: 24px;
+  color: var(--color-text-muted);
   cursor: pointer;
-  transition: transform var(--transition-fast);
-  opacity: 0.3;
+  transition: all var(--transition-fast);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .favoriteBtn:hover {
-  transform: scale(1.2);
-  opacity: 1;
+  transform: scale(1.1);
+  color: var(--color-secondary);
 }
 
 .favoriteBtn.favorited {
-  opacity: 1;
   color: var(--color-secondary);
 }
 
