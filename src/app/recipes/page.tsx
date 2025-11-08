@@ -3,17 +3,21 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
-import { Button } from '@/components/ui/Button';
+import { Button, useToast } from '@/components/ui';
 import { Card } from '@/components/ui/Card';
 import { BookOpen, Upload, Star, Martini } from 'lucide-react';
+import { CSVUploadModal } from '@/components/modals';
+import { recipeApi } from '@/lib/api';
 import type { Recipe } from '@/types';
 import styles from './recipes.module.css';
 
 export default function RecipesPage() {
   const router = useRouter();
   const { isAuthenticated, recipes, favorites, fetchRecipes, fetchFavorites, addFavorite, removeFavorite } = useStore();
+  const { showToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterSpirit, setFilterSpirit] = useState<string>('all');
+  const [csvModalOpen, setCsvModalOpen] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -49,6 +53,17 @@ export default function RecipesPage() {
     return favoritesArray.some((fav) => fav.recipe_id === recipeId);
   };
 
+  const handleCSVUpload = async (file: File) => {
+    try {
+      await recipeApi.importCSV(file);
+      await fetchRecipes();
+      showToast('success', 'Successfully imported recipes from CSV');
+    } catch (error) {
+      showToast('error', 'Failed to import CSV');
+      throw error;
+    }
+  };
+
   const handleToggleFavorite = async (recipe: Recipe) => {
     if (!recipe.id) return;
 
@@ -56,13 +71,16 @@ export default function RecipesPage() {
     try {
       if (favorite && favorite.id) {
         await removeFavorite(favorite.id);
+        showToast('success', 'Removed from favorites');
       } else {
         await addFavorite({
           recipe_id: recipe.id,
           recipe_name: recipe.name,
         });
+        showToast('success', 'Added to favorites');
       }
     } catch (error) {
+      showToast('error', 'Failed to update favorites');
       console.error('Failed to toggle favorite:', error);
     }
   };
@@ -81,7 +99,7 @@ export default function RecipesPage() {
               {filteredRecipes.length} {filteredRecipes.length === 1 ? 'recipe' : 'recipes'}
             </p>
           </div>
-          <Button variant="outline" size="md">
+          <Button variant="outline" size="md" onClick={() => setCsvModalOpen(true)}>
             <Upload size={18} />
             Import CSV
           </Button>
@@ -121,7 +139,7 @@ export default function RecipesPage() {
                   : 'Import your recipe collection to get started'}
               </p>
               {!searchQuery && filterSpirit === 'all' && (
-                <Button variant="primary" size="md">
+                <Button variant="primary" size="md" onClick={() => setCsvModalOpen(true)}>
                   <Upload size={18} />
                   Import Recipes
                 </Button>
@@ -179,6 +197,14 @@ export default function RecipesPage() {
             ))}
           </div>
         )}
+
+        {/* CSV Upload Modal */}
+        <CSVUploadModal
+          isOpen={csvModalOpen}
+          onClose={() => setCsvModalOpen(false)}
+          type="recipes"
+          onUpload={handleCSVUpload}
+        />
       </div>
     </div>
   );

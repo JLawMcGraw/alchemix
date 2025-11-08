@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Space_Grotesk, Inter } from 'next/font/google';
 import { TopNav } from '@/components/layout/TopNav';
+import { ToastProvider } from '@/components/ui';
 import '@/styles/globals.css';
 
 const spaceGrotesk = Space_Grotesk({
@@ -31,8 +32,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${spaceGrotesk.variable} ${inter.variable}`}>
       <body>
-        <TopNav />
-        <main>{children}</main>
+        <ToastProvider>
+          <TopNav />
+          <main>{children}</main>
+        </ToastProvider>
       </body>
     </html>
   );

@@ -3,16 +3,26 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
-import { Button } from '@/components/ui/Button';
+import { Button, useToast } from '@/components/ui';
 import { Card } from '@/components/ui/Card';
 import { Wine, Upload, Plus, Edit2, Trash2, Martini } from 'lucide-react';
+import { CSVUploadModal, AddBottleModal, EditBottleModal, DeleteConfirmModal } from '@/components/modals';
+import { inventoryApi } from '@/lib/api';
 import type { Bottle } from '@/types';
 import styles from './bar.module.css';
 
 export default function BarPage() {
   const router = useRouter();
-  const { isAuthenticated, bottles, fetchBottles, deleteBottle } = useStore();
+  const { isAuthenticated, bottles, fetchBottles, addBottle, updateBottle, deleteBottle } = useStore();
+  const { showToast } = useToast();
   const [filterType, setFilterType] = useState<string>('all');
+
+  // Modal states
+  const [csvModalOpen, setCsvModalOpen] = useState(false);
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [selectedBottle, setSelectedBottle] = useState<Bottle | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -38,14 +48,58 @@ export default function BarPage() {
       ? bottlesArray
       : bottlesArray.filter((b) => b['Liquor Type'] === filterType);
 
-  const handleDelete = async (id: number) => {
-    if (confirm('Are you sure you want to delete this bottle?')) {
+  // Modal handlers
+  const handleCSVUpload = async (file: File) => {
+    try {
+      await inventoryApi.importCSV(file);
+      await fetchBottles();
+      showToast('success', 'Successfully imported bottles from CSV');
+    } catch (error) {
+      showToast('error', 'Failed to import CSV');
+      throw error;
+    }
+  };
+
+  const handleAddBottle = async (bottle: Omit<Bottle, 'id'>) => {
+    try {
+      await addBottle(bottle);
+      showToast('success', 'Bottle added successfully');
+    } catch (error) {
+      showToast('error', 'Failed to add bottle');
+      throw error;
+    }
+  };
+
+  const handleEditBottle = async (id: number, updates: Partial<Bottle>) => {
+    try {
+      await updateBottle(id, updates);
+      showToast('success', 'Bottle updated successfully');
+    } catch (error) {
+      showToast('error', 'Failed to update bottle');
+      throw error;
+    }
+  };
+
+  const handleDeleteBottle = async () => {
+    if (selectedBottle?.id) {
       try {
-        await deleteBottle(id);
+        await deleteBottle(selectedBottle.id);
+        showToast('success', 'Bottle deleted successfully');
       } catch (error) {
-        console.error('Failed to delete bottle:', error);
+        showToast('error', 'Failed to delete bottle');
+        throw error;
       }
     }
+  };
+
+  const openEditModal = (bottle: Bottle) => {
+    setSelectedBottle(bottle);
+    setEditModalOpen(true);
+  };
+
+  const openDeleteModal = (bottle: Bottle) => {
+    setSelectedBottle(bottle);
+    setDeleteModalOpen(true);
   };
 
   return (
@@ -63,11 +117,11 @@ export default function BarPage() {
             </p>
           </div>
           <div className={styles.actions}>
-            <Button variant="outline" size="md">
+            <Button variant="outline" size="md" onClick={() => setCsvModalOpen(true)}>
               <Upload size={18} />
               Import CSV
             </Button>
-            <Button variant="primary" size="md">
+            <Button variant="primary" size="md" onClick={() => setAddModalOpen(true)}>
               <Plus size={18} />
               Add Bottle
             </Button>
@@ -102,7 +156,7 @@ export default function BarPage() {
               <p className={styles.emptyText}>
                 Start building your collection by adding bottles or importing from CSV
               </p>
-              <Button variant="primary" size="md">
+              <Button variant="primary" size="md" onClick={() => setAddModalOpen(true)}>
                 <Plus size={18} />
                 Add Your First Bottle
               </Button>
@@ -144,13 +198,14 @@ export default function BarPage() {
                       <td className={styles.actionsCell}>
                         <button
                           className={styles.actionBtn}
+                          onClick={() => openEditModal(bottle)}
                           title="Edit"
                         >
                           <Edit2 size={16} />
                         </button>
                         <button
                           className={styles.actionBtn}
-                          onClick={() => bottle.id && handleDelete(bottle.id)}
+                          onClick={() => openDeleteModal(bottle)}
                           title="Delete"
                         >
                           <Trash2 size={16} />
@@ -163,6 +218,36 @@ export default function BarPage() {
             </div>
           </Card>
         )}
+
+        {/* Modals */}
+        <CSVUploadModal
+          isOpen={csvModalOpen}
+          onClose={() => setCsvModalOpen(false)}
+          type="bottles"
+          onUpload={handleCSVUpload}
+        />
+
+        <AddBottleModal
+          isOpen={addModalOpen}
+          onClose={() => setAddModalOpen(false)}
+          onAdd={handleAddBottle}
+        />
+
+        <EditBottleModal
+          isOpen={editModalOpen}
+          onClose={() => setEditModalOpen(false)}
+          bottle={selectedBottle}
+          onUpdate={handleEditBottle}
+        />
+
+        <DeleteConfirmModal
+          isOpen={deleteModalOpen}
+          onClose={() => setDeleteModalOpen(false)}
+          onConfirm={handleDeleteBottle}
+          title="Delete Bottle?"
+          message="Are you sure you want to delete this bottle from your inventory?"
+          itemName={selectedBottle ? `${selectedBottle.Spirit} - ${selectedBottle.Brand}` : ''}
+        />
       </div>
     </div>
   );
