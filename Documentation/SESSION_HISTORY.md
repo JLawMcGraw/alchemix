@@ -4,6 +4,74 @@ This file tracks the 10 most recent development sessions. Older sessions are arc
 
 ---
 
+## Session: 2025-11-09 (Session 5) - Monorepo Backend & Deployment Planning
+
+### Summary
+Created a complete modern TypeScript Express backend within the existing alchemix-next repository, transforming it into a monorepo structure. Built full API with authentication, CRUD operations for inventory/recipes/favorites, and AI integration. Discussed and planned Phase 1 deployment strategy (Vercel + Railway) with future monetization scalability in mind. Established development workflow for running both frontend and backend together with automated scripts.
+
+### Components Worked On
+- **Backend Architecture**: Created `/api` folder with complete Express + TypeScript backend
+- **Database**: SQLite with better-sqlite3, auto-initialization, schema migrations
+- **API Routes**: auth.ts (signup/login/me/logout), inventory.ts (CRUD), recipes.ts, favorites.ts, messages.ts (AI)
+- **Middleware**: authMiddleware (JWT verification), errorHandler, CORS configuration
+- **TypeScript Types**: Shared type definitions between frontend and backend
+- **Monorepo Scripts**: Added root-level package.json scripts for running both services
+- **Environment Setup**: Created .env.example and .env for backend configuration
+- **Documentation**: Created MONOREPO_SETUP.md for development workflow
+- **Dependencies**: Installed concurrently, backend dependencies (express, bcrypt, jsonwebtoken, better-sqlite3)
+
+### Key Achievements
+- ✅ **MONOREPO STRUCTURE**: Successfully created monorepo with frontend (root) and backend (/api)
+- ✅ **COMPLETE BACKEND API**:
+  - Authentication: JWT-based auth with bcrypt password hashing
+  - Inventory: Full CRUD for 12-field bottle schema
+  - Recipes: Get all, add recipe with JSON ingredients
+  - Favorites: Get, add, remove favorites
+  - AI Messages: Anthropic Claude API integration
+  - Health check endpoint for monitoring
+- ✅ **SECURITY**: Helmet.js, CORS, rate limiting (100 req/15min), JWT expiry (7 days)
+- ✅ **DATABASE**: SQLite with auto-schema initialization, foreign keys, indexes for performance
+- ✅ **DEVELOPMENT WORKFLOW**:
+  - `npm run dev:all` - Run both frontend + backend with concurrently
+  - `npm run install:all` - Install deps for both projects
+  - Hot-reload for both services (Next.js + tsx watch)
+- ✅ **DEPLOYMENT PLANNING**:
+  - Phase 1: Free tier (Vercel + Railway) for personal/friends use
+  - Phase 2: DevOps learning (VPS migration option)
+  - Phase 3: Monetization-ready architecture (Stripe, S3, SendGrid)
+  - Scalable architecture requiring no rebuilds between phases
+- ✅ **TESTING**: Backend server tested successfully, health endpoint responding, database initialized
+
+### Issues Encountered
+- **User Clarification**: Initially suggested separate GitHub repos, but user correctly questioned this approach and preferred monorepo in existing repo
+- **Documentation Question**: User questioned creating MONOREPO_SETUP.md when other docs exist - resolved by creating concise setup guide
+- **Architecture Decision**: Decided to create new clean backend instead of using legacy `cocktail-analysis` backend for better maintainability
+
+### Technical Decisions
+- **Monorepo over Separate Repos**: Keeps frontend and backend together, single source of truth, easier to keep in sync
+- **SQLite over PostgreSQL**: Start simple, can migrate to PostgreSQL when scaling (Phase 3)
+- **TypeScript throughout**: Backend matches frontend quality with strict typing
+- **JWT over Sessions**: Stateless auth, easier to scale, works well with Next.js
+- **tsx watch over nodemon**: Better TypeScript support, faster compilation
+
+### Next Session Focus
+- **Immediate Actions**:
+  - Test full monorepo locally (create account, add bottles, test all features)
+  - Verify frontend API client works with new backend
+  - Test authentication flow end-to-end
+- **Deployment (Phase 1)**:
+  - Create deployment guide for Vercel + Railway
+  - Set up environment variables for production
+  - Configure Railway persistent storage for database
+  - Deploy and test in production
+- **Optional Enhancements**:
+  - CSV import implementation (bottles and recipes)
+  - Recipe detail modal
+  - Error boundary components
+  - Mobile device testing
+
+---
+
 ## Session: 2025-11-08 (Session 4) - Modal System Polish & UX Enhancements
 
 ### Summary

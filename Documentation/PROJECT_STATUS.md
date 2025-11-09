@@ -1,12 +1,12 @@
 # Project Status
 
-Last updated: 2025-11-08
+Last updated: 2025-11-09
 
 ## Current Phase
-**Modal System Polish & UX Enhancement** - Refining modals with accessibility, animations, and responsive design
+**Monorepo Backend Development & Deployment Planning** - Created TypeScript Express backend, established monorepo structure, planning Phase 1 deployment
 
 ## Current Version
-v1.2.0-alpha (Modal system polished and production-ready)
+v1.3.0-alpha (Monorepo with full-stack TypeScript backend)
 
 ## Implementation Status
 
@@ -125,31 +125,63 @@ v1.2.0-alpha (Modal system polished and production-ready)
 - ⬜ Animations and transitions
 - ⬜ Custom logo integration
 
-### Backend Integration
+### Backend (Express + TypeScript in /api)
+- ✅ **Monorepo Structure**: Backend in `/api` folder within same repo
+- ✅ **TypeScript Backend**: Complete Express server with strict TypeScript
+- ✅ **Database**: SQLite with better-sqlite3, auto-schema initialization
+- ✅ **Authentication API**: Signup, login, me, logout endpoints with JWT
+- ✅ **Inventory API**: Full CRUD operations (get, add, update, delete bottles)
+- ✅ **Recipes API**: Get all recipes, add recipe with JSON ingredients
+- ✅ **Favorites API**: Get, add, remove favorites
+- ✅ **AI Messages API**: Anthropic Claude integration endpoint
+- ✅ **Middleware**: JWT auth middleware, error handler, CORS config
+- ✅ **Security**: Helmet.js, rate limiting (100 req/15min), bcrypt password hashing
+- ✅ **Development Workflow**: Hot-reload with tsx watch, concurrently for both services
+- ✅ **Monorepo Scripts**: `npm run dev:all`, `npm run install:all`, `npm run type-check`
+- ✅ **Environment**: .env file with JWT_SECRET, DATABASE_PATH, FRONTEND_URL
+- ✅ **Tested**: Health endpoint, database initialization, server startup successful
+
+### Frontend-Backend Integration
 - ✅ Express backend running on port 3000
 - ✅ Next.js dev server on port 3001
 - ✅ CORS configured correctly (FRONTEND_URL=http://localhost:3001)
 - ✅ API proxy working (Next.js rewrites)
-- ✅ JWT token authentication
+- ✅ JWT token authentication (7-day expiry)
 - ✅ Auto-logout on expired tokens
 - ✅ Error handling in API client
-- ⬜ API endpoint for AI messages (needs Anthropic key)
+- ⬜ End-to-end testing with new backend
+- ⬜ AI Bartender tested with real Anthropic API key
 
 ## Current Blockers
-- **Testing Pending**: Enhanced modals not tested with actual backend data yet
-- **Anthropic API Key**: AI Bartender functionality requires ANTHROPIC_API_KEY in backend .env (optional for UI testing)
+- **End-to-End Testing**: New backend not yet tested with frontend (auth flow, CRUD operations)
+- **Deployment Pending**: Need to deploy to Vercel + Railway for Phase 1
 - **Logo Image**: Logo needs to be edited/resized before integration into TopNav and Login page
 - **Sample Data**: No bottles/recipes in database for testing inventory/recipe features
 
 ## Active Next Steps (High Priority)
-1. Test all modal improvements with real backend data
-2. Test mobile responsive behavior on actual devices
-3. Implement recipe detail overlay/modal
-4. Test CSV import with sample data files
-5. Prepare logo asset for integration
-6. Add CSV import preview with column mapping (optional polish)
+1. **Test Monorepo Locally**: Run `npm run dev:all` and test full auth/CRUD flow with new backend
+2. **Phase 1 Deployment**:
+   - Push code to GitHub (single repo with monorepo structure)
+   - Deploy frontend to Vercel
+   - Deploy backend to Railway (with persistent storage for database)
+   - Configure environment variables for production
+   - Test deployed app end-to-end
+3. **Documentation**: Create deployment guide for Vercel + Railway monorepo setup
+4. **Testing**: Test modals with real backend data
+5. **Mobile Testing**: Test responsive behavior on actual devices
+
+## Active Next Steps (Medium Priority)
+6. Implement recipe detail overlay/modal
+7. Test CSV import with sample data files
+8. Add CSV import preview with column mapping (optional polish)
+9. Prepare logo asset for integration
+10. Add tooltip hints for complex form fields
 
 ## Recent Completions
+- **Monorepo backend created** (TypeScript Express in /api folder) - 2025-11-09 Session 5
+- **Complete API built** (auth, inventory, recipes, favorites, AI messages) - 2025-11-09 Session 5
+- **Deployment strategy planned** (Phase 1: Vercel + Railway free tier) - 2025-11-09 Session 5
+- **Development workflow established** (`npm run dev:all`, concurrently) - 2025-11-09 Session 5
 - Modal system polish complete (accessibility, animations, responsive) - 2025-11-08 Session 4
 - Success animations implemented (SuccessCheckmark component) - 2025-11-08 Session 4
 - Loading spinners added (Spinner component) - 2025-11-08 Session 4

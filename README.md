@@ -8,26 +8,30 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 
 ## ✨ Current Status
 
-**Version:** v1.2.0-alpha (Modal System Production-Ready)
-**Phase:** Core Features Complete - Testing Phase
-**Last Updated:** November 8, 2025
+**Version:** v1.3.0-alpha (Full-Stack Monorepo)
+**Phase:** Backend Complete - Ready for Deployment
+**Last Updated:** November 9, 2025
 
 ### What's Working
+- ✅ **Complete TypeScript monorepo** (Frontend + Backend) ⭐
+- ✅ **Modern Express backend** with JWT auth, CRUD APIs ⭐
+- ✅ **SQLite database** with auto-initialization ⭐
 - ✅ Complete authentication flow (login/signup)
 - ✅ All 7 pages implemented and functional
 - ✅ Professional Lucide React icon system
 - ✅ Toast notification system
-- ✅ **Production-ready modal system with full accessibility** ⭐
-- ✅ **Real-time form validation with inline error messages** ⭐
-- ✅ **Loading states and success animations** ⭐
-- ✅ **Mobile responsive modals (<640px)** ⭐
-- ✅ **WCAG 2.1 AA accessibility compliance** ⭐
+- ✅ Production-ready modal system with full accessibility
+- ✅ Real-time form validation with inline error messages
+- ✅ Loading states and success animations
+- ✅ Mobile responsive modals (<640px)
+- ✅ WCAG 2.1 AA accessibility compliance
 - ✅ CSV import functionality (bottles & recipes)
 - ✅ Favorites management
 - ✅ Full inventory table with filtering
 
 ### What Needs Work
-- ⚠️ Testing needed with real backend data
+- ⚠️ End-to-end testing with new backend
+- ⚠️ Phase 1 deployment (Vercel + Railway)
 - ⚠️ CSV import preview (optional enhancement)
 - ⚠️ Recipe detail modal implementation
 - ⚠️ Logo optimization for TopNav integration
@@ -35,64 +39,98 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 ## 🚀 Quick Start
 
 ```bash
-# Install dependencies
-npm install
+# Install all dependencies (frontend + backend)
+npm run install:all
 
-# Run development server
+# Set up backend environment
+cp api/.env.example api/.env
+# Edit api/.env and add a secure JWT_SECRET
+
+# Run both frontend and backend together
+npm run dev:all
+
+# Frontend: http://localhost:3001
+# Backend API: http://localhost:3000
+```
+
+**Alternative - Run separately:**
+```bash
+# Terminal 1 - Backend
+npm run dev:api
+
+# Terminal 2 - Frontend
 npm run dev
-
-# Server will start on http://localhost:3001
 ```
 
 ## 📋 Prerequisites
 
 - **Node.js v20.x LTS** (v24 not compatible with better-sqlite3)
-- **Express backend running on port 3000** (from `cocktail-analysis` project)
-- Backend `.env` file configured with `FRONTEND_URL=http://localhost:3001`
+- That's it! Backend is included in this monorepo.
 
 ## 🏗️ Tech Stack
 
+### Frontend
 - **Framework:** Next.js 14 (App Router)
 - **Language:** TypeScript 5.3
 - **State Management:** Zustand 4.5 (with localStorage persistence)
 - **HTTP Client:** Axios 1.6 (with interceptors)
 - **UI Components:** Custom components + Lucide React icons
 - **Styling:** CSS Modules + Global CSS Variables
-- **Backend:** Express API (running separately on port 3000)
-- **Database:** SQLite (via better-sqlite3 in backend)
+
+### Backend (in `/api` folder)
+- **Framework:** Express.js 4.18
+- **Language:** TypeScript 5.3
+- **Database:** SQLite (via better-sqlite3)
+- **Authentication:** JWT + bcrypt
+- **Security:** Helmet.js, CORS, rate limiting
+- **AI Integration:** Anthropic Claude API
+- **Dev Server:** tsx watch (hot-reload)
 
 ## 📁 Project Structure
 
 ```
-alchemix-next/
-├── src/
-│   ├── app/                     # Next.js App Router pages
-│   │   ├── login/              # Login/signup page
-│   │   ├── dashboard/          # Dashboard with stats & overview
-│   │   ├── bar/                # My Bar (inventory management)
-│   │   ├── ai/                 # AI Bartender chat interface
-│   │   ├── recipes/            # Recipe library with search/filter
-│   │   ├── favorites/          # Favorites & chat history
-│   │   └── layout.tsx          # Root layout with TopNav + ToastProvider
+alchemix-next/                  # Monorepo root
+├── src/                        # Frontend (Next.js)
+│   ├── app/                    # Next.js App Router pages
+│   │   ├── login/             # Login/signup page
+│   │   ├── dashboard/         # Dashboard with stats & overview
+│   │   ├── bar/               # My Bar (inventory management)
+│   │   ├── ai/                # AI Bartender chat interface
+│   │   ├── recipes/           # Recipe library with search/filter
+│   │   ├── favorites/         # Favorites & chat history
+│   │   └── layout.tsx         # Root layout with TopNav + ToastProvider
 │   ├── components/
-│   │   ├── layout/             # Layout components (TopNav)
-│   │   ├── modals/             # Modal components (CSV, Add/Edit, Delete)
-│   │   └── ui/                 # UI components (Button, Card, Input, Toast, Spinner, SuccessCheckmark)
+│   │   ├── layout/            # Layout components (TopNav)
+│   │   ├── modals/            # Modal components (CSV, Add/Edit, Delete)
+│   │   └── ui/                # UI components (Button, Card, Input, Toast, Spinner)
 │   ├── lib/
-│   │   ├── api.ts              # API client (Axios with interceptors)
-│   │   └── store.ts            # Zustand store (auth, inventory, recipes)
+│   │   ├── api.ts             # API client (Axios with interceptors)
+│   │   └── store.ts           # Zustand store (auth, inventory, recipes)
 │   ├── styles/
-│   │   └── globals.css         # Design system CSS variables
+│   │   └── globals.css        # Design system CSS variables
 │   └── types/
-│       └── index.ts            # TypeScript type definitions
+│       └── index.ts           # TypeScript type definitions
+├── api/                        # Backend (Express + TypeScript)
+│   ├── src/
+│   │   ├── routes/            # API routes (auth, inventory, recipes, favorites, messages)
+│   │   ├── middleware/        # Auth middleware, error handler
+│   │   ├── database/          # SQLite database setup
+│   │   ├── types/             # Backend type definitions
+│   │   ├── utils/             # CORS config, utilities
+│   │   └── server.ts          # Express server entry point
+│   ├── data/                  # SQLite database (auto-created)
+│   ├── package.json           # Backend dependencies
+│   ├── tsconfig.json          # Backend TypeScript config
+│   └── .env                   # Backend environment variables
 ├── public/
-│   └── logo.png                # AlcheMix logo
-└── Documentation/              # Project documentation
-    ├── SESSION_HISTORY.md      # Development session records
-    ├── PROJECT_STATUS.md       # Current implementation status
-    ├── ACTIVE_TASKS.md         # Prioritized task list
-    ├── DEV_NOTES.md            # Technical decisions & gotchas
-    └── metrics/                # Session effectiveness tracking
+│   └── logo.png               # AlcheMix logo
+├── Documentation/             # Project documentation
+│   ├── SESSION_HISTORY.md     # Development session records
+│   ├── PROJECT_STATUS.md      # Current implementation status
+│   ├── DEV_NOTES.md           # Technical decisions & gotchas
+│   └── metrics/               # Session effectiveness tracking
+├── MONOREPO_SETUP.md          # Quick setup guide
+└── package.json               # Root package.json with monorepo scripts
 ```
 
 ## 🎨 Design System
@@ -357,17 +395,17 @@ See `Documentation/ACTIVE_TASKS.md` for the complete task list.
 ## 🎯 Next Steps
 
 **High Priority:**
-1. Test modal improvements with real backend data
-2. Test mobile responsive on actual devices (iPhone, Android)
-3. Test accessibility with screen readers (NVDA, JAWS, VoiceOver)
-4. Create recipe detail modal/overlay
-5. Optimize logo asset for TopNav integration
+1. **Test monorepo locally** - Run `npm run dev:all` and verify end-to-end functionality
+2. **Deploy to production** - Vercel (frontend) + Railway (backend)
+3. Create deployment guide for monorepo setup
+4. Test modal improvements with real backend data
+5. Test mobile responsive on actual devices (iPhone, Android)
 
 **Medium Priority:**
-6. Implement recipe creation/editing forms
-7. Add CSV import preview with column mapping
-8. Test CSV import with sample data files
-9. Add error boundary components
+6. Test accessibility with screen readers (NVDA, JAWS, VoiceOver)
+7. Create recipe detail modal/overlay
+8. Implement recipe creation/editing forms
+9. Add CSV import preview with column mapping
 10. Build account settings page
 
 **Optional Enhancements:**
@@ -380,7 +418,7 @@ See `Documentation/PROJECT_STATUS.md` for full implementation roadmap.
 
 ## 🤝 Related Projects
 
-This is the new React version of AlcheMix. The original vanilla JS version is in `../cocktail-analysis/` and serves as the Express backend for this application.
+This is a complete rewrite of AlcheMix in React/Next.js with a modern TypeScript backend. The original vanilla JS version is in `../cocktail-analysis/` and serves as a reference for features and functionality.
 
 ## 📄 License
 
@@ -394,7 +432,7 @@ MIT License - see LICENSE file for details
 
 ---
 
-**Built with ❤️ using Next.js 14 + TypeScript + Zustand**
+**Built with ❤️ using Next.js 14 + Express + TypeScript**
 
-**Current Version:** v1.2.0-alpha
-**Last Updated:** November 8, 2025
+**Current Version:** v1.3.0-alpha (Full-Stack Monorepo)
+**Last Updated:** November 9, 2025

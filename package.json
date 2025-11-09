@@ -4,10 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3001",
-    "build": "next build",
+    "dev:api": "cd api && npm run dev",
+    "dev:all": "concurrently \"npm run dev:api\" \"npm run dev\" --names \"API,WEB\" --prefix-colors \"cyan,magenta\"",
+    "build": "next build && cd api && npm run build",
+    "build:api": "cd api && npm run build",
     "start": "next start -p 3001",
+    "start:api": "cd api && npm start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit && cd api && npm run type-check",
+    "install:all": "npm install && cd api && npm install"
   },
   "dependencies": {
     "axios": "^1.6.5",
@@ -21,6 +26,7 @@
     "@types/node": "^20.11.5",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
+    "concurrently": "^8.2.2",
     "eslint": "^8.56.0",
     "eslint-config-next": "^14.1.0",
     "typescript": "^5.3.3"

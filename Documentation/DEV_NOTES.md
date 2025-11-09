@@ -4,6 +4,140 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-11-09 - Monorepo Backend Architecture (Session 5)
+
+**Context**: Created a modern TypeScript Express backend within the existing Next.js repository, transforming the project into a monorepo structure. Decided to build a new backend instead of using the legacy vanilla JS backend from the `cocktail-analysis` project.
+
+**Architecture Decision**: Monorepo with frontend at root, backend in `/api` subfolder
+
+```
+alchemix-next/
+├── src/              # Frontend (Next.js 14 + TypeScript)
+├── api/              # Backend (Express + TypeScript)  ← NEW
+├── package.json      # Frontend deps + monorepo scripts
+└── api/package.json  # Backend deps
+```
+
+**Why This Structure?**
+- ✅ Single git repository (easier to keep frontend/backend in sync)
+- ✅ Frontend at root (Vercel auto-detects Next.js without config)
+- ✅ Backend in `/api` subfolder (Railway can deploy subfolder with root directory setting)
+- ✅ Separate package.json files (independent dependency management)
+- ✅ Shared types (can import types between frontend/backend if needed)
+- ✅ Easy monorepo scripts (`npm run dev:all` runs both services)
+
+**Backend Implementation**:
+
+```typescript
+// api/src/server.ts - Main Express server
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+
+// Security middleware
+app.use(helmet());
+app.use(cors(corsOptions));  // CORS whitelist from FRONTEND_URL env var
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
+
+// Routes
+app.use('/auth', authRoutes);           // Signup, login, me, logout
+app.use('/api/inventory', inventoryRoutes);  // CRUD operations
+app.use('/api/recipes', recipesRoutes);      // Get, add recipes
+app.use('/api/favorites', favoritesRoutes);  // Get, add, remove
+app.use('/api/messages', messagesRoutes);    // AI integration
+```
+
+```typescript
+// api/src/middleware/auth.ts - JWT Authentication
+export function authMiddleware(req, res, next) {
+  const token = req.headers.authorization?.substring(7); // Remove "Bearer "
+  const decoded = jwt.verify(token, JWT_SECRET);
+  req.user = decoded;  // { userId, email }
+  next();
+}
+
+export function generateToken(payload) {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+}
+```
+
+```typescript
+// api/src/database/db.ts - SQLite with better-sqlite3
+import Database from 'better-sqlite3';
+
+export const db = new Database(DB_FILE);
+db.pragma('foreign_keys = ON');
+
+export function initializeDatabase() {
+  db.exec(`CREATE TABLE IF NOT EXISTS users (...)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS bottles (...)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS recipes (...)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS favorites (...)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_bottles_user_id ON bottles(user_id)`);
+}
+```
+
+**Development Workflow**:
+
+```json
+// Root package.json scripts
+{
+  "scripts": {
+    "dev": "next dev -p 3001",                    // Frontend only
+    "dev:api": "cd api && npm run dev",          // Backend only
+    "dev:all": "concurrently ...",               // Both together
+    "install:all": "npm install && cd api && npm install",
+    "type-check": "tsc --noEmit && cd api && npm run type-check"
+  }
+}
+```
+
+```json
+// api/package.json scripts
+{
+  "scripts": {
+    "dev": "tsx watch src/server.ts",    // Hot-reload TypeScript
+    "build": "tsc",                      // Compile to dist/
+    "start": "node dist/server.js"       // Production
+  }
+}
+```
+
+**Key Technical Decisions**:
+
+1. **SQLite → PostgreSQL Migration Path**:
+   - Start with SQLite (simple, file-based, no server required)
+   - Schema designed to be PostgreSQL-compatible
+   - Migration script can be written when scaling (Phase 3)
+   - No code changes needed, just connection string
+
+2. **JWT over Sessions**:
+   - Stateless authentication (no session storage needed)
+   - Works great with Next.js client components
+   - 7-day expiry (configurable)
+   - Stored in localStorage on frontend
+   - Auto-attached to requests via Axios interceptor
+
+3. **TypeScript Strict Mode**:
+   - Backend uses same strict TypeScript as frontend
+   - Prevents runtime errors with proper typing
+   - Shared types in `api/src/types/index.ts`
+
+4. **better-sqlite3 over sqlite3**:
+   - Synchronous API (simpler code, no callbacks)
+   - Better performance
+   - Native Node.js addon (no Python required)
+
+**Result**: Complete working backend with authentication, CRUD operations, and AI integration. Database initializes automatically on first run. Health endpoint tested successfully.
+
+**Future Considerations**:
+- **Phase 2 (DevOps Learning)**: Can containerize with Docker, deploy to VPS
+- **Phase 3 (Monetization)**: Migrate to PostgreSQL, add Stripe integration, S3 for files
+- **Deployment**: Vercel (frontend) + Railway (backend with persistent volume for database)
+
+---
+
 ## 2025-11-08 - Modal Accessibility & Focus Management (Session 4)
 
 **Context**: Enhanced modal system with full accessibility support, animations, and mobile responsiveness
