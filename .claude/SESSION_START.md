@@ -20,28 +20,42 @@ Hello Claude, we're continuing work on **AlcheMix** - the modern React/Next.js r
 - AlcheMix design system (teal/orange scientific lab aesthetic)
 
 ### Current Status
-- **Phase**: Active Development - Foundation Complete, Pages In Progress
+- **Phase**: Feature Complete - Ready for Deployment
 - **Version**: 1.0.0 (MVP)
-- **Status**: Design system complete, core components built, API client ready, pages to be built
+- **Status**: Full-stack TypeScript monorepo complete, all pages built, modal system implemented, ready for production deployment
 
 ### Tech Stack
+
+**Frontend:**
 - **Framework**: Next.js 14 (App Router)
 - **Language**: TypeScript 5.3
 - **State Management**: Zustand 4.5
 - **HTTP Client**: Axios 1.6
 - **Styling**: CSS Modules + Global CSS Variables
-- **Backend**: Express.js API (shared with original app - running on port 3000)
-- **Database**: SQLite (via Express backend)
-- **Authentication**: JWT + bcrypt (via Express backend)
-- **AI Integration**: Anthropic Claude API (via Express backend)
+- **Icons**: Lucide React
+
+**Backend (Monorepo - `/api` folder):**
+- **Framework**: Express.js 4.x with TypeScript
+- **Database**: SQLite (better-sqlite3)
+- **Authentication**: JWT + bcrypt
+- **Security**: Helmet.js, CORS, Rate Limiting
+- **AI Integration**: Anthropic Claude API
 
 ### Key Directories
-- `C:\Users\jlawr\Desktop\DEV\alchemix-next\src\app\` - Next.js App Router pages
-- `C:\Users\jlawr\Desktop\DEV\alchemix-next\src\components\` - React components (ui/, layout/, features/)
+
+**Frontend:**
+- `C:\Users\jlawr\Desktop\DEV\alchemix-next\src\app\` - Next.js App Router pages (all 7 pages built)
+- `C:\Users\jlawr\Desktop\DEV\alchemix-next\src\components\` - React components (ui/, layout/, modals/)
 - `C:\Users\jlawr\Desktop\DEV\alchemix-next\src\lib\` - API client, Zustand store, utilities
 - `C:\Users\jlawr\Desktop\DEV\alchemix-next\src\styles\` - Design system CSS
 - `C:\Users\jlawr\Desktop\DEV\alchemix-next\src\types\` - TypeScript type definitions
 - `C:\Users\jlawr\Desktop\DEV\alchemix-next\public\` - Static assets (logo, fonts)
+
+**Backend:**
+- `C:\Users\jlawr\Desktop\DEV\alchemix-next\api\src\` - Express backend source code
+- `C:\Users\jlawr\Desktop\DEV\alchemix-next\api\src\routes\` - API route handlers (auth, inventory, recipes, favorites, messages)
+- `C:\Users\jlawr\Desktop\DEV\alchemix-next\api\src\middleware\` - Auth middleware, error handling
+- `C:\Users\jlawr\Desktop\DEV\alchemix-next\api\alchemix.db` - SQLite database (auto-generated)
 
 ---
 
@@ -58,10 +72,11 @@ Hello Claude, we're continuing work on **AlcheMix** - the modern React/Next.js r
 - `C:\Users\jlawr\Desktop\DEV\alchemix-next\Documentation\PROJECT_STATUS.md` - Current implementation status
 - `C:\Users\jlawr\Desktop\DEV\alchemix-next\Documentation\ACTIVE_TASKS.md` - Current task list
 
-### Tier 3: Legacy Reference (ORIGINAL APP)
+### Tier 3: Additional Documentation
 
-- `C:\Users\jlawr\Desktop\DEV\cocktail-analysis\` - Original vanilla JS app (kept as reference)
-- Useful for understanding API contracts, data structures, and business logic
+- `C:\Users\jlawr\Desktop\DEV\alchemix-next\MONOREPO_SETUP.md` - Monorepo development workflow
+- `C:\Users\jlawr\Desktop\DEV\alchemix-next\CHANGELOG.md` - Version history and changes
+- `C:\Users\jlawr\Desktop\DEV\cocktail-analysis\` - Original vanilla JS app (legacy reference only)
 
 ---
 
@@ -72,14 +87,15 @@ Hello Claude, we're continuing work on **AlcheMix** - the modern React/Next.js r
    - `C:\Users\jlawr\Desktop\DEV\alchemix-next\PROGRESS_SUMMARY.md`
 
 2. **BASED ON THE TASK**, selectively load:
-   - `SESSION_HISTORY.md` - Recent work for context
+   - `SESSION_HISTORY.md` - Recent work for context (5 sessions completed)
    - `PROJECT_STATUS.md` - Current feature completion status
    - `ACTIVE_TASKS.md` - Prioritized task list
+   - `MONOREPO_SETUP.md` - Development workflow and scripts
 
-3. **REFERENCE ORIGINAL APP** when needed:
-   - API endpoint contracts
-   - Data schemas (Bottle, Recipe, etc.)
-   - Business logic (recipe matching, fuzzy search)
+3. **REFERENCE BACKEND CODE** when needed:
+   - API routes in `/api/src/routes/`
+   - Database schema in `/api/src/db.ts`
+   - Type definitions in `src/types/`
 
 ---
 
@@ -87,47 +103,64 @@ Hello Claude, we're continuing work on **AlcheMix** - the modern React/Next.js r
 
 ### Project Architecture
 
-**This is a PARALLEL development project:**
-- Original app: `C:\Users\jlawr\Desktop\DEV\cocktail-analysis\` (Vanilla JS)
-- New app: `C:\Users\jlawr\Desktop\DEV\alchemix-next\` (React/Next.js)
-- **Shared backend**: Both apps use the same Express API on port 3000
+**This is a MONOREPO full-stack application:**
+- Frontend: React/Next.js 14 with TypeScript (root directory)
+- Backend: Express.js with TypeScript (`/api` folder)
+- Database: SQLite with auto-initialization
+- Single Git repository with both frontend and backend
 
 **Development Workflow:**
-- Old app continues to work (reference only)
-- New app is being built from scratch
-- Both can run simultaneously (different ports)
+- Use `npm run dev:all` to run both frontend and backend concurrently
+- Use `npm run install:all` to install dependencies for both projects
+- Frontend runs on port 3001, backend on port 3000
+- Hot-reload enabled for both services
 
 ### Development Server Ports
 
 ```bash
-# Express Backend (SHARED - required for both apps)
-# Port: 3000
-cd C:\Users\jlawr\Desktop\DEV\cocktail-analysis
-npm run server
+# RECOMMENDED: Run both services concurrently
+cd C:\Users\jlawr\Desktop\DEV\alchemix-next
+npm run dev:all
+# → Backend starts on port 3000
+# → Frontend starts on port 3001
 
-# AlcheMix Next.js App (NEW)
-# Port: 3001
+# OR run services separately:
+# Backend only (from /api folder)
+cd C:\Users\jlawr\Desktop\DEV\alchemix-next\api
+npm run dev
+
+# Frontend only (from root)
 cd C:\Users\jlawr\Desktop\DEV\alchemix-next
 npm run dev
 ```
 
 ### Environment Setup
 
-**Next.js App** (`C:\Users\jlawr\Desktop\DEV\alchemix-next\.env.local`):
+**Backend** (`C:\Users\jlawr\Desktop\DEV\alchemix-next\api\.env`):
 
 ```env
-# API Base URL (points to Express backend)
+# Server Configuration
+PORT=3000
+FRONTEND_URL=http://localhost:3001
+
+# Security
+JWT_SECRET=<secure-random-string>
+
+# Database
+DATABASE_PATH=./alchemix.db
+
+# AI Integration
+ANTHROPIC_API_KEY=<your-api-key-here>
+```
+
+**Frontend** (`C:\Users\jlawr\Desktop\DEV\alchemix-next\.env.local` - optional):
+
+```env
+# Only needed if you want to override the API URL
 NEXT_PUBLIC_API_URL=http://localhost:3000
 ```
 
-**Express Backend** (uses existing `.env` from original project):
-
-```env
-PORT=3000
-JWT_SECRET=<secure-random-string>
-DATABASE_PATH=./server/database/cocktail-analyzer.db
-ANTHROPIC_API_KEY=<optional>
-```
+**Note**: Create the backend `.env` file from `.env.example` in the `/api` folder.
 
 ---
 
@@ -342,21 +375,26 @@ All endpoints use JWT authentication (except login/signup):
 **Problem**: Express backend not running or wrong port
 **Solution**:
 ```bash
-# Make sure Express is running on port 3000
-cd C:\Users\jlawr\Desktop\DEV\cocktail-analysis
-npm run server
+# Make sure both services are running
+cd C:\Users\jlawr\Desktop\DEV\alchemix-next
+npm run dev:all
 
-# Check it's responding
-curl http://localhost:3000/api/health
+# Or check backend separately
+cd api
+npm run dev
+
+# Check backend health
+curl http://localhost:3000/health
 ```
 
 ### CORS Issues
 
 **Problem**: API requests blocked by CORS
-**Solution**: Express backend already configured for localhost. If issues persist, check:
-- Express is running
-- `cors` middleware is enabled in `server.cjs`
-- Request includes credentials if needed
+**Solution**: Backend CORS is configured for localhost:3001. If issues persist:
+- Check backend `.env` has correct `FRONTEND_URL`
+- Verify backend is running on port 3000
+- Check browser console for specific CORS errors
+- Ensure requests include proper headers
 
 ### TypeScript Errors
 
@@ -395,35 +433,48 @@ alchemix-next/
 ├── .claude/
 │   ├── SESSION_START.md       ← You are here
 │   └── SESSION_END.md
-├── src/
-│   ├── app/                    # Next.js pages
-│   │   ├── layout.tsx          # Root layout (to be built)
-│   │   ├── page.tsx            # Home page (to be built)
-│   │   ├── login/              # Login page (to be built)
-│   │   ├── dashboard/          # Dashboard (to be built)
-│   │   ├── bar/                # My Bar inventory (to be built)
-│   │   ├── ai/                 # AI Bartender (to be built)
-│   │   ├── recipes/            # Recipe library (to be built)
-│   │   └── favorites/          # Favorites & History (to be built)
+├── src/                        # FRONTEND
+│   ├── app/                    # ✅ Next.js pages (ALL COMPLETE)
+│   │   ├── layout.tsx          # ✅ Root layout with ToastProvider
+│   │   ├── login/              # ✅ Login page
+│   │   ├── dashboard/          # ✅ Dashboard with stats
+│   │   ├── bar/                # ✅ My Bar inventory table
+│   │   ├── ai/                 # ✅ AI Bartender chat
+│   │   ├── recipes/            # ✅ Recipe library grid
+│   │   ├── favorites/          # ✅ Favorites & History
+│   │   └── account/            # ✅ Account settings
 │   ├── components/
-│   │   ├── ui/                 # ✅ Button, Card, Input (DONE)
-│   │   ├── layout/             # TopNav, Footer (to be built)
-│   │   └── features/           # RecipeCard, InventoryTable, etc. (to be built)
+│   │   ├── ui/                 # ✅ Button, Card, Input, Spinner, SuccessCheckmark
+│   │   ├── layout/             # ✅ TopNav
+│   │   └── modals/             # ✅ CSV Upload, Add/Edit Bottle, Delete, Toast
 │   ├── lib/
-│   │   ├── api.ts              # ✅ API client (DONE)
-│   │   └── store.ts            # ✅ Zustand store (DONE)
+│   │   ├── api.ts              # ✅ Axios API client
+│   │   └── store.ts            # ✅ Zustand store with persistence
 │   ├── styles/
-│   │   └── globals.css         # ✅ Design system (DONE)
+│   │   └── globals.css         # ✅ Design system
 │   └── types/
-│       └── index.ts            # ✅ TypeScript types (DONE)
+│       └── index.ts            # ✅ TypeScript types
+├── api/                        # BACKEND (MONOREPO)
+│   ├── src/
+│   │   ├── server.ts           # ✅ Express server setup
+│   │   ├── db.ts               # ✅ SQLite database config
+│   │   ├── routes/             # ✅ API routes (auth, inventory, recipes, favorites, messages)
+│   │   └── middleware/         # ✅ Auth middleware, error handler
+│   ├── alchemix.db             # SQLite database (auto-generated)
+│   ├── package.json            # Backend dependencies
+│   ├── tsconfig.json           # Backend TS config
+│   └── .env.example            # Environment template
 ├── public/
-│   └── logo.png                # ✅ AlcheMix logo (DONE)
-├── Documentation/              # Session docs (to be created as needed)
-├── package.json                # ✅ Dependencies configured
-├── tsconfig.json               # ✅ TypeScript config
+│   ├── logo.png                # ✅ AlcheMix logo PNG
+│   └── logo.svg                # ✅ AlcheMix logo SVG
+├── Documentation/              # ✅ Session history, project status, active tasks
+├── package.json                # ✅ Frontend deps + monorepo scripts
+├── tsconfig.json               # ✅ Frontend TS config
 ├── next.config.js              # ✅ Next.js config + API proxy
 ├── README.md                   # ✅ Quick start guide
-└── PROGRESS_SUMMARY.md         # ✅ Complete progress details
+├── PROGRESS_SUMMARY.md         # ✅ Complete progress details
+├── CHANGELOG.md                # ✅ Version history
+└── MONOREPO_SETUP.md           # ✅ Monorepo workflow guide
 ```
 
 ---
@@ -448,39 +499,56 @@ After reading this entire prompt and the required files, Claude should:
 # Navigate to project
 cd C:\Users\jlawr\Desktop\DEV\alchemix-next
 
-# Install dependencies
-npm install
+# Install ALL dependencies (frontend + backend)
+npm run install:all
 
-# Type check
-npm run type-check
-
-# Lint check
-npm run lint
+# Create backend .env file
+cd api
+cp .env.example .env
+# Edit .env with your JWT_SECRET and ANTHROPIC_API_KEY
+cd ..
 ```
 
 ### Development
 
 ```bash
-# Start Express backend (REQUIRED - different terminal)
-cd C:\Users\jlawr\Desktop\DEV\cocktail-analysis
-npm run server
-# → Runs on port 3000
+# RECOMMENDED: Start both services concurrently
+npm run dev:all
+# → Backend on http://localhost:3000
+# → Frontend on http://localhost:3001
 
-# Start Next.js dev server (main project)
-cd C:\Users\jlawr\Desktop\DEV\alchemix-next
+# OR run separately:
+# Backend only
+cd api && npm run dev
+
+# Frontend only
 npm run dev
-# → Runs on port 3001
-# → Open http://localhost:3001
+```
+
+### Testing & Validation
+
+```bash
+# Type check frontend
+npm run type-check
+
+# Type check backend
+cd api && npm run type-check
+
+# Lint check
+npm run lint
+
+# Check backend health
+curl http://localhost:3000/health
 ```
 
 ### Build
 
 ```bash
-# Build for production
+# Build frontend for production
 npm run build
 
-# Start production server
-npm start
+# Build backend
+cd api && npm run build
 ```
 
 ---
@@ -489,43 +557,60 @@ npm start
 
 | Metric | Value |
 |--------|-------|
-| **Version** | 1.0.0 (MVP) |
-| **Framework** | Next.js 14 |
-| **Language** | TypeScript 5.3 |
+| **Version** | 1.0.0 (MVP - Feature Complete) |
+| **Sessions Completed** | 5 (Nov 7-9, 2025) |
+| **Framework** | Next.js 14 + Express.js |
+| **Language** | TypeScript 5.3 (Frontend + Backend) |
 | **State Management** | Zustand 4.5 |
-| **Files Created** | 22 (Phase 1) |
-| **Lines of Code** | ~1,200 (Phase 1) |
-| **Components Built** | 3 (Button, Card, Input) |
-| **Pages To Build** | 7 (login, dashboard, bar, ai, recipes, favorites, account) |
-| **API Endpoints** | 15+ (via Express backend) |
-| **Design System** | Complete (colors, typography, spacing) |
+| **Files Created** | 80+ (Frontend + Backend) |
+| **Lines of Code** | ~5,000+ |
+| **UI Components Built** | 10 (Button, Card, Input, Spinner, SuccessCheckmark, Modals, TopNav) |
+| **Pages Built** | 7 (Login, Dashboard, Bar, AI, Recipes, Favorites, Account) ✅ |
+| **Modal Components** | 5 (CSV Upload, Add/Edit Bottle, Delete, Toast) ✅ |
+| **API Endpoints** | 20+ REST endpoints |
+| **Database Tables** | 4 (users, bottles, recipes, favorites) |
+| **Design System** | Complete (colors, typography, spacing, animations) |
 
 ---
 
-## Current Progress (Phase 1 Complete)
+## Current Progress - FEATURE COMPLETE ✅
 
-### ✅ Completed
+### ✅ Frontend Complete
 
 - [x] Next.js 14 project setup with TypeScript
-- [x] Design system implementation (colors, fonts, spacing)
-- [x] AlcheMix logo integration
-- [x] TypeScript type definitions (15+ interfaces)
-- [x] API client with Axios (connects to Express backend)
-- [x] Zustand store (auth, inventory, recipes, favorites, AI)
-- [x] Core UI components (Button, Card, Input)
-- [x] Configuration files (package.json, tsconfig.json, next.config.js)
-- [x] Documentation (README.md, PROGRESS_SUMMARY.md)
+- [x] Design system implementation (colors, fonts, spacing, animations)
+- [x] AlcheMix logo integration (PNG + SVG)
+- [x] TypeScript type definitions (25+ interfaces)
+- [x] API client with Axios (auto-retry, interceptors)
+- [x] Zustand store with localStorage persistence
+- [x] UI components (Button, Card, Input, Spinner, SuccessCheckmark)
+- [x] Root layout with TopNav and ToastProvider
+- [x] All 7 pages (Login, Dashboard, Bar, AI, Recipes, Favorites, Account)
+- [x] Modal system (CSV Upload, Add/Edit Bottle, Delete, Toast)
+- [x] Full accessibility (ARIA labels, keyboard navigation, focus management)
+- [x] Mobile responsive design
 
-### 🚧 In Progress / Pending
+### ✅ Backend Complete (Session 5)
 
-- [ ] Install dependencies (`npm install`)
-- [ ] Root layout with top navigation
-- [ ] Login page
-- [ ] Dashboard page
-- [ ] My Bar page (inventory table)
-- [ ] AI Bartender page (chat interface)
-- [ ] Recipes page (grid view)
-- [ ] Favorites page (favorites + history tabs)
+- [x] Express.js TypeScript backend in `/api` folder
+- [x] SQLite database with auto-initialization
+- [x] Authentication API (signup, login, logout, me)
+- [x] Inventory API (full CRUD operations)
+- [x] Recipes API (get, add, CSV import)
+- [x] Favorites API (get, add, remove)
+- [x] AI Messages API (Anthropic Claude integration)
+- [x] JWT authentication with bcrypt password hashing
+- [x] Security middleware (Helmet, CORS, rate limiting)
+- [x] Error handling middleware
+- [x] Database schema with foreign keys and indexes
+
+### 🚀 Next Phase - Deployment
+
+- [ ] Deploy frontend to Vercel
+- [ ] Deploy backend to Railway
+- [ ] Configure production environment variables
+- [ ] Set up persistent storage for SQLite database
+- [ ] Test full stack in production environment
 
 ---
 
@@ -539,31 +624,43 @@ npm start
    ```bash
    cd C:\Users\jlawr\Desktop\DEV\alchemix-next
    git status
-   npm run type-check
+   git log --oneline -5
    ```
 
-4. **Start development servers:**
+4. **Ensure environment is set up:**
    ```bash
-   # Terminal 1: Express backend
-   cd C:\Users\jlawr\Desktop\DEV\cocktail-analysis
-   npm run server
+   # Check backend .env exists
+   ls api/.env
 
-   # Terminal 2: Next.js frontend
-   cd C:\Users\jlawr\Desktop\DEV\alchemix-next
-   npm run dev
+   # If not, create from example
+   cd api
+   cp .env.example .env
+   # Edit with your JWT_SECRET and ANTHROPIC_API_KEY
+   cd ..
    ```
 
-5. **Work on assigned task:**
-   - Build pages using design system
-   - Use existing components from `src/components/ui/`
-   - Follow TypeScript best practices
-   - Test frequently in browser
+5. **Start both services:**
+   ```bash
+   # Run both frontend and backend concurrently
+   npm run dev:all
+   # → Backend: http://localhost:3000
+   # → Frontend: http://localhost:3001
+   ```
 
-6. **Before ending session:**
-   - Run `npm run type-check`
+6. **Work on assigned task:**
+   - All pages are complete - focus on enhancements, fixes, or deployment
+   - Use existing components and patterns
+   - Follow TypeScript best practices
+   - Test in browser frequently
+   - Check both frontend and backend logs for errors
+
+7. **Before ending session:**
+   - Run `npm run type-check` (frontend)
+   - Run `cd api && npm run type-check` (backend)
    - Run `npm run lint`
    - Test all changes in browser
    - Update documentation (use SESSION_END.md)
+   - Commit changes with descriptive messages
 
 ---
 
@@ -581,27 +678,38 @@ npm start
 
 ## Important Notes
 
-⚠️ **Parallel Development:**
-- This is a NEW React app being built alongside the original
-- Original app (`cocktail-analysis`) remains functional as reference
-- Both apps share the same Express backend
+⚠️ **Monorepo Structure:**
+- Frontend and backend are in the same Git repository
+- Use `npm run dev:all` to run both services concurrently
+- Backend is in `/api` folder with its own package.json
+- Both projects share TypeScript configuration patterns
 
 ⚠️ **TypeScript Requirement:**
-- All code must be fully typed
+- All code must be fully typed (frontend and backend)
 - No `any` types unless absolutely necessary
-- Run `npm run type-check` frequently
+- Run type-check for both projects before committing
+- Strict mode enabled throughout
 
 ⚠️ **Design System Adherence:**
 - Use CSS variables from `globals.css`
 - Follow 8px spacing grid
-- Use existing UI components when possible
-- Maintain AlcheMix brand (teal/orange, scientific lab feel)
+- Use existing UI components (10 available)
+- Maintain AlcheMix brand (teal/orange, scientific lab aesthetic)
+- All modals have full accessibility and mobile support
 
-⚠️ **Backend Dependency:**
-- Express backend MUST be running on port 3000
-- Next.js app proxies API requests to Express
-- JWT tokens handled automatically by API client
+⚠️ **Backend Configuration:**
+- Backend requires `.env` file with JWT_SECRET and ANTHROPIC_API_KEY
+- Database auto-initializes on first run
+- CORS configured for localhost:3001
+- Rate limiting: 100 requests per 15 minutes
+
+⚠️ **Development Tips:**
+- Application is feature-complete for local development
+- Focus on enhancements, bug fixes, or deployment tasks
+- Test authentication flow end-to-end
+- Verify database persistence between restarts
+- Check both terminal outputs for errors
 
 ---
 
-**Ready to build AlcheMix!** 🧪🍹
+**AlcheMix Full-Stack MVP Complete!** 🧪🍹✨
