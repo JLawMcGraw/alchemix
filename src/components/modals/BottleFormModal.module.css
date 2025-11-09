@@ -10,6 +10,16 @@
   justify-content: center;
   z-index: 1000;
   padding: var(--space-2);
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .modal {
@@ -22,6 +32,18 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .header {
@@ -29,14 +51,14 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--space-3);
-  border-bottom: 1px solid var(--color-ui-border);
+  border-bottom: 1px solid var(--color-border-default);
 }
 
 .title {
   font-size: var(--text-xl);
   font-weight: 600;
   font-family: var(--font-display);
-  color: var(--color-text-heading);
+  color: var(--color-text-body);
   margin: 0;
   display: flex;
   align-items: center;
@@ -64,6 +86,7 @@
   padding: var(--space-4);
   overflow-y: auto;
   flex: 1;
+  min-height: 0; /* Critical for flex child scrolling */
 }
 
 .formGrid {
@@ -82,10 +105,10 @@
   font-size: var(--text-base);
   font-weight: 600;
   font-family: var(--font-display);
-  color: var(--color-text-heading);
+  color: var(--color-text-body);
   margin: 0 0 var(--space-1) 0;
   padding-bottom: var(--space-1);
-  border-bottom: 1px solid var(--color-ui-border);
+  border-bottom: 1px solid var(--color-border-default);
 }
 
 .formRow {
@@ -113,7 +136,7 @@
   font-family: var(--font-body);
   color: var(--color-text-body);
   background: var(--color-ui-bg-surface);
-  border: 1px solid var(--color-ui-border);
+  border: 1px solid var(--color-border-default);
   border-radius: var(--radius-sm);
   transition: all var(--transition-fast);
   resize: vertical;
@@ -131,13 +154,17 @@
 }
 
 .error {
-  background: #fee;
-  color: #c33;
-  border: 1px solid #fcc;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--color-semantic-error);
+  border: 1px solid rgba(239, 68, 68, 0.2);
   padding: var(--space-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   font-size: var(--text-sm);
   margin-top: var(--space-2);
+  font-weight: 500;
 }
 
 .footer {
@@ -146,7 +173,7 @@
   justify-content: flex-end;
   gap: var(--space-2);
   padding: var(--space-3);
-  border-top: 1px solid var(--color-ui-border);
+  border-top: 1px solid var(--color-border-default);
   background: var(--color-ui-bg-base);
 }
 
@@ -159,6 +186,44 @@
   .modal {
     max-width: 100%;
     max-height: 100vh;
+    height: 100vh;
     border-radius: 0;
+    margin: 0;
+  }
+
+  .overlay {
+    padding: 0;
+  }
+
+  .content {
+    padding: var(--space-3);
+  }
+
+  .header {
+    padding: var(--space-3);
+    position: sticky;
+    top: 0;
+    background: var(--color-ui-bg-surface);
+    z-index: 10;
+  }
+
+  .footer {
+    padding: var(--space-3);
+    position: sticky;
+    bottom: 0;
+    background: var(--color-ui-bg-base);
+    z-index: 10;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .title {
+    font-size: var(--text-lg);
+  }
+
+  /* Larger touch targets */
+  .closeBtn {
+    padding: 8px;
+    min-width: 44px;
+    min-height: 44px;
   }
 }

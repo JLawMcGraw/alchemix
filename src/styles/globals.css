@@ -14,23 +14,37 @@
 
 /* Design System Variables */
 :root {
-  /* Colors */
-  --color-primary: #3DD6C1;
-  --color-secondary: #F2A74B;
-  --color-ui-bg-base: #F8F5EB;
-  --color-ui-bg-surface: #FFFFFF;
-  --color-text-body: #2D2C28;
-  --color-text-muted: #7B776D;
+  /* Brand Colors */
+  --color-primary: #3DD6C1;          /* Teal Lab Glow - Main CTA buttons, active states, highlights */
+  --color-secondary: #F2A74B;        /* Amber Reaction - Hovers, accents, secondary highlights */
 
-  /* Additional UI Colors */
-  --color-success: #10b981;
-  --color-error: #ef4444;
-  --color-warning: #f59e0b;
-  --color-info: #3b82f6;
+  /* Background Colors */
+  --color-ui-bg-base: #F8F5EB;       /* Soft Ivory Base - Primary background for app */
+  --color-ui-bg-surface: #FFFFFF;    /* White Surface - Cards, modals, content containers */
+
+  /* Text Colors */
+  --color-text-body: #2D2C28;        /* Graphite Ink - Primary text */
+  --color-text-muted: #7B776D;       /* Soft Slate - Secondary text, labels, metadata */
 
   /* Border Colors */
-  --color-border: #E0DDD5;
-  --color-border-light: #EFEDE7;
+  --color-border-default: #E2E0DA;   /* Divider Gray - Borders, table lines */
+  --color-border: #E2E0DA;           /* Alias for compatibility */
+  --color-border-light: #EFEDE7;     /* Lighter borders */
+
+  /* Semantic Colors */
+  --color-semantic-success: #47E48C; /* Match Found - Recipe match % */
+  --color-semantic-warning: #F2D45C; /* Missing Ingredient - Alerts, low stock */
+  --color-semantic-info: #4DA3F7;    /* AI Insight - Info highlights, AI feedback */
+  --color-semantic-error: #ef4444;   /* Error states */
+
+  /* Semantic Color Aliases (for compatibility) */
+  --color-success: #47E48C;
+  --color-warning: #F2D45C;
+  --color-info: #4DA3F7;
+  --color-error: #ef4444;
+
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, #3DD6C1 0%, #F2A74B 100%);
 
   /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(45, 44, 40, 0.05);
@@ -116,7 +130,7 @@ a {
 }
 
 a:hover {
-  color: var(--color-text-body);
+  color: var(--color-secondary);
 }
 
 /* Focus Styles */

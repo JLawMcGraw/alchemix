@@ -69,13 +69,13 @@
 }
 
 .outline:hover:not(:disabled) {
-  background-color: var(--color-ui-bg-base);
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+  background-color: rgba(242, 164, 75, 0.08);
+  border-color: var(--color-secondary);
+  color: var(--color-secondary);
 }
 
 .outline:active:not(:disabled) {
-  background-color: var(--color-border-light);
+  background-color: rgba(242, 164, 75, 0.15);
   transform: translateY(1px);
 }
 
@@ -87,12 +87,12 @@
 }
 
 .text:hover:not(:disabled) {
-  background-color: rgba(61, 214, 193, 0.1);
-  color: #2AC4B0;
+  background-color: rgba(242, 164, 75, 0.1);
+  color: var(--color-secondary);
 }
 
 .text:active:not(:disabled) {
-  background-color: rgba(61, 214, 193, 0.2);
+  background-color: rgba(242, 164, 75, 0.2);
 }
 
 /* Full Width */

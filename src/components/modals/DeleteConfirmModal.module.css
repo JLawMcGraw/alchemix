@@ -10,6 +10,16 @@
   justify-content: center;
   z-index: 1000;
   padding: var(--space-2);
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .modal {
@@ -21,6 +31,18 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .header {
@@ -28,7 +50,7 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--space-3);
-  border-bottom: 1px solid var(--color-ui-border);
+  border-bottom: 1px solid var(--color-border-default);
 }
 
 .iconWrapper {
@@ -37,12 +59,12 @@
   justify-content: center;
   width: 48px;
   height: 48px;
-  background: #fee;
+  background: rgba(239, 68, 68, 0.08);
   border-radius: 50%;
 }
 
 .alertIcon {
-  color: #dc2626;
+  color: var(--color-semantic-error);
 }
 
 .closeBtn {
@@ -71,7 +93,7 @@
   font-size: var(--text-xl);
   font-weight: 600;
   font-family: var(--font-display);
-  color: var(--color-text-heading);
+  color: var(--color-text-body);
   margin: 0 0 var(--space-2) 0;
 }
 
@@ -91,7 +113,7 @@
 }
 
 .warning {
-  color: #dc2626;
+  color: var(--color-semantic-error);
   font-size: var(--text-sm);
   font-weight: 500;
   margin: var(--space-2) 0 0 0;
@@ -103,6 +125,57 @@
   justify-content: flex-end;
   gap: var(--space-2);
   padding: var(--space-3);
-  border-top: 1px solid var(--color-ui-border);
+  border-top: 1px solid var(--color-border-default);
   background: var(--color-ui-bg-base);
+}
+
+.deleteBtn {
+  background-color: var(--color-semantic-error) !important;
+  border-color: var(--color-semantic-error) !important;
+}
+
+.deleteBtn:hover:not(:disabled) {
+  background-color: #c81e1e !important;
+  border-color: #c81e1e !important;
+}
+
+/* Mobile responsive */
+@media (max-width: 640px) {
+  .modal {
+    max-width: 100%;
+    margin: var(--space-2);
+  }
+
+  .overlay {
+    padding: var(--space-2);
+  }
+
+  .content {
+    padding: var(--space-3);
+  }
+
+  .header,
+  .footer {
+    padding: var(--space-3);
+  }
+
+  .title {
+    font-size: var(--text-lg);
+  }
+
+  /* Larger touch targets */
+  .closeBtn {
+    padding: 8px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .footer {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .footer button {
+    width: 100%;
+  }
 }

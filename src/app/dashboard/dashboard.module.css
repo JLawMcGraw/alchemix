@@ -72,11 +72,14 @@
 }
 
 .overviewCard {
-  transition: transform var(--transition-base);
+  transition: all var(--transition-base);
+  border: 1px solid transparent;
 }
 
 .overviewCard:hover {
   transform: translateY(-2px);
+  border-color: var(--color-secondary);
+  box-shadow: 0 4px 12px rgba(242, 164, 75, 0.15);
 }
 
 .cardHeader {
@@ -104,11 +107,11 @@
   font-size: var(--text-sm);
   font-weight: 500;
   cursor: pointer;
-  transition: opacity var(--transition-fast);
+  transition: color var(--transition-fast);
 }
 
 .viewAllBtn:hover {
-  opacity: 0.8;
+  color: var(--color-secondary);
   text-decoration: underline;
 }
 
@@ -152,7 +155,8 @@
 .bottleItem:hover,
 .recipeItem:hover,
 .favoriteItem:hover {
-  background-color: rgba(61, 214, 193, 0.05);
+  background-color: rgba(242, 164, 75, 0.08);
+  border-left: 3px solid var(--color-secondary);
 }
 
 .bottleName,

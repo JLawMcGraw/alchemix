@@ -4,6 +4,169 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-11-08 - Modal Accessibility & Focus Management (Session 4)
+
+**Context**: Enhanced modal system with full accessibility support, animations, and mobile responsiveness
+
+**Implementation**:
+```typescript
+// React forwardRef for focus management
+export const Input = forwardRef<HTMLInputElement, InputProps>(({ ... }, ref) => {
+  return <input ref={ref} ... />
+});
+
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(({ ... }, ref) => {
+  return <button ref={ref} ... />
+});
+
+// Focus management in modals
+const modalRef = useRef<HTMLDivElement>(null);
+const firstInputRef = useRef<HTMLInputElement>(null);
+
+useEffect(() => {
+  if (isOpen) {
+    // Auto-focus first input
+    setTimeout(() => firstInputRef.current?.focus(), 100);
+
+    // Trap focus with Tab key
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose();
+      if (e.key === 'Tab') { /* focus trapping logic */ }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }
+}, [isOpen]);
+```
+
+**Architecture Decisions**:
+- **forwardRef Pattern**: Button and Input components needed ref forwarding for programmatic focus
+- **Focus Trapping**: Prevent Tab from leaving modal, cycle from last to first element
+- **Auto-focus Strategy**: Form modals focus first input, delete modal focuses cancel button (safer)
+- **Keyboard Shortcuts**: ESC to close, Tab to cycle, Enter to submit (native)
+- **Dirty Tracking**: `isDirty` flag set on any field change, prompts before close
+- **Success Animations**: Separate component shown on save, auto-dismisses after 1.5s
+
+**ARIA Accessibility**:
+```typescript
+<div
+  role="dialog"  // or "alertdialog" for delete confirmation
+  aria-labelledby="modal-title-id"
+  aria-describedby="modal-content-id"
+  aria-modal="true"
+>
+  <h2 id="modal-title-id">Title</h2>
+  <div id="modal-content-id">Content</div>
+</div>
+```
+
+**Result**: WCAG 2.1 AA compliant modals with full keyboard and screen reader support
+
+**Future Considerations**:
+- Test with actual screen readers (NVDA, JAWS, VoiceOver)
+- Consider aria-live regions for dynamic content updates
+- Add aria-busy during loading states
+- Consider focus restoration to triggering element on close
+
+---
+
+## 2025-11-08 - Modal Scrolling Bug (Flexbox Children)
+
+**Context**: User reported modal content couldn't scroll when form exceeded viewport height
+
+**Issue**:
+- Modal used `display: flex; flex-direction: column;` layout
+- Content area had `overflow-y: auto; flex: 1;`
+- But scrolling didn't work - content was expanding the modal instead
+
+**Root Cause**: Flexbox children need `min-height: 0` to allow scrolling
+
+**Details**:
+```css
+.modal {
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh; /* Limit total height */
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0; /* CRITICAL - without this, flex child won't scroll */
+}
+```
+
+**Result**: Content area scrolls properly when form is taller than viewport
+
+**Explanation**: Flexbox children have implicit `min-height: auto`, preventing shrinkage below content size. Setting `min-height: 0` allows the flex child to shrink and enables scrolling.
+
+**Future Considerations**:
+- This is a common flexbox gotcha - document for team
+- Consider adding comment in CSS to prevent removal
+- Same issue applies to `min-width: 0` for horizontal flex containers
+
+---
+
+## 2025-11-08 - Real-Time Form Validation Pattern
+
+**Context**: Needed inline validation feedback as users type, not just on submit
+
+**Implementation**:
+```typescript
+const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+const validateField = (field: string, value: string): string => {
+  switch (field) {
+    case 'Quantity (ml)': {
+      const num = parseFloat(value);
+      if (!value) return 'Quantity is required';
+      if (isNaN(num)) return 'Must be a valid number';
+      if (num <= 0) return 'Must be greater than 0';
+      if (num > 5000) return 'Unusually large bottle size';
+      return '';
+    }
+    // ... more field validations
+  }
+};
+
+const handleChange = (field: string, value: string) => {
+  setFormData(prev => ({ ...prev, [field]: value }));
+  setFieldErrors(prev => ({ ...prev, [field]: validateField(field, value) }));
+  setIsDirty(true);
+};
+
+// In JSX:
+<Input
+  label="Quantity (ml) *"
+  value={formData['Quantity (ml)']}
+  onChange={(e) => handleChange('Quantity (ml)', e.target.value)}
+  error={fieldErrors['Quantity (ml)']}
+/>
+```
+
+**Architecture Decisions**:
+- **Per-field validation**: Each field validated independently on change
+- **Validation rules in switch statement**: Centralized, easy to read and maintain
+- **Empty string = no error**: Allows clearing error when fixed
+- **Cross-field validation**: Date Opened checks against Date Added
+- **Dirty tracking**: Separate from validation for unsaved changes warning
+
+**Validation Rules Added**:
+- Required fields (Spirit, Brand, Quantity, Date Added)
+- Numeric ranges (Quantity: 0-5000ml, Cost: ≥0)
+- Date logic (no future dates, Date Opened ≥ Date Added)
+- Logical constraints (Estimated Remaining ≤ Quantity)
+
+**Result**: Users get instant feedback, prevents invalid submissions
+
+**Future Considerations**:
+- Extract validation to separate utility file for reuse
+- Consider validation library (Zod, Yup) for complex schemas
+- Add debouncing for expensive validations
+- Consider async validation (check for duplicates via API)
+
+---
+
 ## 2025-11-07 - Modal System Architecture (Session 3)
 
 **Context**: Implemented modal and notification system for inventory management

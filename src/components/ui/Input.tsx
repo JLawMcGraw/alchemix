@@ -1,7 +1,7 @@
 // Input Component
 // Text input with label and error state
 
-import React from 'react';
+import React, { forwardRef } from 'react';
 import styles from './Input.module.css';
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -10,14 +10,14 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   fullWidth?: boolean;
 }
 
-export const Input: React.FC<InputProps> = ({
+export const Input = forwardRef<HTMLInputElement, InputProps>(({
   label,
   error,
   fullWidth = false,
   className = '',
   id,
   ...props
-}) => {
+}, ref) => {
   const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
 
   return (
@@ -28,6 +28,7 @@ export const Input: React.FC<InputProps> = ({
         </label>
       )}
       <input
+        ref={ref}
         id={inputId}
         className={`${styles.input} ${error ? styles.error : ''} ${className}`}
         {...props}
@@ -35,4 +36,6 @@ export const Input: React.FC<InputProps> = ({
       {error && <span className={styles.errorText}>{error}</span>}
     </div>
   );
-};
+});
+
+Input.displayName = 'Input';

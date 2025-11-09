@@ -23,11 +23,11 @@
 .logo {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: 0;
   text-decoration: none;
   color: var(--color-text-body);
   font-family: var(--font-display);
-  font-size: var(--text-xl);
+  font-size: var(--text-2xl);
   font-weight: 700;
   transition: opacity var(--transition-fast);
 }
@@ -37,11 +37,18 @@
 }
 
 .logoIcon {
-  font-size: 32px;
+  width: 50px;
+  height: 50px;
+  object-fit: contain;
+  display: block;
+  transform: translateY(-3px);
 }
 
 .logoText {
   color: var(--color-primary);
+  line-height: 1;
+  letter-spacing: 0.5px;
+  margin-left: -8px;
 }
 
 /* Navigation Links */
@@ -66,14 +73,15 @@
 }
 
 .navLink:hover {
-  background-color: var(--color-ui-bg-base);
-  color: var(--color-primary);
+  background-color: rgba(242, 164, 75, 0.08);
+  color: var(--color-secondary);
 }
 
 .navLink.active {
   background-color: rgba(61, 214, 193, 0.1);
   color: var(--color-primary);
   font-weight: 600;
+  border-bottom: 2px solid var(--color-secondary);
 }
 
 .navIcon {
@@ -114,8 +122,9 @@
 }
 
 .logoutBtn:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+  border-color: var(--color-secondary);
+  color: var(--color-secondary);
+  background-color: rgba(242, 164, 75, 0.05);
 }
 
 /* Responsive */

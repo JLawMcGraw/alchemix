@@ -5,6 +5,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { AppState, User, Bottle, Recipe, Favorite, ChatMessage } from '@/types';
 import { authApi, inventoryApi, recipeApi, favoritesApi, aiApi } from './api';
+import { buildSystemPrompt } from './aiPersona';
 
 export const useStore = create<AppState>()(
   persist(
@@ -235,15 +236,19 @@ export const useStore = create<AppState>()(
             chatHistory: [...state.chatHistory, userMessage],
           }));
 
+          // Build context-aware system prompt
+          const systemPrompt = buildSystemPrompt({
+            inventory: get().bottles,
+            recipes: get().recipes,
+            favorites: get().favorites,
+            history: {},
+          });
+
           // Get AI response
           const response = await aiApi.sendMessage(
             message,
             get().chatHistory,
-            {
-              inventory: get().bottles,
-              recipes: get().recipes,
-              favorites: get().favorites,
-            }
+            systemPrompt
           );
 
           // Add AI response to history

@@ -171,16 +171,16 @@ export const aiApi = {
   async sendMessage(
     message: string,
     conversationHistory: { role: string; content: string }[],
-    context?: any
+    systemPrompt: string
   ): Promise<string> {
     const { data } = await apiClient.post<{ content: { text: string }[] }>('/api/messages', {
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 4096,
+      system: systemPrompt,
       messages: [
         ...conversationHistory,
         { role: 'user', content: message },
       ],
-      // Add context if needed
     });
 
     return data.content[0].text;

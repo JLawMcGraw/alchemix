@@ -1,16 +1,22 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { CSVUploadModal } from '@/components/modals/CSVUploadModal';
+import { useToast } from '@/components/ui/Toast';
 import { Sparkles, Wine, Upload, BookOpen, Star } from 'lucide-react';
+import { inventoryApi, recipeApi } from '@/lib/api';
 import styles from './dashboard.module.css';
 
 export default function DashboardPage() {
   const router = useRouter();
   const { user, isAuthenticated, bottles, recipes, favorites, fetchBottles, fetchRecipes, fetchFavorites } = useStore();
+  const { showToast } = useToast();
+  const [csvModalOpen, setCsvModalOpen] = useState(false);
+  const [csvModalType, setCsvModalType] = useState<'bottles' | 'recipes'>('bottles');
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -36,6 +42,29 @@ export default function DashboardPage() {
     const qty = b['Quantity (ml)'] || 0;
     return qty < 200; // Less than 200ml is "low stock"
   }).length;
+
+  // CSV Import handlers
+  const handleOpenCSVModal = (type: 'bottles' | 'recipes') => {
+    setCsvModalType(type);
+    setCsvModalOpen(true);
+  };
+
+  const handleCSVUpload = async (file: File) => {
+    try {
+      if (csvModalType === 'bottles') {
+        const result = await inventoryApi.importCSV(file);
+        showToast(`Successfully imported ${result.count} bottles!`, 'success');
+        await fetchBottles();
+      } else {
+        const result = await recipeApi.importCSV(file);
+        showToast(`Successfully imported ${result.count} recipes!`, 'success');
+        await fetchRecipes();
+      }
+    } catch (error: any) {
+      showToast(error.message || 'Failed to import CSV', 'error');
+      throw error;
+    }
+  };
 
   return (
     <div className={styles.dashboard}>
@@ -75,11 +104,19 @@ export default function DashboardPage() {
               <Wine size={18} style={{ marginRight: '6px' }} />
               Add New Bottle
             </Button>
-            <Button variant="outline" size="md">
+            <Button
+              variant="outline"
+              size="md"
+              onClick={() => handleOpenCSVModal('bottles')}
+            >
               <Upload size={18} style={{ marginRight: '6px' }} />
               Import Bar Stock CSV
             </Button>
-            <Button variant="outline" size="md">
+            <Button
+              variant="outline"
+              size="md"
+              onClick={() => handleOpenCSVModal('recipes')}
+            >
               <Upload size={18} style={{ marginRight: '6px' }} />
               Import Recipes CSV
             </Button>
@@ -190,6 +227,14 @@ export default function DashboardPage() {
             </div>
           </Card>
         </section>
+
+        {/* CSV Upload Modal */}
+        <CSVUploadModal
+          isOpen={csvModalOpen}
+          onClose={() => setCsvModalOpen(false)}
+          type={csvModalType}
+          onUpload={handleCSVUpload}
+        />
       </div>
     </div>
   );

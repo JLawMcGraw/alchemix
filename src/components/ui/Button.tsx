@@ -1,7 +1,7 @@
 // Button Component
 // Primary, Outline, and Text variants
 
-import React from 'react';
+import React, { forwardRef } from 'react';
 import styles from './Button.module.css';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -11,7 +11,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   children: React.ReactNode;
 }
 
-export const Button: React.FC<ButtonProps> = ({
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
   variant = 'primary',
   size = 'md',
   fullWidth = false,
@@ -19,7 +19,7 @@ export const Button: React.FC<ButtonProps> = ({
   className = '',
   disabled,
   ...props
-}) => {
+}, ref) => {
   const classNames = [
     styles.button,
     styles[variant],
@@ -32,6 +32,7 @@ export const Button: React.FC<ButtonProps> = ({
 
   return (
     <button
+      ref={ref}
       className={classNames}
       disabled={disabled}
       {...props}
@@ -39,4 +40,6 @@ export const Button: React.FC<ButtonProps> = ({
       {children}
     </button>
   );
-};
+});
+
+Button.displayName = 'Button';

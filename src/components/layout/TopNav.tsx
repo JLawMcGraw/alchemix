@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { Home, Wine, Sparkles, BookOpen, Star, LogOut } from 'lucide-react';
@@ -40,7 +41,14 @@ export const TopNav: React.FC = () => {
       <div className={styles.container}>
         {/* Logo */}
         <Link href="/dashboard" className={styles.logo}>
-          <span className={styles.logoIcon}>🧪</span>
+          <Image
+            src="/AlcheMix Logo.svg"
+            alt="AlcheMix Logo"
+            width={50}
+            height={50}
+            className={styles.logoIcon}
+            priority
+          />
           <span className={styles.logoText}>AlcheMix</span>
         </Link>
 

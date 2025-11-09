@@ -8,4 +8,8 @@ export type { CardProps } from './Card';
 export { Input } from './Input';
 export type { InputProps } from './Input';
 
+export { Spinner } from './Spinner';
+
+export { SuccessCheckmark } from './SuccessCheckmark';
+
 export { ToastProvider, useToast } from './Toast';

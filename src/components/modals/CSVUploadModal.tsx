@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Upload, X, AlertCircle, CheckCircle } from 'lucide-react';
-import { Button } from '@/components/ui';
+import { Button, Spinner } from '@/components/ui';
 import styles from './CSVUploadModal.module.css';
 
 interface CSVUploadModalProps {
@@ -17,6 +17,47 @@ export function CSVUploadModal({ isOpen, onClose, type, onUpload }: CSVUploadMod
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  const modalRef = useRef<HTMLDivElement>(null);
+  const uploadButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Focus management and keyboard shortcuts
+  useEffect(() => {
+    if (isOpen) {
+      // Auto-focus upload button
+      setTimeout(() => uploadButtonRef.current?.focus(), 100);
+
+      // Handle keyboard events
+      const handleKeyDown = (e: KeyboardEvent) => {
+        // ESC to close
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          handleClose();
+          return;
+        }
+
+        // Tab key focus trapping
+        if (e.key === 'Tab' && modalRef.current) {
+          const focusableElements = modalRef.current.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          );
+          const firstElement = focusableElements[0];
+          const lastElement = focusableElements[focusableElements.length - 1];
+
+          if (e.shiftKey && document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement?.focus();
+          } else if (!e.shiftKey && document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement?.focus();
+          }
+        }
+      };
+
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -72,18 +113,30 @@ export function CSVUploadModal({ isOpen, onClose, type, onUpload }: CSVUploadMod
 
   return (
     <div className={styles.overlay} onClick={handleClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+      <div
+        className={styles.modal}
+        onClick={(e) => e.stopPropagation()}
+        ref={modalRef}
+        role="dialog"
+        aria-labelledby="csv-upload-title"
+        aria-describedby="csv-upload-desc"
+        aria-modal="true"
+      >
         <div className={styles.header}>
-          <h2 className={styles.title}>
+          <h2 className={styles.title} id="csv-upload-title">
             <Upload size={24} style={{ marginRight: '12px', verticalAlign: 'middle' }} />
             {title}
           </h2>
-          <button className={styles.closeBtn} onClick={handleClose}>
+          <button
+            className={styles.closeBtn}
+            onClick={handleClose}
+            aria-label="Close modal"
+          >
             <X size={24} />
           </button>
         </div>
 
-        <div className={styles.content}>
+        <div className={styles.content} id="csv-upload-desc">
           <p className={styles.description}>
             Upload a CSV file to import {type === 'bottles' ? 'your bar inventory' : 'cocktail recipes'}.
           </p>
@@ -129,11 +182,18 @@ export function CSVUploadModal({ isOpen, onClose, type, onUpload }: CSVUploadMod
             Cancel
           </Button>
           <Button
+            ref={uploadButtonRef}
             variant="primary"
             onClick={handleUpload}
             disabled={!file || uploading || success}
           >
-            {uploading ? 'Importing...' : 'Import CSV'}
+            {uploading ? (
+              <>
+                <Spinner size="sm" color="white" /> Importing...
+              </>
+            ) : (
+              'Import CSV'
+            )}
           </Button>
         </div>
       </div>
