@@ -29,12 +29,17 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 - ✅ Favorites management
 - ✅ Full inventory table with filtering
 
-### What Needs Work
-- ⚠️ End-to-end testing with new backend
-- ⚠️ Phase 1 deployment (Vercel + Railway)
-- ⚠️ CSV import preview (optional enhancement)
-- ⚠️ Recipe detail modal implementation
-- ⚠️ Logo optimization for TopNav integration
+### Next Phase
+- 🚀 **Deployment to Production** (Vercel + Railway)
+- 🧪 End-to-end testing with production data
+- 📱 Mobile device testing (iOS, Android)
+- ♿ Screen reader accessibility verification
+
+### Optional Enhancements
+- CSV import preview with column mapping
+- Recipe detail modal
+- Password reset flow
+- Dark mode support
 
 ## 🚀 Quick Start
 
@@ -56,16 +61,20 @@ npm run dev:all
 **Alternative - Run separately:**
 ```bash
 # Terminal 1 - Backend
-npm run dev:api
+cd api
+npm run dev
 
-# Terminal 2 - Frontend
+# Terminal 2 - Frontend (from root)
 npm run dev
 ```
 
 ## 📋 Prerequisites
 
 - **Node.js v20.x LTS** (v24 not compatible with better-sqlite3)
-- That's it! Backend is included in this monorepo.
+- **npm** (comes with Node.js)
+- **Git** (for cloning the repository)
+
+That's it! Both frontend and backend are included in this monorepo. No separate backend installation needed.
 
 ## 🏗️ Tech Stack
 
@@ -245,6 +254,7 @@ The Next.js app connects to the Express backend API running on port 3000.
 
 ## 🔧 Development
 
+### Frontend Commands (from root)
 ```bash
 # Install dependencies
 npm install
@@ -265,6 +275,30 @@ npm run type-check
 npm run lint
 ```
 
+### Backend Commands (from /api folder)
+```bash
+# Install dependencies
+cd api && npm install
+
+# Run dev server (port 3000)
+cd api && npm run dev
+
+# Build for production
+cd api && npm run build
+
+# Type checking
+cd api && npm run type-check
+```
+
+### Monorepo Commands (from root)
+```bash
+# Install all dependencies (frontend + backend)
+npm run install:all
+
+# Run both services concurrently
+npm run dev:all
+```
+
 ## ⚙️ Environment Setup
 
 ### Frontend (.env.local)
@@ -275,20 +309,30 @@ Create `.env.local` in the Next.js project root:
 NEXT_PUBLIC_API_URL=http://localhost:3000
 ```
 
-### Backend (.env)
+### Backend (api/.env)
 
-Update the Express backend `.env` file:
+Create `api/.env` file (copy from `api/.env.example`):
 
 ```env
-JWT_SECRET=your_generated_secret_here
+# Server Configuration
 PORT=3000
 FRONTEND_URL=http://localhost:3001
-ANTHROPIC_API_KEY=your_api_key_here  # Optional, for AI Bartender
+
+# Security
+JWT_SECRET=your_generated_secret_here
+
+# Database
+DATABASE_PATH=./alchemix.db
+
+# AI Integration (Optional)
+ANTHROPIC_API_KEY=your_api_key_here
 ```
 
 **Important:**
+- Copy from example: `cp api/.env.example api/.env`
 - Generate JWT_SECRET using: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
 - CORS is configured to accept requests from `FRONTEND_URL`
+- Database auto-initializes on first run
 
 ## 🚀 Getting Started
 
@@ -299,34 +343,50 @@ ANTHROPIC_API_KEY=your_api_key_here  # Optional, for AI Bartender
    node --version  # Should show v20.x
    ```
 
-2. **Install Frontend Dependencies**
+2. **Clone the Repository**
    ```bash
-   cd alchemix-next
-   npm install
+   git clone https://github.com/JLawMcGraw/alchemix.git
+   cd alchemix
    ```
 
-3. **Install Backend Dependencies**
+3. **Install All Dependencies** (frontend + backend)
    ```bash
-   cd ../cocktail-analysis
-   npm install
+   npm run install:all
    ```
 
-4. **Configure Environment Variables** (see above)
+4. **Configure Backend Environment**
+   ```bash
+   cp api/.env.example api/.env
+   # Edit api/.env and add your JWT_SECRET and ANTHROPIC_API_KEY
+   ```
+
+5. **Generate JWT Secret** (copy this to your api/.env file)
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
 
 ### Running the Application
 
+**Recommended - Run both services:**
+```bash
+npm run dev:all
+# Backend: http://localhost:3000
+# Frontend: http://localhost:3001
+```
+
+**Alternative - Run separately:**
+
 **Terminal 1 - Backend:**
 ```bash
-cd cocktail-analysis
-npm run server
+cd api
+npm run dev
 # Server starts on http://localhost:3000
 ```
 
 **Terminal 2 - Frontend:**
 ```bash
-cd alchemix-next
 npm run dev
-# App starts on http://localhost:3001
+# App starts on http://localhost:3001 (from root directory)
 ```
 
 ### Testing the App
@@ -346,14 +406,18 @@ npm run dev
 ### Making Changes
 
 ```bash
-# Type checking
+# Type checking (frontend)
 npm run type-check
+
+# Type checking (backend)
+cd api && npm run type-check
 
 # Linting
 npm run lint
 
 # Build for production (test)
 npm run build
+cd api && npm run build
 ```
 
 ### Git Workflow
@@ -382,15 +446,16 @@ Detailed documentation is available in the `Documentation/` folder:
 - **DEV_NOTES.md** - Technical decisions and gotchas
 - **PROGRESS_SUMMARY.md** - High-level progress overview
 
-## 🐛 Known Issues
+## 🐛 Known Issues & Limitations
 
-1. **Untested Features**: Modal improvements not yet tested with real backend data
-2. **CSV Preview**: No preview before importing CSV files (optional enhancement)
+1. **End-to-End Testing**: Full monorepo testing with production data needed
+2. **CSV Preview**: No preview/column mapping before importing CSV files (optional enhancement)
 3. **Mobile Testing**: Responsive design not tested on actual devices yet
-4. **Logo Asset**: Logo needs optimization before integration into TopNav
-5. **Screen Reader Testing**: Accessibility not yet verified with actual screen readers
+4. **Screen Reader Testing**: Accessibility not yet verified with actual screen readers (NVDA, JAWS, VoiceOver)
+5. **Recipe Detail Modal**: Not yet implemented (planned enhancement)
+6. **Password Reset**: Password reset flow not implemented (post-MVP)
 
-See `Documentation/ACTIVE_TASKS.md` for the complete task list.
+See `Documentation/ACTIVE_TASKS.md` for the complete task list and priorities.
 
 ## 🎯 Next Steps
 
@@ -416,9 +481,16 @@ See `Documentation/ACTIVE_TASKS.md` for the complete task list.
 
 See `Documentation/PROJECT_STATUS.md` for full implementation roadmap.
 
-## 🤝 Related Projects
+## 🤝 Project History
 
-This is a complete rewrite of AlcheMix in React/Next.js with a modern TypeScript backend. The original vanilla JS version is in `../cocktail-analysis/` and serves as a reference for features and functionality.
+This is a complete rewrite of AlcheMix as a modern full-stack TypeScript application. The project evolved from a vanilla JavaScript version to this production-ready monorepo with:
+
+- **Complete TypeScript backend** built from scratch (Session 5 - Nov 9, 2025)
+- **Modern React frontend** with Next.js 14 and comprehensive UI components
+- **SQLite database** with auto-initialization and secure authentication
+- **Production-ready features** including modals, accessibility, and mobile support
+
+The original vanilla JS version (`cocktail-analysis`) is legacy and no longer required - this monorepo contains everything needed to run AlcheMix.
 
 ## 📄 License
 
