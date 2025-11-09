@@ -20,19 +20,27 @@
 /* Logo Section */
 .logoSection {
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
 }
 
-.logoIcon {
-  font-size: 64px;
-  margin-bottom: var(--space-2);
+.logoContainer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: -40px;
 }
 
 .logoTitle {
   font-family: var(--font-display);
-  font-size: var(--text-3xl);
+  font-size: 72px;
   font-weight: 700;
   color: var(--color-primary);
-  margin: 0 0 var(--space-1) 0;
+  margin: 0 0 0 -30px;
+  letter-spacing: 0.05em;
+  line-height: 1;
 }
 
 .logoTagline {
@@ -115,11 +123,17 @@
     padding: var(--space-2);
   }
 
-  .logoIcon {
-    font-size: 48px;
+  .logoContainer {
+    margin-left: -40px;
+  }
+
+  .logoContainer img {
+    width: 120px;
+    height: 120px;
   }
 
   .logoTitle {
-    font-size: var(--text-2xl);
+    font-size: 54px;
+    margin-left: -30px;
   }
 }

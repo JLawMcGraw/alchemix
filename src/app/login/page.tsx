@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useStore } from '@/lib/store';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -73,8 +74,16 @@ export default function LoginPage() {
       <div className={styles.loginContainer}>
         {/* Logo */}
         <div className={styles.logoSection}>
-          <div className={styles.logoIcon}>🧪</div>
-          <h1 className={styles.logoTitle}>AlcheMix</h1>
+          <div className={styles.logoContainer}>
+            <Image
+              src="/AlcheMix Logo.svg"
+              alt="AlcheMix Logo"
+              width={160}
+              height={160}
+              priority
+            />
+            <h1 className={styles.logoTitle}>AlcheMix</h1>
+          </div>
           <p className={styles.logoTagline}>Your cocktail lab assistant</p>
         </div>
 
