@@ -38,52 +38,13 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
+import { AppError, isAppError, isOperationalError } from '../errors/AppError';
+import { logger, logError } from '../utils/logger';
 
 /**
- * AppError Interface
- *
- * Extended Error interface with additional properties for error handling.
- *
- * Properties:
- * - name: Error name (inherited from Error, e.g., "ValidationError")
- * - message: Error message (inherited from Error, e.g., "Email is required")
- * - stack: Stack trace (inherited from Error, multiline string)
- * - statusCode: HTTP status code (custom, e.g., 400, 404, 500)
- * - isOperational: Whether error is expected (custom, true for validation errors)
- *
- * Why statusCode and isOperational?
- * - statusCode: Allows routes to specify appropriate HTTP status
- * - isOperational: Distinguishes expected errors from bugs
- *
- * Error Types:
- * 1. Operational Errors (expected, safe to show):
- *    - Validation errors (400 Bad Request)
- *    - Not found errors (404 Not Found)
- *    - Authentication errors (401 Unauthorized)
- *    - Rate limit errors (429 Too Many Requests)
- *
- * 2. Programming Errors (unexpected, hide details):
- *    - Null reference errors (500 Internal Server Error)
- *    - Syntax errors (500 Internal Server Error)
- *    - Database errors (500 Internal Server Error)
- *
- * Usage Example:
- * ```typescript
- * // Operational error (safe to show message)
- * const error: AppError = new Error('Email is required');
- * error.statusCode = 400;
- * error.isOperational = true;
- * throw error;
- *
- * // Programming error (hide details)
- * throw new Error('Cannot read property "id" of undefined');
- * // Returns generic "Internal server error" to client
- * ```
+ * Note: AppError is now imported from ../errors/AppError.ts
+ * This provides type-safe custom error classes for different error scenarios.
  */
-export interface AppError extends Error {
-  statusCode?: number;      // HTTP status code (400, 404, 500, etc.)
-  isOperational?: boolean;  // Is this an expected error? (true for validation)
-}
 
 /**
  * Global Error Handler
@@ -152,147 +113,67 @@ export interface AppError extends Error {
  * @param next - Next middleware function
  */
 export function errorHandler(
-  err: AppError,
+  err: Error | AppError,
   req: Request,
   res: Response,
   next: NextFunction
 ) {
   /**
-   * Step 1: Determine HTTP Status Code
-   *
-   * Use error's statusCode if provided, otherwise default to 500.
-   *
-   * Common Status Codes:
-   * - 400 Bad Request: Invalid input (validation errors)
-   * - 401 Unauthorized: Missing or invalid authentication
-   * - 403 Forbidden: Authenticated but not allowed
-   * - 404 Not Found: Resource doesn't exist
-   * - 409 Conflict: Duplicate resource (e.g., email already exists)
-   * - 429 Too Many Requests: Rate limit exceeded
-   * - 500 Internal Server Error: Unexpected error (bugs, database issues)
-   * - 503 Service Unavailable: External service down (e.g., AI API)
+   * Step 1: Determine if this is an AppError (operational) or unexpected error
    */
-  const statusCode = err.statusCode || 500;
+  const isOperational = isAppError(err) && err.isOperational;
+  const statusCode = isAppError(err) ? err.statusCode : 500;
 
   /**
    * Step 2: Determine Error Message
    *
-   * Use error's message if provided, otherwise default to generic message.
-   *
    * Security Consideration:
-   * - Operational errors (400, 404, etc.): Safe to show message
-   * - Programming errors (500): Should show generic message
-   * - Current implementation always shows error.message
-   * - Future enhancement: Only show message if isOperational === true
-   *
-   * Improvement for Production (Phase 3+):
-   * ```typescript
-   * const message = err.isOperational
-   *   ? err.message
-   *   : 'Internal server error';
-   * ```
+   * - Operational errors (AppError with isOperational=true): Safe to show message
+   * - Programming errors (standard Error, isOperational=false): Show generic message
    */
-  const message = err.message || 'Internal server error';
+  const message = isOperational ? err.message : 'Internal server error';
 
   /**
-   * Step 3: Log Error Details (Server-Side Only)
+   * Step 3: Log Error Details with Structured Logging
    *
-   * In development mode, log full error object to console.
-   * Includes:
-   * - Error name (e.g., "ValidationError", "TypeError")
-   * - Error message
-   * - Stack trace (file paths and line numbers)
-   * - statusCode (if set)
-   * - isOperational (if set)
-   *
-   * Why Development Only?
-   * - Production logs are typically sent to external service
-   * - Console.log in production is often ignored
-   * - Production should use structured logging (Winston, Pino, etc.)
-   *
-   * Future Enhancement (Phase 3+):
-   * ```typescript
-   * if (process.env.NODE_ENV === 'production') {
-   *   // Send to monitoring service (Sentry, DataDog, etc.)
-   *   logger.error({
-   *     message: err.message,
-   *     statusCode,
-   *     stack: err.stack,
-   *     url: req.url,
-   *     method: req.method,
-   *     userId: req.user?.userId
-   *   });
-   * } else {
-   *   // Development: log to console
-   *   console.error('Error:', err);
-   * }
-   * ```
+   * Uses Winston logger for consistent, searchable logs.
+   * Logs include context for debugging (requestId, userId, route, etc.)
    */
-  if (process.env.NODE_ENV === 'development') {
-    console.error('❌ Error caught by error handler:');
-    console.error('   Status:', statusCode);
-    console.error('   Message:', message);
-    console.error('   URL:', req.method, req.url);
-    console.error('   Stack:', err.stack);
-  }
+  logError(err, {
+    requestId: req.id,
+    method: req.method,
+    path: req.path,
+    statusCode,
+    userId: (req as any).user?.userId,
+    ip: req.ip || req.socket.remoteAddress,
+    isOperational,
+  });
 
   /**
    * Step 4: Send Error Response to Client
    *
-   * Return JSON error response with consistent format.
-   *
-   * Response Structure:
-   * - success: Always false (indicates error)
-   * - error: Error message (operational errors) or generic message (bugs)
-   * - stack: Stack trace (development only, for debugging)
+   * For AppError instances with toJSON method, use that for response
+   * Otherwise, construct standard error response
    *
    * Security Critical:
    * - NEVER send stack traces in production
-   * - Stack traces reveal:
-   *   - Internal file structure (/var/www/api/src/routes/auth.ts)
-   *   - Library versions (better-sqlite3@9.2.2)
-   *   - Code logic and flow
-   *   - Potential security vulnerabilities
-   *
-   * Conditional Stack Trace:
-   * - Uses spread operator with conditional: ...condition && { key: value }
-   * - If development: Include { stack: err.stack }
-   * - If production: Exclude stack property entirely
-   *
-   * Example Responses:
-   *
-   * Development:
-   * {
-   *   "success": false,
-   *   "error": "Database connection failed",
-   *   "stack": "Error: Database connection failed\n    at Object.get (/api/src/database/db.ts:121:15)\n    ..."
-   * }
-   *
-   * Production:
-   * {
-   *   "success": false,
-   *   "error": "Internal server error"
-   * }
+   * - Only show details for operational errors
+   * - Hide programming errors with generic message
    */
-  res.status(statusCode).json({
-    success: false,
-    error: message,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
-
-  /**
-   * Note: next parameter is not used
-   *
-   * Why is next required?
-   * - Express error handlers must have 4 parameters (err, req, res, next)
-   * - Express checks parameter count to identify error handlers
-   * - Even if not used, next must be in signature
-   *
-   * When would we call next()?
-   * - If we wanted to pass error to another error handler
-   * - If we needed to chain multiple error handlers
-   * - Not needed in our case (single handler)
-   */
+  if (isAppError(err)) {
+    // Use AppError's toJSON method for consistent format
+    res.status(statusCode).json({
+      ...err.toJSON(),
+      ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    });
+  } else {
+    // Standard Error object
+    res.status(statusCode).json({
+      success: false,
+      error: message,
+      ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    });
+  }
 }
 
 /**
@@ -362,36 +243,7 @@ export function notFoundHandler(req: Request, res: Response) {
   const errorMessage = `Route ${req.method} ${req.path} not found`;
 
   /**
-   * Step 2: Send 404 Response
-   *
-   * HTTP 404 status indicates resource not found.
-   * Consistent JSON format matches error handler.
-   *
-   * Why Not Call errorHandler?
-   * - 404 is not really an "error" (it's expected)
-   * - No need for error logging
-   * - No need for stack traces
-   * - Simpler to handle directly
-   */
-  res.status(404).json({
-    success: false,
-    error: errorMessage
-  });
-
-  /**
-   * Future Enhancement: Log 404s for Analytics (Phase 3+)
-   *
-   * ```typescript
-   * if (process.env.NODE_ENV === 'production') {
-   *   logger.warn({
-   *     type: '404_not_found',
-   *     method: req.method,
-   *     path: req.path,
-   *     ip: req.ip,
-   *     userAgent: req.get('user-agent')
-   *   });
-   * }
-   * ```
+   * Step 2: Log 404 for Analytics and Debugging
    *
    * Use Cases:
    * - Identify broken links in frontend
@@ -399,6 +251,25 @@ export function notFoundHandler(req: Request, res: Response) {
    * - Catch typos in route paths
    * - Monitor for route scanning attacks
    */
+  logger.warn('Route not found', {
+    requestId: req.id,
+    method: req.method,
+    path: req.path,
+    query: req.query,
+    ip: req.ip || req.socket.remoteAddress,
+    userAgent: req.get('user-agent'),
+  });
+
+  /**
+   * Step 3: Send 404 Response
+   *
+   * HTTP 404 status indicates resource not found.
+   * Consistent JSON format matches error handler.
+   */
+  res.status(404).json({
+    success: false,
+    error: errorMessage
+  });
 }
 
 /**

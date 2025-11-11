@@ -38,6 +38,9 @@ import { initializeDatabase } from './database/db';
 import { corsOptions } from './utils/corsConfig';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { userRateLimit } from './middleware/userRateLimit';
+import { requestIdMiddleware } from './middleware/requestId';
+import { requestLoggerMiddleware, errorLoggerMiddleware } from './middleware/requestLogger';
+import { logger } from './utils/logger';
 
 // Import API route handlers
 import authRoutes from './routes/auth';
@@ -384,6 +387,23 @@ app.use('/api/', apiLimiter);
 app.use(cors(corsOptions));
 
 /**
+ * Request ID and Logging Middleware (OPTIMIZATION: HIGH PRIORITY #1-2)
+ *
+ * Adds unique request IDs and structured logging for all requests.
+ *
+ * Features:
+ * - requestIdMiddleware: Adds unique UUID to each request (correlation)
+ * - requestLoggerMiddleware: Logs all requests with timing and context
+ * - Enables request tracing across distributed systems
+ * - Captures performance metrics (response time)
+ * - Logs security events (auth failures, rate limits)
+ *
+ * IMPORTANT: Must be added BEFORE other middleware to capture all requests
+ */
+app.use(requestIdMiddleware);
+app.use(requestLoggerMiddleware);
+
+/**
  * Request Body Parsing Middleware
  *
  * Parses incoming request bodies into JavaScript objects.
@@ -441,17 +461,27 @@ app.get('/health', (req, res) => {
 });
 
 /**
- * API Routes Configuration
+ * API Routes Configuration (OPTIMIZATION: API VERSIONING #4)
  *
  * Routes organize related endpoints into logical groups.
  * Each route file handles a specific feature area.
  *
- * Route Structure:
+ * API Versioning Strategy:
+ * - Current: All routes implicitly v1 (no version prefix)
+ * - Future: Add /api/v2/* when breaking changes needed
+ * - Allows gradual migration and backward compatibility
+ * - Clients can specify version in URL or via header
+ *
+ * Route Structure (Version 1 - Implicit):
  * - /auth/*          → Authentication (login, signup, logout)
  * - /api/inventory/* → Bottle inventory management (CRUD operations)
  * - /api/recipes/*   → Cocktail recipe library
  * - /api/favorites/* → User's saved favorites
  * - /api/messages/*  → AI bartender chat
+ *
+ * Future Route Structure (Version 2 - Explicit):
+ * - /api/v2/inventory/* → New inventory features
+ * - /api/inventory/*    → Still works (v1 backward compatibility)
  *
  * Security Layers (Defense in Depth):
  *
@@ -512,21 +542,31 @@ app.use('/api/messages', userRateLimit(20, 15), messagesRoutes); // Lower limit 
 app.use(notFoundHandler);
 
 /**
- * Error Handler Middleware
+ * Error Logging Middleware (OPTIMIZATION: HIGH PRIORITY #1)
+ *
+ * Logs all errors with structured logging before error handler processes them.
+ * Must come before errorHandler to capture errors first.
+ */
+app.use(errorLoggerMiddleware);
+
+/**
+ * Error Handler Middleware (OPTIMIZATION: HIGH PRIORITY #3)
  *
  * Global error handler catches all errors thrown in routes.
  * Must be defined last (after all routes and middleware).
  *
  * Handles:
+ * - AppError instances (operational errors with status codes)
  * - Database errors (connection failures, constraint violations)
  * - Validation errors (invalid input data)
  * - Authentication errors (invalid tokens)
  * - Unexpected errors (bugs, runtime exceptions)
  *
  * Security:
- * - Hides stack traces in production (prevents info leakage)
- * - Shows detailed errors in development (easier debugging)
- * - Logs all errors for monitoring
+ * - Only shows operational error messages to clients
+ * - Hides programming error details with generic message
+ * - Never sends stack traces in production
+ * - Logs all errors with context for debugging
  */
 app.use(errorHandler);
 
@@ -547,10 +587,15 @@ app.use(errorHandler);
  */
 try {
   initializeDatabase();
-  console.log('✅ Database initialized successfully');
+  logger.info('Database initialized successfully', {
+    tables: ['users', 'bottles', 'recipes', 'favorites']
+  });
 } catch (error) {
-  console.error('❌ Failed to initialize database:', error);
-  console.error('   Cannot start server without working database');
+  logger.error('Failed to initialize database', {
+    error: error instanceof Error ? error.message : 'Unknown error',
+    stack: error instanceof Error ? error.stack : undefined
+  });
+  logger.error('Cannot start server without working database');
   process.exit(1); // Exit with error code
 }
 
@@ -569,7 +614,15 @@ try {
  * - Fatal error occurs
  * - System shuts down
  */
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
+  // Use structured logging for server startup
+  logger.info('AlcheMix API Server Started', {
+    port: PORT,
+    environment: process.env.NODE_ENV || 'development',
+    nodeVersion: process.version,
+    pid: process.pid
+  });
+
   // ASCII art banner for visual clarity in terminal
   console.log('┌─────────────────────────────────────────┐');
   console.log('│   🧪 AlcheMix API Server Running 🧪    │');
@@ -598,7 +651,109 @@ app.listen(PORT, () => {
   console.log('');
   console.log('🔒 Security: All /api/* routes require JWT authentication');
   console.log('⏱️  Rate Limits: Auth 5/15min, API 100/15min');
+  console.log('📊 Logging: Structured logging with Winston (logs/ directory)');
+  console.log('🆔 Request IDs: Correlation tracking enabled');
   console.log('');
+});
+
+/**
+ * Graceful Shutdown Handler (OPTIMIZATION: QUICK WIN)
+ *
+ * Handles shutdown signals (SIGTERM, SIGINT) to gracefully close resources.
+ *
+ * Shutdown Process:
+ * 1. Stop accepting new connections
+ * 2. Wait for existing requests to complete (up to 10s)
+ * 3. Close database connections
+ * 4. Cleanup any resources (token blacklist, rate limiters)
+ * 5. Exit process cleanly
+ *
+ * Why Graceful Shutdown?
+ * - Prevents incomplete requests (user experience)
+ * - Ensures data integrity (no interrupted writes)
+ * - Proper cleanup of resources (no memory leaks)
+ * - Required for zero-downtime deployments
+ * - Enables health check-based load balancing
+ *
+ * Signals:
+ * - SIGTERM: Kill signal from OS/container orchestrator (Docker, Kubernetes)
+ * - SIGINT: Interrupt signal from terminal (Ctrl+C)
+ */
+function gracefulShutdown(signal: string) {
+  logger.info(`Received ${signal} signal - Starting graceful shutdown`, {
+    signal,
+    uptime: process.uptime(),
+    pid: process.pid
+  });
+
+  // Stop accepting new requests
+  server.close(() => {
+    logger.info('HTTP server closed - No longer accepting connections');
+
+    // Close database connection properly
+    // CRITICAL FIX: Actually close the database to prevent connection leaks
+    try {
+      db.close();
+      logger.info('Database connection closed successfully');
+    } catch (error: any) {
+      logger.error('Error closing database connection', {
+        error: error.message,
+        stack: error.stack
+      });
+    }
+
+    logger.info('Graceful shutdown complete', { signal });
+    process.exit(0);
+  });
+
+  // Force shutdown after 30 seconds if graceful shutdown hangs
+  // CRITICAL FIX: Increased from 10s to 30s (Kubernetes standard grace period)
+  // This allows long-running requests to complete properly
+  setTimeout(() => {
+    logger.error('Graceful shutdown timeout - Forcing exit', {
+      signal,
+      message: 'Some requests did not complete within 30 seconds',
+      gracePeriod: '30s'
+    });
+
+    // Attempt to close database even on timeout
+    try {
+      db.close();
+      logger.warn('Database closed during forced shutdown');
+    } catch (error) {
+      // Ignore errors during forced shutdown
+    }
+
+    process.exit(1);
+  }, 30000); // 30 seconds (Kubernetes default)
+}
+
+// Register shutdown handlers
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Handle uncaught exceptions (last resort error handling)
+process.on('uncaughtException', (error: Error) => {
+  logger.error('Uncaught Exception - Process will exit', {
+    error: {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    }
+  });
+  process.exit(1);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason: any) => {
+  logger.error('Unhandled Promise Rejection - Process will exit', {
+    reason: reason instanceof Error ? {
+      name: reason.name,
+      message: reason.message,
+      stack: reason.stack
+    } : reason
+  });
+  process.exit(1);
 });
 
 /**
