@@ -22,11 +22,18 @@
  * - Production: Set via PORT environment variable
  */
 
+/**
+ * CRITICAL: Load environment variables FIRST
+ * This import MUST be the very first import in the file.
+ * It loads the .env file before any other modules are imported.
+ */
+import './config/env';
+
+// Now import modules that depend on environment variables
 import express, { Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import dotenv from 'dotenv';
 import { initializeDatabase } from './database/db';
 import { corsOptions } from './utils/corsConfig';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
@@ -38,18 +45,6 @@ import inventoryRoutes from './routes/inventory';
 import recipesRoutes from './routes/recipes';
 import favoritesRoutes from './routes/favorites';
 import messagesRoutes from './routes/messages';
-
-/**
- * Load Environment Variables
- *
- * Reads configuration from .env file in the api/ directory.
- * Required variables:
- * - JWT_SECRET: Secret key for signing JWT tokens (min 32 chars)
- * - FRONTEND_URL: URL of Next.js frontend for CORS
- * - PORT: Server port (optional, defaults to 3000)
- * - ANTHROPIC_API_KEY: API key for AI chat feature (optional)
- */
-dotenv.config({ path: '.env' });
 
 /**
  * Initialize Express Application

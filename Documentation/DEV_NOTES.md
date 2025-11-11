@@ -4,6 +4,57 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-11-10 - Environment Variable Loading Order Fix (Session 6)
+
+**Context**: When running `npm run dev:all`, the API server was crashing with "JWT_SECRET environment variable is not set" even though the `.env` file was properly configured in `api/.env`.
+
+**Problem**: The `dotenv.config()` call in `server.ts` was happening AFTER module imports that depended on environment variables. TypeScript/Node.js evaluates module-level code when importing, so `auth.ts` and `tokenBlacklist.ts` were trying to access `process.env.JWT_SECRET` before it was loaded.
+
+**Timeline of Execution**:
+```typescript
+// ❌ WRONG ORDER (before fix):
+import dotenv from 'dotenv';
+import authRoutes from './routes/auth';  // ← auth.ts reads JWT_SECRET HERE!
+dotenv.config();  // ← Too late! Already tried to read JWT_SECRET above
+
+// In auth.ts (module-level code):
+const JWT_SECRET = process.env.JWT_SECRET;  // ← undefined!
+if (!JWT_SECRET) {
+  process.exit(1);  // ← CRASH!
+}
+```
+
+**Solution**: Created dedicated `api/src/config/env.ts` module:
+
+```typescript
+// api/src/config/env.ts
+import dotenv from 'dotenv';
+dotenv.config();  // Load .env FIRST
+console.log('✅ Environment variables loaded');
+export {};
+```
+
+```typescript
+// api/src/server.ts
+import './config/env';  // ← MUST BE FIRST IMPORT
+import authRoutes from './routes/auth';  // ← Now JWT_SECRET is available!
+```
+
+**Result**:
+- ✅ Environment variables loaded before any dependent modules
+- ✅ API server starts successfully on port 3000
+- ✅ Next.js frontend starts successfully on port 3001
+- ✅ Health check endpoint responding: http://localhost:3000/health
+
+**Lesson Learned**: When using `dotenv` in TypeScript/Node.js, environment variables must be loaded BEFORE importing any modules that use them. Module-level code executes during import, not during runtime.
+
+**Future Considerations**:
+- Keep `import './config/env'` as the FIRST import in server.ts
+- Document this pattern for other projects with similar setup
+- Consider using environment variable validation library (like `envalid`) for type-safe env vars
+
+---
+
 ## 2025-11-09 - Monorepo Backend Architecture (Session 5)
 
 **Context**: Created a modern TypeScript Express backend within the existing Next.js repository, transforming the project into a monorepo structure. Decided to build a new backend instead of using the legacy vanilla JS backend from the `cocktail-analysis` project.

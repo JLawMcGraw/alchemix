@@ -108,6 +108,7 @@ Completed Phase 2+3 security hardening for the AlcheMix backend API with enterpr
 ### Files Created
 - `api/src/utils/tokenBlacklist.ts` (391 lines) - Token revocation system
 - `api/src/middleware/userRateLimit.ts` (621 lines) - User-based rate limiting
+- `api/src/config/env.ts` (30 lines) - Environment variable loader (fixes module import order issue)
 
 ### Files Modified
 - `api/src/middleware/auth.ts` (~230 lines added) - Token versioning, JTI generation, blacklist integration
@@ -119,6 +120,7 @@ Completed Phase 2+3 security hardening for the AlcheMix backend API with enterpr
 ### Issues Encountered
 - **Edit Command String Mismatch**: Initial attempt to edit auth.ts failed due to line break differences. Resolved by reading exact text first.
 - **Documentation Scope**: Started with high-priority fixes, expanded to include comprehensive documentation making code an educational resource.
+- **Environment Variables Not Loading (Fixed)**: JWT_SECRET was not being loaded from `.env` file when running `npm run dev:all`. The issue was that `dotenv.config()` was being called in `server.ts` AFTER imports that depended on env vars (auth.ts, tokenBlacklist.ts). Module-level code in these imports executed before dotenv loaded. **Solution**: Created `api/src/config/env.ts` as a dedicated env loader module and imported it as the VERY FIRST import in server.ts (`import './config/env'`). This ensures environment variables are loaded before any dependent modules are evaluated. Both servers (API on :3000, Next.js on :3001) now start successfully.
 
 ### Documentation Philosophy
 Every security feature now includes:

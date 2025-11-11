@@ -340,8 +340,10 @@ ANTHROPIC_API_KEY=your_api_key_here
 **Important:**
 - Copy from example: `cp api/.env.example api/.env`
 - Generate JWT_SECRET using: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+- JWT_SECRET must be at least 32 characters for security
 - CORS is configured to accept requests from `FRONTEND_URL`
 - Database auto-initializes on first run
+- Environment variables are loaded automatically via `api/src/config/env.ts`
 
 ## 🚀 Getting Started
 
@@ -515,5 +517,5 @@ MIT License - see LICENSE file for details
 
 **Built with ❤️ using Next.js 14 + Express + TypeScript**
 
-**Current Version:** v1.3.0-alpha (Full-Stack Monorepo)
-**Last Updated:** November 9, 2025
+**Current Version:** v1.4.0-alpha (Security Hardened Full-Stack)
+**Last Updated:** November 10, 2025
