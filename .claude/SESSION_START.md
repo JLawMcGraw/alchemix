@@ -5,8 +5,8 @@
 Hello Claude, we're continuing work on **AlcheMix** - the modern React/Next.js rewrite of the Cocktail Analyzer platform. This is a complete rebuild using Next.js 14, TypeScript, and Zustand state management. This prompt is designed to efficiently initialize the proper context. As soon as you receive this prompt, please read the following files in order:
 
 1. **THIS ENTIRE PROMPT DOCUMENT FIRST**
-2. `C:\Users\jlawr\Desktop\DEV\alchemix-next\README.md`
-3. `C:\Users\jlawr\Desktop\DEV\alchemix-next\PROGRESS_SUMMARY.md`
+2. `README.md`
+3. `PROGRESS_SUMMARY.md`
 
 ---
 
@@ -57,19 +57,19 @@ Hello Claude, we're continuing work on **AlcheMix** - the modern React/Next.js r
 ### Key Directories
 
 **Frontend:**
-- `C:\Users\jlawr\Desktop\DEV\alchemix-next\src\app\` - Next.js App Router pages (all 7 pages built)
-- `C:\Users\jlawr\Desktop\DEV\alchemix-next\src\components\` - React components (ui/, layout/, modals/)
-- `C:\Users\jlawr\Desktop\DEV\alchemix-next\src\lib\` - API client, Zustand store, utilities
-- `C:\Users\jlawr\Desktop\DEV\alchemix-next\src\styles\` - Design system CSS
-- `C:\Users\jlawr\Desktop\DEV\alchemix-next\src\types\` - TypeScript type definitions
-- `C:\Users\jlawr\Desktop\DEV\alchemix-next\public\` - Static assets (logo, fonts)
+- `src/app/` - Next.js App Router pages (all 7 pages built)
+- `src/components/` - React components (ui/, layout/, modals/)
+- `src/lib/` - API client, Zustand store, utilities
+- `src/styles/` - Design system CSS
+- `src/types/` - TypeScript type definitions
+- `public/` - Static assets (logo, fonts)
 
 **Backend:**
-- `C:\Users\jlawr\Desktop\DEV\alchemix-next\api\src\` - Express backend source code
-- `C:\Users\jlawr\Desktop\DEV\alchemix-next\api\src\routes\` - API route handlers (auth, inventory, recipes, favorites, messages)
-- `C:\Users\jlawr\Desktop\DEV\alchemix-next\api\src\middleware\` - Auth middleware, user rate limiting, error handling
-- `C:\Users\jlawr\Desktop\DEV\alchemix-next\api\src\utils\` - Token blacklist, input validation utilities
-- `C:\Users\jlawr\Desktop\DEV\alchemix-next\api\alchemix.db` - SQLite database (auto-generated)
+- `api/src/` - Express backend source code
+- `api/src/routes/` - API route handlers (auth, inventory, recipes, favorites, messages)
+- `api/src/middleware/` - Auth middleware, user rate limiting, error handling
+- `api/src/utils/` - Token blacklist, input validation utilities
+- `api/alchemix.db` - SQLite database (auto-generated)
 
 ---
 
@@ -77,38 +77,38 @@ Hello Claude, we're continuing work on **AlcheMix** - the modern React/Next.js r
 
 ### Tier 1: Essential Context (LOAD FIRST)
 
-- `C:\Users\jlawr\Desktop\DEV\alchemix-next\README.md` - Quick start guide, tech stack, project structure
-- `C:\Users\jlawr\Desktop\DEV\alchemix-next\PROGRESS_SUMMARY.md` - Complete implementation details, what's built, what remains
+- `README.md` - Quick start guide, tech stack, project structure
+- `PROGRESS_SUMMARY.md` - Complete implementation details, what's built, what remains
 
 ### Tier 2: Reference (LOAD WHEN NEEDED)
 
-- `C:\Users\jlawr\Desktop\DEV\alchemix-next\Documentation\SESSION_HISTORY.md` - Recent development sessions
-- `C:\Users\jlawr\Desktop\DEV\alchemix-next\Documentation\PROJECT_STATUS.md` - Current implementation status
-- `C:\Users\jlawr\Desktop\DEV\alchemix-next\Documentation\ACTIVE_TASKS.md` - Current task list
+- `Documentation/SESSION_HISTORY.md` - Recent development sessions
+- `Documentation/PROJECT_STATUS.md` - Current implementation status
+- `Documentation/ACTIVE_TASKS.md` - Current task list
 
 ### Tier 3: Additional Documentation
 
-- `C:\Users\jlawr\Desktop\DEV\alchemix-next\MONOREPO_SETUP.md` - Monorepo development workflow
-- `C:\Users\jlawr\Desktop\DEV\alchemix-next\CHANGELOG.md` - Version history and changes
-- `C:\Users\jlawr\Desktop\DEV\cocktail-analysis\` - Original vanilla JS app (legacy reference only)
+- `MONOREPO_SETUP.md` - Monorepo development workflow
+- `CHANGELOG.md` - Version history and changes
+- `../cocktail-analysis/` - Original vanilla JS app (legacy reference only)
 
 ---
 
 ## START HERE
 
 1. **IMMEDIATELY READ** the essential files:
-   - `C:\Users\jlawr\Desktop\DEV\alchemix-next\README.md`
-   - `C:\Users\jlawr\Desktop\DEV\alchemix-next\PROGRESS_SUMMARY.md`
+   - `README.md`
+   - `PROGRESS_SUMMARY.md`
 
 2. **BASED ON THE TASK**, selectively load:
-   - `SESSION_HISTORY.md` - Recent work for context (5 sessions completed)
-   - `PROJECT_STATUS.md` - Current feature completion status
-   - `ACTIVE_TASKS.md` - Prioritized task list
+   - `Documentation/SESSION_HISTORY.md` - Recent work for context (5 sessions completed)
+   - `Documentation/PROJECT_STATUS.md` - Current feature completion status
+   - `Documentation/ACTIVE_TASKS.md` - Prioritized task list
    - `MONOREPO_SETUP.md` - Development workflow and scripts
 
 3. **REFERENCE BACKEND CODE** when needed:
-   - API routes in `/api/src/routes/`
-   - Database schema in `/api/src/db.ts`
+   - API routes in `api/src/routes/`
+   - Database schema in `api/src/db.ts`
    - Type definitions in `src/types/`
 
 ---
@@ -133,24 +133,22 @@ Hello Claude, we're continuing work on **AlcheMix** - the modern React/Next.js r
 
 ```bash
 # RECOMMENDED: Run both services concurrently
-cd C:\Users\jlawr\Desktop\DEV\alchemix-next
 npm run dev:all
 # → Backend starts on port 3000
 # → Frontend starts on port 3001
 
 # OR run services separately:
-# Backend only (from /api folder)
-cd C:\Users\jlawr\Desktop\DEV\alchemix-next\api
+# Backend only (from api folder)
+cd api
 npm run dev
 
 # Frontend only (from root)
-cd C:\Users\jlawr\Desktop\DEV\alchemix-next
 npm run dev
 ```
 
 ### Environment Setup
 
-**Backend** (`C:\Users\jlawr\Desktop\DEV\alchemix-next\api\.env`):
+**Backend** (`api/.env`):
 
 ```env
 # Server Configuration
@@ -167,14 +165,14 @@ DATABASE_PATH=./alchemix.db
 ANTHROPIC_API_KEY=<your-api-key-here>
 ```
 
-**Frontend** (`C:\Users\jlawr\Desktop\DEV\alchemix-next\.env.local` - optional):
+**Frontend** (`.env.local` - optional):
 
 ```env
 # Only needed if you want to override the API URL
 NEXT_PUBLIC_API_URL=http://localhost:3000
 ```
 
-**Note**: Create the backend `.env` file from `.env.example` in the `/api` folder.
+**Note**: Create the backend `.env` file from `.env.example` in the `api` folder.
 
 ---
 
@@ -390,7 +388,6 @@ All endpoints use JWT authentication (except login/signup):
 **Solution**:
 ```bash
 # Make sure both services are running
-cd C:\Users\jlawr\Desktop\DEV\alchemix-next
 npm run dev:all
 
 # Or check backend separately
@@ -510,9 +507,6 @@ After reading this entire prompt and the required files, Claude should:
 ### Installation & Setup
 
 ```bash
-# Navigate to project
-cd C:\Users\jlawr\Desktop\DEV\alchemix-next
-
 # Install ALL dependencies (frontend + backend)
 npm run install:all
 
@@ -646,7 +640,6 @@ cd api && npm run build
 2. **Read README.md and PROGRESS_SUMMARY.md**
 3. **Check current status:**
    ```bash
-   cd C:\Users\jlawr\Desktop\DEV\alchemix-next
    git status
    git log --oneline -5
    ```

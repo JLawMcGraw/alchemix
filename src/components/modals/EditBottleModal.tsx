@@ -15,18 +15,18 @@ interface EditBottleModalProps {
 
 export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottleModalProps) {
   const [formData, setFormData] = useState({
-    Spirit: '',
-    Brand: '',
-    'Age/Type': '',
-    'Quantity (ml)': '',
-    'Cost ($)': '',
-    'Date Added': '',
-    'Date Opened': '',
-    'Estimated Remaining (ml)': '',
-    'Restock Threshold (ml)': '',
-    Location: '',
-    'Tasting Notes': '',
-    Tags: '',
+    name: '',
+    'Stock Number': '',
+    'Liquor Type': '',
+    'Detailed Spirit Classification': '',
+    'Distillation Method': '',
+    'ABV (%)': '',
+    'Distillery Location': '',
+    'Age Statement or Barrel Finish': '',
+    'Additional Notes': '',
+    'Profile (Nose)': '',
+    'Palate': '',
+    'Finish': '',
   });
 
   const [loading, setLoading] = useState(false);
@@ -41,18 +41,18 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
   useEffect(() => {
     if (bottle) {
       setFormData({
-        Spirit: bottle.Spirit || '',
-        Brand: bottle.Brand || '',
-        'Age/Type': bottle['Age/Type'] || '',
-        'Quantity (ml)': bottle['Quantity (ml)']?.toString() || '',
-        'Cost ($)': bottle['Cost ($)']?.toString() || '',
-        'Date Added': bottle['Date Added'] || '',
-        'Date Opened': bottle['Date Opened'] || '',
-        'Estimated Remaining (ml)': bottle['Estimated Remaining (ml)']?.toString() || '',
-        'Restock Threshold (ml)': bottle['Restock Threshold (ml)']?.toString() || '200',
-        Location: bottle.Location || '',
-        'Tasting Notes': bottle['Tasting Notes'] || '',
-        Tags: bottle.Tags || '',
+        name: bottle.name || '',
+        'Stock Number': bottle['Stock Number']?.toString() || '',
+        'Liquor Type': bottle['Liquor Type'] || '',
+        'Detailed Spirit Classification': bottle['Detailed Spirit Classification'] || '',
+        'Distillation Method': bottle['Distillation Method'] || '',
+        'ABV (%)': bottle['ABV (%)']?.toString() || '',
+        'Distillery Location': bottle['Distillery Location'] || '',
+        'Age Statement or Barrel Finish': bottle['Age Statement or Barrel Finish'] || '',
+        'Additional Notes': bottle['Additional Notes'] || '',
+        'Profile (Nose)': bottle['Profile (Nose)'] || '',
+        'Palate': bottle['Palate'] || '',
+        'Finish': bottle['Finish'] || '',
       });
     }
   }, [bottle]);
@@ -99,57 +99,20 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
 
   const validateField = (field: string, value: string): string => {
     switch (field) {
-      case 'Spirit':
-        return !value.trim() ? 'Spirit type is required' : '';
-      case 'Brand':
-        return !value.trim() ? 'Brand is required' : '';
-      case 'Quantity (ml)': {
-        const num = parseFloat(value);
-        if (!value) return 'Quantity is required';
-        if (isNaN(num)) return 'Must be a valid number';
-        if (num <= 0) return 'Must be greater than 0';
-        if (num > 5000) return 'Unusually large bottle size';
-        return '';
-      }
-      case 'Cost ($)': {
+      case 'name':
+        return !value.trim() ? 'Name is required' : '';
+      case 'Stock Number': {
         if (!value) return '';
-        const num = parseFloat(value);
+        const num = parseInt(value);
         if (isNaN(num)) return 'Must be a valid number';
         if (num < 0) return 'Cannot be negative';
         return '';
       }
-      case 'Date Added': {
-        if (!value) return 'Date added is required';
-        const date = new Date(value);
-        const today = new Date();
-        today.setHours(23, 59, 59, 999);
-        if (date > today) return 'Cannot be in the future';
-        return '';
-      }
-      case 'Date Opened': {
-        if (!value) return '';
-        const dateOpened = new Date(value);
-        const dateAdded = new Date(formData['Date Added']);
-        const today = new Date();
-        today.setHours(23, 59, 59, 999);
-        if (dateOpened > today) return 'Cannot be in the future';
-        if (formData['Date Added'] && dateOpened < dateAdded) return 'Cannot be before date added';
-        return '';
-      }
-      case 'Estimated Remaining (ml)': {
+      case 'ABV (%)': {
         if (!value) return '';
         const num = parseFloat(value);
         if (isNaN(num)) return 'Must be a valid number';
-        if (num < 0) return 'Cannot be negative';
-        const quantity = parseFloat(formData['Quantity (ml)']);
-        if (!isNaN(quantity) && num > quantity) return 'Cannot exceed bottle quantity';
-        return '';
-      }
-      case 'Restock Threshold (ml)': {
-        if (!value) return '';
-        const num = parseFloat(value);
-        if (isNaN(num)) return 'Must be a valid number';
-        if (num < 0) return 'Cannot be negative';
+        if (num < 0 || num > 100) return 'Must be between 0 and 100';
         return '';
       }
       default:
@@ -176,18 +139,18 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
 
     try {
       const updates: Partial<Bottle> = {
-        Spirit: formData.Spirit,
-        Brand: formData.Brand,
-        'Age/Type': formData['Age/Type'],
-        'Quantity (ml)': parseFloat(formData['Quantity (ml)']) || 0,
-        'Cost ($)': parseFloat(formData['Cost ($)']) || 0,
-        'Date Added': formData['Date Added'],
-        'Date Opened': formData['Date Opened'] || null,
-        'Estimated Remaining (ml)': parseFloat(formData['Estimated Remaining (ml)']) || null,
-        'Restock Threshold (ml)': parseFloat(formData['Restock Threshold (ml)']) || 200,
-        Location: formData.Location || null,
-        'Tasting Notes': formData['Tasting Notes'] || null,
-        Tags: formData.Tags || null,
+        name: formData.name,
+        'Stock Number': formData['Stock Number'] ? parseInt(formData['Stock Number']) : undefined,
+        'Liquor Type': formData['Liquor Type'] || undefined,
+        'Detailed Spirit Classification': formData['Detailed Spirit Classification'] || undefined,
+        'Distillation Method': formData['Distillation Method'] || undefined,
+        'ABV (%)': formData['ABV (%)'] || undefined,
+        'Distillery Location': formData['Distillery Location'] || undefined,
+        'Age Statement or Barrel Finish': formData['Age Statement or Barrel Finish'] || undefined,
+        'Additional Notes': formData['Additional Notes'] || undefined,
+        'Profile (Nose)': formData['Profile (Nose)'] || undefined,
+        'Palate': formData['Palate'] || undefined,
+        'Finish': formData['Finish'] || undefined,
       };
 
       await onUpdate(bottle.id!, updates);
@@ -254,135 +217,131 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
         <form onSubmit={handleSubmit}>
           <div className={styles.content} id="edit-bottle-desc">
             <div className={styles.formGrid}>
-              {/* Required Fields */}
+              {/* Basic Information */}
               <div className={styles.formSection}>
                 <h3 className={styles.sectionTitle}>Basic Information</h3>
                 <Input
                   ref={firstInputRef}
-                  label="Spirit Type *"
-                  value={formData.Spirit}
-                  onChange={(e) => handleChange('Spirit', e.target.value)}
+                  label="Name *"
+                  value={formData.name}
+                  onChange={(e) => handleChange('name', e.target.value)}
+                  placeholder="e.g., Maker's Mark Bourbon"
+                  required
+                  fullWidth
+                  error={fieldErrors.name}
+                />
+                <Input
+                  label="Stock Number"
+                  type="number"
+                  value={formData['Stock Number']}
+                  onChange={(e) => handleChange('Stock Number', e.target.value)}
+                  placeholder="e.g., 123"
+                  fullWidth
+                  error={fieldErrors['Stock Number']}
+                />
+                <Input
+                  label="Liquor Type"
+                  value={formData['Liquor Type']}
+                  onChange={(e) => handleChange('Liquor Type', e.target.value)}
                   placeholder="e.g., Whiskey, Rum, Gin"
-                  required
-                  fullWidth
-                  error={fieldErrors.Spirit}
-                />
-                <Input
-                  label="Brand *"
-                  value={formData.Brand}
-                  onChange={(e) => handleChange('Brand', e.target.value)}
-                  placeholder="e.g., Maker's Mark"
-                  required
-                  fullWidth
-                  error={fieldErrors.Brand}
-                />
-                <Input
-                  label="Age/Type"
-                  value={formData['Age/Type']}
-                  onChange={(e) => handleChange('Age/Type', e.target.value)}
-                  placeholder="e.g., 12 Year, VSOP"
                   fullWidth
                 />
               </div>
 
-              {/* Quantity & Cost */}
+              {/* Classification & Details */}
               <div className={styles.formSection}>
-                <h3 className={styles.sectionTitle}>Quantity & Cost</h3>
-                <div className={styles.formRow}>
-                  <Input
-                    label="Quantity (ml) *"
-                    type="number"
-                    value={formData['Quantity (ml)']}
-                    onChange={(e) => handleChange('Quantity (ml)', e.target.value)}
-                    placeholder="750"
-                    required
-                    fullWidth
-                    error={fieldErrors['Quantity (ml)']}
-                  />
-                  <Input
-                    label="Cost ($)"
-                    type="number"
-                    step="0.01"
-                    value={formData['Cost ($)']}
-                    onChange={(e) => handleChange('Cost ($)', e.target.value)}
-                    placeholder="45.00"
-                    fullWidth
-                    error={fieldErrors['Cost ($)']}
-                  />
-                </div>
-                <div className={styles.formRow}>
-                  <Input
-                    label="Estimated Remaining (ml)"
-                    type="number"
-                    value={formData['Estimated Remaining (ml)']}
-                    onChange={(e) => handleChange('Estimated Remaining (ml)', e.target.value)}
-                    placeholder="Leave empty if unopened"
-                    fullWidth
-                    error={fieldErrors['Estimated Remaining (ml)']}
-                  />
-                  <Input
-                    label="Restock Threshold (ml)"
-                    type="number"
-                    value={formData['Restock Threshold (ml)']}
-                    onChange={(e) => handleChange('Restock Threshold (ml)', e.target.value)}
-                    placeholder="200"
-                    fullWidth
-                    error={fieldErrors['Restock Threshold (ml)']}
-                  />
-                </div>
+                <h3 className={styles.sectionTitle}>Classification & Details</h3>
+                <Input
+                  label="Detailed Spirit Classification"
+                  value={formData['Detailed Spirit Classification']}
+                  onChange={(e) => handleChange('Detailed Spirit Classification', e.target.value)}
+                  placeholder="e.g., Kentucky Straight Bourbon"
+                  fullWidth
+                />
+                <Input
+                  label="Distillation Method"
+                  value={formData['Distillation Method']}
+                  onChange={(e) => handleChange('Distillation Method', e.target.value)}
+                  placeholder="e.g., Pot Still, Column Still"
+                  fullWidth
+                />
+                <Input
+                  label="ABV (%)"
+                  value={formData['ABV (%)']}
+                  onChange={(e) => handleChange('ABV (%)', e.target.value)}
+                  placeholder="e.g., 40, 43.5"
+                  fullWidth
+                  error={fieldErrors['ABV (%)']}
+                />
               </div>
 
-              {/* Dates & Location */}
+              {/* Location & Age */}
               <div className={styles.formSection}>
-                <h3 className={styles.sectionTitle}>Dates & Location</h3>
-                <div className={styles.formRow}>
-                  <Input
-                    label="Date Added *"
-                    type="date"
-                    value={formData['Date Added']}
-                    onChange={(e) => handleChange('Date Added', e.target.value)}
-                    required
-                    fullWidth
-                    error={fieldErrors['Date Added']}
-                  />
-                  <Input
-                    label="Date Opened"
-                    type="date"
-                    value={formData['Date Opened']}
-                    onChange={(e) => handleChange('Date Opened', e.target.value)}
-                    fullWidth
-                    error={fieldErrors['Date Opened']}
-                  />
-                </div>
+                <h3 className={styles.sectionTitle}>Location & Age</h3>
                 <Input
-                  label="Location"
-                  value={formData.Location}
-                  onChange={(e) => handleChange('Location', e.target.value)}
-                  placeholder="e.g., Top shelf, Cabinet A"
+                  label="Distillery Location"
+                  value={formData['Distillery Location']}
+                  onChange={(e) => handleChange('Distillery Location', e.target.value)}
+                  placeholder="e.g., Kentucky, USA"
+                  fullWidth
+                />
+                <Input
+                  label="Age Statement or Barrel Finish"
+                  value={formData['Age Statement or Barrel Finish']}
+                  onChange={(e) => handleChange('Age Statement or Barrel Finish', e.target.value)}
+                  placeholder="e.g., 12 Year, Sherry Cask Finish"
                   fullWidth
                 />
               </div>
 
-              {/* Notes & Tags */}
+              {/* Tasting Profile */}
               <div className={styles.formSection}>
-                <h3 className={styles.sectionTitle}>Additional Details</h3>
+                <h3 className={styles.sectionTitle}>Tasting Profile</h3>
                 <div className={styles.textareaWrapper}>
-                  <label className={styles.textareaLabel}>Tasting Notes</label>
+                  <label className={styles.textareaLabel}>Profile (Nose)</label>
                   <textarea
                     className={styles.textarea}
-                    value={formData['Tasting Notes']}
-                    onChange={(e) => handleChange('Tasting Notes', e.target.value)}
-                    placeholder="Notes about flavor, aroma, etc."
+                    value={formData['Profile (Nose)']}
+                    onChange={(e) => handleChange('Profile (Nose)', e.target.value)}
+                    placeholder="Aroma notes, e.g., vanilla, oak, caramel"
+                    rows={2}
+                  />
+                </div>
+                <div className={styles.textareaWrapper}>
+                  <label className={styles.textareaLabel}>Palate</label>
+                  <textarea
+                    className={styles.textarea}
+                    value={formData['Palate']}
+                    onChange={(e) => handleChange('Palate', e.target.value)}
+                    placeholder="Flavor notes, e.g., honey, spice, fruit"
+                    rows={2}
+                  />
+                </div>
+                <div className={styles.textareaWrapper}>
+                  <label className={styles.textareaLabel}>Finish</label>
+                  <textarea
+                    className={styles.textarea}
+                    value={formData['Finish']}
+                    onChange={(e) => handleChange('Finish', e.target.value)}
+                    placeholder="Finish notes, e.g., long, smooth, warming"
+                    rows={2}
+                  />
+                </div>
+              </div>
+
+              {/* Additional Notes */}
+              <div className={styles.formSection}>
+                <h3 className={styles.sectionTitle}>Additional Information</h3>
+                <div className={styles.textareaWrapper}>
+                  <label className={styles.textareaLabel}>Additional Notes</label>
+                  <textarea
+                    className={styles.textarea}
+                    value={formData['Additional Notes']}
+                    onChange={(e) => handleChange('Additional Notes', e.target.value)}
+                    placeholder="Any other notes or comments"
                     rows={3}
                   />
                 </div>
-                <Input
-                  label="Tags"
-                  value={formData.Tags}
-                  onChange={(e) => handleChange('Tags', e.target.value)}
-                  placeholder="e.g., smooth, smoky, gift"
-                  fullWidth
-                />
               </div>
             </div>
 

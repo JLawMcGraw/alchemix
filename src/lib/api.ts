@@ -48,11 +48,16 @@ apiClient.interceptors.response.use(
   (error: AxiosError) => {
     // Handle 401 Unauthorized (token expired)
     if (error.response?.status === 401) {
-      // Clear token and redirect to login
+      // Clear all auth data and redirect to login
       if (typeof window !== 'undefined') {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        window.location.href = '/login';
+        // Clear Zustand persisted storage to reset isAuthenticated
+        localStorage.removeItem('alchemix-storage');
+        // Prevent redirect loop by only redirecting if not already on login page
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
       }
     }
 
@@ -85,18 +90,18 @@ export const authApi = {
 // Inventory API
 export const inventoryApi = {
   async getAll(): Promise<Bottle[]> {
-    const { data } = await apiClient.get<Bottle[]>('/api/inventory');
-    return data;
+    const { data } = await apiClient.get<{ success: boolean; data: Bottle[] }>('/api/inventory');
+    return data.data;
   },
 
   async add(bottle: Bottle): Promise<Bottle> {
-    const { data } = await apiClient.post<Bottle>('/api/inventory', bottle);
-    return data;
+    const { data } = await apiClient.post<{ success: boolean; data: Bottle }>('/api/inventory', bottle);
+    return data.data;
   },
 
   async update(id: number, bottle: Partial<Bottle>): Promise<Bottle> {
-    const { data } = await apiClient.put<Bottle>(`/api/inventory/${id}`, bottle);
-    return data;
+    const { data } = await apiClient.put<{ success: boolean; data: Bottle }>(`/api/inventory/${id}`, bottle);
+    return data.data;
   },
 
   async delete(id: number): Promise<void> {
@@ -123,13 +128,13 @@ export const inventoryApi = {
 // Recipe API
 export const recipeApi = {
   async getAll(): Promise<Recipe[]> {
-    const { data } = await apiClient.get<Recipe[]>('/api/recipes');
-    return data;
+    const { data } = await apiClient.get<{ success: boolean; data: Recipe[] }>('/api/recipes');
+    return data.data;
   },
 
   async add(recipe: Recipe): Promise<Recipe> {
-    const { data} = await apiClient.post<Recipe>('/api/recipes', recipe);
-    return data;
+    const { data } = await apiClient.post<{ success: boolean; data: Recipe }>('/api/recipes', recipe);
+    return data.data;
   },
 
   async importCSV(file: File): Promise<{ count: number }> {
@@ -152,13 +157,13 @@ export const recipeApi = {
 // Favorites API
 export const favoritesApi = {
   async getAll(): Promise<Favorite[]> {
-    const { data } = await apiClient.get<Favorite[]>('/api/favorites');
-    return data;
+    const { data } = await apiClient.get<{ success: boolean; data: Favorite[] }>('/api/favorites');
+    return data.data;
   },
 
   async add(recipeName: string): Promise<Favorite> {
-    const { data } = await apiClient.post<Favorite>('/api/favorites', { recipe_name: recipeName });
-    return data;
+    const { data } = await apiClient.post<{ success: boolean; data: Favorite }>('/api/favorites', { recipe_name: recipeName });
+    return data.data;
   },
 
   async remove(id: number): Promise<void> {

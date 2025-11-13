@@ -315,6 +315,7 @@ app.use(helmet({
  * - Window: 15 minutes
  * - Max requests: 100 per IP address
  * - Response: 429 Too Many Requests
+ * - Skip OPTIONS requests (CORS preflight checks)
  *
  * Example:
  * - User makes 100 requests in 10 minutes → OK
@@ -324,6 +325,11 @@ app.use(helmet({
  * - API abuse and data scraping
  * - Automated attacks
  * - Resource exhaustion
+ *
+ * CORS Fix: Skip OPTIONS (preflight) requests from rate limiting
+ * - OPTIONS requests don't perform actions, just check permissions
+ * - Browsers send OPTIONS before actual POST/PUT/DELETE requests
+ * - Rate limiting OPTIONS breaks CORS and blocks legitimate requests
  */
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes in milliseconds
@@ -331,6 +337,8 @@ const apiLimiter = rateLimit({
   message: 'Too many requests from this IP, please try again later',
   standardHeaders: true,     // Return rate limit info in headers
   legacyHeaders: false,      // Disable X-RateLimit-* headers
+  // Skip OPTIONS requests (CORS preflight) - they don't perform operations
+  skip: (req) => req.method === 'OPTIONS',
 });
 
 /**
@@ -343,6 +351,7 @@ const apiLimiter = rateLimit({
  * - Window: 15 minutes
  * - Max requests: 5 per IP address
  * - Response: 429 Too Many Requests
+ * - Skip OPTIONS requests (CORS preflight checks)
  *
  * Why stricter?
  * - Failed login attempts indicate potential attack
@@ -361,6 +370,8 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
   // Skip successful requests (only count failures)
   skipSuccessfulRequests: true,
+  // Skip OPTIONS requests (CORS preflight) - they don't perform operations
+  skip: (req) => req.method === 'OPTIONS',
 });
 
 // Apply general rate limiting to all API routes

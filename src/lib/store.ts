@@ -27,15 +27,18 @@ export const useStore = create<AppState>()(
           set({ isLoading: true, error: null });
           const response = await authApi.login(credentials);
 
+          // Extract token and user from response.data
+          const { token, user } = response.data;
+
           // Store token and user
           if (typeof window !== 'undefined') {
-            localStorage.setItem('token', response.token);
-            localStorage.setItem('user', JSON.stringify(response.user));
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', JSON.stringify(user));
           }
 
           set({
-            user: response.user,
-            token: response.token,
+            user: user,
+            token: token,
             isAuthenticated: true,
             isLoading: false,
           });
@@ -51,15 +54,18 @@ export const useStore = create<AppState>()(
           set({ isLoading: true, error: null });
           const response = await authApi.signup(credentials);
 
+          // Extract token and user from response.data
+          const { token, user } = response.data;
+
           // Store token and user
           if (typeof window !== 'undefined') {
-            localStorage.setItem('token', response.token);
-            localStorage.setItem('user', JSON.stringify(response.user));
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', JSON.stringify(user));
           }
 
           set({
-            user: response.user,
-            token: response.token,
+            user: user,
+            token: token,
             isAuthenticated: true,
             isLoading: false,
           });
@@ -96,13 +102,42 @@ export const useStore = create<AppState>()(
         set({ user, token, isAuthenticated: true });
       },
 
+      // Validate persisted token on app load
+      validateToken: async () => {
+        const { token } = get();
+        if (!token) {
+          set({ isAuthenticated: false, user: null });
+          return false;
+        }
+
+        try {
+          // Try to fetch user data with the persisted token
+          const user = await authApi.me();
+          set({ user, isAuthenticated: true });
+          return true;
+        } catch (error) {
+          // Token is invalid or expired
+          set({ isAuthenticated: false, user: null, token: null });
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('alchemix-storage');
+          }
+          return false;
+        }
+      },
+
       // Bottle Actions
       fetchBottles: async () => {
         try {
           set({ isLoading: true, error: null });
           const bottles = await inventoryApi.getAll();
+          console.log('📦 Fetched bottles:', bottles);
+          console.log('📦 Bottles length:', bottles?.length);
+          console.log('📦 Bottles type:', typeof bottles, Array.isArray(bottles));
           set({ bottles, isLoading: false });
         } catch (error: any) {
+          console.error('❌ Error fetching bottles:', error);
           const errorMessage = error.response?.data?.error || 'Failed to fetch bottles';
           set({ error: errorMessage, isLoading: false });
           throw new Error(errorMessage);
@@ -282,11 +317,18 @@ export const useStore = create<AppState>()(
     {
       name: 'alchemix-storage', // LocalStorage key
       partialize: (state) => ({
-        // Only persist these fields
+        // Only persist user and token, NOT isAuthenticated
+        // isAuthenticated should be derived from valid token, not persisted
         user: state.user,
         token: state.token,
-        isAuthenticated: state.isAuthenticated,
       }),
+      onRehydrateStorage: () => (state) => {
+        // After rehydration, ensure isAuthenticated is false
+        // It will be set to true only after successful token validation
+        if (state) {
+          state.isAuthenticated = false;
+        }
+      },
     }
   )
 );

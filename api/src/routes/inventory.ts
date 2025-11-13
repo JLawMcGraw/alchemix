@@ -25,12 +25,37 @@
  */
 
 import { Router, Request, Response } from 'express';
+import multer from 'multer';
+import { parse } from 'csv-parse/sync';
 import { db } from '../database/db';
 import { authMiddleware } from '../middleware/auth';
 import { validateBottleData, validateNumber } from '../utils/inputValidator';
 import { Bottle } from '../types';
 
 const router = Router();
+
+/**
+ * Multer Configuration for File Uploads
+ *
+ * Configure multer for CSV file uploads:
+ * - Memory storage (don't save to disk)
+ * - 5MB file size limit
+ * - Only accept CSV files
+ */
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB max
+  },
+  fileFilter: (req, file, cb) => {
+    // Only accept CSV files
+    if (file.mimetype === 'text/csv' || file.originalname.endsWith('.csv')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only CSV files are allowed'));
+    }
+  },
+});
 
 /**
  * Authentication Requirement
@@ -704,45 +729,219 @@ router.delete('/:id', (req: Request, res: Response) => {
 });
 
 /**
+ * Helper function to find a field value from record using multiple possible column names
+ */
+function findField(record: any, possibleNames: string[]): any {
+  for (const name of possibleNames) {
+    const value = record[name];
+    if (value !== undefined && value !== null && value !== '') {
+      return value;
+    }
+  }
+  return null;
+}
+
+/**
+ * Helper function to validate and sanitize bottle data from CSV
+ * Very flexible - handles any column names and missing fields
+ */
+function validateBottleData(record: any): { isValid: boolean; errors: string[]; sanitized?: any } {
+  const errors: string[] = [];
+
+  // Try to find the name field with various possible column names
+  const nameField = findField(record, [
+    'name', 'Name', 'NAME',
+    'Spirit Name', 'spirit name', 'Spirit', 'spirit',
+    'Bottle Name', 'bottle name', 'Bottle', 'bottle',
+    'Product Name', 'product name', 'Product', 'product',
+    'Brand', 'brand'
+  ]);
+
+  // Only require that SOME name exists - even a single character is fine
+  if (!nameField || (typeof nameField === 'string' && nameField.trim().length === 0)) {
+    // Log all available columns for debugging
+    errors.push(`Missing name field. Available columns: ${Object.keys(record).join(', ')}`);
+  }
+
+  // If validation failed, return early
+  if (errors.length > 0) {
+    return { isValid: false, errors };
+  }
+
+  // Helper to safely convert to string and trim
+  const safeString = (val: any) => val ? String(val).trim() : null;
+  const safeNumber = (val: any) => {
+    const num = parseInt(String(val));
+    return isNaN(num) ? null : num;
+  };
+
+  // Sanitize the data - be very flexible with column names
+  const sanitized = {
+    name: safeString(nameField),
+    'Stock Number': safeNumber(findField(record, ['Stock Number', 'stock number', 'Stock', 'stock', 'Number', '#'])),
+    'Liquor Type': safeString(findField(record, ['Liquor Type', 'liquor type', 'Type', 'type', 'Category', 'category'])),
+    'Detailed Spirit Classification': safeString(findField(record, ['Detailed Spirit Classification', 'Classification', 'classification', 'Spirit Type', 'spirit type'])),
+    'Distillation Method': safeString(findField(record, ['Distillation Method', 'distillation method', 'Method', 'method'])),
+    'ABV (%)': safeString(findField(record, ['ABV (%)', 'ABV', 'abv', 'Alcohol', 'alcohol', 'Proof', 'proof', 'Alcohol Content'])),
+    'Distillery Location': safeString(findField(record, ['Distillery Location', 'distillery location', 'Location', 'location', 'Origin', 'origin', 'Country', 'country'])),
+    'Age Statement or Barrel Finish': safeString(findField(record, ['Age Statement or Barrel Finish', 'Age Statement', 'age statement', 'Age', 'age', 'Barrel Finish', 'barrel finish', 'Finish', 'finish'])),
+    'Additional Notes': safeString(findField(record, ['Additional Notes', 'additional notes', 'Notes', 'notes', 'Description', 'description', 'Comments', 'comments'])),
+    'Profile (Nose)': safeString(findField(record, ['Profile (Nose)', 'Nose', 'nose', 'Aroma', 'aroma', 'Smell', 'smell'])),
+    'Palate': safeString(findField(record, ['Palate', 'palate', 'Taste', 'taste', 'Flavor', 'flavor'])),
+    'Finish': safeString(findField(record, ['Finish', 'finish', 'Aftertaste', 'aftertaste'])),
+  };
+
+  return { isValid: true, errors: [], sanitized };
+}
+
+/**
  * POST /api/inventory/import - CSV Import
  *
  * Bulk import bottles from CSV file.
  *
- * Status: NOT YET IMPLEMENTED (Phase 3)
+ * Request: multipart/form-data with 'file' field
  *
- * Planned Features:
- * - Accept CSV file upload via multipart/form-data
- * - Parse CSV with validation for each row
- * - Support standard CSV format (comma-separated)
- * - Handle errors gracefully (partial success)
- * - Return summary: imported count, failed rows with reasons
- *
- * Planned CSV Format:
+ * CSV Format:
  * ```
- * Name,Stock Number,Liquor Type,ABV (%),Distillery Location,...
- * "Maker's Mark",42,Bourbon,45,"Loretto, KY",...
- * "Woodford Reserve",43,Bourbon,45.2,"Versailles, KY",...
+ * name,Stock Number,Liquor Type,ABV (%),Detailed Spirit Classification,Distillation Method,Distillery Location,Age Statement or Barrel Finish,Additional Notes,Profile (Nose),Palate,Finish
+ * "Maker's Mark",42,Bourbon,45,"Kentucky Straight Bourbon","Pot Still","Loretto, KY","No Age Statement","Classic wheated bourbon","Caramel and vanilla","Sweet and smooth","Warm finish"
  * ```
  *
- * Security Considerations:
- * - File size limit: 10MB (already enforced by server.ts)
- * - Row limit: 1,000 rows max (prevent DoS)
- * - Same validation as individual bottle creation
- * - Transaction: All-or-nothing OR partial with error report
- * - Rate limiting: 1 import per 5 minutes per user
- *
- * Implementation Priority: Low (Phase 3+)
- * - Core features complete
- * - Manual entry works fine for <100 bottles
- * - CSV is nice-to-have for power users
+ * Response (200 OK):
+ * {
+ *   "success": true,
+ *   "imported": 25,
+ *   "failed": 2,
+ *   "errors": [
+ *     { "row": 3, "error": "Missing required field: name" },
+ *     { "row": 7, "error": "Invalid ABV value" }
+ *   ]
+ * }
  */
-router.post('/import', (req: Request, res: Response) => {
-  // Placeholder response until implementation
-  res.status(501).json({
-    success: false,
-    error: 'CSV import not yet implemented',
-    details: 'This feature is planned for Phase 3. Use POST /api/inventory to add bottles individually.'
-  });
+router.post('/import', upload.single('file'), async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    // Check if file was uploaded
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'No file uploaded'
+      });
+    }
+
+    // Parse CSV
+    const csvContent = req.file.buffer.toString('utf-8');
+    let records: any[];
+
+    try {
+      records = parse(csvContent, {
+        columns: true, // First row is headers
+        skip_empty_lines: true,
+        trim: true,
+      });
+    } catch (parseError: any) {
+      return res.status(400).json({
+        success: false,
+        error: 'Failed to parse CSV file',
+        details: parseError.message
+      });
+    }
+
+    // Limit to 1000 rows to prevent DoS
+    if (records.length > 1000) {
+      return res.status(400).json({
+        success: false,
+        error: 'Too many rows',
+        details: 'Maximum 1000 bottles per import'
+      });
+    }
+
+    if (records.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'CSV file is empty'
+      });
+    }
+
+    // Process each row
+    let imported = 0;
+    const errors: { row: number; error: string }[] = [];
+
+    for (let i = 0; i < records.length; i++) {
+      const record = records[i];
+      const rowNumber = i + 2; // +2 because: 0-indexed + header row
+
+      try {
+        // Validate bottle data
+        const validation = validateBottleData(record);
+
+        if (!validation.isValid) {
+          errors.push({
+            row: rowNumber,
+            error: validation.errors.join(', ')
+          });
+          continue;
+        }
+
+        const bottle = validation.sanitized;
+
+        // Insert into database
+        db.prepare(`
+          INSERT INTO bottles (
+            user_id, name, "Stock Number", "Liquor Type",
+            "Detailed Spirit Classification", "Distillation Method",
+            "ABV (%)", "Distillery Location",
+            "Age Statement or Barrel Finish", "Additional Notes",
+            "Profile (Nose)", "Palate", "Finish"
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          userId,
+          bottle.name,
+          bottle['Stock Number'] || null,
+          bottle['Liquor Type'] || null,
+          bottle['Detailed Spirit Classification'] || null,
+          bottle['Distillation Method'] || null,
+          bottle['ABV (%)'] || null,
+          bottle['Distillery Location'] || null,
+          bottle['Age Statement or Barrel Finish'] || null,
+          bottle['Additional Notes'] || null,
+          bottle['Profile (Nose)'] || null,
+          bottle['Palate'] || null,
+          bottle['Finish'] || null
+        );
+
+        imported++;
+      } catch (error: any) {
+        errors.push({
+          row: rowNumber,
+          error: error.message || 'Failed to import row'
+        });
+      }
+    }
+
+    // Return summary
+    res.json({
+      success: true,
+      imported,
+      failed: errors.length,
+      errors: errors.length > 0 ? errors : undefined
+    });
+  } catch (error: any) {
+    console.error('CSV import error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to import CSV',
+      details: error.message
+    });
+  }
 });
 
 /**

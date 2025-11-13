@@ -8,18 +8,18 @@ It's time to update our documentation before ending this session. This prompt en
 
 ### 1. Update Session History
 
-- Add a new entry to `C:\Users\jlawr\Desktop\DEV\alchemix-next\Documentation\SESSION_HISTORY.md` with today's date and session details
+- Add a new entry to `Documentation/SESSION_HISTORY.md` with today's date and session details
 - Include all significant work completed during this session
 - Organize by key components and achievements (React Components, TypeScript Types, API Integration, Next.js Pages, etc.)
 - Use the format: `## Session: [Date] - [Brief Title]`
 - **IMPORTANT**: The main history file keeps only the **10 most recent sessions**
 - Place new entries at the **top** of the file
-- If there are more than 10 entries after adding yours, move the oldest entry to `C:\Users\jlawr\Desktop\DEV\alchemix-next\Documentation\archives\session-history-archive.md`
+- If there are more than 10 entries after adding yours, move the oldest entry to `Documentation/archives/session-history-archive.md`
 - When archiving, place the entry below the "Last archived" date line and update that date
 
 ### 2. Update Project Status
 
-- Refresh `C:\Users\jlawr\Desktop\DEV\alchemix-next\Documentation\PROJECT_STATUS.md` with current implementation status
+- Refresh `Documentation/PROJECT_STATUS.md` with current implementation status
 - Update "Implementation Status" sections for any features worked on
 - Mark completed items as ✅
 - Add new "Active Next Steps" based on today's progress
@@ -27,7 +27,7 @@ It's time to update our documentation before ending this session. This prompt en
 
 ### 3. Update Active Tasks
 
-- Modify `C:\Users\jlawr\Desktop\DEV\alchemix-next\Documentation\ACTIVE_TASKS.md`
+- Modify `Documentation/ACTIVE_TASKS.md`
 - Mark completed tasks with ✅ and today's date
 - Add new tasks identified during this session
 - Update priorities based on current development phase
@@ -35,7 +35,7 @@ It's time to update our documentation before ending this session. This prompt en
 
 ### 4. Update Development Notes
 
-- If any significant technical decisions were made, add them to `C:\Users\jlawr\Desktop\DEV\alchemix-next\Documentation\DEV_NOTES.md`
+- If any significant technical decisions were made, add them to `Documentation/DEV_NOTES.md`
 - Document any workarounds, gotchas, or lessons learned
 - Include code snippets or configuration changes for future reference
 - Note any dependencies or breaking changes
@@ -43,10 +43,10 @@ It's time to update our documentation before ending this session. This prompt en
 
 ### 5. Update Main Documentation (if applicable)
 
-- Update `C:\Users\jlawr\Desktop\DEV\alchemix-next\README.md` if setup instructions changed
-- Update `C:\Users\jlawr\Desktop\DEV\alchemix-next\CHANGELOG.md` with version changes
+- Update `README.md` if setup instructions changed
+- Update `CHANGELOG.md` with version changes
 - Ensure all examples and commands still work
-- Update `C:\Users\jlawr\Desktop\DEV\alchemix-next\PROGRESS_SUMMARY.md` with phase completions
+- Update `PROGRESS_SUMMARY.md` with phase completions
 
 ### 6. Check Implementation Progress
 
@@ -61,7 +61,7 @@ It's time to update our documentation before ending this session. This prompt en
 
 If these files don't exist yet, create them with the following structure:
 
-### `C:\Users\jlawr\Desktop\DEV\alchemix-next\Documentation\SESSION_HISTORY.md`
+### `Documentation/SESSION_HISTORY.md`
 
 ```markdown
 # Session History
@@ -100,7 +100,7 @@ This file tracks the 10 most recent development sessions. Older sessions are arc
 ---
 ```
 
-### `C:\Users\jlawr\Desktop\DEV\alchemix-next\Documentation\PROJECT_STATUS.md`
+### `Documentation/PROJECT_STATUS.md`
 
 ```markdown
 # Project Status
@@ -234,7 +234,7 @@ v1.0.0 (MVP - Feature Complete)
 ---
 ```
 
-### `C:\Users\jlawr\Desktop\DEV\alchemix-next\Documentation\ACTIVE_TASKS.md`
+### `Documentation/ACTIVE_TASKS.md`
 
 ```markdown
 # Active Tasks
@@ -281,7 +281,7 @@ Last updated: YYYY-MM-DD
 ---
 ```
 
-### `C:\Users\jlawr\Desktop\DEV\alchemix-next\Documentation\DEV_NOTES.md`
+### `Documentation/DEV_NOTES.md`
 
 ```markdown
 # Development Notes
@@ -308,7 +308,7 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 ---
 ```
 
-### `C:\Users\jlawr\Desktop\DEV\alchemix-next\Documentation\archives\session-history-archive.md`
+### `Documentation/archives/session-history-archive.md`
 
 ```markdown
 # Session History Archive
@@ -338,14 +338,14 @@ Provide a concise report of all documentation updates made (no more than 10 line
 
 ## Important Notes
 
-1. **Paths**: Always use full absolute paths starting with `C:\Users\jlawr\Desktop\DEV\alchemix-next\`
+1. **Paths**: Always use relative paths from project root
 2. **History Management**: Only keep the 10 most recent sessions in SESSION_HISTORY.md
 3. **Archive**: Move older entries to `Documentation/archives/session-history-archive.md` (create if needed)
 4. **Dates**: All dates should be in YYYY-MM-DD format (use current date: 2025-11-09)
 5. **Consistency**: Keep status aligned across PROJECT_STATUS.md, README.md, PROGRESS_SUMMARY.md, and CHANGELOG.md
 6. **Git Status**: Note any uncommitted changes or branches
 7. **TypeScript**: Document any type definition changes or type errors encountered (frontend and backend)
-8. **Monorepo Structure**: Backend is in `/api` folder - document any backend API changes separately
+8. **Monorepo Structure**: Backend is in `api` folder - document any backend API changes separately
 9. **PRESERVE ALL HISTORICAL RECORDS - THEY ARE VALUABLE CONTEXT**
 
 ---
@@ -369,36 +369,36 @@ When documenting work, organize by these categories:
 - Accessibility features (ARIA labels, keyboard navigation, focus management)
 
 ### **TypeScript Types**
-- Interface definitions (src/types/index.ts)
+- Interface definitions (`src/types/index.ts`)
 - Type exports and imports
 - Generic types
 - API response types
 - Zustand store types
 
 ### **Next.js Pages (App Router)**
-- Page components (src/app/*/page.tsx)
-- Layout components (layout.tsx)
-- Loading states (loading.tsx)
-- Error boundaries (error.tsx)
+- Page components (`src/app/*/page.tsx`)
+- Layout components (`layout.tsx`)
+- Loading states (`loading.tsx`)
+- Error boundaries (`error.tsx`)
 - Route groups and nested routes
 
 ### **Zustand State Management**
-- Store setup (src/lib/store.ts)
+- Store setup (`src/lib/store.ts`)
 - State slices
 - Actions and async operations
 - Persistence configuration
 - Store selectors
 
 ### **API Integration (Axios)**
-- API client configuration (src/lib/api.ts)
+- API client configuration (`src/lib/api.ts`)
 - Request/response interceptors
 - Endpoint methods
 - Error handling
 - JWT token management
 
 ### **CSS Modules & Design System**
-- Component-scoped styles (.module.css)
-- Global CSS variables (globals.css)
+- Component-scoped styles (`.module.css`)
+- Global CSS variables (`globals.css`)
 - Design tokens (colors, spacing, typography)
 - Responsive breakpoints
 - Animation and transitions
@@ -411,24 +411,24 @@ When documenting work, organize by these categories:
 - Navigation guards
 
 ### **Authentication**
-- JWT token storage (localStorage)
+- JWT token storage (`localStorage`)
 - Login/signup flows
 - Protected routes
 - Auto-logout on 401
 - Auth state persistence
 
-### **Backend (Express API in `/api` folder)**
+### **Backend (Express API in `api` folder)**
 - API routes (auth, inventory, recipes, favorites, messages)
 - Database operations (SQLite with better-sqlite3)
 - Middleware changes (authMiddleware, errorHandler)
 - Server configuration (CORS, rate limiting, Helmet)
-- Environment variables (.env configuration)
+- Environment variables (`.env` configuration)
 
 ### **Build & Configuration**
-- package.json dependencies
-- tsconfig.json settings
-- next.config.js (API proxy, etc.)
-- Environment variables (.env.local)
+- `package.json` dependencies
+- `tsconfig.json` settings
+- `next.config.js` (API proxy, etc.)
+- Environment variables (`.env.local`)
 - ESLint and Prettier
 
 ### **Documentation**
@@ -459,9 +459,9 @@ After using this prompt, record its effectiveness to improve future sessions.
 
 ### Metrics File Location
 
-**Create or update**: `C:\Users\jlawr\Desktop\DEV\alchemix-next\Documentation\metrics\prompt-effectiveness.md`
+**Create or update**: `Documentation/metrics/prompt-effectiveness.md`
 
-**If metrics directory doesn't exist**: Create `C:\Users\jlawr\Desktop\DEV\alchemix-next\Documentation\metrics\` first
+**If metrics directory doesn't exist**: Create `Documentation/metrics/` first
 
 ### Metrics File Structure
 
@@ -567,10 +567,10 @@ git log --oneline -10
 - [ ] MONOREPO_SETUP.md updated (if workflow changed)
 
 ### 4. Environment
-- [ ] Backend `.env` file configured correctly (`/api/.env`)
+- [ ] Backend `.env` file configured correctly (`api/.env`)
 - [ ] All dependencies installed (`npm run install:all`)
-- [ ] No sensitive data in git (.env files ignored)
-- [ ] Database file location correct (`/api/alchemix.db`)
+- [ ] No sensitive data in git (`.env` files ignored)
+- [ ] Database file location correct (`api/alchemix.db`)
 - [ ] CORS configured for localhost:3001
 
 ### 5. TypeScript
@@ -627,8 +627,8 @@ Focus on [next priority based on PROJECT_STATUS.md and ACTIVE_TASKS.md]
 ### Architecture Context
 - **Monorepo Structure**: Full-stack TypeScript application in single Git repository
 - **Frontend**: Next.js 14 + React 18 in root directory
-- **Backend**: Express.js + TypeScript in `/api` folder
-- **Database**: SQLite with auto-initialization (`/api/alchemix.db`)
+- **Backend**: Express.js + TypeScript in `api` folder
+- **Database**: SQLite with auto-initialization (`api/alchemix.db`)
 - **State**: Zustand with localStorage persistence
 - **Design**: AlcheMix brand (teal #3DD6C1 + orange #F2A74B, scientific lab aesthetic)
 

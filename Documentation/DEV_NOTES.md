@@ -4,6 +4,204 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-11-12 - API Response Structure Mismatch (Session 7)
+
+**Context**: After implementing backend API, CSV imports were accepted but no bottles appeared in the UI.
+
+**Problem**: Backend returns standardized response format:
+```typescript
+{ success: true, data: Bottle[], pagination: { ... } }
+```
+
+But frontend API client was returning the entire response object instead of extracting the `data` property:
+
+```typescript
+// ❌ BEFORE (Wrong):
+export const inventoryApi = {
+  async getAll(): Promise<Bottle[]> {
+    const { data } = await apiClient.get<Bottle[]>('/api/inventory');
+    return data;  // Returns { success: true, data: [...] }
+  }
+}
+
+// Frontend receives: { success: true, data: [...], pagination: {...} }
+// Zustand expects: Bottle[]
+// Result: Array methods fail, UI shows "your bar is empty"
+```
+
+**Solution**: Extract the nested `data` property:
+
+```typescript
+// ✅ AFTER (Fixed):
+export const inventoryApi = {
+  async getAll(): Promise<Bottle[]> {
+    const { data } = await apiClient.get<{ success: boolean; data: Bottle[] }>('/api/inventory');
+    return data.data;  // Extract bottles array from response
+  }
+}
+```
+
+**Applied to all API methods**:
+- `inventoryApi.getAll()`, `add()`, `update()`
+- `recipeApi.getAll()`, `add()`
+- `favoritesApi.getAll()`, `add()`
+
+**Result**: Frontend now receives proper arrays, UI displays all 42 imported bottles.
+
+**Lesson Learned**: When working with a backend that wraps responses in metadata (success flags, pagination), ensure frontend API layer unwraps to return just the data payload. Type the Axios response correctly to catch these issues at compile time.
+
+---
+
+## 2025-11-12 - Flexible CSV Import with Field Name Variations (Session 7)
+
+**Context**: User's CSV had 42 bottles but all failed validation with "Missing or invalid name field".
+
+**Problem**: Initial validation was too strict:
+```typescript
+// ❌ TOO STRICT:
+if (!record.name) {
+  errors.push('Missing name field');
+}
+```
+
+User's CSV had columns like "Spirit", "Brand", "Bottle Name" - none matched exact "name" field.
+
+**Solution**: Implement flexible field name matching:
+
+```typescript
+/**
+ * Helper to find field value from multiple possible column names
+ */
+function findField(record: any, possibleNames: string[]): any {
+  for (const name of possibleNames) {
+    const value = record[name];
+    if (value !== undefined && value !== null && value !== '') {
+      return value;
+    }
+  }
+  return null;
+}
+
+// Usage:
+const nameField = findField(record, [
+  'name', 'Name', 'NAME',
+  'Spirit Name', 'spirit name', 'Spirit', 'spirit',
+  'Bottle Name', 'bottle name', 'Bottle', 'bottle',
+  'Product Name', 'product name', 'Product', 'product',
+  'Brand', 'brand'
+]);
+```
+
+**Type conversion helpers**:
+```typescript
+const safeString = (val: any) => val ? String(val).trim() : null;
+const safeNumber = (val: any) => {
+  const num = parseInt(String(val));
+  return isNaN(num) ? null : num;
+};
+```
+
+**Field mapping** for all database columns:
+- `name` ← accepts: "name", "Spirit", "Brand", "Bottle Name", "Product Name" (10+ variations)
+- `Stock Number` ← accepts: "Stock Number", "stock number", "Stock", "#", "Number"
+- `Liquor Type` ← accepts: "Liquor Type", "Type", "Category"
+- `ABV (%)` ← accepts: "ABV (%)", "ABV", "abv", "Alcohol", "Proof"
+- etc.
+
+**Result**: All 42 bottles imported successfully (imported: 42, failed: 0).
+
+**Architecture Decision**: Prioritize user experience over strict validation. Better to flexibly accept reasonable column names than force users to match exact schema.
+
+**Future Considerations**:
+- Add CSV column mapping UI showing detected matches
+- Allow manual column mapping before import
+- Save user's column mapping preferences for next import
+
+---
+
+## 2025-11-12 - EditBottleModal Database Schema Mismatch (Session 7)
+
+**Context**: User clicked edit on an imported bottle, modal opened but all fields were empty.
+
+**Problem**: Modal component used different field names than database:
+
+```typescript
+// ❌ MODAL EXPECTED (old form fields):
+formData = {
+  Spirit: '',      // database has: 'Liquor Type'
+  Brand: '',       // database has: 'name'
+  'Age/Type': '',  // database has: 'Age Statement or Barrel Finish'
+  'Quantity (ml)': '',  // database doesn't track quantity
+  'Cost ($)': '',       // database doesn't track cost
+  'Date Added': '',     // database doesn't track dates
+}
+
+// ✅ DATABASE ACTUALLY HAS:
+bottle = {
+  name: 'Maker\'s Mark Bourbon',
+  'Liquor Type': 'Whiskey',
+  'Stock Number': 1,
+  'ABV (%)': '45',
+  'Distillery Location': 'Kentucky, USA',
+  'Age Statement or Barrel Finish': '6 Year',
+  'Profile (Nose)': 'Vanilla, oak, caramel',
+  'Palate': 'Sweet corn, honey',
+  'Finish': 'Smooth, warming',
+}
+```
+
+**Solution**: Complete modal refactor to match database schema:
+
+```typescript
+// New form state matching database:
+const [formData, setFormData] = useState({
+  name: '',
+  'Stock Number': '',
+  'Liquor Type': '',
+  'Detailed Spirit Classification': '',
+  'Distillation Method': '',
+  'ABV (%)': '',
+  'Distillery Location': '',
+  'Age Statement or Barrel Finish': '',
+  'Additional Notes': '',
+  'Profile (Nose)': '',
+  'Palate': '',
+  'Finish': '',
+});
+
+// Organized form into sections:
+// - Basic Information (name, Stock Number, Liquor Type)
+// - Classification & Details (classification, distillation method, ABV)
+// - Location & Age (distillery location, age statement)
+// - Tasting Profile (nose, palate, finish)
+// - Additional Information (notes)
+```
+
+**Updated validation**:
+```typescript
+case 'name':
+  return !value.trim() ? 'Name is required' : '';
+case 'Stock Number':
+  const num = parseInt(value);
+  if (isNaN(num)) return 'Must be a valid number';
+  return '';
+case 'ABV (%)':
+  const abv = parseFloat(value);
+  if (abv < 0 || abv > 100) return 'Must be between 0 and 100';
+  return '';
+```
+
+**Result**: Modal now displays all imported data correctly and saves updates with proper field names.
+
+**Lesson Learned**: Always align form field names EXACTLY with database schema. When schemas change, update all dependent UI components immediately. Consider using TypeScript mapped types to enforce field name consistency.
+
+**Future Considerations**:
+- Create shared form field definitions to prevent drift between Add/Edit modals
+- Use TypeScript `keyof Bottle` to enforce valid field names at compile time
+- Consider form generation from schema for automatic consistency
+
+---
+
 ## 2025-11-10 - Environment Variable Loading Order Fix (Session 6)
 
 **Context**: When running `npm run dev:all`, the API server was crashing with "JWT_SECRET environment variable is not set" even though the `.env` file was properly configured in `api/.env`.

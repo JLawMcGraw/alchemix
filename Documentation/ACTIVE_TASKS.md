@@ -1,6 +1,18 @@
 # Active Tasks
 
-Last updated: 2025-11-08 (Session 4)
+Last updated: 2025-11-12 (Session 7)
+
+## High Priority - Bug Fixes
+- [ ] **Investigate refresh logout issue** - User logs out on every page refresh
+  - Check Zustand persistence configuration
+  - Verify token validation logic
+  - Test localStorage auth state restoration
+- [ ] **Test Edit Modal** - Verify updated fields save correctly to database
+- [ ] **Refactor AddBottleModal** - Update to match database schema like EditBottleModal
+  - Change Spirit → name or Liquor Type
+  - Change Brand → part of name
+  - Add fields: Stock Number, Distillery Location, ABV (%), etc.
+- [ ] **Verify table display** - Check if imported bottles show correct data in My Bar table
 
 ## Critical (User Requested Improvements) - COMPLETED ✅
 - ✅ **Refine modal UX/UI** - 2025-11-08
@@ -54,6 +66,19 @@ Last updated: 2025-11-08 (Session 4)
 - [ ] None currently identified
 
 ## Recently Completed
+
+### Session 7 - 2025-11-12 (CSV Import & Edit Modal Fixes)
+- ✅ Fix API response structure mismatch (nested data extraction)
+- ✅ Implement validateBottleData function with flexible field matching
+- ✅ Add findField() helper for multiple column name variations
+- ✅ Add safeString() and safeNumber() type conversion helpers
+- ✅ Fix CSV import to accept 42 bottles successfully
+- ✅ Completely refactor EditBottleModal to match database schema
+- ✅ Organize modal fields into logical sections
+- ✅ Update validation for new field names
+- ✅ Fix handleSubmit to use correct database fields
+- ✅ Add debug logging to store and page components
+- ✅ Kill zombie node processes on ports 3000 and 3001
 
 ### Session 4 - 2025-11-08 (Modal System Polish)
 - ✅ Fix modal scrolling bug (min-height: 0 on content)

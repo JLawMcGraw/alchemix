@@ -51,10 +51,25 @@ export default function BarPage() {
   // Modal handlers
   const handleCSVUpload = async (file: File) => {
     try {
-      await inventoryApi.importCSV(file);
+      console.log('🔄 Starting CSV import...');
+      const result = await inventoryApi.importCSV(file);
+      console.log('✅ CSV import result:', result);
+      if (result.errors && result.errors.length > 0) {
+        console.warn('⚠️ Import had validation errors:');
+        result.errors.slice(0, 5).forEach((err: any) => {
+          console.warn(`  Row ${err.row}: ${err.error}`);
+        });
+      }
+      console.log('🔄 Fetching bottles after import...');
       await fetchBottles();
-      showToast('success', 'Successfully imported bottles from CSV');
+      console.log('✅ Bottles fetched successfully');
+      if (result.imported > 0) {
+        showToast('success', `Successfully imported ${result.imported} bottles from CSV`);
+      } else {
+        showToast('error', `CSV import failed: ${result.failed} rows had errors. Check console for details.`);
+      }
     } catch (error) {
+      console.error('❌ CSV import error:', error);
       showToast('error', 'Failed to import CSV');
       throw error;
     }

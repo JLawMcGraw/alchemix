@@ -1,12 +1,12 @@
 # Project Status
 
-Last updated: 2025-11-10
+Last updated: 2025-11-12
 
 ## Current Phase
-**Security Hardening Complete & Deployment Ready** - Completed comprehensive security enhancements (Phase 2+3), backend fully documented and production-ready
+**Bug Fixes & Data Integration** - Fixed critical CSV import and data display issues, refactored edit modal to match database schema
 
 ## Current Version
-v1.4.0-alpha (Security hardened full-stack with enterprise documentation)
+v1.5.0-alpha (CSV import working, edit modal refactored, 42 bottles successfully imported)
 
 ## Implementation Status
 
@@ -61,14 +61,16 @@ v1.4.0-alpha (Security hardened full-stack with enterprise documentation)
 - ⬜ Account page (`/account`)
 
 ### Bar Inventory Management
-- ✅ API client methods (getAll, add, update, delete)
-- ✅ Zustand store actions
+- ✅ API client methods (getAll, add, update, delete) - **Fixed response data extraction (Session 7)**
+- ✅ Zustand store actions with debug logging
 - ✅ Inventory table UI with filters
 - ✅ Array safety checks to prevent crashes
 - ✅ Add bottle modal with 12-field form + real-time validation
-- ✅ Edit bottle modal with pre-filled data + real-time validation
+- ✅ Edit bottle modal - **Completely refactored to match database schema (Session 7)**
 - ✅ Delete confirmation modal with ARIA support
-- ✅ CSV import modal (bottles)
+- ✅ CSV import modal (bottles) - **Now working with 42 bottles imported (Session 7)**
+- ✅ Flexible CSV parsing - **Accepts multiple column name variations (Session 7)**
+- ✅ CSV validation helpers (findField, safeString, safeNumber)
 - ✅ Toast notifications for all operations
 - ✅ Loading spinners for async operations
 - ✅ Success animations on save
@@ -76,7 +78,8 @@ v1.4.0-alpha (Security hardened full-stack with enterprise documentation)
 - ✅ Form validation (inline error messages)
 - ✅ Mobile responsive forms
 - ✅ Accessibility (ARIA labels, keyboard navigation)
-- ⬜ CSV import preview/validation
+- ⬜ AddBottleModal refactor to match database schema
+- ⬜ CSV import preview/validation UI
 - ⬜ Advanced filter/search functionality
 - ⬜ Bulk operations
 
@@ -165,31 +168,34 @@ v1.4.0-alpha (Security hardened full-stack with enterprise documentation)
 - ⬜ AI Bartender tested with real Anthropic API key
 
 ## Current Blockers
-- **End-to-End Testing**: New backend not yet tested with frontend (auth flow, CRUD operations)
+- **Refresh Logout Issue**: User reported being logged out on every page refresh - needs investigation
+- **AddBottleModal Schema Mismatch**: May need refactoring to match database schema like EditBottleModal
 - **Deployment Pending**: Need to deploy to Vercel + Railway for Phase 1
 - **Logo Image**: Logo needs to be edited/resized before integration into TopNav and Login page
-- **Sample Data**: No bottles/recipes in database for testing inventory/recipe features
 
 ## Active Next Steps (High Priority)
-1. **Test Monorepo Locally**: Run `npm run dev:all` and test full auth/CRUD flow with new backend
-2. **Phase 1 Deployment**:
-   - Push code to GitHub (single repo with monorepo structure)
+1. **Investigate Refresh Logout Issue**: Debug why auth state not persisting across page reloads
+2. **Test Edit Modal**: Verify bottle edits save correctly with new field names
+3. **Refactor AddBottleModal**: Update to use database schema fields (name, Liquor Type, ABV, etc.)
+4. **Test Table Display**: Verify imported bottle data displays correctly in My Bar table
+5. **Phase 1 Deployment**:
+   - Push code to GitHub
    - Deploy frontend to Vercel
-   - Deploy backend to Railway (with persistent storage for database)
-   - Configure environment variables for production
+   - Deploy backend to Railway (with persistent storage)
    - Test deployed app end-to-end
-3. **Documentation**: Create deployment guide for Vercel + Railway monorepo setup
-4. **Testing**: Test modals with real backend data
-5. **Mobile Testing**: Test responsive behavior on actual devices
 
 ## Active Next Steps (Medium Priority)
 6. Implement recipe detail overlay/modal
-7. Test CSV import with sample data files
-8. Add CSV import preview with column mapping (optional polish)
-9. Prepare logo asset for integration
+7. Test CSV import with different column name variations
+8. Add CSV import preview with column mapping UI
+9. Mobile device testing
 10. Add tooltip hints for complex form fields
 
 ## Recent Completions
+- **CSV Import Fixed** - 42 bottles successfully imported with flexible field matching - 2025-11-12 Session 7
+- **EditBottleModal Refactored** - Complete rewrite to match database schema - 2025-11-12 Session 7
+- **API Response Fix** - Fixed nested data extraction from backend responses - 2025-11-12 Session 7
+- **Flexible CSV Validation** - Accepts multiple column name variations - 2025-11-12 Session 7
 - **Monorepo backend created** (TypeScript Express in /api folder) - 2025-11-09 Session 5
 - **Complete API built** (auth, inventory, recipes, favorites, AI messages) - 2025-11-09 Session 5
 - **Deployment strategy planned** (Phase 1: Vercel + Railway free tier) - 2025-11-09 Session 5

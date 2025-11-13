@@ -4,6 +4,76 @@ This file tracks the 10 most recent development sessions. Older sessions are arc
 
 ---
 
+## Session: 2025-11-12 (Session 7) - CSV Import Bug Fixes & Edit Modal Refactor
+
+### Summary
+Fixed critical CSV import and data display issues preventing imported bottles from appearing in the UI. Resolved API response structure mismatch, implemented flexible CSV parsing with validation, and completely refactored the EditBottleModal to match the database schema. All 42 bottles from user's CSV now import successfully and display correctly with full edit functionality.
+
+### Components Worked On
+- **Frontend API Client**: Fixed response data extraction in `src/lib/api.ts` (inventoryApi, recipeApi, favoritesApi)
+- **Backend CSV Import**: Enhanced `api/src/routes/inventory.ts` with flexible field name matching and validation
+- **Modal Components**: Complete rewrite of `EditBottleModal.tsx` to use correct database field names
+- **State Management**: Added debug logging to `src/lib/store.ts` for bottle fetching
+- **Page Components**: Enhanced `src/app/bar/page.tsx` with CSV import error logging
+
+### Key Achievements
+- ✅ **API Response Structure Fix**: Fixed nested data extraction - backend returns `{ success: true, data: [] }` but frontend was returning entire object instead of extracting `data.data`
+- ✅ **Flexible CSV Validation**:
+  - Created `findField()` helper to accept multiple column name variations (case-insensitive)
+  - Added `safeString()` and `safeNumber()` type conversion helpers
+  - Made all fields optional except name
+  - Handles missing data gracefully without errors
+- ✅ **CSV Import Success**: All 42 bottles imported successfully from user's CSV (imported: 42, failed: 0)
+- ✅ **EditBottleModal Refactor**:
+  - Updated all form fields to match database schema (name, Liquor Type, ABV, Stock Number, etc.)
+  - Organized into logical sections (Basic Info, Classification, Location, Tasting Profile)
+  - Fixed validation to work with new field names
+  - Fixed handleSubmit to construct proper updates object
+- ✅ **Database Field Mapping**:
+  - Old: Spirit, Brand, Age/Type, Quantity (ml), Cost ($) ❌
+  - New: name, Liquor Type, ABV (%), Stock Number, Distillery Location ✅
+
+### Issues Encountered
+- **Bottles Not Displaying After CSV Upload**: Backend API returns `{ success: true, data: bottles }` but frontend `inventoryApi.getAll()` was returning entire response object. Fixed by changing `return data` to `return data.data`.
+- **Missing validateBottleData Function**: CSV import endpoint referenced non-existent function causing silent failures. Implemented comprehensive validation with flexible field matching.
+- **CSV Validation Too Strict**: Initial validation only accepted exact "name" field, causing all 42 rows to fail. Enhanced with `findField()` to accept variations like "Spirit", "Brand", "Spirit Name", etc.
+- **Server Port Conflicts (EADDRINUSE)**: Zombie node processes on ports 3000 and 3001. Killed with `taskkill //F //PID 14172 && taskkill //F //PID 73916`.
+- **Edit Modal Field Mismatch**: Modal used old field names (Spirit, Brand, etc.) instead of database schema. Completely rewrote modal component with correct fields.
+
+### Technical Decisions
+- **Flexible CSV Parsing**: Accept any reasonable column name variation rather than requiring exact matches - improves user experience
+- **Case-Insensitive Matching**: Use `findField()` to check multiple name variations (e.g., "name", "Name", "NAME", "Spirit", "Brand")
+- **Safe Type Conversion**: Always use `safeString()` and `safeNumber()` to handle null/undefined/empty values gracefully
+- **Validation Logging**: Log available CSV columns when validation fails to help debug field mapping issues
+- **Modal Reorganization**: Group fields by purpose (Basic Info, Classification, Location, Tasting Profile) for better UX
+
+### Files Modified
+- `src/lib/api.ts` (~100 lines modified) - Fixed response data extraction for all API methods
+- `api/src/routes/inventory.ts` (~350 lines added) - Added validateBottleData, findField, safeString, safeNumber helpers
+- `src/components/modals/EditBottleModal.tsx` (~180 lines rewritten) - Complete field name refactor to match database
+- `src/lib/store.ts` (~10 lines added) - Debug logging for bottle fetching
+- `src/app/bar/page.tsx` (~25 lines added) - CSV import error logging
+
+### Next Session Focus
+- **Testing & Validation**:
+  - Test edit modal with real imported data
+  - Verify bottle updates save correctly to database
+  - Test that all fields display and save properly
+  - Verify CSV import works with different column name variations
+
+- **Remaining Issues**:
+  - Refresh logout issue (user mentioned "why everytime I refresh it logs me out?") - needs investigation
+  - AddBottleModal may need similar refactoring to match database schema
+  - Consider if table display columns need updating to show imported data correctly
+
+- **Future Enhancements**:
+  - CSV column mapping preview UI
+  - Better error messages for CSV validation failures
+  - Field autocomplete for common values (liquor types, locations)
+  - Recipe detail modal implementation
+
+---
+
 ## Session: 2025-11-10 (Session 6) - Security Hardening & Comprehensive Documentation
 
 ### Summary

@@ -105,6 +105,7 @@ export interface AppState {
   signup: (credentials: SignupCredentials) => Promise<void>;
   logout: () => void;
   setUser: (user: User, token: string) => void;
+  validateToken: () => Promise<boolean>;
 
   fetchBottles: () => Promise<void>;
   addBottle: (bottle: Bottle) => Promise<void>;
