@@ -230,10 +230,10 @@ export const useStore = create<AppState>()(
         }
       },
 
-      addFavorite: async (recipeName) => {
+      addFavorite: async (recipeName, recipeId?) => {
         try {
           set({ isLoading: true, error: null });
-          const newFavorite = await favoritesApi.add(recipeName);
+          const newFavorite = await favoritesApi.add(recipeName, recipeId);
           set((state) => ({
             favorites: [...state.favorites, newFavorite],
             isLoading: false,

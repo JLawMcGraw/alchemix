@@ -6,7 +6,7 @@ import { useStore } from '@/lib/store';
 import { Button, useToast } from '@/components/ui';
 import { Card } from '@/components/ui/Card';
 import { BookOpen, Upload, Star, Martini } from 'lucide-react';
-import { CSVUploadModal } from '@/components/modals';
+import { CSVUploadModal, RecipeDetailModal } from '@/components/modals';
 import { recipeApi } from '@/lib/api';
 import type { Recipe } from '@/types';
 import styles from './recipes.module.css';
@@ -18,6 +18,7 @@ export default function RecipesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterSpirit, setFilterSpirit] = useState<string>('all');
   const [csvModalOpen, setCsvModalOpen] = useState(false);
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -36,14 +37,29 @@ export default function RecipesPage() {
   const recipesArray = Array.isArray(recipes) ? recipes : [];
   const favoritesArray = Array.isArray(favorites) ? favorites : [];
 
+  // Helper function to parse ingredients
+  const parseIngredients = (ingredients: string | string[] | undefined): string[] => {
+    if (!ingredients) return [];
+    if (Array.isArray(ingredients)) return ingredients;
+    try {
+      const parsed = JSON.parse(ingredients);
+      return Array.isArray(parsed) ? parsed : [ingredients];
+    } catch {
+      return ingredients.split(',').map(i => i.trim());
+    }
+  };
+
   // Get unique spirit types
   const spiritTypes = ['all', ...new Set(recipesArray.map((r) => r.spirit_type).filter(Boolean))];
 
   // Filter recipes
   const filteredRecipes = recipesArray.filter((recipe) => {
+    const ingredientsArray = parseIngredients(recipe.ingredients);
+    const ingredientsText = ingredientsArray.join(' ').toLowerCase();
+
     const matchesSearch = searchQuery
       ? recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        recipe.ingredients?.toLowerCase().includes(searchQuery.toLowerCase())
+        ingredientsText.includes(searchQuery.toLowerCase())
       : true;
     const matchesSpirit = filterSpirit === 'all' || recipe.spirit_type === filterSpirit;
     return matchesSearch && matchesSpirit;
@@ -73,10 +89,7 @@ export default function RecipesPage() {
         await removeFavorite(favorite.id);
         showToast('success', 'Removed from favorites');
       } else {
-        await addFavorite({
-          recipe_id: recipe.id,
-          recipe_name: recipe.name,
-        });
+        await addFavorite(recipe.name, recipe.id);
         showToast('success', 'Added to favorites');
       }
     } catch (error) {
@@ -183,13 +196,20 @@ export default function RecipesPage() {
                   )}
 
                   <p className={styles.ingredients}>
-                    {recipe.ingredients
-                      ? recipe.ingredients.split(',').slice(0, 3).join(', ')
-                      : 'No ingredients listed'}
-                    {recipe.ingredients && recipe.ingredients.split(',').length > 3 && '...'}
+                    {(() => {
+                      const ingredientsArray = parseIngredients(recipe.ingredients);
+                      if (ingredientsArray.length === 0) return 'No ingredients listed';
+                      const displayIngredients = ingredientsArray.slice(0, 3).join(', ');
+                      return ingredientsArray.length > 3 ? `${displayIngredients}...` : displayIngredients;
+                    })()}
                   </p>
 
-                  <Button variant="primary" size="sm" fullWidth>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    fullWidth
+                    onClick={() => setSelectedRecipe(recipe)}
+                  >
                     View Recipe
                   </Button>
                 </div>
@@ -204,6 +224,19 @@ export default function RecipesPage() {
           onClose={() => setCsvModalOpen(false)}
           type="recipes"
           onUpload={handleCSVUpload}
+        />
+
+        {/* Recipe Detail Modal */}
+        <RecipeDetailModal
+          isOpen={!!selectedRecipe}
+          onClose={() => setSelectedRecipe(null)}
+          recipe={selectedRecipe}
+          isFavorited={selectedRecipe ? isFavorited(selectedRecipe.id!) : false}
+          onToggleFavorite={() => {
+            if (selectedRecipe) {
+              handleToggleFavorite(selectedRecipe);
+            }
+          }}
         />
       </div>
     </div>

@@ -161,8 +161,11 @@ export const favoritesApi = {
     return data.data;
   },
 
-  async add(recipeName: string): Promise<Favorite> {
-    const { data } = await apiClient.post<{ success: boolean; data: Favorite }>('/api/favorites', { recipe_name: recipeName });
+  async add(recipeName: string, recipeId?: number): Promise<Favorite> {
+    const { data } = await apiClient.post<{ success: boolean; data: Favorite }>('/api/favorites', {
+      recipe_name: recipeName,
+      recipe_id: recipeId
+    });
     return data.data;
   },
 

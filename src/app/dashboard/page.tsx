@@ -34,6 +34,18 @@ export default function DashboardPage() {
     return null;
   }
 
+  // Helper function to parse ingredients
+  const parseIngredients = (ingredients: string | string[] | undefined): string[] => {
+    if (!ingredients) return [];
+    if (Array.isArray(ingredients)) return ingredients;
+    try {
+      const parsed = JSON.parse(ingredients);
+      return Array.isArray(parsed) ? parsed : [ingredients];
+    } catch {
+      return ingredients.split(',').map(i => i.trim());
+    }
+  };
+
   // Calculate stats
   const bottlesArray = Array.isArray(bottles) ? bottles : [];
   const recipesArray = Array.isArray(recipes) ? recipes : [];
@@ -184,7 +196,7 @@ export default function DashboardPage() {
                     <li key={recipe.id} className={styles.recipeItem}>
                       <span className={styles.recipeName}>{recipe.name}</span>
                       <span className={styles.recipeIngredients}>
-                        {recipe.ingredients?.split(',').length || 0} ingredients
+                        {parseIngredients(recipe.ingredients).length} ingredients
                       </span>
                     </li>
                   ))}

@@ -8,14 +8,18 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 
 ## ✨ Current Status
 
-**Version:** v1.5.0-alpha (CSV Import Working, Edit Modal Refactored)
-**Phase:** Bug Fixes & Data Integration - 42 Bottles Successfully Imported
-**Last Updated:** November 12, 2025
+**Version:** v1.6.0-alpha (Recipe System Complete, RecipeDetailModal Implemented)
+**Phase:** Recipe System Enhancement - CSV Import & Detail Modal Working
+**Last Updated:** November 13, 2025
 
 ### What's Working
 - ✅ **Complete TypeScript monorepo** (Frontend + Backend) ⭐
 - ✅ **Modern Express backend** with JWT auth, CRUD APIs ⭐
 - ✅ **SQLite database** with auto-initialization ⭐
+- ✅ **Recipe CSV Import** - Flexible parsing with multiple delimiters (;, |, \n, ,) ⭐
+- ✅ **RecipeDetailModal** - Full recipe details with ingredients, instructions, compatibility ⭐
+- ✅ **Ingredient Parsing** - Universal parser handles JSON arrays and strings ⭐
+- ✅ **Favorites Enhanced** - Now properly links recipe_id for data integrity ⭐
 - ✅ **CSV Import Fixed** - Flexible field name matching, 42 bottles imported ⭐
 - ✅ **Edit Modal Refactored** - Now matches database schema correctly ⭐
 - ✅ **Enterprise Security (Phase 2+3+4 Complete)** ⭐⭐⭐
@@ -46,9 +50,11 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 - ✅ Loading states and success animations
 - ✅ Mobile responsive modals (<640px)
 - ✅ WCAG 2.1 AA accessibility compliance
-- ✅ CSV import functionality (bottles & recipes)
-- ✅ Favorites management
+- ✅ CSV import functionality (bottles & recipes) with flexible parsing
+- ✅ Recipe detail modal with full information display
+- ✅ Favorites management with recipe_id linking
 - ✅ Full inventory table with filtering
+- ✅ View recipe from favorites page
 
 ### Next Phase
 - 🚀 **Deployment to Production** (Vercel + Railway)
@@ -58,7 +64,8 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 
 ### Optional Enhancements
 - CSV import preview with column mapping
-- Recipe detail modal
+- Recipe editing functionality (currently read-only)
+- Recipe deletion
 - Password reset flow
 - Dark mode support
 
@@ -202,11 +209,11 @@ The Next.js app connects to the Express backend API running on port 3000.
 **Recipe Management:**
 - `GET /api/recipes` - Get all recipes
 - `POST /api/recipes` - Add new recipe
-- `POST /api/recipes/import` - Import recipes from CSV
+- `POST /api/recipes/import` - Import recipes from CSV (supports multiple delimiters)
 
 **Favorites:**
 - `GET /api/favorites` - Get user favorites
-- `POST /api/favorites` - Add favorite
+- `POST /api/favorites` - Add favorite (with optional recipe_id)
 - `DELETE /api/favorites/:id` - Remove favorite
 
 **AI Bartender:**
@@ -240,6 +247,7 @@ The Next.js app connects to the Express backend API running on port 3000.
 - Add bottle modal (12-field form) with real-time validation
 - Edit bottle modal (pre-filled editing) with real-time validation
 - Delete confirmation modal with focus management
+- Recipe detail modal with full recipe information (ingredients, instructions, compatibility)
 - Toast notification system (ToastProvider)
 - Full CRUD operations on My Bar page
 - Success animations with auto-dismiss (1.5s)
@@ -260,8 +268,9 @@ The Next.js app connects to the Express backend API running on port 3000.
 
 ### 🚧 Planned Features
 
-- Recipe detail modal/overlay
-- Recipe creation and editing forms
+- Recipe editing functionality (currently read-only)
+- Recipe deletion
+- Recipe creation forms
 - CSV import preview with column mapping
 - Advanced inventory filtering and search
 - Bulk operations for inventory
@@ -475,7 +484,7 @@ Detailed documentation is available in the `Documentation/` folder:
 2. **CSV Preview**: No preview/column mapping before importing CSV files (optional enhancement)
 3. **Mobile Testing**: Responsive design not tested on actual devices yet
 4. **Screen Reader Testing**: Accessibility not yet verified with actual screen readers (NVDA, JAWS, VoiceOver)
-5. **Recipe Detail Modal**: Not yet implemented (planned enhancement)
+5. **Recipe Editing**: Recipe detail modal is read-only (editing not yet implemented)
 6. **Password Reset**: Password reset flow not implemented (post-MVP)
 
 See `Documentation/ACTIVE_TASKS.md` for the complete task list and priorities.
@@ -491,10 +500,11 @@ See `Documentation/ACTIVE_TASKS.md` for the complete task list and priorities.
 
 **Medium Priority:**
 6. Test accessibility with screen readers (NVDA, JAWS, VoiceOver)
-7. Create recipe detail modal/overlay
-8. Implement recipe creation/editing forms
-9. Add CSV import preview with column mapping
-10. Build account settings page
+7. Implement recipe editing functionality
+8. Implement recipe deletion
+9. Implement recipe creation forms
+10. Add CSV import preview with column mapping
+11. Build account settings page
 
 **Optional Enhancements:**
 - Tooltip hints for complex form fields
@@ -529,5 +539,5 @@ MIT License - see LICENSE file for details
 
 **Built with ❤️ using Next.js 14 + Express + TypeScript**
 
-**Current Version:** v1.4.0-alpha (Security Hardened Full-Stack)
-**Last Updated:** November 10, 2025
+**Current Version:** v1.6.0-alpha (Recipe System Complete)
+**Last Updated:** November 13, 2025

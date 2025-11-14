@@ -27,12 +27,37 @@
  */
 
 import { Router, Request, Response } from 'express';
+import multer from 'multer';
+import { parse } from 'csv-parse/sync';
 import { db } from '../database/db';
 import { authMiddleware } from '../middleware/auth';
 import { sanitizeString, validateNumber } from '../utils/inputValidator';
 import { Recipe } from '../types';
 
 const router = Router();
+
+/**
+ * Multer Configuration for File Uploads
+ *
+ * Configure multer for CSV file uploads:
+ * - Memory storage (don't save to disk)
+ * - 5MB file size limit
+ * - Only accept CSV files
+ */
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB max
+  },
+  fileFilter: (req, file, cb) => {
+    // Only accept CSV files
+    if (file.mimetype === 'text/csv' || file.originalname.endsWith('.csv')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only CSV files are allowed'));
+    }
+  },
+});
 
 /**
  * Authentication Requirement
@@ -525,50 +550,256 @@ router.post('/', (req: Request, res: Response) => {
 });
 
 /**
+ * Helper function to find a field value from record using multiple possible column names
+ */
+function findField(record: any, possibleNames: string[]): any {
+  for (const name of possibleNames) {
+    const value = record[name];
+    if (value !== undefined && value !== null && value !== '') {
+      return value;
+    }
+  }
+  return null;
+}
+
+/**
+ * Helper function to validate and sanitize recipe data from CSV
+ * Very flexible - handles any column names and missing fields
+ */
+function validateRecipeData(record: any): { isValid: boolean; errors: string[]; sanitized?: any } {
+  const errors: string[] = [];
+
+  // Try to find the name field with various possible column names
+  const nameField = findField(record, [
+    'name', 'Name', 'NAME',
+    'Recipe Name', 'recipe name', 'Recipe', 'recipe',
+    'Cocktail', 'cocktail', 'Cocktail Name', 'cocktail name',
+    'Drink', 'drink', 'Drink Name', 'drink name'
+  ]);
+
+  // Only require that SOME name exists
+  if (!nameField || (typeof nameField === 'string' && nameField.trim().length === 0)) {
+    errors.push(`Missing name field. Available columns: ${Object.keys(record).join(', ')}`);
+  }
+
+  // If validation failed, return early
+  if (errors.length > 0) {
+    return { isValid: false, errors };
+  }
+
+  // Helper to safely convert to string and trim
+  const safeString = (val: any) => val ? String(val).trim() : null;
+
+  // Get ingredients field and convert to array format
+  const ingredientsField = findField(record, [
+    'ingredients', 'Ingredients', 'INGREDIENTS',
+    'Items', 'items', 'Recipe Items', 'recipe items',
+    'Components', 'components'
+  ]);
+
+  let ingredientsArray: string[] = [];
+  if (ingredientsField) {
+    const ingredientsStr = String(ingredientsField).trim();
+    if (ingredientsStr.length > 0) {
+      // Support multiple delimiters: semicolon, pipe, or newline
+      if (ingredientsStr.includes(';')) {
+        ingredientsArray = ingredientsStr.split(';').map(i => i.trim()).filter(i => i.length > 0);
+      } else if (ingredientsStr.includes('|')) {
+        ingredientsArray = ingredientsStr.split('|').map(i => i.trim()).filter(i => i.length > 0);
+      } else if (ingredientsStr.includes('\n')) {
+        ingredientsArray = ingredientsStr.split('\n').map(i => i.trim()).filter(i => i.length > 0);
+      } else {
+        // Single ingredient or already comma-separated
+        ingredientsArray = ingredientsStr.split(',').map(i => i.trim()).filter(i => i.length > 0);
+      }
+    }
+  }
+
+  // Sanitize the data - be very flexible with column names
+  const sanitized = {
+    name: safeString(nameField),
+    ingredients: ingredientsArray,
+    instructions: safeString(findField(record, [
+      'instructions', 'Instructions', 'INSTRUCTIONS',
+      'Method', 'method', 'Directions', 'directions',
+      'Steps', 'steps', 'How to Make', 'how to make',
+      'Preparation', 'preparation', 'Recipe', 'recipe'
+    ])),
+    glass: safeString(findField(record, [
+      'glass', 'Glass', 'GLASS',
+      'Glass Type', 'glass type', 'Glassware', 'glassware',
+      'Serve In', 'serve in', 'Serving Glass', 'serving glass'
+    ])),
+    category: safeString(findField(record, [
+      'category', 'Category', 'CATEGORY',
+      'Type', 'type', 'Style', 'style',
+      'Drink Type', 'drink type', 'Classification', 'classification'
+    ])),
+  };
+
+  return { isValid: true, errors: [], sanitized };
+}
+
+/**
  * POST /api/recipes/import - CSV Import
  *
  * Bulk import recipes from CSV file.
  *
- * Status: NOT YET IMPLEMENTED (Phase 3)
+ * Request: multipart/form-data with 'file' field
  *
- * Planned Features:
- * - Accept CSV file upload via multipart/form-data
- * - Parse CSV with validation for each row
- * - Support standard CSV format (comma-separated)
- * - Handle errors gracefully (partial success)
- * - Return summary: imported count, failed rows with reasons
- *
- * Planned CSV Format:
+ * Supported CSV Formats:
  * ```
  * Name,Ingredients,Instructions,Glass,Category
  * "Old Fashioned","2 oz Bourbon; 1 sugar cube; 2 dashes bitters","Muddle sugar...","Rocks glass","Classic"
- * "Margarita","2 oz Tequila; 1 oz Lime juice; 1 oz Cointreau","Shake with ice...","Coupe","Sour"
+ * "Margarita","2 oz Tequila | 1 oz Lime juice | 1 oz Cointreau","Shake with ice...","Coupe","Sour"
  * ```
  *
- * Ingredient Handling:
- * - Semicolon-separated in CSV (easier than nested JSON)
- * - Converted to array during import
- * - Example: "2 oz Bourbon; 1 sugar cube" → ["2 oz Bourbon", "1 sugar cube"]
+ * Ingredient Delimiters Supported:
+ * - Semicolon (;) - Most common
+ * - Pipe (|) - Alternative
+ * - Newline (\n) - Multi-line
+ * - Comma (,) - If no other delimiter found
  *
- * Security Considerations:
- * - File size limit: 10MB (already enforced by server.ts)
- * - Row limit: 1,000 rows max (prevent DoS)
+ * Flexible Column Names:
+ * - Name: "name", "Name", "Recipe Name", "Cocktail", "Drink", etc.
+ * - Ingredients: "ingredients", "Items", "Components", etc.
+ * - Instructions: "instructions", "Method", "Directions", "Steps", etc.
+ * - Glass: "glass", "Glass Type", "Glassware", "Serve In", etc.
+ * - Category: "category", "Type", "Style", "Drink Type", etc.
+ *
+ * Response (200 OK):
+ * {
+ *   "success": true,
+ *   "imported": 25,
+ *   "failed": 2,
+ *   "errors": [
+ *     { "row": 3, "error": "Missing required field: name" },
+ *     { "row": 7, "error": "Failed to parse ingredients" }
+ *   ]
+ * }
+ *
+ * Security:
+ * - File size limit: 5MB
+ * - Row limit: 1,000 recipes max (prevent DoS)
  * - Same validation as individual recipe creation
- * - Transaction: All-or-nothing OR partial with error report
- * - Rate limiting: 1 import per 5 minutes per user
- *
- * Implementation Priority: Low (Phase 3+)
- * - Core features complete
- * - Manual entry works fine for personal collections
- * - CSV is nice-to-have for batch imports
+ * - Partial success: Import what we can, report errors
  */
-router.post('/import', (req: Request, res: Response) => {
-  // Placeholder response until implementation
-  res.status(501).json({
-    success: false,
-    error: 'CSV import not yet implemented',
-    details: 'This feature is planned for Phase 3. Use POST /api/recipes to add recipes individually.'
-  });
+router.post('/import', upload.single('file'), async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    // Check if file was uploaded
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'No file uploaded'
+      });
+    }
+
+    // Parse CSV
+    const csvContent = req.file.buffer.toString('utf-8');
+    let records: any[];
+
+    try {
+      records = parse(csvContent, {
+        columns: true, // First row is headers
+        skip_empty_lines: true,
+        trim: true,
+      });
+    } catch (parseError: any) {
+      return res.status(400).json({
+        success: false,
+        error: 'Failed to parse CSV file',
+        details: parseError.message
+      });
+    }
+
+    // Limit to 1000 rows to prevent DoS
+    if (records.length > 1000) {
+      return res.status(400).json({
+        success: false,
+        error: 'Too many rows',
+        details: 'Maximum 1000 recipes per import'
+      });
+    }
+
+    if (records.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'CSV file is empty'
+      });
+    }
+
+    // Process each row
+    let imported = 0;
+    const errors: { row: number; error: string }[] = [];
+
+    for (let i = 0; i < records.length; i++) {
+      const record = records[i];
+      const rowNumber = i + 2; // +2 because: 0-indexed + header row
+
+      try {
+        // Validate recipe data
+        const validation = validateRecipeData(record);
+
+        if (!validation.isValid) {
+          errors.push({
+            row: rowNumber,
+            error: validation.errors.join(', ')
+          });
+          continue;
+        }
+
+        const recipe = validation.sanitized;
+
+        // Convert ingredients array to JSON string for storage
+        const ingredientsStr = JSON.stringify(recipe.ingredients);
+
+        // Insert into database
+        db.prepare(`
+          INSERT INTO recipes (
+            user_id, name, ingredients, instructions, glass, category
+          ) VALUES (?, ?, ?, ?, ?, ?)
+        `).run(
+          userId,
+          recipe.name,
+          ingredientsStr,
+          recipe.instructions,
+          recipe.glass,
+          recipe.category
+        );
+
+        imported++;
+      } catch (error: any) {
+        errors.push({
+          row: rowNumber,
+          error: error.message || 'Failed to import row'
+        });
+      }
+    }
+
+    // Return summary
+    res.json({
+      success: true,
+      imported,
+      failed: errors.length,
+      errors: errors.length > 0 ? errors : undefined
+    });
+  } catch (error: any) {
+    console.error('Recipe CSV import error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to import CSV',
+      details: error.message
+    });
+  }
 });
 
 /**

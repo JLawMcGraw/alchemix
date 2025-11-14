@@ -1,12 +1,12 @@
 # Project Status
 
-Last updated: 2025-11-12
+Last updated: 2025-11-13
 
 ## Current Phase
-**Bug Fixes & Data Integration** - Fixed critical CSV import and data display issues, refactored edit modal to match database schema
+**Recipe System Enhancement** - Implemented recipe CSV import, created recipe detail modal, fixed ingredient parsing across all pages
 
 ## Current Version
-v1.5.0-alpha (CSV import working, edit modal refactored, 42 bottles successfully imported)
+v1.6.0-alpha (Recipe CSV import working, RecipeDetailModal implemented, ingredient parsing fixed)
 
 ## Implementation Status
 
@@ -87,11 +87,15 @@ v1.5.0-alpha (CSV import working, edit modal refactored, 42 bottles successfully
 - ✅ API client methods (getAll, add)
 - ✅ Zustand store actions
 - ✅ Recipe grid view with cards
-- ✅ Search and filter UI
+- ✅ Search and filter UI (spirit type, search query)
 - ✅ Favorite/unfavorite toggle with Star icon
-- ✅ CSV import modal (recipes)
+- ✅ CSV import modal (recipes) - **Full implementation with flexible parsing (Session 8)**
+- ✅ Recipe CSV import backend endpoint - **Supports multiple delimiters (Session 8)**
 - ✅ Toast notifications for favorites
-- ⬜ Recipe detail overlay
+- ✅ Recipe detail modal - **RecipeDetailModal component created (Session 8)**
+- ✅ Ingredient parsing - **parseIngredients() helper handles JSON arrays and strings (Session 8)**
+- ✅ View recipe from favorites page - **Modal integration with recipe lookup (Session 8)**
+- ✅ Favorites enhancement - **Now links recipe_id for better data integrity (Session 8)**
 - ⬜ Recipe creation form
 - ⬜ Recipe editing
 
@@ -107,13 +111,15 @@ v1.5.0-alpha (CSV import working, edit modal refactored, 42 bottles successfully
 - ⬜ Conversation persistence (currently in memory)
 
 ### Favorites & History
-- ✅ API client methods
+- ✅ API client methods (getAll, add, remove)
 - ✅ Zustand store actions
 - ✅ Favorites tab UI with star icons
 - ✅ History tab UI with date grouping
 - ✅ Empty states
 - ✅ Remove favorite functionality
-- ⬜ Click to view recipe details
+- ✅ Click to view recipe details - **Integrated RecipeDetailModal (Session 8)**
+- ✅ Recipe lookup by recipe_id - **Fallback to name matching (Session 8)**
+- ✅ Favorite/unfavorite from modal - **Auto-closes on remove (Session 8)**
 
 ### Styling & Design
 - ✅ Design system CSS variables (AlcheMix colors)
@@ -168,30 +174,36 @@ v1.5.0-alpha (CSV import working, edit modal refactored, 42 bottles successfully
 - ⬜ AI Bartender tested with real Anthropic API key
 
 ## Current Blockers
-- **Refresh Logout Issue**: User reported being logged out on every page refresh - needs investigation
-- **AddBottleModal Schema Mismatch**: May need refactoring to match database schema like EditBottleModal
 - **Deployment Pending**: Need to deploy to Vercel + Railway for Phase 1
 - **Logo Image**: Logo needs to be edited/resized before integration into TopNav and Login page
+- **AddBottleModal Schema Mismatch**: May need refactoring to match database schema like EditBottleModal
 
 ## Active Next Steps (High Priority)
-1. **Investigate Refresh Logout Issue**: Debug why auth state not persisting across page reloads
-2. **Test Edit Modal**: Verify bottle edits save correctly with new field names
-3. **Refactor AddBottleModal**: Update to use database schema fields (name, Liquor Type, ABV, etc.)
-4. **Test Table Display**: Verify imported bottle data displays correctly in My Bar table
-5. **Phase 1 Deployment**:
+1. **Phase 1 Deployment**:
+   - Test full stack functionality on Mac
    - Push code to GitHub
    - Deploy frontend to Vercel
    - Deploy backend to Railway (with persistent storage)
    - Test deployed app end-to-end
+   - Configure production environment variables
+2. **Test CSV Imports**: Verify recipe and bottle CSV imports work with various file formats
+3. **Refactor AddBottleModal**: Update to use database schema fields (name, Liquor Type, ABV, etc.)
+4. **Mobile Device Testing**: Test responsive behavior on actual mobile devices
 
 ## Active Next Steps (Medium Priority)
-6. Implement recipe detail overlay/modal
-7. Test CSV import with different column name variations
-8. Add CSV import preview with column mapping UI
-9. Mobile device testing
-10. Add tooltip hints for complex form fields
+5. Add recipe editing functionality (currently read-only)
+6. Add recipe deletion
+7. Add CSV import preview with column mapping UI
+8. Add tooltip hints for complex form fields
+9. Field autocomplete for common values (spirit types, locations)
 
 ## Recent Completions
+- **Node.js v20 Installed** - Resolved Mac compilation issues with nvm - 2025-11-13 Session 8
+- **Recipe CSV Import** - Full implementation with flexible column matching - 2025-11-13 Session 8
+- **RecipeDetailModal** - Complete modal with ingredients, instructions, compatibility - 2025-11-13 Session 8
+- **Ingredient Parsing** - Fixed .split() errors across dashboard, recipes, favorites - 2025-11-13 Session 8
+- **Favorites Enhancement** - Now properly links recipe_id for better integrity - 2025-11-13 Session 8
+- **View Recipe from Favorites** - Modal integration with recipe lookup - 2025-11-13 Session 8
 - **CSV Import Fixed** - 42 bottles successfully imported with flexible field matching - 2025-11-12 Session 7
 - **EditBottleModal Refactored** - Complete rewrite to match database schema - 2025-11-12 Session 7
 - **API Response Fix** - Fixed nested data extraction from backend responses - 2025-11-12 Session 7

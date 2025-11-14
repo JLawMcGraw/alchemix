@@ -1,18 +1,24 @@
 # Active Tasks
 
-Last updated: 2025-11-12 (Session 7)
+Last updated: 2025-11-13 (Session 8)
 
-## High Priority - Bug Fixes
-- [ ] **Investigate refresh logout issue** - User logs out on every page refresh
-  - Check Zustand persistence configuration
-  - Verify token validation logic
-  - Test localStorage auth state restoration
-- [ ] **Test Edit Modal** - Verify updated fields save correctly to database
+## High Priority - Deployment & Testing
+- [ ] **Phase 1 Deployment** - Deploy to free tier production
+  - Test full stack functionality on Mac
+  - Push code to GitHub
+  - Deploy frontend to Vercel
+  - Deploy backend to Railway (with persistent storage)
+  - Configure production environment variables
+  - Test deployed app end-to-end
+- [ ] **Test CSV Imports** - Verify with various file formats
+  - Test recipe CSV imports with different delimiters
+  - Test bottle CSV imports with different column names
+  - Test edge cases (empty fields, special characters)
+- [ ] **Mobile Device Testing** - Test responsive behavior on actual devices
 - [ ] **Refactor AddBottleModal** - Update to match database schema like EditBottleModal
   - Change Spirit → name or Liquor Type
   - Change Brand → part of name
   - Add fields: Stock Number, Distillery Location, ABV (%), etc.
-- [ ] **Verify table display** - Check if imported bottles show correct data in My Bar table
 
 ## Critical (User Requested Improvements) - COMPLETED ✅
 - ✅ **Refine modal UX/UI** - 2025-11-08
@@ -37,35 +43,52 @@ Last updated: 2025-11-12 (Session 7)
   - Error rows highlighting
 - [ ] **Test modals with real data** - Verify functionality with backend
 
-## High Priority
-- [ ] Test all modal improvements with real backend data
-- [ ] Test mobile responsive behavior on actual devices
-- [ ] Test accessibility with screen readers
-- [ ] Implement recipe detail overlay/modal
+## Medium Priority - Enhancements
+- [ ] Add recipe editing functionality (currently read-only)
+- [ ] Add recipe deletion
 - [ ] Edit and optimize logo image for TopNav/Login integration
-- [ ] Test CSV import with sample data files
 - [ ] Add Anthropic API key to backend .env for AI testing
+- [ ] Test accessibility with screen readers
+- [ ] Add CSV column mapping preview UI
+- [ ] Add tooltip hints for complex fields
+- [ ] Field autocomplete for common values (spirit types, locations)
 
-## Medium Priority
+## Low Priority - Optional Enhancements
 - [ ] Build recipe creation modal
 - [ ] Add error boundary components
-- [ ] Test on main development PC
 - [ ] Implement advanced inventory filtering
 - [ ] Add bulk operations for inventory
+- [ ] Dark mode support
 
-## Low Priority / Future
-- [ ] Tooltip hints for complex fields (Info icons)
-- [ ] Field autocomplete/suggestions (Spirit types, locations)
+## Future Enhancements
 - [ ] 4-step CSV upload flow (enhanced UX)
 - [ ] Empty state illustrations
-- [ ] Dark mode toggle
 - [ ] Mobile PWA setup
 - [ ] Performance optimization
-
-## Bug Fixes
-- [ ] None currently identified
+- [ ] Image uploads for recipes/bottles
 
 ## Recently Completed
+
+### Session 8 - 2025-11-13 (Recipe System Enhancement)
+- ✅ Install Node.js v20 LTS via nvm on Mac
+- ✅ Configure nvm in ~/.zshrc for automatic loading
+- ✅ Create backend .env with secure JWT_SECRET
+- ✅ Implement recipe CSV import endpoint with flexible parsing
+- ✅ Add multer file upload configuration
+- ✅ Create validateRecipeData() with findField() helper
+- ✅ Support multiple ingredient delimiters (;, |, \n, ,)
+- ✅ Create RecipeDetailModal component (~220 lines)
+- ✅ Create RecipeDetailModal.module.css (~270 lines)
+- ✅ Add parseIngredients() helper to handle JSON arrays
+- ✅ Fix ingredient .split() errors on dashboard
+- ✅ Fix ingredient .split() errors on recipes page
+- ✅ Integrate RecipeDetailModal on recipes page
+- ✅ Integrate RecipeDetailModal on favorites page
+- ✅ Add handleViewRecipe() with recipe lookup (by ID, fallback to name)
+- ✅ Fix "Add to Favorites" error (corrected API parameters)
+- ✅ Enhance favoritesApi.add() to accept optional recipe_id
+- ✅ Update Zustand store addFavorite() signature
+- ✅ Export RecipeDetailModal from modals/index.ts
 
 ### Session 7 - 2025-11-12 (CSV Import & Edit Modal Fixes)
 - ✅ Fix API response structure mismatch (nested data extraction)

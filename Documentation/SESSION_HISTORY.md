@@ -4,6 +4,116 @@ This file tracks the 10 most recent development sessions. Older sessions are arc
 
 ---
 
+## Session: 2025-11-13 (Session 8) - Recipe CSV Import & Detail Modal Implementation
+
+### Summary
+Resolved Node.js version conflict on Mac, implemented missing recipe CSV import functionality, created RecipeDetailModal component for viewing recipe details, and fixed ingredients parsing issues across dashboard, recipes, and favorites pages. Enhanced favorites system to properly link recipes with recipe_id parameter.
+
+### Components Worked On
+- **Development Environment**: Installed Node.js v20 LTS via nvm on Mac (Homebrew)
+- **Backend API**: Implemented complete recipe CSV import in `api/src/routes/recipes.ts` with flexible column matching
+- **Modal Components**: Created RecipeDetailModal.tsx with full recipe details, ingredients list, instructions, compatibility meter
+- **Page Components**: Fixed `src/app/dashboard/page.tsx`, `src/app/recipes/page.tsx`, `src/app/favorites/page.tsx` with ingredient parsing
+- **API Client**: Enhanced `src/lib/api.ts` favorites API to support optional recipe_id parameter
+- **State Management**: Updated `src/lib/store.ts` addFavorite() to accept optional recipeId
+- **TypeScript Types**: Updated `src/types/index.ts` addFavorite() signature
+
+### Key Achievements
+- ✅ **Node.js v20 Installation**:
+  - Installed nvm (Node Version Manager) via Homebrew on Mac
+  - Installed Node.js v20.19.5 (LTS) to fix better-sqlite3 compilation issues
+  - Set Node v20 as default and added nvm to ~/.zshrc
+  - Reinstalled all dependencies with correct Node version
+  - Backend .env created with secure JWT secret
+
+- ✅ **Recipe CSV Import Implementation**:
+  - Added multer file upload configuration
+  - Created `validateRecipeData()` function with flexible field matching
+  - Created `findField()` helper to accept multiple column name variations
+  - Supports multiple ingredient delimiters (`;`, `|`, `\n`, `,`)
+  - Validates up to 1,000 recipes per import
+  - Returns detailed error reports for failed rows
+  - Matches working bottle CSV import functionality
+
+- ✅ **RecipeDetailModal Component** (~220 lines):
+  - Shows full recipe name with spirit type and category badges
+  - Displays all ingredients from JSON array (properly parsed)
+  - Shows instructions, glass type, and serve information
+  - Includes compatibility meter with percentage bar
+  - Shows missing ingredients list if applicable
+  - Favorite/unfavorite button with proper state management
+  - Full accessibility (ARIA labels, keyboard navigation, ESC to close)
+  - Mobile responsive with smooth animations
+  - Integrated on both recipes and favorites pages
+
+- ✅ **Ingredient Parsing Fix**:
+  - Created `parseIngredients()` helper function to handle multiple formats
+  - Handles JSON array strings: `["rum", "lime"]`
+  - Handles already-parsed arrays: `["rum", "lime"]`
+  - Handles comma-separated strings: `"rum, lime"`
+  - Handles undefined/null values gracefully
+  - Applied to dashboard, recipes, and favorites pages
+  - Fixed `.split()` errors on dashboard and recipe pages
+
+- ✅ **Favorites System Enhancement**:
+  - Updated `favoritesApi.add()` to accept optional `recipeId` parameter
+  - Updated Zustand store `addFavorite()` signature
+  - Now properly links favorites to recipes via recipe_id
+  - Favorites page can view full recipe details via modal
+  - Auto-closes modal when unfavoriting from modal
+  - Shows error if recipe not found or deleted
+
+### Issues Encountered
+- **Node.js v24 Compilation Errors**: User's Mac had Node v24 which caused better-sqlite3 to fail compilation. Installed Node v20 LTS via nvm and configured shell profile.
+- **Recipe CSV Import Not Implemented**: Recipe import endpoint returned 501 "Not Implemented" stub. Fully implemented with flexible parsing matching bottle import.
+- **Ingredient Field Type Mismatch**: Database stores ingredients as JSON array but frontend expected comma-separated string. Created universal parsing function.
+- **Dashboard `.split()` Error**: Dashboard tried to call `.split(',')` on JSON array. Fixed with parseIngredients() helper.
+- **Recipes Page `.split()` Error**: Same issue on recipes page. Applied same fix.
+- **Favorites "Add to Favorites" Error**: Passed object `{recipe_id, recipe_name}` instead of just `recipe_name` string. Fixed parameter to match API.
+- **Favorites "View Recipe" Not Working**: Button had no onClick handler and no modal integration. Implemented full modal system with recipe lookup.
+
+### Technical Decisions
+- **nvm vs Direct Install**: Chose nvm for Node.js management to easily switch versions and set defaults
+- **Homebrew Installation**: Used Homebrew on Mac for nvm installation (more reliable than manual install)
+- **Recipe Lookup Strategy**: Try recipe_id first (most reliable), fall back to name matching, show error if not found
+- **parseIngredients Placement**: Created function in component scope rather than utility file (used in 3 pages, keep DRY later if needed)
+- **Modal Reuse**: Used same RecipeDetailModal on both recipes and favorites pages for consistency
+- **Favorite ID Linking**: Enhanced API to support optional recipe_id for better data integrity
+
+### Files Created
+- `src/components/modals/RecipeDetailModal.tsx` (~220 lines) - Full recipe detail modal
+- `src/components/modals/RecipeDetailModal.module.css` (~270 lines) - Modal styling with animations
+- `api/.env` - Backend environment configuration with JWT_SECRET
+
+### Files Modified
+- `api/src/routes/recipes.ts` (~150 lines added) - Full CSV import implementation
+- `src/app/dashboard/page.tsx` (~20 lines added) - parseIngredients() helper and usage
+- `src/app/recipes/page.tsx` (~30 lines added) - parseIngredients(), modal integration, onClick handler
+- `src/app/favorites/page.tsx` (~60 lines added) - Modal integration, handleViewRecipe(), handleToggleFavorite()
+- `src/components/modals/index.ts` (1 line) - Export RecipeDetailModal
+- `src/lib/api.ts` (5 lines modified) - favoritesApi.add() accepts optional recipeId
+- `src/lib/store.ts` (1 line modified) - addFavorite() signature with optional recipeId
+- `src/types/index.ts` (1 line modified) - addFavorite() type signature
+
+### Next Session Focus
+- **Deployment Preparation**:
+  - Test full stack functionality on Mac
+  - Verify all CRUD operations work correctly
+  - Test CSV imports with various file formats
+  - Prepare for deployment to Vercel (frontend) and Railway (backend)
+  - Configure production environment variables
+  - Set up persistent storage for SQLite database
+
+- **Optional Enhancements**:
+  - Add recipe editing functionality (currently read-only)
+  - Implement recipe deletion
+  - Add recipe search/filtering enhancements
+  - CSV column mapping preview UI
+  - Field autocomplete for common values
+  - Dark mode support
+
+---
+
 ## Session: 2025-11-12 (Session 7) - CSV Import Bug Fixes & Edit Modal Refactor
 
 ### Summary

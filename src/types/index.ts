@@ -116,7 +116,7 @@ export interface AppState {
   addRecipe: (recipe: Recipe) => Promise<void>;
 
   fetchFavorites: () => Promise<void>;
-  addFavorite: (recipeName: string) => Promise<void>;
+  addFavorite: (recipeName: string, recipeId?: number) => Promise<void>;
   removeFavorite: (id: number) => Promise<void>;
 
   sendMessage: (message: string) => Promise<string>;
