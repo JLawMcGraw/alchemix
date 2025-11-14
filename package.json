@@ -13,7 +13,12 @@
     "start:api": "cd api && npm start",
     "lint": "next lint",
     "type-check": "tsc --noEmit && cd api && npm run type-check",
-    "install:all": "npm install && cd api && npm install"
+    "install:all": "npm install && cd api && npm install",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
+    "test:all": "npm test && cd api && npm test"
   },
   "dependencies": {
     "axios": "^1.6.5",
@@ -24,12 +29,20 @@
     "zustand": "^4.5.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.2.0",
+    "@testing-library/react": "^14.1.2",
+    "@testing-library/user-event": "^14.5.2",
     "@types/node": "^20.11.5",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
+    "@vitejs/plugin-react": "^4.2.1",
+    "@vitest/coverage-v8": "^1.2.0",
+    "@vitest/ui": "^1.2.0",
     "concurrently": "^8.2.2",
     "eslint": "^8.56.0",
     "eslint-config-next": "^14.1.0",
-    "typescript": "^5.3.3"
+    "jsdom": "^23.2.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.0"
   }
 }
