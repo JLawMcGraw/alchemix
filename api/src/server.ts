@@ -34,7 +34,7 @@ import express, { Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import { initializeDatabase } from './database/db';
+import { initializeDatabase, db } from './database/db';
 import { corsOptions } from './utils/corsConfig';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { userRateLimit } from './middleware/userRateLimit';

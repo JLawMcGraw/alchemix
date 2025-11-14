@@ -217,6 +217,36 @@ export const useStore = create<AppState>()(
         }
       },
 
+      updateRecipe: async (id, recipe) => {
+        try {
+          set({ isLoading: true, error: null });
+          const updatedRecipe = await recipeApi.update(id, recipe);
+          set((state) => ({
+            recipes: state.recipes.map((r) => (r.id === id ? updatedRecipe : r)),
+            isLoading: false,
+          }));
+        } catch (error: any) {
+          const errorMessage = error.response?.data?.error || 'Failed to update recipe';
+          set({ error: errorMessage, isLoading: false });
+          throw new Error(errorMessage);
+        }
+      },
+
+      deleteRecipe: async (id) => {
+        try {
+          set({ isLoading: true, error: null });
+          await recipeApi.delete(id);
+          set((state) => ({
+            recipes: state.recipes.filter((r) => r.id !== id),
+            isLoading: false,
+          }));
+        } catch (error: any) {
+          const errorMessage = error.response?.data?.error || 'Failed to delete recipe';
+          set({ error: errorMessage, isLoading: false });
+          throw new Error(errorMessage);
+        }
+      },
+
       // Favorites Actions
       fetchFavorites: async () => {
         try {

@@ -29,7 +29,7 @@ import multer from 'multer';
 import { parse } from 'csv-parse/sync';
 import { db } from '../database/db';
 import { authMiddleware } from '../middleware/auth';
-import { validateBottleData, validateNumber } from '../utils/inputValidator';
+import { validateNumber } from '../utils/inputValidator';
 import { Bottle } from '../types';
 
 const router = Router();

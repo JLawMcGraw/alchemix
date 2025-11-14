@@ -137,6 +137,15 @@ export const recipeApi = {
     return data.data;
   },
 
+  async update(id: number, recipe: Partial<Recipe>): Promise<Recipe> {
+    const { data } = await apiClient.put<{ success: boolean; data: Recipe }>(`/api/recipes/${id}`, recipe);
+    return data.data;
+  },
+
+  async delete(id: number): Promise<void> {
+    await apiClient.delete(`/api/recipes/${id}`);
+  },
+
   async importCSV(file: File): Promise<{ count: number }> {
     const formData = new FormData();
     formData.append('file', file);

@@ -1,36 +1,47 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import axios from 'axios';
+
+// Use vi.hoisted to ensure mocks are set up before module import
+const { mockAxiosInstance } = vi.hoisted(() => {
+  const instance: any = {
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    delete: vi.fn(),
+    _requestInterceptor: null,
+    _responseInterceptor: null,
+  };
+
+  instance.interceptors = {
+    request: {
+      use: vi.fn((onFulfilled) => {
+        instance._requestInterceptor = onFulfilled;
+        return 0;
+      }),
+    },
+    response: {
+      use: vi.fn((onFulfilled, onRejected) => {
+        instance._responseInterceptor = { onFulfilled, onRejected };
+        return 0;
+      }),
+    },
+  };
+
+  return { mockAxiosInstance: instance };
+});
+
+vi.mock('axios', () => ({
+  default: {
+    create: () => mockAxiosInstance,
+  },
+}));
+
+// Now import api after mocking
 import { authApi, inventoryApi, recipeApi, favoritesApi, aiApi } from './api';
 
-// Mock axios
-vi.mock('axios');
-const mockedAxios = axios as any;
-
 describe('API Client', () => {
-  let mockAxiosInstance: any;
-
   beforeEach(() => {
-    // Create mock axios instance
-    mockAxiosInstance = {
-      get: vi.fn(),
-      post: vi.fn(),
-      put: vi.fn(),
-      delete: vi.fn(),
-      interceptors: {
-        request: {
-          use: vi.fn((onFulfilled) => {
-            mockAxiosInstance._requestInterceptor = onFulfilled;
-          }),
-        },
-        response: {
-          use: vi.fn((onFulfilled, onRejected) => {
-            mockAxiosInstance._responseInterceptor = { onFulfilled, onRejected };
-          }),
-        },
-      },
-    };
-
-    mockedAxios.create = vi.fn(() => mockAxiosInstance);
+    // Clear mock calls
+    vi.clearAllMocks();
 
     // Mock localStorage
     const localStorageMock = {
@@ -149,11 +160,6 @@ describe('API Client', () => {
   });
 
   describe('authApi', () => {
-    beforeEach(() => {
-      // Re-import to get fresh instance with mocks
-      vi.resetModules();
-    });
-
     it('should login with credentials', async () => {
       const credentials = {
         email: 'test@example.com',

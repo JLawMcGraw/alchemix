@@ -7,6 +7,10 @@ export default defineConfig({
     environment: 'node',
     root: process.cwd(),
     setupFiles: [path.resolve(__dirname, './src/tests/setup.ts')],
+    env: {
+      JWT_SECRET: 'test-jwt-secret-key-for-unit-tests-only-minimum-32-characters',
+      NODE_ENV: 'test',
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

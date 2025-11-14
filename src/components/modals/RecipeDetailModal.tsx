@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { X, Star, Martini } from 'lucide-react';
-import { Button } from '@/components/ui';
+import { useEffect, useRef, useState } from 'react';
+import { X, Star, Martini, Edit2, Save, Trash2 } from 'lucide-react';
+import { Button, useToast } from '@/components/ui';
+import { useStore } from '@/lib/store';
 import type { Recipe } from '@/types';
 import styles from './RecipeDetailModal.module.css';
 
@@ -22,6 +23,10 @@ export function RecipeDetailModal({
   onToggleFavorite
 }: RecipeDetailModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editedRecipe, setEditedRecipe] = useState<Partial<Recipe>>({});
+  const { updateRecipe, deleteRecipe, fetchRecipes } = useStore();
+  const { showToast } = useToast();
 
   // Helper function to parse ingredients
   const parseIngredients = (ingredients: string | string[] | undefined): string[] => {
@@ -35,15 +40,88 @@ export function RecipeDetailModal({
     }
   };
 
+  // Initialize edit form when recipe changes
+  useEffect(() => {
+    if (recipe && isOpen) {
+      setEditedRecipe({
+        name: recipe.name,
+        ingredients: recipe.ingredients,
+        instructions: recipe.instructions,
+        glass: recipe.glass,
+        category: recipe.category,
+      });
+      setIsEditMode(false);
+    }
+  }, [recipe, isOpen]);
+
+  // Handle save
+  const handleSave = async () => {
+    if (!recipe?.id) return;
+
+    try {
+      await updateRecipe(recipe.id, editedRecipe);
+      await fetchRecipes();
+      setIsEditMode(false);
+      showToast('success', 'Recipe updated successfully');
+    } catch (error) {
+      showToast('error', 'Failed to update recipe');
+      console.error('Failed to update recipe:', error);
+    }
+  };
+
+  // Handle delete
+  const handleDelete = async () => {
+    if (!recipe?.id) return;
+
+    if (!confirm('Are you sure you want to delete this recipe? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await deleteRecipe(recipe.id);
+      await fetchRecipes();
+      showToast('success', 'Recipe deleted successfully');
+      onClose();
+    } catch (error) {
+      showToast('error', 'Failed to delete recipe');
+      console.error('Failed to delete recipe:', error);
+    }
+  };
+
+  // Handle cancel edit
+  const handleCancel = () => {
+    if (recipe) {
+      setEditedRecipe({
+        name: recipe.name,
+        ingredients: recipe.ingredients,
+        instructions: recipe.instructions,
+        glass: recipe.glass,
+        category: recipe.category,
+      });
+    }
+    setIsEditMode(false);
+  };
+
+  // Handle ingredient changes (convert between string and array)
+  const handleIngredientsChange = (value: string) => {
+    // Split by newlines for easy editing
+    const ingredientsArray = value.split('\n').filter(line => line.trim());
+    setEditedRecipe({ ...editedRecipe, ingredients: ingredientsArray });
+  };
+
   // Focus management and keyboard shortcuts
   useEffect(() => {
     if (isOpen) {
       // Handle keyboard events
       const handleKeyDown = (e: KeyboardEvent) => {
-        // ESC to close
+        // ESC to close (or cancel edit mode)
         if (e.key === 'Escape') {
           e.preventDefault();
-          onClose();
+          if (isEditMode) {
+            handleCancel();
+          } else {
+            onClose();
+          }
           return;
         }
 
@@ -68,11 +146,11 @@ export function RecipeDetailModal({
       document.addEventListener('keydown', handleKeyDown);
       return () => document.removeEventListener('keydown', handleKeyDown);
     }
-  }, [isOpen, onClose]);
+  }, [isOpen, isEditMode, onClose]);
 
   if (!isOpen || !recipe) return null;
 
-  const ingredientsArray = parseIngredients(recipe.ingredients);
+  const ingredientsArray = parseIngredients(isEditMode ? editedRecipe.ingredients : recipe.ingredients);
 
   return (
     <div className={styles.overlay} onClick={onClose}>
@@ -89,59 +167,137 @@ export function RecipeDetailModal({
           <div className={styles.titleSection}>
             <Martini size={28} className={styles.titleIcon} />
             <div>
-              <h2 className={styles.title} id="recipe-detail-title">
-                {recipe.name}
-              </h2>
-              {recipe.spirit_type && (
-                <span className={styles.spiritBadge}>{recipe.spirit_type}</span>
-              )}
-              {recipe.category && (
-                <span className={styles.categoryBadge}>{recipe.category}</span>
+              {isEditMode ? (
+                <input
+                  type="text"
+                  value={editedRecipe.name || ''}
+                  onChange={(e) => setEditedRecipe({ ...editedRecipe, name: e.target.value })}
+                  className={styles.titleInput}
+                  placeholder="Recipe name"
+                />
+              ) : (
+                <>
+                  <h2 className={styles.title} id="recipe-detail-title">
+                    {recipe.name}
+                  </h2>
+                  {recipe.spirit_type && (
+                    <span className={styles.spiritBadge}>{recipe.spirit_type}</span>
+                  )}
+                  {recipe.category && (
+                    <span className={styles.categoryBadge}>{recipe.category}</span>
+                  )}
+                </>
               )}
             </div>
           </div>
-          <button
-            className={styles.closeBtn}
-            onClick={onClose}
-            aria-label="Close modal"
-          >
-            <X size={24} />
-          </button>
+          <div className={styles.headerButtons}>
+            {!isEditMode && (
+              <button
+                className={styles.editBtn}
+                onClick={() => setIsEditMode(true)}
+                title="Edit recipe"
+                aria-label="Edit recipe"
+              >
+                <Edit2 size={20} />
+              </button>
+            )}
+            <button
+              className={styles.closeBtn}
+              onClick={onClose}
+              aria-label="Close modal"
+            >
+              <X size={24} />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
         <div className={styles.content}>
+          {/* Category (Edit Mode Only) */}
+          {isEditMode && (
+            <section className={styles.section}>
+              <h3 className={styles.sectionTitle}>Category</h3>
+              <input
+                type="text"
+                value={editedRecipe.category || ''}
+                onChange={(e) => setEditedRecipe({ ...editedRecipe, category: e.target.value })}
+                className={styles.textInput}
+                placeholder="e.g., Classic, Sour, Tiki"
+              />
+            </section>
+          )}
+
           {/* Ingredients */}
           <section className={styles.section}>
             <h3 className={styles.sectionTitle}>Ingredients</h3>
-            {ingredientsArray.length > 0 ? (
-              <ul className={styles.ingredientsList}>
-                {ingredientsArray.map((ingredient, index) => (
-                  <li key={index} className={styles.ingredientItem}>
-                    {ingredient}
-                  </li>
-                ))}
-              </ul>
+            {isEditMode ? (
+              <textarea
+                value={ingredientsArray.join('\n')}
+                onChange={(e) => handleIngredientsChange(e.target.value)}
+                className={styles.textarea}
+                placeholder="Enter each ingredient on a new line&#10;e.g., 2 oz Bourbon&#10;1 sugar cube&#10;2 dashes bitters"
+                rows={6}
+              />
             ) : (
-              <p className={styles.emptyText}>No ingredients listed</p>
+              <>
+                {ingredientsArray.length > 0 ? (
+                  <ul className={styles.ingredientsList}>
+                    {ingredientsArray.map((ingredient, index) => (
+                      <li key={index} className={styles.ingredientItem}>
+                        {ingredient}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className={styles.emptyText}>No ingredients listed</p>
+                )}
+              </>
             )}
           </section>
 
           {/* Instructions */}
-          {recipe.instructions && (
-            <section className={styles.section}>
-              <h3 className={styles.sectionTitle}>Instructions</h3>
-              <p className={styles.instructions}>{recipe.instructions}</p>
-            </section>
-          )}
+          <section className={styles.section}>
+            <h3 className={styles.sectionTitle}>Instructions</h3>
+            {isEditMode ? (
+              <textarea
+                value={editedRecipe.instructions || ''}
+                onChange={(e) => setEditedRecipe({ ...editedRecipe, instructions: e.target.value })}
+                className={styles.textarea}
+                placeholder="Describe how to make this cocktail..."
+                rows={4}
+              />
+            ) : (
+              <>
+                {recipe.instructions ? (
+                  <p className={styles.instructions}>{recipe.instructions}</p>
+                ) : (
+                  <p className={styles.emptyText}>No instructions provided</p>
+                )}
+              </>
+            )}
+          </section>
 
           {/* Glass Type */}
-          {recipe.glass && (
-            <section className={styles.section}>
-              <h3 className={styles.sectionTitle}>Serve In</h3>
-              <p className={styles.glassType}>{recipe.glass}</p>
-            </section>
-          )}
+          <section className={styles.section}>
+            <h3 className={styles.sectionTitle}>Serve In</h3>
+            {isEditMode ? (
+              <input
+                type="text"
+                value={editedRecipe.glass || ''}
+                onChange={(e) => setEditedRecipe({ ...editedRecipe, glass: e.target.value })}
+                className={styles.textInput}
+                placeholder="e.g., Rocks glass, Coupe, Highball"
+              />
+            ) : (
+              <>
+                {recipe.glass ? (
+                  <p className={styles.glassType}>{recipe.glass}</p>
+                ) : (
+                  <p className={styles.emptyText}>No glass type specified</p>
+                )}
+              </>
+            )}
+          </section>
 
           {/* Compatibility */}
           {recipe.compatibility !== undefined && recipe.compatibility !== null && (
@@ -178,20 +334,43 @@ export function RecipeDetailModal({
 
         {/* Footer */}
         <div className={styles.footer}>
-          <Button
-            variant={isFavorited ? 'outline' : 'primary'}
-            onClick={onToggleFavorite}
-          >
-            <Star
-              size={18}
-              fill={isFavorited ? 'currentColor' : 'none'}
-              style={{ marginRight: '8px' }}
-            />
-            {isFavorited ? 'Remove from Favorites' : 'Add to Favorites'}
-          </Button>
-          <Button variant="outline" onClick={onClose}>
-            Close
-          </Button>
+          {isEditMode ? (
+            <>
+              <Button
+                variant="outline"
+                onClick={handleDelete}
+                className={styles.deleteBtn}
+              >
+                <Trash2 size={18} style={{ marginRight: '8px' }} />
+                Delete
+              </Button>
+              <div style={{ flex: 1 }} />
+              <Button variant="outline" onClick={handleCancel}>
+                Cancel
+              </Button>
+              <Button variant="primary" onClick={handleSave}>
+                <Save size={18} style={{ marginRight: '8px' }} />
+                Save Changes
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant={isFavorited ? 'outline' : 'primary'}
+                onClick={onToggleFavorite}
+              >
+                <Star
+                  size={18}
+                  fill={isFavorited ? 'currentColor' : 'none'}
+                  style={{ marginRight: '8px' }}
+                />
+                {isFavorited ? 'Remove from Favorites' : 'Add to Favorites'}
+              </Button>
+              <Button variant="outline" onClick={onClose}>
+                Close
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </div>

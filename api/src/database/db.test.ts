@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import Database from 'better-sqlite3';
-import { createTestDatabase } from '../tests/setup';
+import { createTestDatabase, cleanupTestDatabase } from '../tests/setup';
 
 describe('Database Operations', () => {
   let db: Database.Database;
@@ -10,7 +10,7 @@ describe('Database Operations', () => {
   });
 
   afterEach(() => {
-    db.close();
+    cleanupTestDatabase(db);
   });
 
   describe('Schema Creation', () => {

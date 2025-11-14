@@ -45,12 +45,14 @@ export interface Recipe {
   id?: number;
   user_id?: number;
   name: string;
-  ingredients: string;  // JSON string or array
+  ingredients: string | string[];  // JSON string or array
   instructions?: string;
   glass?: string;
   category?: string;
+  spirit_type?: string;
   compatibility?: number;
   missing?: string[];
+  created_at?: string;
 }
 
 // Favorite
@@ -114,6 +116,8 @@ export interface AppState {
 
   fetchRecipes: () => Promise<void>;
   addRecipe: (recipe: Recipe) => Promise<void>;
+  updateRecipe: (id: number, recipe: Partial<Recipe>) => Promise<void>;
+  deleteRecipe: (id: number) => Promise<void>;
 
   fetchFavorites: () => Promise<void>;
   addFavorite: (recipeName: string, recipeId?: number) => Promise<void>;

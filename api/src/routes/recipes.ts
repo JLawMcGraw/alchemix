@@ -463,13 +463,14 @@ router.post('/', (req: Request, res: Response) => {
       }
     } else if (Array.isArray(recipe.ingredients)) {
       // Array of ingredients, validate length
-      if (recipe.ingredients.length > 100) {
+      const ingredientsArray = recipe.ingredients as any[];
+      if (ingredientsArray.length > 100) {
         return res.status(400).json({
           success: false,
           error: 'Too many ingredients (maximum 100)'
         });
       }
-      ingredientsStr = JSON.stringify(recipe.ingredients);
+      ingredientsStr = JSON.stringify(ingredientsArray);
     } else {
       // Object format, stringify
       ingredientsStr = JSON.stringify(recipe.ingredients);
@@ -803,18 +804,297 @@ router.post('/import', upload.single('file'), async (req: Request, res: Response
 });
 
 /**
+ * PUT /api/recipes/:id - Update Existing Recipe
+ *
+ * Updates an existing cocktail recipe in user's collection.
+ *
+ * URL Parameters:
+ * - id: Recipe ID (number)
+ *
+ * Request Body (all fields optional, only send what needs updating):
+ * {
+ *   "name": "Old Fashioned (Updated)",
+ *   "ingredients": ["2.5 oz Bourbon", "1 sugar cube", "3 dashes bitters"],
+ *   "instructions": "Updated instructions...",
+ *   "glass": "Rocks glass",
+ *   "category": "Classic"
+ * }
+ *
+ * Response (200 OK):
+ * {
+ *   "success": true,
+ *   "data": {
+ *     "id": 123,
+ *     "user_id": 1,
+ *     "name": "Old Fashioned (Updated)",
+ *     "ingredients": ["2.5 oz Bourbon", ...],
+ *     "instructions": "Updated instructions...",
+ *     "glass": "Rocks glass",
+ *     "category": "Classic",
+ *     "created_at": "2025-11-10T14:32:05.123Z"
+ *   }
+ * }
+ *
+ * Error Responses:
+ * - 400: Invalid recipe ID, validation failed
+ * - 401: Unauthorized (no valid JWT)
+ * - 403: Forbidden (recipe belongs to another user)
+ * - 404: Recipe not found
+ * - 500: Database error
+ *
+ * Security:
+ * - User ownership check: Ensures user can only update their own recipes
+ * - Input validation: Same as POST /api/recipes
+ * - SQL injection: Parameterized queries only
+ */
+router.put('/:id', (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    // Validate recipe ID
+    const recipeId = parseInt(req.params.id, 10);
+    if (isNaN(recipeId) || recipeId <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid recipe ID'
+      });
+    }
+
+    // Check if recipe exists and belongs to user
+    const existingRecipe = db.prepare(
+      'SELECT * FROM recipes WHERE id = ? AND user_id = ?'
+    ).get(recipeId, userId) as Recipe | undefined;
+
+    if (!existingRecipe) {
+      return res.status(404).json({
+        success: false,
+        error: 'Recipe not found or access denied'
+      });
+    }
+
+    const updates: any = req.body;
+
+    // Build dynamic UPDATE query based on provided fields
+    const fieldsToUpdate: string[] = [];
+    const values: any[] = [];
+
+    // Name
+    if (updates.name !== undefined) {
+      if (typeof updates.name !== 'string') {
+        return res.status(400).json({
+          success: false,
+          error: 'Name must be a string'
+        });
+      }
+
+      const sanitizedName = sanitizeString(updates.name, 255, true);
+      if (sanitizedName.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Name cannot be empty after sanitization'
+        });
+      }
+
+      fieldsToUpdate.push('name = ?');
+      values.push(sanitizedName);
+    }
+
+    // Ingredients
+    if (updates.ingredients !== undefined) {
+      let ingredientsStr: string;
+
+      if (updates.ingredients === null) {
+        ingredientsStr = '[]';
+      } else if (typeof updates.ingredients === 'string') {
+        try {
+          JSON.parse(updates.ingredients);
+          ingredientsStr = updates.ingredients;
+        } catch (error) {
+          return res.status(400).json({
+            success: false,
+            error: 'Ingredients string is not valid JSON'
+          });
+        }
+      } else if (Array.isArray(updates.ingredients)) {
+        const ingredientsArray = updates.ingredients as any[];
+        if (ingredientsArray.length > 100) {
+          return res.status(400).json({
+            success: false,
+            error: 'Too many ingredients (maximum 100)'
+          });
+        }
+        ingredientsStr = JSON.stringify(ingredientsArray);
+      } else {
+        ingredientsStr = JSON.stringify(updates.ingredients);
+      }
+
+      fieldsToUpdate.push('ingredients = ?');
+      values.push(ingredientsStr);
+    }
+
+    // Instructions
+    if (updates.instructions !== undefined) {
+      const sanitizedInstructions = updates.instructions
+        ? sanitizeString(updates.instructions, 2000, true)
+        : null;
+      fieldsToUpdate.push('instructions = ?');
+      values.push(sanitizedInstructions);
+    }
+
+    // Glass
+    if (updates.glass !== undefined) {
+      const sanitizedGlass = updates.glass
+        ? sanitizeString(updates.glass, 100, true)
+        : null;
+      fieldsToUpdate.push('glass = ?');
+      values.push(sanitizedGlass);
+    }
+
+    // Category
+    if (updates.category !== undefined) {
+      const sanitizedCategory = updates.category
+        ? sanitizeString(updates.category, 100, true)
+        : null;
+      fieldsToUpdate.push('category = ?');
+      values.push(sanitizedCategory);
+    }
+
+    // If no fields to update, return current recipe
+    if (fieldsToUpdate.length === 0) {
+      const parsedRecipe = {
+        ...existingRecipe,
+        ingredients: JSON.parse(existingRecipe.ingredients as string)
+      };
+      return res.json({
+        success: true,
+        data: parsedRecipe
+      });
+    }
+
+    // Add recipe ID to end of values array
+    values.push(recipeId);
+
+    // Execute UPDATE query
+    const updateQuery = `UPDATE recipes SET ${fieldsToUpdate.join(', ')} WHERE id = ?`;
+    db.prepare(updateQuery).run(...values);
+
+    // Fetch updated recipe
+    const updatedRecipe = db.prepare(
+      'SELECT * FROM recipes WHERE id = ?'
+    ).get(recipeId) as Recipe;
+
+    // Parse ingredients for response
+    const parsedRecipe = {
+      ...updatedRecipe,
+      ingredients: JSON.parse(updatedRecipe.ingredients as string)
+    };
+
+    res.json({
+      success: true,
+      data: parsedRecipe
+    });
+  } catch (error) {
+    console.error('Update recipe error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update recipe'
+    });
+  }
+});
+
+/**
+ * DELETE /api/recipes/:id - Delete Recipe
+ *
+ * Deletes a cocktail recipe from user's collection.
+ *
+ * URL Parameters:
+ * - id: Recipe ID (number)
+ *
+ * Response (200 OK):
+ * {
+ *   "success": true,
+ *   "message": "Recipe deleted successfully"
+ * }
+ *
+ * Error Responses:
+ * - 400: Invalid recipe ID
+ * - 401: Unauthorized (no valid JWT)
+ * - 403: Forbidden (recipe belongs to another user)
+ * - 404: Recipe not found
+ * - 500: Database error
+ *
+ * Security:
+ * - User ownership check: Ensures user can only delete their own recipes
+ * - Cascade delete: Foreign key constraints handle favorites cleanup
+ */
+router.delete('/:id', (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    // Validate recipe ID
+    const recipeId = parseInt(req.params.id, 10);
+    if (isNaN(recipeId) || recipeId <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid recipe ID'
+      });
+    }
+
+    // Check if recipe exists and belongs to user
+    const existingRecipe = db.prepare(
+      'SELECT id FROM recipes WHERE id = ? AND user_id = ?'
+    ).get(recipeId, userId);
+
+    if (!existingRecipe) {
+      return res.status(404).json({
+        success: false,
+        error: 'Recipe not found or access denied'
+      });
+    }
+
+    // Delete recipe (CASCADE will handle favorites)
+    db.prepare('DELETE FROM recipes WHERE id = ?').run(recipeId);
+
+    res.json({
+      success: true,
+      message: 'Recipe deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete recipe error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete recipe'
+    });
+  }
+});
+
+/**
  * Export Recipes Router
  *
  * Mounted at /api/recipes in server.ts:
- * - GET  /api/recipes          - List recipes (paginated)
- * - POST /api/recipes          - Add recipe
- * - POST /api/recipes/import   - CSV import (future)
+ * - GET    /api/recipes          - List recipes (paginated)
+ * - POST   /api/recipes          - Add recipe
+ * - PUT    /api/recipes/:id      - Update recipe
+ * - DELETE /api/recipes/:id      - Delete recipe
+ * - POST   /api/recipes/import   - CSV import
  *
  * All routes require authentication (authMiddleware applied to router).
  *
  * Future Enhancements (Phase 3+):
- * - PUT /api/recipes/:id       - Update existing recipe
- * - DELETE /api/recipes/:id    - Delete recipe
  * - GET /api/recipes/search    - Search recipes by name/ingredient
  * - GET /api/recipes/:id       - Get single recipe details
  */

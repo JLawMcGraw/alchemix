@@ -162,6 +162,12 @@ export function validateNumber(
     };
   }
 
+  // Reject null if allowNull is false
+  if (!allowNull && (input === null || input === undefined || input === '')) {
+    errors.push('Value is required');
+    return { isValid: false, errors };
+  }
+
   // Parse to number
   const num = Number(input);
 

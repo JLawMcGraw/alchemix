@@ -1,6 +1,6 @@
 # Active Tasks
 
-Last updated: 2025-11-13 (Session 8)
+Last updated: 2025-11-14 (Session 9)
 
 ## High Priority - Deployment & Testing
 - [ ] **Phase 1 Deployment** - Deploy to free tier production
@@ -44,8 +44,6 @@ Last updated: 2025-11-13 (Session 8)
 - [ ] **Test modals with real data** - Verify functionality with backend
 
 ## Medium Priority - Enhancements
-- [ ] Add recipe editing functionality (currently read-only)
-- [ ] Add recipe deletion
 - [ ] Edit and optimize logo image for TopNav/Login integration
 - [ ] Add Anthropic API key to backend .env for AI testing
 - [ ] Test accessibility with screen readers
@@ -68,6 +66,31 @@ Last updated: 2025-11-13 (Session 8)
 - [ ] Image uploads for recipes/bottles
 
 ## Recently Completed
+
+### Session 9 - 2025-11-14 (Recipe CRUD Complete & TypeScript Build Fixes)
+- ✅ Implement recipe update backend endpoint (PUT /api/recipes/:id)
+- ✅ Implement recipe delete backend endpoint (DELETE /api/recipes/:id)
+- ✅ Add recipeApi.update() and recipeApi.delete() to frontend API client
+- ✅ Add updateRecipe() and deleteRecipe() to Zustand store
+- ✅ Update Recipe interface with spirit_type and created_at fields
+- ✅ Create edit mode in RecipeDetailModal with inline forms
+- ✅ Add edit button (pencil icon) to modal header
+- ✅ Create form inputs for name, category, ingredients, instructions, glass
+- ✅ Add Save/Cancel buttons with proper state management
+- ✅ Add Delete button with confirmation prompt
+- ✅ Fix modal scrolling for long recipes (overflow-y: auto)
+- ✅ Add form input styling with focus states
+- ✅ Implement ESC key to cancel edit mode
+- ✅ Add success/error toasts for all operations
+- ✅ Fix JWT_SECRET type inference in auth.ts
+- ✅ Fix missing db import in server.ts
+- ✅ Fix validateBottleData import conflict in inventory.ts
+- ✅ Fix spread argument errors in auth.test.ts
+- ✅ Fix array type inference in recipes.ts (2 locations)
+- ✅ Fix mock type errors in errorHandler.test.ts
+- ✅ Fix read-only property assignments in errorHandler.test.ts
+- ✅ Verify TypeScript build passes (npm run build)
+- ✅ Verify backend build passes (cd api && npm run build)
 
 ### Session 8 - 2025-11-13 (Recipe System Enhancement)
 - ✅ Install Node.js v20 LTS via nvm on Mac

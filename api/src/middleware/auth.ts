@@ -50,22 +50,23 @@ declare global {
  *
  * The application will refuse to start if these requirements aren't met.
  */
-const JWT_SECRET = process.env.JWT_SECRET;
-
 // Validate JWT secret at startup (fail fast if misconfigured)
-if (!JWT_SECRET) {
+if (!process.env.JWT_SECRET) {
   console.error('❌ FATAL ERROR: JWT_SECRET environment variable is not set');
   console.error('   The application cannot start without a secure JWT secret.');
   console.error('   Generate a strong secret with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
   process.exit(1); // Exit immediately - cannot run without proper security
 }
 
-if (JWT_SECRET.length < 32) {
+if (process.env.JWT_SECRET.length < 32) {
   console.error('❌ FATAL ERROR: JWT_SECRET must be at least 32 characters long');
-  console.error('   Current length:', JWT_SECRET.length);
+  console.error('   Current length:', process.env.JWT_SECRET.length);
   console.error('   A longer secret provides better security against brute-force attacks.');
   process.exit(1); // Exit immediately - security requirement not met
 }
+
+// TypeScript now knows JWT_SECRET is defined and at least 32 chars
+const JWT_SECRET: string = process.env.JWT_SECRET;
 
 /**
  * Generate Unique JWT Token ID (SECURITY FIX #2)

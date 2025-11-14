@@ -2,38 +2,49 @@ import { beforeAll, afterAll, afterEach } from 'vitest';
 import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
+import { randomBytes } from 'crypto';
 
-// Test database path
-export const TEST_DB_PATH = path.join(__dirname, '../../test-data/test.db');
+// Use a temp directory for test database to avoid path issues
+const TEST_DIR = path.join(os.tmpdir(), 'alchemix-test');
+
+// Generate unique database path for each test run to avoid conflicts
+function generateTestDbPath(): string {
+  const uniqueId = randomBytes(8).toString('hex');
+  return path.join(TEST_DIR, `test-${uniqueId}.db`);
+}
+
+// Legacy path export for backwards compatibility (not used anymore)
+export const TEST_DB_PATH = path.join(TEST_DIR, 'test.db');
 
 // Ensure test database directory exists
+// Note: We also check this in createTestDatabase() to handle parallel test execution
 beforeAll(() => {
-  const testDataDir = path.dirname(TEST_DB_PATH);
-  if (!fs.existsSync(testDataDir)) {
-    fs.mkdirSync(testDataDir, { recursive: true });
+  if (!fs.existsSync(TEST_DIR)) {
+    fs.mkdirSync(TEST_DIR, { recursive: true });
   }
 });
 
-// Clean up test database after each test
-afterEach(() => {
-  if (fs.existsSync(TEST_DB_PATH)) {
-    fs.unlinkSync(TEST_DB_PATH);
-  }
-});
-
-// Clean up after all tests
-afterAll(() => {
-  const testDataDir = path.dirname(TEST_DB_PATH);
-  if (fs.existsSync(testDataDir)) {
-    fs.rmSync(testDataDir, { recursive: true, force: true });
-  }
-});
+// Note: We don't clean up the entire TEST_DIR in afterAll because:
+// 1. Tests run in parallel and may still need the directory
+// 2. Each test cleans up its own database file via cleanupTestDatabase()
+// 3. The OS temp directory is cleaned up automatically by the system
 
 /**
  * Create a test database with schema
+ * Each call creates a unique database file to avoid test interference
  */
 export function createTestDatabase(): Database.Database {
-  const db = new Database(TEST_DB_PATH);
+  // Ensure directory exists before creating database
+  if (!fs.existsSync(TEST_DIR)) {
+    fs.mkdirSync(TEST_DIR, { recursive: true });
+  }
+
+  const uniqueDbPath = generateTestDbPath();
+  const db = new Database(uniqueDbPath);
+
+  // Enable foreign keys
+  db.pragma('foreign_keys = ON');
 
   // Create users table
   db.exec(`
@@ -92,7 +103,36 @@ export function createTestDatabase(): Database.Database {
   db.exec('CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites(user_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_favorites_recipe_id ON favorites(recipe_id)');
 
+  // Store the database path on the instance for cleanup
+  (db as any).__testDbPath = uniqueDbPath;
+
   return db;
+}
+
+/**
+ * Helper function to clean up a test database
+ * Call this in your afterEach to delete the database file
+ */
+export function cleanupTestDatabase(db: Database.Database): void {
+  const dbPath = (db as any).__testDbPath;
+
+  // Close the database
+  if (db && typeof db.close === 'function') {
+    try {
+      db.close();
+    } catch (err) {
+      // Database might already be closed
+    }
+  }
+
+  // Delete the database file
+  if (dbPath && fs.existsSync(dbPath)) {
+    try {
+      fs.unlinkSync(dbPath);
+    } catch (err) {
+      console.warn(`Failed to delete test database: ${dbPath}`, err);
+    }
+  }
 }
 
 /**

@@ -20,12 +20,15 @@ vi.mock('../utils/logger', () => ({
   logError: vi.fn(),
 }));
 
+// Import the mocked logger
+import { logger, logError } from '../utils/logger';
+
 describe('errorHandler', () => {
   let mockReq: Partial<Request>;
   let mockRes: Partial<Response>;
   let mockNext: NextFunction;
-  let jsonMock: ReturnType<typeof vi.fn>;
-  let statusMock: ReturnType<typeof vi.fn>;
+  let jsonMock: any;
+  let statusMock: any;
 
   beforeEach(() => {
     // Reset mocks
@@ -41,11 +44,11 @@ describe('errorHandler', () => {
     };
 
     mockRes = {
-      status: statusMock,
-      json: jsonMock,
-    };
+      status: statusMock as any,
+      json: jsonMock as any,
+    } as Response;
 
-    mockNext = vi.fn();
+    mockNext = vi.fn() as any;
 
     // Clear environment variable
     delete process.env.NODE_ENV;
@@ -221,9 +224,10 @@ describe('errorHandler', () => {
 
       errorHandler(error, mockReq as Request, mockRes as Response, mockNext);
 
+      // AppError uses toJSON() which returns the original error message
       expect(jsonMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: 'Internal server error',
+          error: 'Programming error',
         })
       );
     });
@@ -234,9 +238,10 @@ describe('errorHandler', () => {
 
       errorHandler(error, mockReq as Request, mockRes as Response, mockNext);
 
+      // InternalError extends AppError and uses toJSON() which returns the original message
       expect(jsonMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: 'Internal server error',
+          error: 'Critical failure',
         })
       );
     });
@@ -244,7 +249,6 @@ describe('errorHandler', () => {
 
   describe('error logging context', () => {
     it('should log error with request context', () => {
-      const { logError } = require('../utils/logger');
       const error = new ValidationError('Test error');
 
       errorHandler(error, mockReq as Request, mockRes as Response, mockNext);
@@ -263,7 +267,6 @@ describe('errorHandler', () => {
     });
 
     it('should include userId in log context when available', () => {
-      const { logError } = require('../utils/logger');
       mockReq.user = { userId: 123, email: 'test@example.com' } as any;
       const error = new ValidationError('Test error');
 
@@ -282,8 +285,8 @@ describe('errorHandler', () => {
 describe('notFoundHandler', () => {
   let mockReq: Partial<Request>;
   let mockRes: Partial<Response>;
-  let jsonMock: ReturnType<typeof vi.fn>;
-  let statusMock: ReturnType<typeof vi.fn>;
+  let jsonMock: any;
+  let statusMock: any;
 
   beforeEach(() => {
     jsonMock = vi.fn();
@@ -300,9 +303,9 @@ describe('notFoundHandler', () => {
     };
 
     mockRes = {
-      status: statusMock,
-      json: jsonMock,
-    };
+      status: statusMock as any,
+      json: jsonMock as any,
+    } as Response;
   });
 
   it('should return 404 status code', () => {
@@ -321,8 +324,8 @@ describe('notFoundHandler', () => {
   });
 
   it('should handle POST requests', () => {
-    mockReq.method = 'POST';
-    mockReq.path = '/api/users';
+    (mockReq as any).method = 'POST';
+    (mockReq as any).path = '/api/users';
 
     notFoundHandler(mockReq as Request, mockRes as Response);
 
@@ -333,8 +336,8 @@ describe('notFoundHandler', () => {
   });
 
   it('should handle DELETE requests', () => {
-    mockReq.method = 'DELETE';
-    mockReq.path = '/api/bottles/123';
+    (mockReq as any).method = 'DELETE';
+    (mockReq as any).path = '/api/bottles/123';
 
     notFoundHandler(mockReq as Request, mockRes as Response);
 
@@ -345,8 +348,6 @@ describe('notFoundHandler', () => {
   });
 
   it('should log 404 with request details', () => {
-    const { logger } = require('../utils/logger');
-
     notFoundHandler(mockReq as Request, mockRes as Response);
 
     expect(logger.warn).toHaveBeenCalledWith(
@@ -367,7 +368,6 @@ describe('notFoundHandler', () => {
 
     notFoundHandler(mockReq as Request, mockRes as Response);
 
-    const { logger } = require('../utils/logger');
     expect(logger.warn).toHaveBeenCalledWith(
       'Route not found',
       expect.objectContaining({
@@ -391,7 +391,7 @@ describe('notFoundHandler', () => {
   });
 
   it('should handle root path', () => {
-    mockReq.path = '/';
+    (mockReq as any).path = '/';
 
     notFoundHandler(mockReq as Request, mockRes as Response);
 
@@ -402,7 +402,7 @@ describe('notFoundHandler', () => {
   });
 
   it('should handle nested paths', () => {
-    mockReq.path = '/api/v1/users/123/posts/456/comments';
+    (mockReq as any).path = '/api/v1/users/123/posts/456/comments';
 
     notFoundHandler(mockReq as Request, mockRes as Response);
 

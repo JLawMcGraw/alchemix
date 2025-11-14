@@ -1,12 +1,12 @@
 # Project Status
 
-Last updated: 2025-11-13
+Last updated: 2025-11-14
 
 ## Current Phase
-**Recipe System Enhancement** - Implemented recipe CSV import, created recipe detail modal, fixed ingredient parsing across all pages
+**Recipe CRUD Complete** - Implemented full recipe edit/delete functionality, fixed modal scrolling bug, resolved all TypeScript build errors
 
 ## Current Version
-v1.6.0-alpha (Recipe CSV import working, RecipeDetailModal implemented, ingredient parsing fixed)
+v1.7.0-alpha (Complete recipe CRUD operations, edit mode in RecipeDetailModal, TypeScript build passing)
 
 ## Implementation Status
 
@@ -84,8 +84,8 @@ v1.6.0-alpha (Recipe CSV import working, RecipeDetailModal implemented, ingredie
 - ⬜ Bulk operations
 
 ### Recipe Management
-- ✅ API client methods (getAll, add)
-- ✅ Zustand store actions
+- ✅ API client methods (getAll, add, update, delete) - **Full CRUD complete (Session 9)**
+- ✅ Zustand store actions (fetch, add, update, delete)
 - ✅ Recipe grid view with cards
 - ✅ Search and filter UI (spirit type, search query)
 - ✅ Favorite/unfavorite toggle with Star icon
@@ -93,11 +93,13 @@ v1.6.0-alpha (Recipe CSV import working, RecipeDetailModal implemented, ingredie
 - ✅ Recipe CSV import backend endpoint - **Supports multiple delimiters (Session 8)**
 - ✅ Toast notifications for favorites
 - ✅ Recipe detail modal - **RecipeDetailModal component created (Session 8)**
+- ✅ Recipe editing in modal - **Full edit mode with inline forms (Session 9)**
+- ✅ Recipe deletion - **DELETE endpoint with confirmation (Session 9)**
+- ✅ Modal scrolling - **Fixed overflow for long recipes (Session 9)**
 - ✅ Ingredient parsing - **parseIngredients() helper handles JSON arrays and strings (Session 8)**
 - ✅ View recipe from favorites page - **Modal integration with recipe lookup (Session 8)**
 - ✅ Favorites enhancement - **Now links recipe_id for better data integrity (Session 8)**
-- ⬜ Recipe creation form
-- ⬜ Recipe editing
+- ⬜ Recipe creation form (standalone page)
 
 ### AI Bartender
 - ✅ API client integration
