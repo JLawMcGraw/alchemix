@@ -1,6 +1,6 @@
 # Active Tasks
 
-Last updated: 2025-11-14 (Session 9)
+Last updated: 2025-11-14 (Session 10)
 
 ## High Priority - Deployment & Testing
 - [ ] **Phase 1 Deployment** - Deploy to free tier production
@@ -66,6 +66,24 @@ Last updated: 2025-11-14 (Session 9)
 - [ ] Image uploads for recipes/bottles
 
 ## Recently Completed
+
+### Session 10 - 2025-11-14 (AI Bartender Clickable Recipes & Authentication Fixes)
+- ✅ Fix authentication logout on page refresh (Added `_hasHydrated` flag to Zustand store)
+- ✅ Fix login redirect loops (Created `useAuthGuard` hook that waits for hydration)
+- ✅ Fix API response unwrapping in auth endpoints (Extract nested data.data)
+- ✅ Update Claude model to claude-sonnet-4-5-20250929
+- ✅ Fix database import in backend (Named import `{ db }`)
+- ✅ Implement context-aware system prompts (Backend builds with inventory + recipes + favorites)
+- ✅ Increase Claude API timeout from 30s to 90s for large prompts
+- ✅ Integrate RecipeDetailModal with AI page
+- ✅ Implement clickable recipe names in AI responses
+- ✅ Add flexible recipe name matching (handles "#1" suffixes)
+- ✅ Strip markdown formatting from AI recommendation parsing
+- ✅ **FIX CRITICAL BUG**: Add fetchRecipes() and fetchFavorites() to AI page mount
+- ✅ Fix all TypeScript build errors (frontend and backend)
+- ✅ Exclude vitest.config.ts from Next.js type checking
+- ✅ Fix Bottle type mismatches (removed Brand, Quantity columns)
+- ✅ Fix Favorite type mismatches (recipe_name vs recipeName)
 
 ### Session 9 - 2025-11-14 (Recipe CRUD Complete & TypeScript Build Fixes)
 - ✅ Implement recipe update backend endpoint (PUT /api/recipes/:id)

@@ -93,7 +93,7 @@ The recipes below have been pre-filtered to match the user's query. These are th
 ` : ''}**User's Bar Stock (${inventory.length} bottles):**
 ${inventory.length > 0 ? inventory
     .map((item) => {
-      let line = `- **${item.Name}**`;
+      let line = `- **${item.name}**`;
       if (item['Liquor Type']) {
         line += ` [${item['Liquor Type']}]`;
       }
@@ -127,9 +127,11 @@ ${recipes.length > 0 ? recipes.map((r) => {
     // Add ingredients
     if (r.ingredients) {
       recipeDetails += `\n  Ingredients:\n`;
-      const ingredients = r.ingredients.split('\n').filter(i => i.trim());
+      const ingredients = typeof r.ingredients === 'string'
+        ? r.ingredients.split('\n').filter(i => i.trim())
+        : r.ingredients;
       ingredients.forEach(ing => {
-        recipeDetails += `    • ${ing.trim()}\n`;
+        recipeDetails += `    • ${typeof ing === 'string' ? ing.trim() : ing}\n`;
       });
     }
 
@@ -149,7 +151,7 @@ ${recipes.length > 0 ? recipes.map((r) => {
 ${
   favorites.length > 0
     ? `**User's Favorites:**
-${favorites.map(f => f.recipeName || f.name).join(', ')}`
+${favorites.map(f => f.recipe_name).join(', ')}`
     : ''
 }
 
@@ -278,11 +280,13 @@ export function parseAIResponse(responseText: string): {
       const parts = responseText.split('RECOMMENDATIONS:');
       explanation = parts[0].trim();
 
-      // Extract cocktail names
+      // Extract cocktail names and clean up markdown formatting
       const recLine = parts[1].trim();
       recommendations = recLine
         .split(',')
         .map((r) => r.trim())
+        // Remove markdown bold (**), asterisks, and extra whitespace
+        .map((r) => r.replace(/\*\*/g, '').replace(/\*/g, '').trim())
         .filter((r) => r.length > 0);
 
       // Remove recommendations line from explanation

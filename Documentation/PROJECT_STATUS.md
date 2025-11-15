@@ -3,10 +3,10 @@
 Last updated: 2025-11-14
 
 ## Current Phase
-**Recipe CRUD Complete** - Implemented full recipe edit/delete functionality, fixed modal scrolling bug, resolved all TypeScript build errors
+**AI Bartender Clickable Recipes Complete** - Fixed authentication persistence, integrated AI Bartender with context-aware prompts, implemented clickable recipe recommendations
 
 ## Current Version
-v1.7.0-alpha (Complete recipe CRUD operations, edit mode in RecipeDetailModal, TypeScript build passing)
+v1.7.0-alpha (AI Bartender with clickable recipes, authentication fixes, TypeScript build passing)
 
 ## Implementation Status
 
@@ -29,6 +29,10 @@ v1.7.0-alpha (Complete recipe CRUD operations, edit mode in RecipeDetailModal, T
 - ✅ Persisted auth state (Zustand + localStorage)
 - ✅ Login page UI (with signup toggle)
 - ✅ Authentication flow tested successfully
+- ✅ **Rehydration fix** - Added `_hasHydrated` flag to prevent premature logout on page refresh
+- ✅ **useAuthGuard hook** - Consistent auth protection across all protected pages
+- ✅ **Token validation** - Validates JWT after Zustand hydration completes
+- ✅ **No more redirect loops** - Auth guard waits for hydration before redirecting
 - ⬜ Account settings page
 - ⬜ Password reset flow
 - ⬜ Email verification
@@ -102,14 +106,20 @@ v1.7.0-alpha (Complete recipe CRUD operations, edit mode in RecipeDetailModal, T
 - ⬜ Recipe creation form (standalone page)
 
 ### AI Bartender
-- ✅ API client integration
+- ✅ API client integration (claude-sonnet-4-5-20250929)
 - ✅ Zustand chat actions
 - ✅ Chat interface UI with bubbles
 - ✅ User/AI message distinction with icons
 - ✅ Empty state with suggestions
 - ✅ Chat history display
+- ✅ **Context-aware system prompts** - Backend builds prompts with user's inventory + recipes + favorites
+- ✅ **"Lab Assistant" persona** - Informed enthusiasm, scientific voice, supportive curiosity
+- ✅ **Clickable recipe recommendations** - Recipe names in AI responses open RecipeDetailModal
+- ✅ **Flexible recipe name matching** - Handles "#1", "#2" suffixes and partial matches
+- ✅ **90-second timeout** - Supports large prompts with 300+ recipes
+- ✅ **Comprehensive security** - 8-layer prompt injection protection
+- ✅ **Recipe data loading** - fetchRecipes() and fetchFavorites() called on mount
 - ⬜ Typing indicator animation
-- ⬜ Recipe card display in chat
 - ⬜ Conversation persistence (currently in memory)
 
 ### Favorites & History
@@ -200,6 +210,13 @@ v1.7.0-alpha (Complete recipe CRUD operations, edit mode in RecipeDetailModal, T
 9. Field autocomplete for common values (spirit types, locations)
 
 ## Recent Completions
+- **AI Bartender Clickable Recipes** - Recipe names in AI responses open RecipeDetailModal - 2025-11-14 Session 10
+- **Authentication Persistence Fixed** - Users no longer logged out on page refresh - 2025-11-14 Session 10
+- **useAuthGuard Hook** - Prevents login redirect loops, waits for Zustand hydration - 2025-11-14 Session 10
+- **Context-Aware AI Prompts** - Backend builds prompts with user's bar inventory and recipes - 2025-11-14 Session 10
+- **Flexible Recipe Name Matching** - Handles "#1" suffixes and partial matches - 2025-11-14 Session 10
+- **90-Second Claude API Timeout** - Supports large prompts with 300+ recipes - 2025-11-14 Session 10
+- **All TypeScript Build Errors Fixed** - Frontend and backend both compile successfully - 2025-11-14 Session 10
 - **Node.js v20 Installed** - Resolved Mac compilation issues with nvm - 2025-11-13 Session 8
 - **Recipe CSV Import** - Full implementation with flexible column matching - 2025-11-13 Session 8
 - **RecipeDetailModal** - Complete modal with ingredients, instructions, compatibility - 2025-11-13 Session 8

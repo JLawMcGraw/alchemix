@@ -4,6 +4,267 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-11-14 - AI Bartender Recipe Clickability Bug (Session 10)
+
+**Context**: Implemented clickable recipe recommendations in AI Bartender chat, but recipe modals wouldn't open when clicking recipe names.
+
+**Problem**: Console showed `availableRecipes: []` with all recipe matches failing:
+```
+🔍 Parsing AI response: { availableRecipes: [] }
+❌ No recipe match for: "DAIQUIRI #1"
+❌ No recipe match for: "MISSIONARY'S DOWNFALL"
+❌ No recipe match for: "MOJITO"
+```
+
+**Root Cause**: AI page component wasn't fetching recipes on mount!
+
+```typescript
+// ❌ BEFORE (src/app/ai/page.tsx):
+const {
+  recipes,         // ← Imported from store
+  fetchRecipes,    // ← NOT imported! Missing entirely
+  fetchFavorites,  // ← Imported but never called
+} = useStore();
+
+// No useEffect to fetch data on mount
+// Result: recipes array stays empty, recipe matching fails
+```
+
+**Solution**: Import `fetchRecipes` and call both fetch functions on mount:
+
+```typescript
+// ✅ AFTER (src/app/ai/page.tsx):
+const {
+  recipes,
+  favorites,
+  fetchRecipes,    // ← Now imported
+  fetchFavorites,
+} = useStore();
+
+// Fetch recipes and favorites on mount (CRITICAL FIX)
+useEffect(() => {
+  if (isAuthenticated && !isValidating) {
+    console.log('🔄 Fetching recipes and favorites for AI page...');
+    fetchRecipes();
+    fetchFavorites();
+  }
+}, [isAuthenticated, isValidating, fetchRecipes, fetchFavorites]);
+```
+
+**Result**: Recipes array populates on mount, recipe name matching works, clicking recipe names opens RecipeDetailModal with full data.
+
+**Lesson Learned**: When a component depends on store data, ALWAYS ensure the data is fetched on mount. Don't assume data exists just because the store exports it. In this case, the recipes page fetched recipes, but the AI page is a separate route - it needs its own fetch call.
+
+**Future Considerations**:
+- Add loading states while fetching data
+- Consider caching recipes in store to avoid re-fetching on every page visit
+- Add error handling for failed fetch operations
+
+---
+
+## 2025-11-14 - Zustand Rehydration Authentication Bug (Session 10)
+
+**Context**: Users were being logged out every time they refreshed the page, even though JWT token was valid and stored in localStorage.
+
+**Problem**: `onRehydrateStorage` callback in Zustand store was immediately setting `isAuthenticated = false` after rehydration, overwriting the persisted auth state.
+
+```typescript
+// ❌ BEFORE (src/lib/store.ts):
+{
+  name: 'alchemix-storage',
+  onRehydrateStorage: () => (state) => {
+    if (state) {
+      state.isAuthenticated = false;  // ← KILLS AUTH!
+      console.log('✅ State rehydrated from localStorage');
+    }
+  }
+}
+
+// Timeline:
+// 1. Page loads → Zustand hydrates from localStorage (isAuthenticated: true)
+// 2. onRehydrateStorage runs → sets isAuthenticated = false
+// 3. User sees: "You're logged out, redirecting to login..."
+```
+
+**Solution**: Added `_hasHydrated` flag to track hydration state, let `validateToken()` set the final auth state:
+
+```typescript
+// ✅ AFTER (src/lib/store.ts):
+export interface AppState {
+  _hasHydrated: boolean;  // ← New flag
+  isAuthenticated: boolean;
+  // ...
+}
+
+createJSONStorage(() => localStorage),
+{
+  name: 'alchemix-storage',
+  onRehydrateStorage: () => (state) => {
+    if (state) {
+      state._hasHydrated = true;  // ← Mark as hydrated
+      // Don't touch isAuthenticated - let validateToken() handle it
+    }
+  }
+}
+
+// Timeline:
+// 1. Page loads → Zustand hydrates (isAuthenticated: true, _hasHydrated: false)
+// 2. onRehydrateStorage runs → sets _hasHydrated = true
+// 3. Protected pages wait for _hasHydrated before checking auth
+// 4. validateToken() confirms JWT → isAuthenticated stays true
+// 5. User stays logged in
+```
+
+**Created `useAuthGuard` Hook**: Reusable authentication guard for protected pages:
+
+```typescript
+// src/hooks/useAuthGuard.ts
+export function useAuthGuard() {
+  const router = useRouter();
+  const { isAuthenticated, _hasHydrated, validateToken } = useStore();
+  const [isValidating, setIsValidating] = useState(true);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (!_hasHydrated) return;  // ← Wait for hydration!
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        await validateToken();  // ← Validate JWT with backend
+      }
+
+      setIsValidating(false);
+
+      if (!isAuthenticated) {
+        router.push('/login');  // ← Redirect if not authenticated
+      }
+    };
+
+    checkAuth();
+  }, [_hasHydrated, isAuthenticated, validateToken, router]);
+
+  return { isValidating, isAuthenticated };
+}
+```
+
+**Result**:
+- No more logout on page refresh
+- No more login redirect loops
+- Users stay authenticated across sessions
+- Protected pages wait for hydration before checking auth
+
+**Lesson Learned**:
+- Zustand's `onRehydrateStorage` runs AFTER hydration completes, but protected pages may render BEFORE hydration finishes
+- NEVER set authentication state in `onRehydrateStorage` - only use it for initialization flags
+- Use a hydration flag (`_hasHydrated`) to ensure pages wait for persistence to complete before validating auth
+
+**Future Considerations**:
+- Consider moving token validation to a global effect instead of per-page
+- Add refresh token rotation for enhanced security
+- Consider server-side rendering (SSR) for initial auth check
+
+---
+
+## 2025-11-14 - Claude API Context-Aware Prompts (Session 10)
+
+**Context**: AI Bartender was using a simple generic prompt, not leveraging user's uploaded recipes or bar inventory.
+
+**Problem**: User wanted AI to recommend cocktails from their recipe collection (300+ recipes), but backend was sending a basic prompt without any user context.
+
+**Decision**: Build context-aware system prompts on the backend from database.
+
+**Implementation**:
+
+```typescript
+// api/src/routes/messages.ts
+async function buildContextAwarePrompt(userId: number): Promise<string> {
+  // Fetch user's inventory from database
+  const inventory = db.prepare(
+    'SELECT * FROM bottles WHERE user_id = ? ORDER BY name'
+  ).all(userId) as any[];
+
+  // Fetch user's recipes
+  const recipes = db.prepare(
+    'SELECT * FROM recipes WHERE user_id = ? ORDER BY name'
+  ).all(userId) as any[];
+
+  // Fetch user's favorites
+  const favorites = db.prepare(
+    'SELECT * FROM favorites WHERE user_id = ? ORDER BY created_at DESC'
+  ).all(userId) as any[];
+
+  const basePrompt = `# THE LAB ASSISTANT (AlcheMix AI)
+
+## YOUR IDENTITY
+You are **"The Lab Assistant,"** the AI bartender for **"AlcheMix."**
+
+## USER'S CURRENT BAR STOCK (${inventory.length} bottles):
+${inventory.map(bottle => {
+  let line = `- **${bottle.name}**`;
+  if (bottle['Liquor Type']) line += ` [${bottle['Liquor Type']}]`;
+  if (bottle['ABV (%)']} line += ` - ${bottle['ABV (%)']}% ABV`;
+  if (bottle['Profile (Nose)']} line += `\n  🔬 Profile: ${bottle['Profile (Nose)']}`;
+  if (bottle.Palate) line += `\n  👅 Palate: ${bottle.Palate}`;
+  return line;
+}).join('\n\n')}
+
+## AVAILABLE RECIPES (${recipes.length} cocktails):
+${recipes.map(r => {
+  let details = `- **${r.name}**`;
+  if (r.category) details += ` (${r.category})`;
+  if (r.ingredients) details += `\n  Ingredients: ${r.ingredients}`;
+  if (r.instructions) details += `\n  Instructions: ${r.instructions}`;
+  return details;
+}).join('\n\n')}
+
+## CRITICAL RULES
+- ONLY recommend recipes from their "Available Recipes" list above
+- NEVER invent ingredients - only use what's listed in each recipe
+- Cite specific bottles from their inventory
+- Ask before assuming what they want
+
+## RESPONSE FORMAT
+End responses with:
+RECOMMENDATIONS: Recipe Name 1, Recipe Name 2, Recipe Name 3`;
+
+  return basePrompt;
+}
+
+// In POST /api/messages route:
+const systemPrompt = await buildContextAwarePrompt(userId);
+
+const response = await axios.post('https://api.anthropic.com/v1/messages', {
+  model: 'claude-sonnet-4-5-20250929',
+  max_tokens: 2048,
+  messages: [{ role: 'user', content: sanitizedMessage }],
+  system: systemPrompt  // ← Server-controlled with user's data
+}, {
+  timeout: 90000  // ← 90 seconds for large prompts (300+ recipes)
+});
+```
+
+**Security**: Server-controlled prompt prevents prompt injection. User's message goes in `messages` array, NOT in system prompt.
+
+**Result**:
+- AI now knows user's exact bar inventory (42 bottles with tasting notes)
+- AI recommends from user's recipe collection (112 recipes)
+- Prompts are 20-25KB for full collections
+- 90-second timeout handles large prompts without timing out
+
+**Lesson Learned**:
+- Build system prompts on backend, NEVER trust client-provided context
+- Fetch fresh data from database for every request (ensures accuracy)
+- Large prompts (300+ recipes) need increased timeouts (30s → 90s)
+- Include detailed tasting notes (Profile, Palate, Finish) for better AI recommendations
+
+**Future Considerations**:
+- Cache prompts for 5-10 minutes to reduce database queries
+- Implement prompt compression for very large collections (1000+ recipes)
+- Consider pagination or filtering for massive inventories
+- Add user preference for "recommend from my collection" vs "suggest new recipes"
+
+---
+
 ## 2025-11-12 - API Response Structure Mismatch (Session 7)
 
 **Context**: After implementing backend API, CSV imports were accepted but no bottles appeared in the UI.

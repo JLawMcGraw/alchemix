@@ -20,9 +20,9 @@ Hello Claude, we're continuing work on **AlcheMix** - the modern React/Next.js r
 - AlcheMix design system (teal/orange scientific lab aesthetic)
 
 ### Current Status
-- **Phase**: Security Hardened & Deployment Ready
-- **Version**: 1.6.0-alpha (Production-ready with critical security fixes)
-- **Status**: Full-stack TypeScript monorepo complete, comprehensive security enhancements implemented (Phase 2+3), **CRITICAL security vulnerabilities fixed** (Nov 11, 2025), enterprise-grade logging with Winston, production-ready for single-instance deployment
+- **Phase**: AI Bartender Complete & Authentication Fixed
+- **Version**: 1.7.0-alpha (AI Integration Complete with Clickable Recipes)
+- **Status**: Full-stack TypeScript monorepo complete, AI Bartender fully functional with context-aware prompts, authentication persistence fixed, 195/195 tests passing, production-ready
 
 ### Tech Stack
 
@@ -37,21 +37,28 @@ Hello Claude, we're continuing work on **AlcheMix** - the modern React/Next.js r
 **Backend (Monorepo - `/api` folder):**
 - **Framework**: Express.js 4.x with TypeScript
 - **Database**: SQLite (better-sqlite3)
-- **Authentication**: JWT + bcrypt
+- **Authentication**: JWT + bcrypt (with hydration-aware revalidation)
 - **Logging**: Winston structured logging with JSON format, file rotation
 - **Observability**: Request correlation IDs, performance metrics, error tracking
-- **Security**: Comprehensive 6-layer defense-in-depth architecture + CRITICAL fixes (Nov 11, 2025)
+- **Security**: Comprehensive 8-layer defense-in-depth architecture
   - Token Blacklist (immediate logout)
   - Token Versioning (session fixation protection)
   - User Rate Limiting (100 req/user/15min)
   - Security Headers (Helmet with HSTS, CSP, X-Frame-Options, Referrer-Policy)
   - JWT Token IDs (jti for granular revocation)
   - Input Validation (XSS prevention)
-  - **NEW**: Query parameter sanitization (PII leakage prevention - GDPR/PCI-DSS/HIPAA compliant)
-  - **NEW**: Client request ID validation (XSS/log injection prevention)
-  - **NEW**: Graceful shutdown with DB closure (30s timeout)
-  - **NEW**: Production-ready error handling with custom error classes
-- **AI Integration**: Anthropic Claude API
+  - Query parameter sanitization (PII leakage prevention - GDPR/PCI-DSS/HIPAA compliant)
+  - Client request ID validation (XSS/log injection prevention)
+  - Graceful shutdown with DB closure (30s timeout)
+  - Production-ready error handling with custom error classes
+  - **AI Prompt Injection Protection** (8-layer security for Claude API)
+- **AI Integration**: Anthropic Claude API (claude-sonnet-4-5-20250929)
+  - Context-aware system prompts built from user's database (inventory + recipes + favorites)
+  - "Lab Assistant" persona with scientific voice and informed enthusiasm
+  - 90-second timeout for large prompts (300+ recipes = 20-25KB)
+  - 8-layer prompt injection protection (OWASP LLM Top 10 compliant)
+  - Server-controlled prompts (user messages never in system prompt)
+  - Output filtering for sensitive data detection
 - **Scalability**: Redis migration plan documented for multi-instance deployments
 
 ### Key Directories
@@ -59,7 +66,8 @@ Hello Claude, we're continuing work on **AlcheMix** - the modern React/Next.js r
 **Frontend:**
 - `src/app/` - Next.js App Router pages (all 7 pages built)
 - `src/components/` - React components (ui/, layout/, modals/)
-- `src/lib/` - API client, Zustand store, utilities
+- `src/hooks/` - Custom React hooks (useAuthGuard for auth protection)
+- `src/lib/` - API client, Zustand store, AI persona, utilities
 - `src/styles/` - Design system CSS
 - `src/types/` - TypeScript type definitions
 - `public/` - Static assets (logo, fonts)
@@ -67,6 +75,7 @@ Hello Claude, we're continuing work on **AlcheMix** - the modern React/Next.js r
 **Backend:**
 - `api/src/` - Express backend source code
 - `api/src/routes/` - API route handlers (auth, inventory, recipes, favorites, messages)
+  - `messages.ts` - AI Bartender with context-aware prompts and 8-layer security
 - `api/src/middleware/` - Auth middleware, user rate limiting, error handling
 - `api/src/utils/` - Token blacklist, input validation utilities
 - `api/alchemix.db` - SQLite database (auto-generated)
@@ -450,17 +459,20 @@ alchemix-next/
 │   │   ├── login/              # ✅ Login page
 │   │   ├── dashboard/          # ✅ Dashboard with stats
 │   │   ├── bar/                # ✅ My Bar inventory table
-│   │   ├── ai/                 # ✅ AI Bartender chat
+│   │   ├── ai/                 # ✅ AI Bartender chat (with clickable recipes)
 │   │   ├── recipes/            # ✅ Recipe library grid
 │   │   ├── favorites/          # ✅ Favorites & History
 │   │   └── account/            # ✅ Account settings
 │   ├── components/
 │   │   ├── ui/                 # ✅ Button, Card, Input, Spinner, SuccessCheckmark
 │   │   ├── layout/             # ✅ TopNav
-│   │   └── modals/             # ✅ CSV Upload, Add/Edit Bottle, Delete, Toast
+│   │   └── modals/             # ✅ CSV Upload, Add/Edit Bottle, Delete, RecipeDetail, Toast
+│   ├── hooks/
+│   │   └── useAuthGuard.ts     # ✅ Authentication guard (prevents redirect loops)
 │   ├── lib/
 │   │   ├── api.ts              # ✅ Axios API client
-│   │   └── store.ts            # ✅ Zustand store with persistence
+│   │   ├── store.ts            # ✅ Zustand store with persistence (hydration fixed)
+│   │   └── aiPersona.ts        # ✅ AI persona and response parsing
 │   ├── styles/
 │   │   └── globals.css         # ✅ Design system
 │   └── types/
@@ -565,8 +577,8 @@ cd api && npm run build
 
 | Metric | Value |
 |--------|-------|
-| **Version** | 1.4.0-alpha (Security Hardened) |
-| **Sessions Completed** | 6 (Nov 7-10, 2025) |
+| **Version** | 1.7.0-alpha (AI Bartender Complete) |
+| **Sessions Completed** | 10 (Nov 7-14, 2025) |
 | **Framework** | Next.js 14 + Express.js |
 | **Language** | TypeScript 5.3 (Frontend + Backend) |
 | **State Management** | Zustand 4.5 |
@@ -598,17 +610,24 @@ cd api && npm run build
 - [x] Full accessibility (ARIA labels, keyboard navigation, focus management)
 - [x] Mobile responsive design
 
-### ✅ Backend Complete (Sessions 5-6)
+### ✅ Backend Complete (Sessions 5-10)
 
 - [x] Express.js TypeScript backend in `/api` folder
 - [x] SQLite database with auto-initialization
 - [x] Authentication API (signup, login, logout, me)
 - [x] Inventory API (full CRUD operations)
-- [x] Recipes API (get, add, CSV import)
+- [x] Recipes API (get, add, update, delete, CSV import)
 - [x] Favorites API (get, add, remove with input validation)
-- [x] AI Messages API (Anthropic Claude integration)
+- [x] **AI Messages API - COMPLETE (Session 10)**:
+  - [x] Anthropic Claude API integration (claude-sonnet-4-5-20250929)
+  - [x] Context-aware system prompts (built from user's database)
+  - [x] "Lab Assistant" persona implementation
+  - [x] 90-second timeout for large prompts (300+ recipes)
+  - [x] 8-layer prompt injection protection (OWASP LLM Top 10)
+  - [x] Server-controlled prompts (no user override)
+  - [x] Output filtering for sensitive data
 - [x] JWT authentication with bcrypt password hashing
-- [x] **Security - Phase 2+3 Complete (Session 6)**:
+- [x] **Security - Phase 2+3+4 Complete**:
   - [x] Token Blacklist (in-memory Map, O(1) revocation)
   - [x] Token Versioning (session fixation protection)
   - [x] User Rate Limiting (sliding window, 100 req/user/15min)
@@ -617,13 +636,44 @@ cd api && npm run build
   - [x] Input Validation (comprehensive XSS prevention)
   - [x] Strong Password Validation (8+ chars, complexity)
   - [x] IP Rate Limiting (5-100 req/IP/15min)
-  - [x] Defense-in-Depth (6-layer security architecture)
-- [x] **Documentation (Session 6)**: ~4,500 lines of enterprise-grade inline documentation
+  - [x] Defense-in-Depth (8-layer security architecture)
+  - [x] AI Prompt Injection Protection (8 layers)
+- [x] **Documentation**: ~4,500+ lines of enterprise-grade inline documentation
 - [x] Error handling middleware
 - [x] Database schema with foreign keys and indexes
+- [x] 195/195 tests passing (100% pass rate)
+
+### ✅ Authentication Fixed (Session 10)
+
+- [x] **Zustand Rehydration Bug Fixed**:
+  - [x] Added `_hasHydrated` flag to track hydration completion
+  - [x] No more logout on page refresh
+  - [x] Token validation after hydration completes
+- [x] **useAuthGuard Hook Created**:
+  - [x] Consistent auth protection across all protected pages
+  - [x] Waits for Zustand hydration before redirecting
+  - [x] No more login redirect loops
+- [x] API response unwrapping fixed (nested data.data structure)
+
+### ✅ AI Bartender Complete (Session 10)
+
+- [x] **Clickable Recipe Recommendations**:
+  - [x] Recipe names in AI responses open RecipeDetailModal
+  - [x] Flexible recipe name matching (handles "#1" suffixes)
+  - [x] Markdown stripping in parseAIResponse
+  - [x] fetchRecipes() called on AI page mount
+- [x] **Context-Aware Prompts**:
+  - [x] Backend builds prompts with user's full inventory
+  - [x] Includes all user recipes (supports 300+)
+  - [x] Includes user's favorites
+  - [x] "Lab Assistant" persona with scientific voice
+- [x] **Performance**:
+  - [x] 90-second timeout for large prompts
+  - [x] Handles 20-25KB prompts (112 recipes tested)
 
 ### 🚀 Next Phase - Deployment
 
+- [ ] Test AI Bartender with full 300+ recipe collection
 - [ ] Deploy frontend to Vercel
 - [ ] Deploy backend to Railway
 - [ ] Configure production environment variables

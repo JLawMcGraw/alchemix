@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { CSVUploadModal } from '@/components/modals/CSVUploadModal';
@@ -13,24 +14,23 @@ import styles from './dashboard.module.css';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, isAuthenticated, bottles, recipes, favorites, fetchBottles, fetchRecipes, fetchFavorites } = useStore();
+  const { isValidating, isAuthenticated } = useAuthGuard();
+  const { user, bottles, recipes, favorites, fetchBottles, fetchRecipes, fetchFavorites } = useStore();
   const { showToast } = useToast();
   const [csvModalOpen, setCsvModalOpen] = useState(false);
   const [csvModalType, setCsvModalType] = useState<'bottles' | 'recipes'>('bottles');
 
+  // Fetch data when authenticated
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push('/login');
-      return;
+    if (isAuthenticated && !isValidating) {
+      fetchBottles().catch(console.error);
+      fetchRecipes().catch(console.error);
+      fetchFavorites().catch(console.error);
     }
+  }, [isAuthenticated, isValidating, fetchBottles, fetchRecipes, fetchFavorites]);
 
-    // Fetch data on mount
-    fetchBottles().catch(console.error);
-    fetchRecipes().catch(console.error);
-    fetchFavorites().catch(console.error);
-  }, [isAuthenticated, router, fetchBottles, fetchRecipes, fetchFavorites]);
-
-  if (!isAuthenticated) {
+  // Show loading state during validation
+  if (isValidating || !isAuthenticated) {
     return null;
   }
 
@@ -50,10 +50,8 @@ export default function DashboardPage() {
   const bottlesArray = Array.isArray(bottles) ? bottles : [];
   const recipesArray = Array.isArray(recipes) ? recipes : [];
   const favoritesArray = Array.isArray(favorites) ? favorites : [];
-  const lowStockCount = bottlesArray.filter((b) => {
-    const qty = b['Quantity (ml)'] || 0;
-    return qty < 200; // Less than 200ml is "low stock"
-  }).length;
+  // Low stock feature disabled until Quantity field is added to Bottle type
+  const lowStockCount = 0;
 
   // CSV Import handlers
   const handleOpenCSVModal = (type: 'bottles' | 'recipes') => {
@@ -65,15 +63,15 @@ export default function DashboardPage() {
     try {
       if (csvModalType === 'bottles') {
         const result = await inventoryApi.importCSV(file);
-        showToast(`Successfully imported ${result.count} bottles!`, 'success');
+        showToast('success', `Successfully imported ${result.count} bottles!`);
         await fetchBottles();
       } else {
         const result = await recipeApi.importCSV(file);
-        showToast(`Successfully imported ${result.count} recipes!`, 'success');
+        showToast('success', `Successfully imported ${result.count} recipes!`);
         await fetchRecipes();
       }
     } catch (error: any) {
-      showToast(error.message || 'Failed to import CSV', 'error');
+      showToast('error', error.message || 'Failed to import CSV');
       throw error;
     }
   };

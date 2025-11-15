@@ -3,31 +3,51 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { RecipeDetailModal } from '@/components/modals';
+import { parseAIResponse } from '@/lib/aiPersona';
 import { Sparkles, Send, User } from 'lucide-react';
-import type { ChatMessage } from '@/types';
+import type { ChatMessage, Recipe } from '@/types';
 import styles from './ai.module.css';
 
 export default function AIPage() {
   const router = useRouter();
-  const { isAuthenticated, chatHistory, sendMessage, clearChat } = useStore();
+  const { isValidating, isAuthenticated } = useAuthGuard();
+  const {
+    chatHistory,
+    sendMessage,
+    clearChat,
+    recipes,
+    favorites,
+    addFavorite,
+    removeFavorite,
+    fetchRecipes,
+    fetchFavorites,
+    error: storeError
+  } = useStore();
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      router.push('/login');
-    }
-  }, [isAuthenticated, router]);
 
   useEffect(() => {
     // Scroll to bottom when new messages arrive
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory]);
 
-  if (!isAuthenticated) {
+  // Fetch recipes and favorites on mount (CRITICAL FIX)
+  useEffect(() => {
+    if (isAuthenticated && !isValidating) {
+      console.log('🔄 Fetching recipes and favorites for AI page...');
+      fetchRecipes();
+      fetchFavorites();
+    }
+  }, [isAuthenticated, isValidating, fetchRecipes, fetchFavorites]);
+
+  if (isValidating || !isAuthenticated) {
     return null;
   }
 
@@ -41,11 +61,20 @@ export default function AIPage() {
     const userMessage = input.trim();
     setInput('');
     setLoading(true);
+    setErrorMessage(null);
 
     try {
+      console.log('🚀 Sending message to AI:', userMessage);
       await sendMessage(userMessage);
-    } catch (error) {
-      console.error('Failed to send message:', error);
+      console.log('✅ AI response received');
+    } catch (error: any) {
+      console.error('❌ Failed to send message:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      setErrorMessage(error.message || 'Failed to send message. Check console for details.');
     } finally {
       setLoading(false);
     }
@@ -55,6 +84,136 @@ export default function AIPage() {
     if (confirm('Are you sure you want to clear the chat history?')) {
       clearChat();
     }
+  };
+
+  // Handle clicking on a recipe name
+  const handleRecipeClick = (recipeName: string) => {
+    // Find the recipe in the user's collection
+    const recipesArray = Array.isArray(recipes) ? recipes : [];
+
+    // Try exact match first
+    let recipe = recipesArray.find((r) =>
+      r.name.toLowerCase() === recipeName.toLowerCase()
+    );
+
+    // If no exact match, try partial match (handles "DAIQUIRI #1" vs "DAIQUIRI")
+    if (!recipe) {
+      recipe = recipesArray.find((r) => {
+        const cleanRecipeName = recipeName.replace(/\s*#\d+\s*$/i, '').trim().toLowerCase();
+        const cleanDbName = r.name.replace(/\s*#\d+\s*$/i, '').trim().toLowerCase();
+        return cleanDbName === cleanRecipeName ||
+               r.name.toLowerCase().includes(cleanRecipeName) ||
+               cleanRecipeName.includes(r.name.toLowerCase());
+      });
+    }
+
+    if (recipe) {
+      console.log('✅ Found recipe:', recipe.name);
+      setSelectedRecipe(recipe);
+    } else {
+      console.log('❌ Recipe not found:', recipeName, 'Available:', recipesArray.map(r => r.name));
+    }
+  };
+
+  // Render AI message with clickable recipe names
+  const renderMessageContent = (message: ChatMessage) => {
+    if (message.role !== 'assistant') {
+      return <p className={styles.messageText}>{message.content}</p>;
+    }
+
+    // Parse the AI response to extract recommendations
+    const { explanation, recommendations } = parseAIResponse(message.content);
+
+    const recipesArray = Array.isArray(recipes) ? recipes : [];
+
+    console.log('🔍 Parsing AI response:', {
+      hasRecommendations: recommendations.length > 0,
+      recommendations,
+      availableRecipes: recipesArray.map(r => r.name),
+      messagePreview: message.content.substring(0, 100)
+    });
+
+    // If no recommendations, just show the content as-is
+    if (recommendations.length === 0) {
+      console.log('⚠️ No RECOMMENDATIONS: line found in AI response');
+      return <p className={styles.messageText}>{message.content}</p>;
+    }
+
+    // Split the explanation into parts and make recipe names clickable
+    let displayText = explanation;
+
+    // Create clickable links for each recommended recipe
+    recommendations.forEach((recipeName) => {
+      // Check if this recipe exists in user's collection (with flexible matching)
+      const recipe = recipesArray.find((r) => {
+        const cleanRecipeName = recipeName.replace(/\s*#\d+\s*$/i, '').trim().toLowerCase();
+        const cleanDbName = r.name.replace(/\s*#\d+\s*$/i, '').trim().toLowerCase();
+        return cleanDbName === cleanRecipeName ||
+               r.name.toLowerCase().includes(cleanRecipeName) ||
+               cleanRecipeName.includes(r.name.toLowerCase());
+      });
+
+      if (recipe) {
+        console.log(`✅ Recipe match: "${recipeName}" → "${recipe.name}"`);
+
+        // Replace both the full name AND the base name (without #1, #2, etc.)
+        // This handles cases where AI says "DAIQUIRI" in text but "DAIQUIRI #1" in recommendations
+
+        // Try exact match first
+        const escapedFullName = recipeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const fullNameRegex = new RegExp(`\\b${escapedFullName}\\b`, 'gi');
+        displayText = displayText.replace(fullNameRegex, `__RECIPE__${recipeName}__RECIPE__`);
+
+        // Also try base name without suffix (e.g., "DAIQUIRI" from "DAIQUIRI #1")
+        const baseName = recipeName.replace(/\s*#\d+\s*$/i, '').trim();
+        if (baseName !== recipeName) {
+          const escapedBaseName = baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          // Use negative lookahead to avoid matching if followed by #
+          const baseNameRegex = new RegExp(`\\b${escapedBaseName}\\b(?!\\s*#)`, 'gi');
+          displayText = displayText.replace(baseNameRegex, `__RECIPE__${recipeName}__RECIPE__`);
+        }
+      } else {
+        console.log(`❌ No recipe match for: "${recipeName}"`);
+      }
+    });
+
+    // Split by recipe markers and render
+    const parts = displayText.split(/__RECIPE__(.*?)__RECIPE__/);
+
+    console.log('📝 Rendered parts:', {
+      totalParts: parts.length,
+      parts: parts.map((p, i) => ({ index: i, text: p.substring(0, 30), isRecipe: recommendations.some(r => r.toLowerCase() === p.toLowerCase()) }))
+    });
+
+    return (
+      <div className={styles.messageText}>
+        {parts.map((part, index) => {
+          // Check if this part is a recipe name
+          const isRecipe = recommendations.some(
+            (r) => r.toLowerCase() === part.toLowerCase()
+          );
+
+          if (isRecipe) {
+            return (
+              <span
+                key={index}
+                onClick={() => handleRecipeClick(part)}
+                style={{
+                  color: 'var(--color-primary)',
+                  textDecoration: 'underline',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                }}
+              >
+                {part}
+              </span>
+            );
+          }
+
+          return <span key={index}>{part}</span>;
+        })}
+      </div>
+    );
   };
 
   return (
@@ -132,10 +291,12 @@ export default function AIPage() {
                           : styles.aiBubble
                       }
                     >
-                      <p className={styles.messageText}>{message.content}</p>
-                      <span className={styles.messageTime}>
-                        {new Date(message.timestamp).toLocaleTimeString()}
-                      </span>
+                      {renderMessageContent(message)}
+                      {message.timestamp && (
+                        <span className={styles.messageTime}>
+                          {new Date(message.timestamp).toLocaleTimeString()}
+                        </span>
+                      )}
                     </Card>
                   </div>
                 ))}
@@ -158,6 +319,21 @@ export default function AIPage() {
             )}
           </div>
 
+          {/* Error Message */}
+          {errorMessage && (
+            <div style={{
+              padding: '12px',
+              margin: '8px 0',
+              backgroundColor: '#fee',
+              border: '1px solid #fcc',
+              borderRadius: '8px',
+              color: '#c33',
+              fontSize: '14px'
+            }}>
+              ⚠️ {errorMessage}
+            </div>
+          )}
+
           {/* Input Form */}
           <form onSubmit={handleSubmit} className={styles.inputForm}>
             <input
@@ -173,6 +349,30 @@ export default function AIPage() {
             </Button>
           </form>
         </div>
+
+        {/* Recipe Detail Modal */}
+        {selectedRecipe && (
+          <RecipeDetailModal
+            recipe={selectedRecipe}
+            isOpen={!!selectedRecipe}
+            onClose={() => setSelectedRecipe(null)}
+            isFavorited={favorites.some((f) =>
+              f.recipe_name === selectedRecipe.name
+            )}
+            onToggleFavorite={async () => {
+              const favorite = favorites.find((f) =>
+                f.recipe_name === selectedRecipe.name
+              );
+
+              if (favorite && favorite.id) {
+                await removeFavorite(favorite.id);
+              } else if (!favorite) {
+                await addFavorite(selectedRecipe.name, selectedRecipe.id);
+              }
+              await fetchFavorites();
+            }}
+          />
+        )}
       </div>
     </div>
   );

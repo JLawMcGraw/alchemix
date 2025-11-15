@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { RecipeDetailModal } from '@/components/modals';
@@ -15,21 +16,20 @@ type TabType = 'favorites' | 'history';
 
 export default function FavoritesPage() {
   const router = useRouter();
-  const { isAuthenticated, favorites, recipes, chatHistory, fetchFavorites, fetchRecipes, removeFavorite, addFavorite } = useStore();
+  const { isValidating, isAuthenticated } = useAuthGuard();
+  const { favorites, recipes, chatHistory, fetchFavorites, fetchRecipes, removeFavorite, addFavorite } = useStore();
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<TabType>('favorites');
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push('/login');
-      return;
+    if (isAuthenticated && !isValidating) {
+      fetchFavorites().catch(console.error);
+      fetchRecipes().catch(console.error);
     }
-    fetchFavorites().catch(console.error);
-    fetchRecipes().catch(console.error);
-  }, [isAuthenticated, router, fetchFavorites, fetchRecipes]);
+  }, [isAuthenticated, isValidating, fetchFavorites, fetchRecipes]);
 
-  if (!isAuthenticated) {
+  if (isValidating || !isAuthenticated) {
     return null;
   }
 
@@ -94,7 +94,9 @@ export default function FavoritesPage() {
 
   // Group chat history by date
   const groupedHistory = chatArray.reduce((acc, message) => {
-    const date = new Date(message.timestamp).toLocaleDateString();
+    const date = message.timestamp
+      ? new Date(message.timestamp).toLocaleDateString()
+      : 'Unknown Date';
     if (!acc[date]) {
       acc[date] = [];
     }
@@ -235,9 +237,11 @@ export default function FavoritesPage() {
                               ? `${message.content.slice(0, 100)}...`
                               : message.content}
                           </p>
-                          <span className={styles.messageTime}>
-                            {new Date(message.timestamp).toLocaleTimeString()}
-                          </span>
+                          {message.timestamp && (
+                            <span className={styles.messageTime}>
+                              {new Date(message.timestamp).toLocaleTimeString()}
+                            </span>
+                          )}
                         </li>
                       ))}
                     </ul>

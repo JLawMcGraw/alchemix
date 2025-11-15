@@ -68,6 +68,7 @@ export interface Favorite {
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  timestamp?: string;
 }
 
 export interface ChatSession {
@@ -101,6 +102,7 @@ export interface AppState {
   // UI State
   isLoading: boolean;
   error: string | null;
+  _hasHydrated: boolean;
 
   // Actions
   login: (credentials: LoginCredentials) => Promise<void>;

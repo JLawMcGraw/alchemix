@@ -8,14 +8,27 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 
 ## ✨ Current Status
 
-**Version:** v1.7.0-alpha (Recipe CRUD Complete, Full Testing Suite)
-**Phase:** Production Ready - Complete CRUD Operations & Test Infrastructure
+**Version:** v1.7.0-alpha (AI Bartender Complete with Clickable Recipes)
+**Phase:** Production Ready - AI Integration & Authentication Fixed
 **Last Updated:** November 14, 2025
 
 ### What's Working
 - ✅ **Complete TypeScript monorepo** (Frontend + Backend) ⭐
 - ✅ **Modern Express backend** with JWT auth, full CRUD APIs ⭐
 - ✅ **SQLite database** with auto-initialization ⭐
+- ✅ **AI Bartender Complete** - Context-aware Claude AI integration with clickable recipe recommendations ⭐⭐⭐
+  - Claude Sonnet 4.5 model (claude-sonnet-4-5-20250929)
+  - Context-aware system prompts with user's full bar inventory and recipe collection
+  - "Lab Assistant" persona (informed enthusiasm, scientific voice, supportive curiosity)
+  - Clickable recipe names that open RecipeDetailModal with full details
+  - Flexible recipe name matching (handles "#1" suffixes, partial matches)
+  - 90-second timeout for large prompts (300+ recipes)
+  - 8-layer prompt injection protection
+- ✅ **Authentication Fixed** - No more logout on refresh or login redirect loops ⭐⭐
+  - Added `_hasHydrated` flag to Zustand store for proper rehydration timing
+  - Created `useAuthGuard` hook for consistent auth protection across pages
+  - Token validation after Zustand hydration completes
+  - API response unwrapping fixed (nested data.data structure)
 - ✅ **Recipe CRUD Complete** - Full create, read, update, delete operations ⭐⭐
 - ✅ **Recipe Editing** - Inline edit mode in RecipeDetailModal with form validation ⭐
 - ✅ **Recipe Deletion** - Backend endpoint with CASCADE cleanup and confirmation ⭐
@@ -23,7 +36,7 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 - ✅ **RecipeDetailModal** - Full recipe details with edit/delete capabilities ⭐
 - ✅ **Test Infrastructure** - 195/195 tests passing (100% pass rate) ⭐⭐
 - ✅ **Test Categories** - Unit, Database, Routes tests with npm scripts ⭐
-- ✅ **TypeScript Build** - Frontend and backend builds passing ⭐
+- ✅ **TypeScript Build** - Frontend and backend builds passing (all errors fixed) ⭐
 - ✅ **Ingredient Parsing** - Universal parser handles JSON arrays and strings ⭐
 - ✅ **Favorites Enhanced** - Now properly links recipe_id for data integrity ⭐
 - ✅ **CSV Import Fixed** - Flexible field name matching, 42 bottles imported ⭐
@@ -62,8 +75,19 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 - ✅ Full inventory table with filtering
 - ✅ View recipe from favorites page
 
+### Latest Session (Session 10 - November 14, 2025)
+- ✅ Fixed authentication logout on page refresh (`_hasHydrated` flag)
+- ✅ Fixed login redirect loops (`useAuthGuard` hook)
+- ✅ Implemented context-aware AI prompts (backend builds with user's inventory + recipes)
+- ✅ Integrated Claude Sonnet 4.5 model (claude-sonnet-4-5-20250929)
+- ✅ Added clickable recipe names in AI responses → opens RecipeDetailModal
+- ✅ Implemented flexible recipe name matching (handles "#1" suffixes)
+- ✅ Increased Claude API timeout to 90s for large prompts (300+ recipes)
+- ✅ Fixed all TypeScript build errors (frontend and backend)
+
 ### Next Phase
 - 🚀 **Deployment to Production** (Vercel + Railway)
+- 🧪 Test AI Bartender with full recipe collection (300+ recipes)
 - 🧪 End-to-end testing with production data
 - 📱 Mobile device testing (iOS, Android)
 - ♿ Screen reader accessibility verification
@@ -145,11 +169,14 @@ alchemix-next/                  # Monorepo root
 │   │   └── layout.tsx         # Root layout with TopNav + ToastProvider
 │   ├── components/
 │   │   ├── layout/            # Layout components (TopNav)
-│   │   ├── modals/            # Modal components (CSV, Add/Edit, Delete)
+│   │   ├── modals/            # Modal components (CSV, Add/Edit, Delete, RecipeDetail)
 │   │   └── ui/                # UI components (Button, Card, Input, Toast, Spinner)
+│   ├── hooks/
+│   │   └── useAuthGuard.ts    # Authentication guard hook (prevents redirect loops)
 │   ├── lib/
 │   │   ├── api.ts             # API client (Axios with interceptors)
-│   │   └── store.ts           # Zustand store (auth, inventory, recipes)
+│   │   ├── store.ts           # Zustand store (auth, inventory, recipes)
+│   │   └── aiPersona.ts       # AI persona and response parsing
 │   ├── styles/
 │   │   └── globals.css        # Design system CSS variables
 │   └── types/
@@ -555,5 +582,5 @@ MIT License - see LICENSE file for details
 
 **Built with ❤️ using Next.js 14 + Express + TypeScript**
 
-**Current Version:** v1.7.0-alpha (Recipe CRUD Complete, 195/195 Tests Passing)
+**Current Version:** v1.7.0-alpha (AI Bartender Complete with Clickable Recipes, Authentication Fixed)
 **Last Updated:** November 14, 2025

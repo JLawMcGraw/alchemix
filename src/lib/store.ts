@@ -5,7 +5,6 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { AppState, User, Bottle, Recipe, Favorite, ChatMessage } from '@/types';
 import { authApi, inventoryApi, recipeApi, favoritesApi, aiApi } from './api';
-import { buildSystemPrompt } from './aiPersona';
 
 export const useStore = create<AppState>()(
   persist(
@@ -20,6 +19,7 @@ export const useStore = create<AppState>()(
       chatHistory: [],
       isLoading: false,
       error: null,
+      _hasHydrated: false,
 
       // Auth Actions
       login: async (credentials) => {
@@ -27,8 +27,8 @@ export const useStore = create<AppState>()(
           set({ isLoading: true, error: null });
           const response = await authApi.login(credentials);
 
-          // Extract token and user from response.data
-          const { token, user } = response.data;
+          // Extract token and user from response
+          const { token, user } = response;
 
           // Store token and user
           if (typeof window !== 'undefined') {
@@ -54,8 +54,8 @@ export const useStore = create<AppState>()(
           set({ isLoading: true, error: null });
           const response = await authApi.signup(credentials);
 
-          // Extract token and user from response.data
-          const { token, user } = response.data;
+          // Extract token and user from response
+          const { token, user } = response;
 
           // Store token and user
           if (typeof window !== 'undefined') {
@@ -106,17 +106,17 @@ export const useStore = create<AppState>()(
       validateToken: async () => {
         const { token } = get();
         if (!token) {
-          set({ isAuthenticated: false, user: null });
+          set({ isAuthenticated: false, user: null, token: null });
           return false;
         }
 
         try {
           // Try to fetch user data with the persisted token
-          const user = await authApi.me();
-          set({ user, isAuthenticated: true });
+          const response = await authApi.me();
+          set({ user: response, isAuthenticated: true });
           return true;
         } catch (error) {
-          // Token is invalid or expired
+          // Token is invalid or expired - clear everything
           set({ isAuthenticated: false, user: null, token: null });
           if (typeof window !== 'undefined') {
             localStorage.removeItem('token');
@@ -293,41 +293,47 @@ export const useStore = create<AppState>()(
       // AI Chat Actions
       sendMessage: async (message) => {
         try {
+          console.log('📤 [Store] Starting sendMessage');
           set({ isLoading: true, error: null });
 
-          // Add user message to history
-          const userMessage: ChatMessage = { role: 'user', content: message };
+          // Add user message to history with timestamp
+          const userMessage: ChatMessage = {
+            role: 'user',
+            content: message,
+            timestamp: new Date().toISOString()
+          };
           set((state) => ({
             chatHistory: [...state.chatHistory, userMessage],
           }));
+          console.log('📝 [Store] User message added to history');
 
-          // Build context-aware system prompt
-          const systemPrompt = buildSystemPrompt({
-            inventory: get().bottles,
-            recipes: get().recipes,
-            favorites: get().favorites,
-            history: {},
-          });
-
-          // Get AI response
+          // Get AI response (backend builds the system prompt from database)
+          console.log('🌐 [Store] Calling API...');
           const response = await aiApi.sendMessage(
             message,
             get().chatHistory,
-            systemPrompt
+            '' // Backend ignores this and builds its own prompt
           );
+          console.log('✅ [Store] AI response received:', response?.substring(0, 50) + '...');
 
-          // Add AI response to history
-          const aiMessage: ChatMessage = { role: 'assistant', content: response };
+          // Add AI response to history with timestamp
+          const aiMessage: ChatMessage = {
+            role: 'assistant',
+            content: response,
+            timestamp: new Date().toISOString()
+          };
           set((state) => ({
             chatHistory: [...state.chatHistory, aiMessage],
             isLoading: false,
           }));
+          console.log('📝 [Store] AI message added to history');
 
           return response;
         } catch (error: any) {
-          const errorMessage = error.response?.data?.error || 'Failed to send message';
+          console.error('❌ [Store] Error in sendMessage:', error);
+          const errorMessage = error.response?.data?.error || error.message || 'Failed to send message';
           set({ error: errorMessage, isLoading: false });
-          throw new Error(errorMessage);
+          throw error;
         }
       },
 
@@ -353,9 +359,10 @@ export const useStore = create<AppState>()(
         token: state.token,
       }),
       onRehydrateStorage: () => (state) => {
-        // After rehydration, ensure isAuthenticated is false
-        // It will be set to true only after successful token validation
+        // After rehydration, mark as hydrated
+        // Keep isAuthenticated = false initially, will be set to true after validation
         if (state) {
+          state._hasHydrated = true;
           state.isAuthenticated = false;
         }
       },

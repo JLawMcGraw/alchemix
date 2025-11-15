@@ -155,20 +155,13 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
     setError(null);
 
     try {
-      // Convert string inputs to numbers where needed
+      // Map form data to Bottle type fields
       const bottle: Omit<Bottle, 'id'> = {
-        Spirit: formData.Spirit,
-        Brand: formData.Brand,
-        'Age/Type': formData['Age/Type'],
-        'Quantity (ml)': parseFloat(formData['Quantity (ml)']) || 0,
-        'Cost ($)': parseFloat(formData['Cost ($)']) || 0,
-        'Date Added': formData['Date Added'],
-        'Date Opened': formData['Date Opened'] || null,
-        'Estimated Remaining (ml)': parseFloat(formData['Estimated Remaining (ml)']) || null,
-        'Restock Threshold (ml)': parseFloat(formData['Restock Threshold (ml)']) || 200,
-        Location: formData.Location || null,
-        'Tasting Notes': formData['Tasting Notes'] || null,
-        Tags: formData.Tags || null,
+        name: formData.Spirit || '', // Use Spirit as the bottle name
+        'Liquor Type': formData.Brand || '', // Map Brand to Liquor Type for now
+        'Detailed Spirit Classification': formData['Age/Type'] || '',
+        'ABV (%)': '', // Not in form
+        'Additional Notes': formData['Tasting Notes'] || '',
       };
 
       await onAdd(bottle);

@@ -68,18 +68,18 @@ apiClient.interceptors.response.use(
 // Auth API
 export const authApi = {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const { data } = await apiClient.post<AuthResponse>('/auth/login', credentials);
-    return data;
+    const { data } = await apiClient.post<{ success: boolean; data: AuthResponse }>('/auth/login', credentials);
+    return data.data;
   },
 
   async signup(credentials: SignupCredentials): Promise<AuthResponse> {
-    const { data } = await apiClient.post<AuthResponse>('/auth/signup', credentials);
-    return data;
+    const { data } = await apiClient.post<{ success: boolean; data: AuthResponse }>('/auth/signup', credentials);
+    return data.data;
   },
 
   async me(): Promise<User> {
-    const { data } = await apiClient.get<User>('/auth/me');
-    return data;
+    const { data } = await apiClient.get<{ success: boolean; data: User }>('/auth/me');
+    return data.data;
   },
 
   async logout(): Promise<void> {
@@ -190,17 +190,16 @@ export const aiApi = {
     conversationHistory: { role: string; content: string }[],
     systemPrompt: string
   ): Promise<string> {
-    const { data } = await apiClient.post<{ content: { text: string }[] }>('/api/messages', {
-      model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 4096,
-      system: systemPrompt,
-      messages: [
-        ...conversationHistory,
-        { role: 'user', content: message },
-      ],
+    console.log('🔌 [API] Sending to /api/messages:', { message: message.substring(0, 50) + '...' });
+
+    // Backend expects simple { message: "..." } format
+    const { data } = await apiClient.post<{ success: boolean; data: { message: string } }>('/api/messages', {
+      message: message,
     });
 
-    return data.content[0].text;
+    console.log('🔌 [API] Response received:', { success: data.success, hasMessage: !!data.data?.message });
+
+    return data.data.message;
   },
 };
 

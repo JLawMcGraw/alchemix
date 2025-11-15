@@ -11,7 +11,7 @@ import styles from './login.module.css';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, signup, isAuthenticated, error } = useStore();
+  const { login, signup, isAuthenticated, _hasHydrated, validateToken, error } = useStore();
 
   const [isSignupMode, setIsSignupMode] = useState(false);
   const [email, setEmail] = useState('');
@@ -19,8 +19,34 @@ export default function LoginPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState('');
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
-  // Redirect if already authenticated
+  // Validate existing token on mount
+  useEffect(() => {
+    const checkExistingAuth = async () => {
+      // Wait for hydration
+      if (!_hasHydrated) {
+        return;
+      }
+
+      // Check if there's a token to validate
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      if (token) {
+        const isValid = await validateToken();
+        if (isValid) {
+          router.push('/dashboard');
+          return;
+        }
+      }
+
+      // Mark auth check as complete
+      setIsCheckingAuth(false);
+    };
+
+    checkExistingAuth();
+  }, [_hasHydrated, validateToken, router]);
+
+  // Redirect immediately after successful login/signup
   useEffect(() => {
     if (isAuthenticated) {
       router.push('/dashboard');

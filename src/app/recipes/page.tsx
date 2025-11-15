@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { Button, useToast } from '@/components/ui';
 import { Card } from '@/components/ui/Card';
 import { BookOpen, Upload, Star, Martini } from 'lucide-react';
@@ -13,7 +14,8 @@ import styles from './recipes.module.css';
 
 export default function RecipesPage() {
   const router = useRouter();
-  const { isAuthenticated, recipes, favorites, fetchRecipes, fetchFavorites, addFavorite, removeFavorite } = useStore();
+  const { isValidating, isAuthenticated } = useAuthGuard();
+  const { recipes, favorites, fetchRecipes, fetchFavorites, addFavorite, removeFavorite } = useStore();
   const { showToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterSpirit, setFilterSpirit] = useState<string>('all');
@@ -21,15 +23,13 @@ export default function RecipesPage() {
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push('/login');
-      return;
+    if (isAuthenticated && !isValidating) {
+      fetchRecipes().catch(console.error);
+      fetchFavorites().catch(console.error);
     }
-    fetchRecipes().catch(console.error);
-    fetchFavorites().catch(console.error);
-  }, [isAuthenticated, router, fetchRecipes, fetchFavorites]);
+  }, [isAuthenticated, isValidating, fetchRecipes, fetchFavorites]);
 
-  if (!isAuthenticated) {
+  if (isValidating || !isAuthenticated) {
     return null;
   }
 
