@@ -26,7 +26,9 @@ export default function RecipesPage() {
     removeFavorite,
     addCollection,
     updateCollection,
-    deleteCollection
+    deleteCollection,
+    deleteRecipe,
+    updateRecipe,
   } = useStore();
   const { showToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
@@ -837,6 +839,8 @@ export default function RecipesPage() {
           isOpen={showDeleteConfirm}
           onClose={() => setShowDeleteConfirm(false)}
           onConfirm={handleDeleteAll}
+          title="Delete All Recipes?"
+          message="Are you sure you want to delete these recipes?"
           itemName="all recipes"
           warningMessage={`This will permanently delete all ${pagination.total} ${pagination.total === 1 ? 'recipe' : 'recipes'}. This action cannot be undone.`}
         />
@@ -860,6 +864,8 @@ export default function RecipesPage() {
             setDeletingCollection(null);
           }}
           onConfirm={handleDeleteCollection}
+          title="Delete Collection?"
+          message="Are you sure you want to delete this collection?"
           itemName={deletingCollection?.name || 'collection'}
           warningMessage="This will permanently delete this collection. Recipes in this collection will not be deleted, but will no longer be associated with it."
         />

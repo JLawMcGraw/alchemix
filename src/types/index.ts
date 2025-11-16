@@ -27,6 +27,9 @@ export interface Bottle {
   id?: number;
   user_id?: number;
   name: string;
+  category?: string;
+  subcategory?: string;
+  quantity?: number;
   'Stock Number'?: number;
   'Liquor Type'?: string;
   'Detailed Spirit Classification'?: string;

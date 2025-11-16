@@ -8,9 +8,9 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 
 ## ✨ Current Status
 
-**Version:** v1.8.0-alpha (Recipe Collections & Bulk Operations)
-**Phase:** Production Ready - Collections Feature Complete
-**Last Updated:** November 15, 2025
+**Version:** v1.9.0-alpha (Security Hardening & AI Context Enhancements)
+**Phase:** Production Ready - Collections + Security Hardening Complete
+**Last Updated:** November 16, 2025
 
 ### What's Working
 - ✅ **Complete TypeScript monorepo** (Frontend + Backend) ⭐
@@ -31,12 +31,14 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
   - Clickable recipe names that open RecipeDetailModal with full details
   - Flexible recipe name matching (handles "#1" suffixes, partial matches)
   - 90-second timeout for large prompts (300+ recipes)
-  - 8-layer prompt injection protection
+  - 8-layer prompt injection protection plus sanitized stored context/history
+  - Sanitized chat history (last 10 turns) supplied with each request
 - ✅ **Authentication Fixed** - No more logout on refresh or login redirect loops ⭐⭐
   - Added `_hasHydrated` flag to Zustand store for proper rehydration timing
   - Created `useAuthGuard` hook for consistent auth protection across pages
   - Token validation after Zustand hydration completes
   - API response unwrapping fixed (nested data.data structure)
+  - Client-side password validator matches backend policy (12+ chars, mixed case, number, special, no common passwords)
 - ✅ **Recipe CRUD Complete** - Full create, read, update, delete operations ⭐⭐
 - ✅ **Recipe Editing** - Inline edit mode in RecipeDetailModal with form validation ⭐
 - ✅ **Recipe Deletion** - Backend endpoint with CASCADE cleanup and confirmation ⭐
@@ -51,6 +53,7 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 - ✅ **Edit Modal Refactored** - Now matches database schema correctly ⭐
 - ✅ **Enterprise Security (Phase 2+3+4 Complete)** ⭐⭐⭐
   - Token Blacklist (immediate logout)
+  - Persistent blacklist storage (SQLite) with hydration for multi-instance deployments
   - Token Versioning (session fixation protection)
   - User Rate Limiting (100 req/user/15min)
   - Security Headers (HSTS, CSP, X-Frame-Options, Referrer-Policy)

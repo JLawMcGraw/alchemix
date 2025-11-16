@@ -375,7 +375,6 @@ export const useStore = create<AppState>()(
           const response = await aiApi.sendMessage(
             message,
             get().chatHistory,
-            '' // Backend ignores this and builds its own prompt
           );
           console.log('✅ [Store] AI response received:', response?.substring(0, 50) + '...');
 

@@ -1,6 +1,6 @@
 # Active Tasks
 
-Last updated: 2025-11-15 (Session 11)
+Last updated: 2025-11-16 (Session 12)
 
 ## High Priority - Deployment & Testing
 - [ ] **Phase 1 Deployment** - Deploy to free tier production
@@ -50,6 +50,8 @@ Last updated: 2025-11-15 (Session 11)
 - [ ] Add CSV column mapping preview UI
 - [ ] Add tooltip hints for complex fields
 - [ ] Field autocomplete for common values (spirit types, locations)
+- [ ] Evaluate Redis-backed token blacklist for multi-instance deployments
+- [ ] Persist AI chat history per user (beyond in-memory session)
 
 ## Low Priority - Optional Enhancements
 - [ ] Build recipe creation modal
@@ -69,6 +71,17 @@ Last updated: 2025-11-15 (Session 11)
 - [ ] Image uploads for recipes/bottles
 
 ## Recently Completed
+
+### Session 12 - 2025-11-16 (Security Hardening & AI Context)
+- ✅ Persisted JWT blacklists in SQLite (token_blacklist table) with hydration and cleanup
+- ✅ Sanitized all AI prompt context plus last 10 chat turns before sending to Claude
+- ✅ Updated aiApi + backend endpoint to include conversation history
+- ✅ Login form now enforces backend password policy (12+ chars, complexity) with shared validator + UI hint
+- ✅ AI favorites toggle now prefers recipe_id to avoid duplicate/deletion mismatches
+- ✅ Added ghost Button variant, Card style prop, and DeleteConfirm warning prop to unblock recipes UI
+- ✅ Updated README/PROJECT_STATUS/PROGRESS docs to v1.9.0-alpha (Security Hardening & AI Context)
+- ✅ Documented sandbox Node ABI limitation and confirmed backend tests passing locally
+- ✅ Added dev notes + metrics entry for security improvements
 
 ### Session 11 - 2025-11-15 (Recipe Collections & Bulk Operations)
 - ✅ Create collections database schema (user_id, name, description, timestamps)

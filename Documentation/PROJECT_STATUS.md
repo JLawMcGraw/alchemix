@@ -1,12 +1,12 @@
 # Project Status
 
-Last updated: 2025-11-15
+Last updated: 2025-11-16
 
 ## Current Phase
-**Recipe Collections & Bulk Operations Complete** - Organize recipes into collections/folders with bulk selection and mass move/delete operations
+**Security Hardening & AI Context Enhancements Complete** - Persisted JWT revocations, sanitized AI prompt context/history, and aligned UI password validation with backend requirements
 
 ## Current Version
-v1.8.0-alpha (Recipe Collections with folder navigation, bulk operations, CSV import integration)
+v1.9.0-alpha (Security hardening, persisted token blacklist, AI chat history context)
 
 ## Implementation Status
 
@@ -33,12 +33,14 @@ v1.8.0-alpha (Recipe Collections with folder navigation, bulk operations, CSV im
 - ✅ **useAuthGuard hook** - Consistent auth protection across all protected pages
 - ✅ **Token validation** - Validates JWT after Zustand hydration completes
 - ✅ **No more redirect loops** - Auth guard waits for hydration before redirecting
+- ✅ **Password policy parity** - Login form uses shared validator (12+ chars, mixed case, number, special, no common passwords)
 - ⬜ Account settings page
 - ⬜ Password reset flow
 - ⬜ Email verification
 
 ### UI Components Library
 - ✅ Button (primary, outline, text variants) with icon support + forwardRef
+- ✅ Button ghost variant for subtle actions (recipes/folders UI)
 - ✅ Card (padding options, hover states)
 - ✅ Input (label, error states) + forwardRef
 - ✅ TopNav with navigation and logout
@@ -139,6 +141,8 @@ v1.8.0-alpha (Recipe Collections with folder navigation, bulk operations, CSV im
 - ✅ **90-second timeout** - Supports large prompts with 300+ recipes
 - ✅ **Comprehensive security** - 8-layer prompt injection protection
 - ✅ **Recipe data loading** - fetchRecipes() and fetchFavorites() called on mount
+- ✅ **Conversation context** - Sanitized chat history (last 10 turns) sent with each AI request
+- ✅ **Favorite toggling by recipe_id** - Avoids duplicate favorites when names change
 - ⬜ Typing indicator animation
 - ⬜ Conversation persistence (currently in memory)
 
@@ -177,7 +181,8 @@ v1.8.0-alpha (Recipe Collections with folder navigation, bulk operations, CSV im
 - ✅ **AI Messages API**: Anthropic Claude integration endpoint
 - ✅ **Middleware**: JWT auth middleware, error handler, CORS config
 - ✅ **Security - Phase 2+3 Complete** (5 major enhancements):
-  - ✅ **Token Blacklist**: Immediate logout with O(1) revocation
+- ✅ **Token Blacklist**: Immediate logout with O(1) revocation
+- ✅ **Persistent Blacklist**: Revoked JWTs stored in SQLite (`token_blacklist`) and reloaded on startup
   - ✅ **Token Versioning**: Session fixation protection, invalidate all tokens on password change
   - ✅ **User Rate Limiting**: 100 req/user/15min (sliding window algorithm)
   - ✅ **Security Headers**: Helmet with HSTS, CSP, X-Frame-Options, Referrer-Policy (9 headers total)

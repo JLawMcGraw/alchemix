@@ -495,6 +495,23 @@ export function initializeDatabase() {
   `);
 
   /**
+   * Token Blacklist Table
+   *
+   * Persists revoked JWT tokens so revocations survive restarts
+   * and can be shared across multiple backend instances.
+   *
+   * Columns:
+   * - token: Full JWT token string (PRIMARY KEY)
+   * - expires_at: Unix timestamp (seconds) when token expires
+   */
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS token_blacklist (
+      token TEXT PRIMARY KEY,
+      expires_at INTEGER NOT NULL
+    )
+  `);
+
+  /**
    * Performance Indexes
    *
    * Creates indexes on frequently queried columns for faster lookups.

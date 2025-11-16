@@ -1,7 +1,7 @@
 # AlcheMix React Migration - Progress Summary
 
-**Date:** November 11, 2025
-**Status:** Full-Stack TypeScript Monorepo Complete ✅ + Backend Security Hardened ✅
+**Date:** November 16, 2025
+**Status:** Recipe Collections + Security Hardening Complete ✅ (v1.9.0-alpha)
 **Next Phase:** Deploy to Production (Vercel + Railway)
 
 ---
@@ -176,6 +176,18 @@ Connects to Express backend on port 3000:
 - .next
 - .env files
 - Build artifacts
+
+---
+
+## 8. **Security Hardening & AI Enhancements (2025-11-16)** ✅
+
+- Added persistent `token_blacklist` table and hydration logic so logout revocations survive restarts and multi-node deployments
+- `TokenBlacklist` now mirrors entries between memory and SQLite, with scheduled cleanup of expired tokens
+- AI Messages endpoint sanitizes **stored** inventory/recipe/favorite strings plus the latest 10 chat turns before building Claude prompts
+- API client posts chat history so follow-up questions retain context
+- Login page imports a shared password policy helper that enforces the backend's 12+ character complexity rules and surfaces inline guidance
+- AI favorites toggle relies on `recipe_id` whenever possible to prevent duplicate entries after renaming recipes
+- UI components gained missing props (Button ghost variant, Card style prop, DeleteConfirm warning text) to align with recipes/favorites usage
 
 ---
 

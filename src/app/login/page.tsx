@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useStore } from '@/lib/store';
+import { validatePassword as validatePasswordPolicy } from '@/lib/passwordPolicy';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -68,9 +69,12 @@ export default function LoginPage() {
       return;
     }
 
-    if (password.length < 6) {
-      setFormError('Password must be at least 6 characters');
-      return;
+    if (isSignupMode) {
+      const passwordValidation = validatePasswordPolicy(password);
+      if (!passwordValidation.isValid) {
+        setFormError(passwordValidation.errors[0]);
+        return;
+      }
     }
 
     setLoading(true);
@@ -144,6 +148,11 @@ export default function LoginPage() {
               fullWidth
               disabled={loading}
             />
+            {isSignupMode && (
+              <p className={styles.passwordHint}>
+                Use at least 12 characters with uppercase, lowercase, number, and special character.
+              </p>
+            )}
 
             {isSignupMode && (
               <Input

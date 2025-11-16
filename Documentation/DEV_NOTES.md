@@ -4,6 +4,62 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-11-16 - Persisted Token Blacklist & AI Chat History (Session 12)
+
+**Context**: Audit flagged remaining security gaps—JWT revocations vanished on restart and stored recipe text could poison future AI prompts.
+
+**Decisions & Implementation**:
+
+1. **Persist Token Blacklist in SQLite**
+   ```sql
+   CREATE TABLE IF NOT EXISTS token_blacklist (
+     token TEXT PRIMARY KEY,
+     expires_at INTEGER NOT NULL
+   );
+   ```
+   ```ts
+   // api/src/utils/tokenBlacklist.ts
+   this.insertStmt = db.prepare('INSERT OR REPLACE INTO token_blacklist (token, expires_at) VALUES (?, ?)');
+   this.selectStmt = db.prepare('SELECT expires_at FROM token_blacklist WHERE token = ?');
+   this.loadFromDatabase(); // hydrate cache on startup
+   add(token, exp) {
+     this.blacklist.set(token, exp);
+     this.insertStmt.run(token, exp);
+   }
+   cleanup() {
+     this.cleanupStmt.run(now);
+   }
+   ```
+   Result: Logout revocations survive process restarts and scale to multiple backend nodes sharing the same DB.
+
+2. **Sanitize AI Conversation History**
+   ```ts
+   const sanitizedHistory = sanitizeHistoryEntries(history, userId); // last 10 turns
+   await axios.post('/v1/messages', {
+     messages: [...sanitizedHistory, { role: 'user', content: sanitizedMessage }],
+     system: systemPrompt
+   });
+   ```
+   `sanitizeHistoryEntries` reuses the same regex heuristics as inventory/recipe sanitization so saved titles can't override the system prompt.
+
+3. **Shared Password Policy Helper**
+   ```ts
+   // src/lib/passwordPolicy.ts
+   export function validatePassword(password: string) {
+     if (password.length < 12) errors.push('Password must be at least 12 characters long');
+     if (!/[A-Z]/.test(password)) errors.push('Password must contain at least one uppercase letter (A-Z)');
+     // lowercase, number, special, common password blacklist, repeated char guard...
+   }
+   ```
+   Login page imports this helper so UI validation matches backend logic.
+
+**Lessons Learned**:
+- Persisting revocations in SQLite keeps infra simple yet delivers multi-instance safety; can later swap the class for Redis if needed.
+- Sanitizing stored content is as critical as sanitizing live user input when building AI prompts.
+- Sharing validation logic prevents UX bugs (“password accepted in UI but rejected by API”).
+
+---
+
 ## 2025-11-15 - Recipe Collections Database Schema Design (Session 11)
 
 **Context**: Implementing recipe collections feature to organize recipes into folders/books.

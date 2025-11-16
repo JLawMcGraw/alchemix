@@ -109,6 +109,60 @@ const SENSITIVE_OUTPUT_PATTERNS = [
 ];
 
 /**
+ * Sanitize context fields before including them in the system prompt.
+ * This prevents malicious saved data (e.g., recipe name "IGNORE PREVIOUS INSTRUCTIONS")
+ * from bypassing the live prompt-injection checks.
+ */
+const MAX_HISTORY_ITEMS = 10;
+
+function sanitizeContextField(value: unknown, fieldName: string, userId: number): string {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  let sanitized = sanitizeString(value, 1000, true);
+  if (!sanitized) {
+    return '';
+  }
+
+  for (const pattern of PROMPT_INJECTION_PATTERNS) {
+    pattern.lastIndex = 0;
+    if (pattern.test(sanitized)) {
+      console.warn(`⚠️  SECURITY: Removed suspicious content from ${fieldName} for user ${userId}`);
+      return '[removed for security]';
+    }
+  }
+
+  return sanitized;
+}
+
+function sanitizeHistoryEntries(
+  history: Array<{ role?: string; content?: string }>,
+  userId: number
+): { role: 'user' | 'assistant'; content: string }[] {
+  if (!Array.isArray(history)) {
+    return [];
+  }
+
+  return history
+    .slice(-MAX_HISTORY_ITEMS)
+    .map((entry) => {
+      if (!entry || typeof entry.content !== 'string' || entry.content.length === 0) {
+        return null;
+      }
+
+      const sanitizedContent = sanitizeContextField(entry.content, 'history.entry', userId);
+      if (!sanitizedContent) {
+        return null;
+      }
+
+      const role: 'user' | 'assistant' = entry.role === 'assistant' ? 'assistant' : 'user';
+      return { role, content: sanitizedContent };
+    })
+    .filter((entry): entry is { role: 'user' | 'assistant'; content: string } => Boolean(entry));
+}
+
+/**
  * Build Context-Aware System Prompt with User's Inventory & Recipes
  *
  * Creates a rich prompt that includes the user's bar stock and available recipes.
@@ -133,6 +187,64 @@ async function buildContextAwarePrompt(userId: number): Promise<string> {
     'SELECT * FROM favorites WHERE user_id = ? ORDER BY created_at DESC'
   ).all(userId) as any[];
 
+  const inventoryEntries = inventory
+    .map((bottle: any) => {
+      const name = sanitizeContextField(bottle.name, 'bottle.name', userId);
+      if (!name) {
+        return null;
+      }
+      const liquorType = sanitizeContextField(bottle['Liquor Type'], 'bottle.liquorType', userId);
+      const classification = sanitizeContextField(bottle['Detailed Spirit Classification'], 'bottle.classification', userId);
+      const abv = sanitizeContextField(bottle['ABV (%)'], 'bottle.abv', userId);
+      const profile = sanitizeContextField(bottle['Profile (Nose)'], 'bottle.profile', userId);
+      const palate = sanitizeContextField(bottle.Palate, 'bottle.palate', userId);
+      const finish = sanitizeContextField(bottle.Finish, 'bottle.finish', userId);
+      const notes = sanitizeContextField(bottle['Additional Notes'], 'bottle.notes', userId);
+
+      let line = `- **${name}**`;
+      if (liquorType) line += ` [${liquorType}]`;
+      if (classification) line += ` (${classification})`;
+      if (abv) line += ` - ${abv}% ABV`;
+      if (profile) line += `\n  🔬 Profile (Nose): ${profile}`;
+      if (palate) line += `\n  👅 Palate: ${palate}`;
+      if (finish) line += `\n  ⏱️ Finish: ${finish}`;
+      if (notes) line += `\n  📝 Notes: ${notes}`;
+      return line;
+    })
+    .filter(Boolean)
+    .join('\n\n');
+
+  const recipeEntries = recipes
+    .map((recipe: any) => {
+      const name = sanitizeContextField(recipe.name, 'recipe.name', userId);
+      if (!name) {
+        return null;
+      }
+      const category = sanitizeContextField(recipe.category, 'recipe.category', userId);
+      const instructions = sanitizeContextField(recipe.instructions, 'recipe.instructions', userId);
+      const glass = sanitizeContextField(recipe.glass, 'recipe.glass', userId);
+      const ingredientsValue =
+        typeof recipe.ingredients === 'string'
+          ? recipe.ingredients
+          : JSON.stringify(recipe.ingredients);
+      const ingredients = sanitizeContextField(ingredientsValue, 'recipe.ingredients', userId);
+
+      let details = `- **${name}**`;
+      if (category) details += ` (${category})`;
+      if (ingredients) details += `\n  Ingredients: ${ingredients}`;
+      if (instructions) details += `\n  Instructions: ${instructions}`;
+      if (glass) details += `\n  Glass: ${glass}`;
+      return details;
+    })
+    .filter(Boolean)
+    .join('\n\n');
+
+  const favoriteEntries = favorites
+    .map((f: any) => sanitizeContextField(f.recipe_name, 'favorite.recipe_name', userId))
+    .filter(Boolean)
+    .map((name: string) => `- ${name}`)
+    .join('\n');
+
   const basePrompt = `# THE LAB ASSISTANT (AlcheMix AI)
 
 ## YOUR IDENTITY
@@ -146,33 +258,12 @@ You are **"The Lab Assistant,"** the AI bartender for **"AlcheMix."** You are a 
 - **Humor:** Dry, observational wordplay
 
 ## USER'S CURRENT BAR STOCK (${inventory.length} bottles):
-${inventory.length > 0 ? inventory.map((bottle: any) => {
-  let line = `- **${bottle.name}**`;
-  const liquorType = bottle['Liquor Type'];
-  const classification = bottle['Detailed Spirit Classification'];
-  const abv = bottle['ABV (%)'];
-  const profile = bottle['Profile (Nose)'];
-  const palate = bottle.Palate;
-
-  if (liquorType) line += ` [${liquorType}]`;
-  if (classification) line += ` (${classification})`;
-  if (abv) line += ` - ${abv}% ABV`;
-  if (profile) line += `\n  🔬 Profile: ${profile}`;
-  if (palate) line += `\n  👅 Palate: ${palate}`;
-  return line;
-}).join('\n\n') : 'No bottles in inventory yet.'}
+${inventoryEntries || 'No bottles in inventory yet.'}
 
 ## AVAILABLE RECIPES (${recipes.length} cocktails in their collection):
-${recipes.length > 0 ? recipes.map((r: any) => {
-  let details = `- **${r.name}**`;
-  if (r.category) details += ` (${r.category})`;
-  if (r.ingredients) details += `\n  Ingredients: ${r.ingredients}`;
-  if (r.instructions) details += `\n  Instructions: ${r.instructions}`;
-  if (r.glass) details += `\n  Glass: ${r.glass}`;
-  return details;
-}).join('\n\n') : 'No recipes uploaded yet.'}
+${recipeEntries || 'No recipes uploaded yet.'}
 
-${favorites.length > 0 ? `\n## USER'S FAVORITES:\n${favorites.map((f: any) => `- ${f.recipe_name}`).join('\n')}` : ''}
+${favoriteEntries ? `\n## USER'S FAVORITES:\n${favoriteEntries}` : ''}
 
 ## YOUR APPROACH
 1. **Ask clarifying questions** - "Should my recommendations come from your recipe inventory, or would you like classic suggestions?"
@@ -235,7 +326,7 @@ RECOMMENDATIONS: Recipe Name 1, Recipe Name 2, Recipe Name 3
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { message } = req.body;
+    const { message, history } = req.body;
     const userId = req.user?.userId;
 
     /**
@@ -291,6 +382,7 @@ router.post('/', async (req: Request, res: Response) => {
      * - Excessive whitespace
      */
     const sanitizedMessage = sanitizeString(message, 2000, true);
+    const sanitizedHistory = sanitizeHistoryEntries(Array.isArray(history) ? history : [], userId);
 
     /**
      * SECURITY LAYER 4: Prompt Injection Detection
@@ -360,6 +452,7 @@ router.post('/', async (req: Request, res: Response) => {
         model: 'claude-sonnet-4-5-20250929',
         max_tokens: 2048, // Increased for detailed recommendations with recipe context
         messages: [
+          ...sanitizedHistory,
           {
             role: 'user',
             content: sanitizedMessage // Sanitized input only

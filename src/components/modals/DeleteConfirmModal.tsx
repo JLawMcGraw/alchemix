@@ -12,6 +12,7 @@ interface DeleteConfirmModalProps {
   title: string;
   message: string;
   itemName?: string;
+  warningMessage?: string;
 }
 
 export function DeleteConfirmModal({
@@ -21,6 +22,7 @@ export function DeleteConfirmModal({
   title,
   message,
   itemName,
+  warningMessage = 'This action cannot be undone.',
 }: DeleteConfirmModalProps) {
   const [loading, setLoading] = useState(false);
 
@@ -111,7 +113,7 @@ export function DeleteConfirmModal({
               <strong>{itemName}</strong>
             </div>
           )}
-          <p className={styles.warning}>This action cannot be undone.</p>
+          <p className={styles.warning}>{warningMessage}</p>
         </div>
 
         <div className={styles.footer}>

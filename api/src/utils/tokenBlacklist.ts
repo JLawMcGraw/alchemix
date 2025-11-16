@@ -1,3 +1,6 @@
+import type Database from 'better-sqlite3';
+import { db } from '../database/db';
+
 /**
  * Token Blacklist System
  *
@@ -92,6 +95,10 @@ class TokenBlacklist {
    * - 10,000 tokens: ~2.5MB
    */
   private blacklist: Map<string, number>;
+  private insertStmt: Database.Statement<[string, number]>;
+  private selectStmt: Database.Statement<[string]>;
+  private deleteStmt: Database.Statement<[string]>;
+  private cleanupStmt: Database.Statement<[number]>;
 
   /**
    * Cleanup Interval Timer
@@ -119,14 +126,39 @@ class TokenBlacklist {
    */
   constructor() {
     this.blacklist = new Map();
+    this.insertStmt = db.prepare('INSERT OR REPLACE INTO token_blacklist (token, expires_at) VALUES (?, ?)');
+    this.selectStmt = db.prepare('SELECT expires_at FROM token_blacklist WHERE token = ?');
+    this.deleteStmt = db.prepare('DELETE FROM token_blacklist WHERE token = ?');
+    this.cleanupStmt = db.prepare('DELETE FROM token_blacklist WHERE expires_at < ?');
 
     // Start cleanup task (runs every 15 minutes)
     this.cleanupInterval = setInterval(() => {
       this.cleanup();
     }, 15 * 60 * 1000); // 15 minutes in milliseconds
 
+    this.loadFromDatabase();
+
     console.log('🔒 Token blacklist initialized');
     console.log('   Cleanup interval: Every 15 minutes');
+  }
+
+  /**
+   * Load persisted blacklist entries from database on startup.
+   * Removes any expired entries encountered during hydration.
+   */
+  private loadFromDatabase(): void {
+    const now = Math.floor(Date.now() / 1000);
+    const rows = db
+      .prepare('SELECT token, expires_at FROM token_blacklist')
+      .all() as { token: string; expires_at: number }[];
+
+    for (const row of rows) {
+      if (row.expires_at > now) {
+        this.blacklist.set(row.token, row.expires_at);
+      } else {
+        this.deleteStmt.run(row.token);
+      }
+    }
   }
 
   /**
@@ -164,6 +196,7 @@ class TokenBlacklist {
    */
   add(token: string, expiryTimestamp: number): void {
     this.blacklist.set(token, expiryTimestamp);
+    this.insertStmt.run(token, expiryTimestamp);
     console.log(`🔒 Token blacklisted (expires: ${new Date(expiryTimestamp * 1000).toISOString()})`);
   }
 
@@ -208,7 +241,30 @@ class TokenBlacklist {
    * - Token in blacklist and valid → returns true (reject request)
    */
   isBlacklisted(token: string): boolean {
-    return this.blacklist.has(token);
+    const now = Math.floor(Date.now() / 1000);
+    const cachedExpiry = this.blacklist.get(token);
+
+    if (cachedExpiry) {
+      if (cachedExpiry < now) {
+        this.blacklist.delete(token);
+        this.deleteStmt.run(token);
+        return false;
+      }
+      return true;
+    }
+
+    const row = this.selectStmt.get(token) as { expires_at: number } | undefined;
+    if (!row) {
+      return false;
+    }
+
+    if (row.expires_at < now) {
+      this.deleteStmt.run(token);
+      return false;
+    }
+
+    this.blacklist.set(token, row.expires_at);
+    return true;
   }
 
   /**
@@ -253,12 +309,15 @@ class TokenBlacklist {
     for (const [token, expiryTimestamp] of this.blacklist.entries()) {
       if (expiryTimestamp < now) {
         this.blacklist.delete(token);
+        this.deleteStmt.run(token);
         removedCount++;
       }
     }
 
-    if (removedCount > 0) {
-      console.log(`🧹 Token blacklist cleanup: Removed ${removedCount} expired tokens`);
+    const dbCleanup = this.cleanupStmt.run(now).changes ?? 0;
+
+    if (removedCount > 0 || dbCleanup > 0) {
+      console.log(`🧹 Token blacklist cleanup: Removed ${removedCount + dbCleanup} expired tokens`);
       console.log(`   Blacklist size: ${this.blacklist.size} tokens`);
     }
   }

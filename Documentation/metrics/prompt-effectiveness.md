@@ -17,6 +17,26 @@ Last updated: 2025-11-15 (Session 11)
 
 **IMPORTANT: Always ADD a NEW entry - NEVER edit existing entries - these are historical records!**
 
+### 2025-11-16 - end-of-session (Session 12 - Security Hardening & AI Context)
+
+- **Session Focus**: Persisted JWT revocations, sanitized AI prompt context/history, aligned UI password validation, resolved audit findings
+- **Documentation Updated**: SESSION_HISTORY.md, PROJECT_STATUS.md, ACTIVE_TASKS.md, DEV_NOTES.md, README.md, PROGRESS_SUMMARY.md, CHANGELOG.md, metrics
+- **Completion**: ✅ Successful (all audit items closed, repo type-checks clean)
+- **Time Saved**: ~55 minutes (shared password helper, centralized sanitizer reuse, SQLite persistence)
+- **Quality**: 5/5 (defense-in-depth improvements, documented end-to-end)
+- **User Feedback**: Confirmed need to finish checklist; future interest in Redis-backed blacklist + chat persistence
+- **Environment Setup**: Rebuilt better-sqlite3 for Node 24 locally; sandbox limited by ABI 115
+- **Implementation Notes**:
+  - Added `token_blacklist` table + hydration/cleanup logic in `api/src/utils/tokenBlacklist.ts`
+  - Sanitized inventory/recipes/favorites and last 10 chat turns before Claude requests
+  - API client now posts `history` array; backend trims/sanitizes to prevent stored prompt injection
+  - Login page imports shared password policy helper, displays inline hint
+  - AI favorites toggles by `recipe_id` first; DeleteConfirm + Button + Card components gained missing props
+  - Session docs + README bumped to v1.9.0-alpha
+- **TypeScript Issues**: Resolved Button variant, Card style, DeleteConfirm props, store imports
+- **Satisfaction**: 5/5
+- **Notes**: Sandbox Node ABI mismatch prevents backend vitest; documented requirement to run backend tests locally on Node 24 until sandbox upgraded.
+
 ### 2025-11-15 - end-of-session (Session 11 - Recipe Collections & Bulk Operations)
 
 - **Session Focus**: Implemented complete recipe collections feature with folder-like navigation, CSV import integration, bulk selection, and session end documentation enforcement

@@ -51,8 +51,37 @@ export default function AIPage() {
     return null;
   }
 
-  // Ensure chatHistory is an array
+  // Ensure chatHistory/favorites are arrays
   const chatArray = Array.isArray(chatHistory) ? chatHistory : [];
+  const favoritesArray = Array.isArray(favorites) ? favorites : [];
+
+  const isRecipeFavorited = (recipe: Recipe | null): boolean => {
+    if (!recipe) {
+      return false;
+    }
+    if (recipe.id) {
+      return favoritesArray.some((fav) => fav.recipe_id === recipe.id);
+    }
+    return favoritesArray.some(
+      (fav) =>
+        fav.recipe_name?.toLowerCase() === recipe.name.toLowerCase()
+    );
+  };
+
+  const findFavoriteForRecipe = (recipe: Recipe | null) => {
+    if (!recipe) {
+      return undefined;
+    }
+    if (recipe.id) {
+      const byId = favoritesArray.find((fav) => fav.recipe_id === recipe.id);
+      if (byId) {
+        return byId;
+      }
+    }
+    return favoritesArray.find(
+      (fav) => fav.recipe_name?.toLowerCase() === recipe.name.toLowerCase()
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -352,27 +381,23 @@ export default function AIPage() {
 
         {/* Recipe Detail Modal */}
         {selectedRecipe && (
-          <RecipeDetailModal
-            recipe={selectedRecipe}
-            isOpen={!!selectedRecipe}
-            onClose={() => setSelectedRecipe(null)}
-            isFavorited={favorites.some((f) =>
-              f.recipe_name === selectedRecipe.name
-            )}
-            onToggleFavorite={async () => {
-              const favorite = favorites.find((f) =>
-                f.recipe_name === selectedRecipe.name
-              );
+            <RecipeDetailModal
+              recipe={selectedRecipe}
+              isOpen={!!selectedRecipe}
+              onClose={() => setSelectedRecipe(null)}
+              isFavorited={isRecipeFavorited(selectedRecipe)}
+              onToggleFavorite={async () => {
+                const favorite = findFavoriteForRecipe(selectedRecipe);
 
-              if (favorite && favorite.id) {
-                await removeFavorite(favorite.id);
-              } else if (!favorite) {
-                await addFavorite(selectedRecipe.name, selectedRecipe.id);
-              }
-              await fetchFavorites();
-            }}
-          />
-        )}
+                if (favorite && favorite.id) {
+                  await removeFavorite(favorite.id);
+                } else if (selectedRecipe) {
+                  await addFavorite(selectedRecipe.name, selectedRecipe.id);
+                }
+                await fetchFavorites();
+              }}
+            />
+          )}
       </div>
     </div>
   );

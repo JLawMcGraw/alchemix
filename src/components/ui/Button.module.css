@@ -95,6 +95,21 @@
   background-color: rgba(242, 164, 75, 0.2);
 }
 
+.ghost {
+  background-color: transparent;
+  border-color: transparent;
+  color: var(--color-text-muted);
+}
+
+.ghost:hover:not(:disabled) {
+  background-color: rgba(0, 0, 0, 0.04);
+  color: var(--color-text-body);
+}
+
+.ghost:active:not(:disabled) {
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
 /* Full Width */
 .fullWidth {
   width: 100%;

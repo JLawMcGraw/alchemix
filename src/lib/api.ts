@@ -232,14 +232,19 @@ export const favoritesApi = {
 export const aiApi = {
   async sendMessage(
     message: string,
-    conversationHistory: { role: string; content: string }[],
-    systemPrompt: string
+    conversationHistory: { role: string; content: string }[]
   ): Promise<string> {
     console.log('🔌 [API] Sending to /api/messages:', { message: message.substring(0, 50) + '...' });
 
     // Backend expects simple { message: "..." } format
     const { data } = await apiClient.post<{ success: boolean; data: { message: string } }>('/api/messages', {
-      message: message,
+      message,
+      history: Array.isArray(conversationHistory)
+        ? conversationHistory.map((entry) => ({
+            role: entry.role,
+            content: entry.content,
+          }))
+        : [],
     });
 
     console.log('🔌 [API] Response received:', { success: data.success, hasMessage: !!data.data?.message });

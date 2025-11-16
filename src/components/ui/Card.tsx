@@ -10,6 +10,7 @@ export interface CardProps {
   padding?: 'none' | 'sm' | 'md' | 'lg';
   hover?: boolean;
   onClick?: () => void;
+  style?: React.CSSProperties;
 }
 
 export const Card: React.FC<CardProps> = ({
@@ -18,6 +19,7 @@ export const Card: React.FC<CardProps> = ({
   padding = 'md',
   hover = false,
   onClick,
+  style,
 }) => {
   const classNames = [
     styles.card,
@@ -30,7 +32,7 @@ export const Card: React.FC<CardProps> = ({
     .join(' ');
 
   return (
-    <div className={classNames} onClick={onClick}>
+    <div className={classNames} onClick={onClick} style={style}>
       {children}
     </div>
   );

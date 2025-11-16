@@ -4,6 +4,47 @@ This file tracks the 10 most recent development sessions. Older sessions are arc
 
 ---
 
+## Session: 2025-11-16 - Security Hardening & AI Conversation Context
+
+### Summary
+Closed the remaining audit items by persisting JWT revocations, sanitizing all AI prompt context, and aligning the UI password policy with backend enforcement. AI chat now sends sanitized conversation history, favorites toggle reliably by recipe_id, and DeleteConfirm/Buttons gained the props required by the recipes UI. Documentation, README, and metrics were updated to reflect the security upgrades.
+
+### Components Worked On
+- **Backend**: Added `token_blacklist` table, persisted blacklist in `api/src/utils/tokenBlacklist.ts`, sanitized AI request history in `api/src/routes/messages.ts`
+- **Database**: Updated schema initialization with `token_blacklist` table
+- **API Client**: `aiApi.sendMessage` now posts sanitized history payloads
+- **React Components**: Login page password hint/validation, DeleteConfirmModal warning prop, Button ghost variant, Card inline style prop
+- **Zustand Store**: AI favorites toggle now uses `recipe_id`, store sendMessage posts history array
+- **Next.js Pages**: `/ai` favorites logic, `/login` validation, `/recipes` delete modals (title/message)
+- **TypeScript Types**: Added missing `quantity`, `collection_id` fields to shared interfaces; type-check errors resolved
+- **Documentation**: SESSION_HISTORY, PROJECT_STATUS, ACTIVE_TASKS, DEV_NOTES, README, PROGRESS_SUMMARY, prompt-effectiveness metrics
+
+### Key Achievements
+- ✅ `token_blacklist` table + hydration ensures logout survives restarts and multi-node deployments
+- ✅ Chat history sanitization prevents stored prompt injection and gives Claude conversation context
+- ✅ Login form enforces 12+ character complex passwords and displays requirement hint
+- ✅ AI favorites toggle compares `recipe_id` first, preventing duplicate entries after rename
+- ✅ Added `ghost` Button variant and Card `style` prop to satisfy recipes page usage
+- ✅ DeleteConfirmModal now accepts custom warning message + titles in recipes modals
+- ✅ Type-check errors cleared across repo (`npm run type-check` now passes)
+- ✅ README/Progress docs bumped to v1.9.0-alpha (Security Hardening & AI Context) with new highlights
+
+### Issues Encountered
+- **better-sqlite3 ABI mismatch inside sandbox**: Sandbox Node (ABI 115) can’t load rebuilt module (ABI 137)
+  - **Resolution**: Confirmed backend tests pass locally on Node 24; documented sandbox limitation
+- **TypeScript errors after tightenings**: Missing Button variant, Card style prop, DeleteConfirm warning prop
+  - **Resolution**: Extended component props and updated usage accordingly
+- **AI history still stateless**: Client collected chatHistory but never sent it
+  - **Resolution**: API client/back end now send sanitized history array limited to last 10 turns
+
+### Next Session Focus
+1. Decide on Redis-backed blacklist (optional) or keep SQLite approach documented
+2. Finish deployment prep (Vercel/Railway) once security docs verified
+3. Add conversation persistence beyond in-memory (store chatHistory per user)
+4. Tackle remaining ACTIVE_TASKS (CSV preview, AddBottleModal schema parity, deployment checklist)
+
+---
+
 ## Session: 2025-11-15 - Recipe Collections & Bulk Operations
 
 ### Summary
