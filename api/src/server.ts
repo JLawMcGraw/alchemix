@@ -46,6 +46,7 @@ import { logger } from './utils/logger';
 import authRoutes from './routes/auth';
 import inventoryRoutes from './routes/inventory';
 import recipesRoutes from './routes/recipes';
+import collectionsRoutes from './routes/collections';
 import favoritesRoutes from './routes/favorites';
 import messagesRoutes from './routes/messages';
 
@@ -538,6 +539,7 @@ app.use('/auth', authRoutes);          // Mount auth routes
 // Note: Routes already include authMiddleware internally (sets req.user)
 app.use('/api/inventory', userRateLimit(100, 15), inventoryRoutes);
 app.use('/api/recipes', userRateLimit(100, 15), recipesRoutes);
+app.use('/api/collections', userRateLimit(100, 15), collectionsRoutes);
 app.use('/api/favorites', userRateLimit(100, 15), favoritesRoutes);
 app.use('/api/messages', userRateLimit(20, 15), messagesRoutes); // Lower limit for expensive AI requests
 

@@ -3,13 +3,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { Upload, X, AlertCircle, CheckCircle } from 'lucide-react';
 import { Button, Spinner } from '@/components/ui';
+import { useStore } from '@/lib/store';
 import styles from './CSVUploadModal.module.css';
 
 interface CSVUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
   type: 'bottles' | 'recipes';
-  onUpload: (file: File) => Promise<void>;
+  onUpload: (file: File, collectionId?: number) => Promise<void>;
 }
 
 export function CSVUploadModal({ isOpen, onClose, type, onUpload }: CSVUploadModalProps) {
@@ -17,9 +18,18 @@ export function CSVUploadModal({ isOpen, onClose, type, onUpload }: CSVUploadMod
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [selectedCollectionId, setSelectedCollectionId] = useState<number | undefined>(undefined);
 
+  const { collections, fetchCollections } = useStore();
   const modalRef = useRef<HTMLDivElement>(null);
   const uploadButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Fetch collections when modal opens for recipes
+  useEffect(() => {
+    if (isOpen && type === 'recipes') {
+      fetchCollections().catch(console.error);
+    }
+  }, [isOpen, type, fetchCollections]);
 
   // Focus management and keyboard shortcuts
   useEffect(() => {
@@ -82,7 +92,7 @@ export function CSVUploadModal({ isOpen, onClose, type, onUpload }: CSVUploadMod
     setError(null);
 
     try {
-      await onUpload(file);
+      await onUpload(file, selectedCollectionId);
       setSuccess(true);
       setTimeout(() => {
         handleClose();
@@ -103,6 +113,7 @@ export function CSVUploadModal({ isOpen, onClose, type, onUpload }: CSVUploadMod
     setError(null);
     setSuccess(false);
     setUploading(false);
+    setSelectedCollectionId(undefined);
     onClose();
   };
 
@@ -161,6 +172,47 @@ export function CSVUploadModal({ isOpen, onClose, type, onUpload }: CSVUploadMod
               />
             </label>
           </div>
+
+          {type === 'recipes' && (
+            <div style={{ marginTop: '16px' }}>
+              <label
+                htmlFor="collection-select"
+                style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: 'var(--color-text-body)',
+                }}
+              >
+                Collection (optional)
+              </label>
+              <select
+                id="collection-select"
+                value={selectedCollectionId ?? ''}
+                onChange={(e) => setSelectedCollectionId(e.target.value ? parseInt(e.target.value, 10) : undefined)}
+                disabled={uploading}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  fontSize: '14px',
+                  fontFamily: 'var(--font-body)',
+                  color: 'var(--color-text-body)',
+                  backgroundColor: 'var(--color-ui-bg-surface)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius)',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="">No Collection</option>
+                {collections.map((collection) => (
+                  <option key={collection.id} value={collection.id}>
+                    {collection.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {error && (
             <div className={styles.alert} data-type="error">

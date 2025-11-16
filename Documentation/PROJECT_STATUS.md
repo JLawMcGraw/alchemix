@@ -1,12 +1,12 @@
 # Project Status
 
-Last updated: 2025-11-14
+Last updated: 2025-11-15
 
 ## Current Phase
-**AI Bartender Clickable Recipes Complete** - Fixed authentication persistence, integrated AI Bartender with context-aware prompts, implemented clickable recipe recommendations
+**Recipe Collections & Bulk Operations Complete** - Organize recipes into collections/folders with bulk selection and mass move/delete operations
 
 ## Current Version
-v1.7.0-alpha (AI Bartender with clickable recipes, authentication fixes, TypeScript build passing)
+v1.8.0-alpha (Recipe Collections with folder navigation, bulk operations, CSV import integration)
 
 ## Implementation Status
 
@@ -104,6 +104,26 @@ v1.7.0-alpha (AI Bartender with clickable recipes, authentication fixes, TypeScr
 - ✅ View recipe from favorites page - **Modal integration with recipe lookup (Session 8)**
 - ✅ Favorites enhancement - **Now links recipe_id for better data integrity (Session 8)**
 - ⬜ Recipe creation form (standalone page)
+
+### Recipe Collections (Session 11 - November 15, 2025)
+- ✅ **Database Schema**: collections table with user_id, name, description, timestamps
+- ✅ **Recipe Integration**: collection_id foreign key on recipes table
+- ✅ **API Endpoints**: Full CRUD (GET/POST/PUT/DELETE /api/collections)
+- ✅ **Recipe Count Query**: Collections return recipe_count via database JOIN
+- ✅ **Folder Navigation**: Click collection to enter, back button to return
+- ✅ **CSV Import Integration**: Collection selector dropdown during recipe import
+- ✅ **RecipeDetailModal Integration**: Assign/move recipes between collections
+- ✅ **Bulk Selection**: Checkbox-based multi-select with Set data structure
+- ✅ **Bulk Operations**: Mass move to collection, mass delete selected recipes
+- ✅ **Uncategorized Section**: Recipes without collection_id remain visible
+- ✅ **Collection CRUD Modal**: Create, edit, delete collections with descriptions
+- ✅ **Zustand Store Integration**: Collections state, CRUD actions, fetchCollections
+- ✅ **API Client Methods**: getCollections, createCollection, updateCollection, deleteCollection
+- ✅ **Recipe Update Support**: PUT /api/recipes/:id supports collection_id assignment
+- ✅ **Proper Recipe Counts**: Uses database count (handles 200+ recipes correctly)
+- ⬜ Collection search/filter
+- ⬜ Collection reordering
+- ⬜ Nested collections (sub-folders)
 
 ### AI Bartender
 - ✅ API client integration (claude-sonnet-4-5-20250929)

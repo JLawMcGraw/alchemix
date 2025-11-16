@@ -8,14 +8,22 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 
 ## ✨ Current Status
 
-**Version:** v1.7.0-alpha (AI Bartender Complete with Clickable Recipes)
-**Phase:** Production Ready - AI Integration & Authentication Fixed
-**Last Updated:** November 14, 2025
+**Version:** v1.8.0-alpha (Recipe Collections & Bulk Operations)
+**Phase:** Production Ready - Collections Feature Complete
+**Last Updated:** November 15, 2025
 
 ### What's Working
 - ✅ **Complete TypeScript monorepo** (Frontend + Backend) ⭐
 - ✅ **Modern Express backend** with JWT auth, full CRUD APIs ⭐
 - ✅ **SQLite database** with auto-initialization ⭐
+- ✅ **Recipe Collections Complete** - Organize recipes into collections/folders with bulk operations ⭐⭐⭐
+  - Create, edit, and delete collections with descriptions
+  - Collections act as folders (click to enter, back button to return)
+  - Assign recipes to collections from CSV import
+  - Move individual recipes between collections from detail modal
+  - Bulk selection with checkboxes for mass move/delete operations
+  - Uncategorized recipes section for recipes not in collections
+  - Database-accurate recipe counts (handles 200+ recipes correctly)
 - ✅ **AI Bartender Complete** - Context-aware Claude AI integration with clickable recipe recommendations ⭐⭐⭐
   - Claude Sonnet 4.5 model (claude-sonnet-4-5-20250929)
   - Context-aware system prompts with user's full bar inventory and recipe collection
@@ -75,15 +83,16 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 - ✅ Full inventory table with filtering
 - ✅ View recipe from favorites page
 
-### Latest Session (Session 10 - November 14, 2025)
-- ✅ Fixed authentication logout on page refresh (`_hasHydrated` flag)
-- ✅ Fixed login redirect loops (`useAuthGuard` hook)
-- ✅ Implemented context-aware AI prompts (backend builds with user's inventory + recipes)
-- ✅ Integrated Claude Sonnet 4.5 model (claude-sonnet-4-5-20250929)
-- ✅ Added clickable recipe names in AI responses → opens RecipeDetailModal
-- ✅ Implemented flexible recipe name matching (handles "#1" suffixes)
-- ✅ Increased Claude API timeout to 90s for large prompts (300+ recipes)
-- ✅ Fixed all TypeScript build errors (frontend and backend)
+### Latest Session (Session 11 - November 15, 2025)
+- ✅ Implemented complete Recipe Collections feature (organize recipes into folders/books)
+- ✅ Added collection CRUD operations (create, read, update, delete with descriptions)
+- ✅ Collections act as clickable folders (enter to view recipes, back button to return)
+- ✅ Added collection selector to CSV import modal (assign recipes during import)
+- ✅ Added collection assignment in RecipeDetailModal (move recipes between collections)
+- ✅ Implemented bulk selection with checkboxes (mass move/delete operations)
+- ✅ Added uncategorized recipes section (recipes not in any collection still visible)
+- ✅ Fixed recipe count display (uses database count, handles 200+ recipes correctly)
+- ✅ Updated SESSION_END.md to make README and prompt-effectiveness updates mandatory
 
 ### Next Phase
 - 🚀 **Deployment to Production** (Vercel + Railway)
@@ -243,9 +252,15 @@ The Next.js app connects to the Express backend API running on port 3000.
 **Recipe Management:**
 - `GET /api/recipes` - Get all recipes
 - `POST /api/recipes` - Add new recipe
-- `PUT /api/recipes/:id` - Update existing recipe
+- `PUT /api/recipes/:id` - Update existing recipe (supports collection_id assignment)
 - `DELETE /api/recipes/:id` - Delete recipe
-- `POST /api/recipes/import` - Import recipes from CSV (supports multiple delimiters)
+- `POST /api/recipes/import` - Import recipes from CSV (supports collection_id parameter)
+
+**Collections:**
+- `GET /api/collections` - Get all user collections (with recipe counts)
+- `POST /api/collections` - Create new collection (name, description)
+- `PUT /api/collections/:id` - Update collection details
+- `DELETE /api/collections/:id` - Delete collection (recipes become uncategorized)
 
 **Favorites:**
 - `GET /api/favorites` - Get user favorites
@@ -286,6 +301,10 @@ The Next.js app connects to the Express backend API running on port 3000.
 - Recipe detail modal with full recipe information and edit mode
 - Recipe editing with inline forms (name, category, ingredients, instructions, glass)
 - Recipe deletion with confirmation and CASCADE favorites cleanup
+- Recipe collections with folder-like navigation (click to enter, back to return)
+- Bulk recipe operations (multi-select with checkboxes, mass move/delete)
+- Collection management modal (create, edit, delete collections)
+- Collection assignment (from CSV import or individual recipe detail modal)
 - Toast notification system (ToastProvider)
 - Full CRUD operations on My Bar page
 - Success animations with auto-dismiss (1.5s)
@@ -582,5 +601,5 @@ MIT License - see LICENSE file for details
 
 **Built with ❤️ using Next.js 14 + Express + TypeScript**
 
-**Current Version:** v1.7.0-alpha (AI Bartender Complete with Clickable Recipes, Authentication Fixed)
-**Last Updated:** November 14, 2025
+**Current Version:** v1.8.0-alpha (Recipe Collections & Bulk Operations)
+**Last Updated:** November 15, 2025

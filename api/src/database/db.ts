@@ -310,6 +310,44 @@ export function initializeDatabase() {
   `);
 
   /**
+   * Collections Table
+   *
+   * Stores user's recipe collections (books/groups for organizing recipes).
+   *
+   * Columns:
+   * - id: Auto-increment primary key
+   * - user_id: Foreign key to users table
+   * - name: Collection name (REQUIRED, e.g., "Classic Cocktails", "Tiki Drinks")
+   * - description: Optional description of the collection
+   * - created_at: Collection creation timestamp
+   *
+   * Constraints:
+   * - user_id NOT NULL: Every collection belongs to a user
+   * - name NOT NULL: Every collection needs a name
+   * - FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+   *   - If user is deleted, their collections are deleted too
+   *
+   * Example Row:
+   * {
+   *   id: 1,
+   *   user_id: 1,
+   *   name: "Classic Cocktails",
+   *   description: "Traditional recipes from the golden age of cocktails",
+   *   created_at: "2025-11-15 18:45:00"
+   * }
+   */
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS collections (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  /**
    * Recipes Table
    *
    * Stores user's cocktail recipe collection.
@@ -317,6 +355,7 @@ export function initializeDatabase() {
    * Columns (Metadata):
    * - id: Auto-increment primary key
    * - user_id: Foreign key to users table
+   * - collection_id: Foreign key to collections table (optional)
    * - created_at: Recipe added timestamp
    *
    * Columns (Recipe Details):
@@ -375,13 +414,15 @@ export function initializeDatabase() {
     CREATE TABLE IF NOT EXISTS recipes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
+      collection_id INTEGER,
       name TEXT NOT NULL,
       ingredients TEXT NOT NULL,
       instructions TEXT,
       glass TEXT,
       category TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE SET NULL
     )
   `);
 
@@ -495,9 +536,27 @@ export function initializeDatabase() {
    * - idx_recipes_category: Filter recipes by category
    * - idx_users_email: Faster login (if not already indexed by UNIQUE)
    */
+  /**
+   * Schema Migration: Add collection_id to existing recipes table
+   *
+   * For databases created before collections feature was added.
+   * Safe to run multiple times (will fail silently if column exists).
+   */
+  try {
+    db.exec(`ALTER TABLE recipes ADD COLUMN collection_id INTEGER REFERENCES collections(id) ON DELETE SET NULL`);
+    console.log('✅ Added collection_id column to recipes table');
+  } catch (error: any) {
+    // Column already exists, ignore error
+    if (!error.message?.includes('duplicate column name')) {
+      console.error('Migration warning:', error.message);
+    }
+  }
+
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_bottles_user_id ON bottles(user_id);
+    CREATE INDEX IF NOT EXISTS idx_collections_user_id ON collections(user_id);
     CREATE INDEX IF NOT EXISTS idx_recipes_user_id ON recipes(user_id);
+    CREATE INDEX IF NOT EXISTS idx_recipes_collection_id ON recipes(collection_id);
     CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites(user_id);
   `);
 

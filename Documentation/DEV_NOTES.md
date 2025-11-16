@@ -4,6 +4,211 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-11-15 - Recipe Collections Database Schema Design (Session 11)
+
+**Context**: Implementing recipe collections feature to organize recipes into folders/books.
+
+**Decision**: Created separate `collections` table with JOIN query for recipe counts.
+
+**Schema**:
+```sql
+-- Collections table
+CREATE TABLE IF NOT EXISTS collections (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Added to recipes table
+ALTER TABLE recipes ADD COLUMN collection_id INTEGER REFERENCES collections(id) ON DELETE SET NULL;
+```
+
+**Recipe Count Query**: Using LEFT JOIN with COUNT aggregation:
+```typescript
+// api/src/routes/collections.ts
+const collections = db.prepare(`
+  SELECT c.*, COUNT(r.id) as recipe_count
+  FROM collections c
+  LEFT JOIN recipes r ON r.collection_id = c.id
+  WHERE c.user_id = ?
+  GROUP BY c.id
+  ORDER BY c.created_at DESC
+`).all(userId);
+```
+
+**Result**: Collections automatically include recipe_count from database, ensuring accuracy even with 200+ recipes.
+
+**Lesson Learned**: Database JOINs for derived counts are more reliable than frontend array length calculations, especially with pagination where filteredRecipes.length only shows loaded items (max 50), not total count.
+
+---
+
+## 2025-11-15 - Bulk Selection Using Set Data Structure (Session 11)
+
+**Context**: Implementing bulk selection for mass move/delete operations on recipes.
+
+**Decision**: Used JavaScript Set for selectedRecipes instead of array.
+
+**Implementation**:
+```typescript
+// src/app/recipes/page.tsx
+const [selectedRecipes, setSelectedRecipes] = useState<Set<number>>(new Set());
+
+const toggleRecipeSelection = (recipeId: number) => {
+  setSelectedRecipes(prev => {
+    const newSet = new Set(prev);
+    if (newSet.has(recipeId)) {
+      newSet.delete(recipeId);  // O(1) removal
+    } else {
+      newSet.add(recipeId);     // O(1) addition
+    }
+    return newSet;
+  });
+};
+
+// Check if selected (O(1) lookup)
+const isSelected = selectedRecipes.has(recipe.id!);
+
+// Get count
+const selectedCount = selectedRecipes.size;
+
+// Iterate for bulk operations
+for (const recipeId of selectedRecipes) {
+  await updateRecipe(recipeId, { collection_id: newCollectionId });
+}
+```
+
+**Result**: O(1) add, remove, and lookup operations. More efficient than array methods like .filter(), .includes(), or .indexOf().
+
+**Lesson Learned**: Set is ideal for selection states where you need fast membership checks and modifications. React state updates work well with new Set() immutability pattern.
+
+---
+
+## 2025-11-15 - Folder Navigation vs Filter Pattern (Session 11)
+
+**Context**: User feedback that collections should act as "folders" not "filters" - click to enter collection, see only those recipes.
+
+**Decision**: Implemented activeCollection state for folder-like navigation.
+
+**Pattern**:
+```typescript
+// src/app/recipes/page.tsx
+const [activeCollection, setActiveCollection] = useState<Collection | null>(null);
+
+// When no collection selected: show collections grid + uncategorized recipes
+// When collection selected: show back button + recipes in that collection
+
+const filteredRecipes = recipesArray.filter((recipe) => {
+  const matchesCollection = activeCollection
+    ? recipe.collection_id === activeCollection.id  // Show collection's recipes
+    : !recipe.collection_id;  // Show uncategorized when browsing collections
+  return matchesSearch && matchesSpirit && matchesCollection;
+});
+
+// Navigation UI
+{activeCollection ? (
+  <Button onClick={() => setActiveCollection(null)}>
+    <ArrowLeft /> Back to Collections
+  </Button>
+) : (
+  <div className="collections-grid">
+    {collectionsArray.map(collection => (
+      <Card onClick={() => setActiveCollection(collection)}>
+        {collection.name} - {collection.recipe_count} recipes
+      </Card>
+    ))}
+  </div>
+)}
+```
+
+**Result**: Intuitive folder-based navigation matching user's mental model. Collections displayed as clickable cards, recipes hidden until you "enter" a collection.
+
+**Lesson Learned**: User feedback during development shapes better UX. Initial "filter" approach (show collection dropdown, filter displayed recipes) was technically correct but didn't match how users think about organizing things. The "folder" metaphor (click to enter, back to return) is more intuitive for large collections.
+
+---
+
+## 2025-11-15 - Collection Assignment in Multipart Form Data (Session 11)
+
+**Context**: Adding collection_id parameter to CSV recipe import endpoint that uses multer for file uploads.
+
+**Problem**: Multipart form data sends all fields as strings, including numeric IDs.
+
+**Implementation**:
+```typescript
+// api/src/routes/recipes.ts
+router.post('/import', auth, upload.single('file'), async (req, res) => {
+  // Multipart form data - all fields are strings!
+  console.log('📦 collection_id raw:', req.body.collection_id);  // "5" (string)
+
+  const collectionId = req.body.collection_id
+    ? parseInt(req.body.collection_id, 10)
+    : null;
+
+  console.log('📦 collection_id parsed:', collectionId);  // 5 (number)
+
+  // Use parsed integer in INSERT
+  const stmt = db.prepare(`
+    INSERT INTO recipes (user_id, name, ingredients, instructions, glass, category, collection_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+  stmt.run(userId, name, ingredients, instructions, glass, category, collectionId);
+});
+```
+
+**Frontend FormData**:
+```typescript
+// src/lib/api.ts
+export const recipeApi = {
+  import: async (file: File, collectionId?: number) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (collectionId !== undefined) {
+      formData.append('collection_id', collectionId.toString());  // Must be string
+    }
+    return axios.post('/api/recipes/import', formData);
+  }
+};
+```
+
+**Result**: Collection_id properly passed through multipart form data, recipes imported directly into specified collection.
+
+**Lesson Learned**: Always parse numeric values from multipart form data. FormData only supports strings and Blobs, so integers must be converted with parseInt(). Add debug logging to verify parsing works correctly.
+
+---
+
+## 2025-11-15 - Recipe Count Display Bug Fix (Session 11)
+
+**Context**: User reported "50 recipes in this collection" when there were actually 200+ recipes.
+
+**Problem**: Using `filteredRecipes.length` which only counts loaded/paginated recipes.
+
+**Incorrect**:
+```typescript
+// ❌ BEFORE
+<p>{filteredRecipes.length} recipes in this collection</p>
+// Shows 50 (max per page), not 200+ (actual total)
+```
+
+**Solution**: Use database-computed count from collection object:
+
+```typescript
+// ✅ AFTER
+<p>
+  {activeCollection
+    ? `${activeCollection.recipe_count || 0} recipes in this collection`
+    : `${collectionsArray.length} collections • ${uncategorizedCount} recipes`}
+</p>
+```
+
+**Result**: Accurate recipe counts reflecting database totals, not just loaded items.
+
+**Lesson Learned**: When pagination is involved, never use frontend array length for total counts. Always use database-computed counts (via COUNT(*) in SQL or recipe_count property) for accurate totals. The frontend array only contains the current page of results.
+
+---
+
 ## 2025-11-14 - AI Bartender Recipe Clickability Bug (Session 10)
 
 **Context**: Implemented clickable recipe recommendations in AI Bartender chat, but recipe modals wouldn't open when clicking recipe names.

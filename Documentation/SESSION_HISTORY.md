@@ -4,6 +4,53 @@ This file tracks the 10 most recent development sessions. Older sessions are arc
 
 ---
 
+## Session: 2025-11-15 - Recipe Collections & Bulk Operations
+
+### Summary
+Implemented complete recipe collections feature allowing users to organize recipes into folders/books. Collections provide folder-like navigation (click to enter, back button to return), CSV import integration (assign recipes to collection during import), individual recipe assignment (move recipes between collections from detail modal), and bulk operations (multi-select with checkboxes for mass move/delete). Also enforced mandatory README and prompt-effectiveness updates in SESSION_END.md.
+
+### Components Worked On
+- **Backend**: Collections API routes (CRUD operations), database schema (collections table, collection_id foreign key)
+- **React Components**: CollectionModal, CSVUploadModal (collection selector), RecipeDetailModal (collection assignment)
+- **Recipes Page**: Folder-like navigation, bulk selection system, uncategorized recipes section
+- **Zustand Store**: Added collections state, CRUD actions, fetchCollections integration
+- **API Client**: Added collections API methods (getAll, create, update, delete)
+- **TypeScript Types**: Added Collection interface, updated Recipe with collection_id
+- **Documentation**: SESSION_END.md (mandatory updates), README.md, prompt-effectiveness.md
+
+### Key Achievements
+- ✅ Created collections database schema with user_id, name, description, timestamps
+- ✅ Implemented full CRUD API endpoints for collections (GET/POST/PUT/DELETE)
+- ✅ Collections return recipe_count via database JOIN query
+- ✅ Added collection selector dropdown in CSV upload modal
+- ✅ Implemented collection assignment in RecipeDetailModal
+- ✅ Built folder-like navigation (click to enter collection, back button to return)
+- ✅ Created bulk selection system (checkboxes, Set-based selection, O(1) operations)
+- ✅ Implemented bulk move modal and bulk delete functionality
+- ✅ Added uncategorized recipes section for recipes without collection_id
+- ✅ Fixed recipe count display (uses collection.recipe_count, not filtered array length)
+- ✅ Added collection_id support in PUT /api/recipes/:id endpoint
+- ✅ Updated SESSION_END.md to make README and prompt-effectiveness updates mandatory
+
+### Issues Encountered
+- **Recipe count showing 50 instead of 200+**: Using filteredRecipes.length only counts loaded recipes (max 50 per page)
+  - **Resolution**: Changed to use activeCollection.recipe_count from database JOIN query
+- **Collection recipe count not updating after import**: Import didn't refresh collections
+  - **Resolution**: Added fetchCollections() call after successful CSV import with collectionId
+- **Recipes all showing instead of folder structure**: User wanted folders, not filters
+  - **Resolution**: Restructured to show collections as clickable cards with back button navigation
+- **Uncategorized recipes disappearing**: Recipes without collection_id not visible
+  - **Resolution**: Added dedicated "Uncategorized Recipes" section below collections grid
+
+### Next Session Focus
+1. Test CSV import with collection assignment (user reported it shows 0 recipes)
+2. Verify collection recipe counts update correctly
+3. Test bulk operations with large recipe sets
+4. Consider adding collection search/filter
+5. Deploy to production (Vercel + Railway)
+
+---
+
 ## Session: 2025-11-14 - AI Bartender Clickable Recipes & Bug Fixes
 
 ### Summary

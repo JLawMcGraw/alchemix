@@ -67,7 +67,15 @@ export default function DashboardPage() {
         await fetchBottles();
       } else {
         const result = await recipeApi.importCSV(file);
-        showToast('success', `Successfully imported ${result.count} recipes!`);
+        if (result.imported > 0) {
+          if (result.failed > 0) {
+            showToast('success', `Imported ${result.imported} recipes. ${result.failed} failed.`);
+          } else {
+            showToast('success', `Successfully imported ${result.imported} recipes!`);
+          }
+        } else {
+          showToast('error', 'No recipes were imported. Check your CSV format.');
+        }
         await fetchRecipes();
       }
     } catch (error: any) {

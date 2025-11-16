@@ -9,6 +9,7 @@ import type {
   SignupCredentials,
   Bottle,
   Recipe,
+  Collection,
   Favorite,
   ApiResponse,
 } from '@/types';
@@ -127,9 +128,23 @@ export const inventoryApi = {
 
 // Recipe API
 export const recipeApi = {
-  async getAll(): Promise<Recipe[]> {
-    const { data } = await apiClient.get<{ success: boolean; data: Recipe[] }>('/api/recipes');
-    return data.data;
+  async getAll(page: number = 1, limit: number = 50): Promise<{
+    recipes: Recipe[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNextPage: boolean;
+      hasPreviousPage: boolean;
+    }
+  }> {
+    const { data } = await apiClient.get<{
+      success: boolean;
+      data: Recipe[];
+      pagination: any;
+    }>(`/api/recipes?page=${page}&limit=${limit}`);
+    return { recipes: data.data, pagination: data.pagination };
   },
 
   async add(recipe: Recipe): Promise<Recipe> {
@@ -146,11 +161,19 @@ export const recipeApi = {
     await apiClient.delete(`/api/recipes/${id}`);
   },
 
-  async importCSV(file: File): Promise<{ count: number }> {
+  async deleteAll(): Promise<{ deleted: number; message: string }> {
+    const { data } = await apiClient.delete<{ success: boolean; deleted: number; message: string }>('/api/recipes/all');
+    return { deleted: data.deleted, message: data.message };
+  },
+
+  async importCSV(file: File, collectionId?: number): Promise<{ imported: number; failed: number; errors?: any[] }> {
     const formData = new FormData();
     formData.append('file', file);
+    if (collectionId) {
+      formData.append('collection_id', collectionId.toString());
+    }
 
-    const { data } = await apiClient.post<{ count: number }>(
+    const { data } = await apiClient.post<{ success: boolean; imported: number; failed: number; errors?: any[] }>(
       '/api/recipes/import',
       formData,
       {
@@ -159,7 +182,29 @@ export const recipeApi = {
         },
       }
     );
-    return data;
+    return { imported: data.imported, failed: data.failed, errors: data.errors };
+  },
+};
+
+// Collections API
+export const collectionsApi = {
+  async getAll(): Promise<Collection[]> {
+    const { data } = await apiClient.get<{ success: boolean; data: Collection[] }>('/api/collections');
+    return data.data;
+  },
+
+  async add(collection: Collection): Promise<Collection> {
+    const { data } = await apiClient.post<{ success: boolean; data: Collection }>('/api/collections', collection);
+    return data.data;
+  },
+
+  async update(id: number, collection: Partial<Collection>): Promise<Collection> {
+    const { data } = await apiClient.put<{ success: boolean; data: Collection }>(`/api/collections/${id}`, collection);
+    return data.data;
+  },
+
+  async delete(id: number): Promise<void> {
+    await apiClient.delete(`/api/collections/${id}`);
   },
 };
 

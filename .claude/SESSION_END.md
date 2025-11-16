@@ -6,7 +6,11 @@ It's time to update our documentation before ending this session. This prompt en
 
 ## Documentation Update Checklist
 
-### 1. Update Session History
+**⚠️ MANDATORY: All 7 steps below MUST be completed before ending the session. Do not skip any step.**
+
+### 1. **MANDATORY: Update Session History**
+
+**This step is REQUIRED every session. Do NOT skip it.**
 
 - Add a new entry to `Documentation/SESSION_HISTORY.md` with today's date and session details
 - Include all significant work completed during this session
@@ -17,7 +21,9 @@ It's time to update our documentation before ending this session. This prompt en
 - If there are more than 10 entries after adding yours, move the oldest entry to `Documentation/archives/session-history-archive.md`
 - When archiving, place the entry below the "Last archived" date line and update that date
 
-### 2. Update Project Status
+### 2. **MANDATORY: Update Project Status**
+
+**This step is REQUIRED every session. Do NOT skip it.**
 
 - Refresh `Documentation/PROJECT_STATUS.md` with current implementation status
 - Update "Implementation Status" sections for any features worked on
@@ -25,7 +31,9 @@ It's time to update our documentation before ending this session. This prompt en
 - Add new "Active Next Steps" based on today's progress
 - Update any blockers or issues discovered
 
-### 3. Update Active Tasks
+### 3. **MANDATORY: Update Active Tasks**
+
+**This step is REQUIRED every session. Do NOT skip it.**
 
 - Modify `Documentation/ACTIVE_TASKS.md`
 - Mark completed tasks with ✅ and today's date
@@ -33,27 +41,53 @@ It's time to update our documentation before ending this session. This prompt en
 - Update priorities based on current development phase
 - Move completed tasks to the "Recently Completed" section
 
-### 4. Update Development Notes
+### 4. **MANDATORY: Update Development Notes**
 
-- If any significant technical decisions were made, add them to `Documentation/DEV_NOTES.md`
-- Document any workarounds, gotchas, or lessons learned
-- Include code snippets or configuration changes for future reference
-- Note any dependencies or breaking changes
-- Document React/Next.js/TypeScript-specific considerations or fixes
+**This step is REQUIRED every session. Do NOT skip it.**
 
-### 5. Update Main Documentation (if applicable)
+- **Always** add technical decisions made during the session to `Documentation/DEV_NOTES.md`
+- **Always** document any workarounds, gotchas, or lessons learned
+- **Always** include code snippets or configuration changes for future reference
+- **Always** note any dependencies or breaking changes
+- **Always** document React/Next.js/TypeScript-specific considerations or fixes
+- **Always** record database schema changes or migrations
+- Create the file if it doesn't exist
 
-- Update `README.md` if setup instructions changed
-- Update `CHANGELOG.md` with version changes
+### 5. **MANDATORY: Update README.md**
+
+**This step is REQUIRED every session. Do NOT skip it.**
+
+- **Always** update the version number if features were added
+- **Always** update the "Features" section with new capabilities
+- **Always** add new features to the feature checkboxes (✅/🚧/⬜)
+- **Always** update any setup instructions that changed
+- **Always** document new API endpoints or database changes
+- Update CHANGELOG.md with version changes
 - Ensure all examples and commands still work
-- Update `PROGRESS_SUMMARY.md` with phase completions
+- Update PROGRESS_SUMMARY.md with phase completions
 
-### 6. Check Implementation Progress
+### 6. **MANDATORY: Check Implementation Progress**
 
-- Review "Features" section in README.md
-- Update checkboxes (✅/🚧/⬜) to reflect current completion state
-- Add any new features or components to the list
-- Document any changes to API integration, page routing, or component library
+**This step is REQUIRED every session. Do NOT skip it.**
+
+- **Always** review "Features" section in README.md
+- **Always** update checkboxes (✅/🚧/⬜) to reflect current completion state
+- **Always** add any new features or components to the list
+- **Always** document any changes to API integration, page routing, or component library
+
+### 7. **MANDATORY: Update Prompt Effectiveness Metrics**
+
+**This step is REQUIRED every session. Do NOT skip it.**
+
+- **MUST** add a new entry to `Documentation/metrics/prompt-effectiveness.md`
+- Create the file/directory if they don't exist
+- Record session focus, files updated, completion status
+- Rate documentation quality (1-5)
+- Estimate time saved in minutes
+- Note any errors prevented
+- Rate overall satisfaction (1-5)
+- Add any observations for improvement
+- **This helps improve future sessions - it is not optional!**
 
 ---
 

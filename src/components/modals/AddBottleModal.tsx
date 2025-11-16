@@ -239,7 +239,7 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className={styles.form}>
           <div className={styles.content} id="add-bottle-desc">
             <div className={styles.formGrid}>
               {/* Required Fields */}

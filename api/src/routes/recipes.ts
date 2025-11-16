@@ -429,6 +429,25 @@ router.post('/', (req: Request, res: Response) => {
       : null;
 
     /**
+     * Step 3.5: Validate Collection (if provided)
+     *
+     * If collection_id is provided, ensure it exists and belongs to user.
+     */
+    const collectionId = recipe.collection_id || null;
+    if (collectionId) {
+      const collection = db.prepare(
+        'SELECT id FROM collections WHERE id = ? AND user_id = ?'
+      ).get(collectionId, userId);
+
+      if (!collection) {
+        return res.status(400).json({
+          success: false,
+          error: 'Collection not found or access denied'
+        });
+      }
+    }
+
+    /**
      * Step 4: Process Ingredients
      *
      * Ingredients can be:
@@ -488,10 +507,11 @@ router.post('/', (req: Request, res: Response) => {
      */
     const result = db.prepare(`
       INSERT INTO recipes (
-        user_id, name, ingredients, instructions, glass, category
-      ) VALUES (?, ?, ?, ?, ?, ?)
+        user_id, collection_id, name, ingredients, instructions, glass, category
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(
       userId,
+      collectionId,
       sanitizedName,
       ingredientsStr,
       sanitizedInstructions,
@@ -704,6 +724,30 @@ router.post('/import', upload.single('file'), async (req: Request, res: Response
       });
     }
 
+    // Get optional collection_id from form data
+    console.log('📦 Import request body:', req.body);
+    console.log('📦 collection_id raw:', req.body.collection_id);
+
+    const collectionId = req.body.collection_id
+      ? parseInt(req.body.collection_id, 10)
+      : null;
+
+    console.log('📦 collection_id parsed:', collectionId);
+
+    // Validate collection belongs to user if provided
+    if (collectionId) {
+      const collection = db.prepare(
+        'SELECT id FROM collections WHERE id = ? AND user_id = ?'
+      ).get(collectionId, userId);
+
+      if (!collection) {
+        return res.status(400).json({
+          success: false,
+          error: 'Collection not found or access denied'
+        });
+      }
+    }
+
     // Parse CSV
     const csvContent = req.file.buffer.toString('utf-8');
     let records: any[];
@@ -766,10 +810,11 @@ router.post('/import', upload.single('file'), async (req: Request, res: Response
         // Insert into database
         db.prepare(`
           INSERT INTO recipes (
-            user_id, name, ingredients, instructions, glass, category
-          ) VALUES (?, ?, ?, ?, ?, ?)
+            user_id, collection_id, name, ingredients, instructions, glass, category
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
         `).run(
           userId,
+          collectionId,
           recipe.name,
           ingredientsStr,
           recipe.instructions,
@@ -966,6 +1011,39 @@ router.put('/:id', (req: Request, res: Response) => {
       values.push(sanitizedCategory);
     }
 
+    // Collection ID
+    if (updates.collection_id !== undefined) {
+      const collectionId = updates.collection_id;
+      if (collectionId === null || collectionId === undefined || collectionId === '') {
+        // Allow setting collection to null
+        fieldsToUpdate.push('collection_id = ?');
+        values.push(null);
+      } else {
+        // Validate collection belongs to user
+        const validCollectionId = parseInt(collectionId, 10);
+        if (isNaN(validCollectionId) || validCollectionId <= 0) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid collection ID'
+          });
+        }
+
+        const collection = db.prepare(
+          'SELECT id FROM collections WHERE id = ? AND user_id = ?'
+        ).get(validCollectionId, userId);
+
+        if (!collection) {
+          return res.status(400).json({
+            success: false,
+            error: 'Collection not found or access denied'
+          });
+        }
+
+        fieldsToUpdate.push('collection_id = ?');
+        values.push(validCollectionId);
+      }
+    }
+
     // If no fields to update, return current recipe
     if (fieldsToUpdate.length === 0) {
       const parsedRecipe = {
@@ -1005,6 +1083,50 @@ router.put('/:id', (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to update recipe'
+    });
+  }
+});
+
+/**
+ * DELETE /api/recipes/all - Delete All User Recipes
+ *
+ * Deletes all recipes for the authenticated user.
+ * Useful for clearing duplicates before re-importing CSV.
+ *
+ * IMPORTANT: This route must come BEFORE /:id route to avoid
+ * Express matching "all" as an ID parameter.
+ *
+ * Response (200 OK):
+ * {
+ *   "success": true,
+ *   "deleted": 150,
+ *   "message": "Deleted 150 recipes"
+ * }
+ */
+router.delete('/all', async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    // Delete all recipes for this user (CASCADE will handle favorites)
+    const result = db.prepare('DELETE FROM recipes WHERE user_id = ?').run(userId);
+
+    res.json({
+      success: true,
+      deleted: result.changes,
+      message: `Deleted ${result.changes} ${result.changes === 1 ? 'recipe' : 'recipes'}`
+    });
+  } catch (error) {
+    console.error('Delete all recipes error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete recipes'
     });
   }
 });
@@ -1090,6 +1212,7 @@ router.delete('/:id', (req: Request, res: Response) => {
  * - POST   /api/recipes          - Add recipe
  * - PUT    /api/recipes/:id      - Update recipe
  * - DELETE /api/recipes/:id      - Delete recipe
+ * - DELETE /api/recipes/all      - Delete all recipes
  * - POST   /api/recipes/import   - CSV import
  *
  * All routes require authentication (authMiddleware applied to router).

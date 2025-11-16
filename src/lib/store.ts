@@ -3,8 +3,8 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { AppState, User, Bottle, Recipe, Favorite, ChatMessage } from '@/types';
-import { authApi, inventoryApi, recipeApi, favoritesApi, aiApi } from './api';
+import type { AppState, User, Bottle, Recipe, Collection, Favorite, ChatMessage } from '@/types';
+import { authApi, inventoryApi, recipeApi, collectionsApi, favoritesApi, aiApi } from './api';
 
 export const useStore = create<AppState>()(
   persist(
@@ -15,6 +15,7 @@ export const useStore = create<AppState>()(
       isAuthenticated: false,
       bottles: [],
       recipes: [],
+      collections: [],
       favorites: [],
       chatHistory: [],
       isLoading: false,
@@ -90,6 +91,7 @@ export const useStore = create<AppState>()(
           isAuthenticated: false,
           bottles: [],
           recipes: [],
+          collections: [],
           favorites: [],
           chatHistory: [],
         });
@@ -190,11 +192,12 @@ export const useStore = create<AppState>()(
       },
 
       // Recipe Actions
-      fetchRecipes: async () => {
+      fetchRecipes: async (page: number = 1, limit: number = 50) => {
         try {
           set({ isLoading: true, error: null });
-          const recipes = await recipeApi.getAll();
+          const { recipes } = await recipeApi.getAll(page, limit);
           set({ recipes, isLoading: false });
+          return recipes;
         } catch (error: any) {
           const errorMessage = error.response?.data?.error || 'Failed to fetch recipes';
           set({ error: errorMessage, isLoading: false });
@@ -242,6 +245,66 @@ export const useStore = create<AppState>()(
           }));
         } catch (error: any) {
           const errorMessage = error.response?.data?.error || 'Failed to delete recipe';
+          set({ error: errorMessage, isLoading: false });
+          throw new Error(errorMessage);
+        }
+      },
+
+      // Collection Actions
+      fetchCollections: async () => {
+        try {
+          set({ isLoading: true, error: null });
+          const collections = await collectionsApi.getAll();
+          set({ collections, isLoading: false });
+        } catch (error: any) {
+          const errorMessage = error.response?.data?.error || 'Failed to fetch collections';
+          set({ error: errorMessage, isLoading: false });
+          throw new Error(errorMessage);
+        }
+      },
+
+      addCollection: async (collection) => {
+        try {
+          set({ isLoading: true, error: null });
+          const newCollection = await collectionsApi.add(collection);
+          set((state) => ({
+            collections: [...state.collections, newCollection],
+            isLoading: false,
+          }));
+        } catch (error: any) {
+          const errorMessage = error.response?.data?.error || 'Failed to add collection';
+          set({ error: errorMessage, isLoading: false });
+          throw new Error(errorMessage);
+        }
+      },
+
+      updateCollection: async (id, collection) => {
+        try {
+          set({ isLoading: true, error: null });
+          const updatedCollection = await collectionsApi.update(id, collection);
+          set((state) => ({
+            collections: state.collections.map((c) =>
+              c.id === id ? updatedCollection : c
+            ),
+            isLoading: false,
+          }));
+        } catch (error: any) {
+          const errorMessage = error.response?.data?.error || 'Failed to update collection';
+          set({ error: errorMessage, isLoading: false });
+          throw new Error(errorMessage);
+        }
+      },
+
+      deleteCollection: async (id) => {
+        try {
+          set({ isLoading: true, error: null });
+          await collectionsApi.delete(id);
+          set((state) => ({
+            collections: state.collections.filter((c) => c.id !== id),
+            isLoading: false,
+          }));
+        } catch (error: any) {
+          const errorMessage = error.response?.data?.error || 'Failed to delete collection';
           set({ error: errorMessage, isLoading: false });
           throw new Error(errorMessage);
         }

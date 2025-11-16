@@ -36,6 +36,7 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
   const [showSuccess, setShowSuccess] = useState(false);
 
   const modalRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -54,12 +55,24 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
         'Palate': bottle['Palate'] || '',
         'Finish': bottle['Finish'] || '',
       });
+      // Reset scroll position when bottle changes
+      if (contentRef.current) {
+        contentRef.current.scrollTop = 0;
+      }
     }
   }, [bottle]);
 
   // Focus management and keyboard shortcuts
   useEffect(() => {
     if (isOpen) {
+      // Lock body scroll
+      document.body.style.overflow = 'hidden';
+
+      // Reset content scroll position
+      if (contentRef.current) {
+        contentRef.current.scrollTop = 0;
+      }
+
       // Auto-focus first input
       setTimeout(() => firstInputRef.current?.focus(), 100);
 
@@ -91,7 +104,14 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
       };
 
       document.addEventListener('keydown', handleKeyDown);
-      return () => document.removeEventListener('keydown', handleKeyDown);
+      return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+        // Unlock body scroll when modal closes
+        document.body.style.overflow = '';
+      };
+    } else {
+      // Ensure body scroll is unlocked when modal is closed
+      document.body.style.overflow = '';
     }
   }, [isOpen]);
 
@@ -214,8 +234,8 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className={styles.content} id="edit-bottle-desc">
+        <form onSubmit={handleSubmit} className={styles.form}>
+          <div className={styles.content} id="edit-bottle-desc" ref={contentRef}>
             <div className={styles.formGrid}>
               {/* Basic Information */}
               <div className={styles.formSection}>

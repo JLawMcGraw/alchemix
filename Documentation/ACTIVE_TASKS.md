@@ -1,6 +1,6 @@
 # Active Tasks
 
-Last updated: 2025-11-14 (Session 10)
+Last updated: 2025-11-15 (Session 11)
 
 ## High Priority - Deployment & Testing
 - [ ] **Phase 1 Deployment** - Deploy to free tier production
@@ -10,10 +10,10 @@ Last updated: 2025-11-14 (Session 10)
   - Deploy backend to Railway (with persistent storage)
   - Configure production environment variables
   - Test deployed app end-to-end
-- [ ] **Test CSV Imports** - Verify with various file formats
-  - Test recipe CSV imports with different delimiters
-  - Test bottle CSV imports with different column names
-  - Test edge cases (empty fields, special characters)
+- [ ] **Test CSV Import with Collections** - Verify collection assignment works
+  - Test recipe CSV imports with collection_id assignment
+  - Verify collection recipe counts update after import
+  - Test bulk operations with large recipe sets (200+)
 - [ ] **Mobile Device Testing** - Test responsive behavior on actual devices
 - [ ] **Refactor AddBottleModal** - Update to match database schema like EditBottleModal
   - Change Spirit → name or Liquor Type
@@ -57,6 +57,9 @@ Last updated: 2025-11-14 (Session 10)
 - [ ] Implement advanced inventory filtering
 - [ ] Add bulk operations for inventory
 - [ ] Dark mode support
+- [ ] Collection search/filter functionality
+- [ ] Collection reordering
+- [ ] Nested collections (sub-folders)
 
 ## Future Enhancements
 - [ ] 4-step CSV upload flow (enhanced UX)
@@ -66,6 +69,27 @@ Last updated: 2025-11-14 (Session 10)
 - [ ] Image uploads for recipes/bottles
 
 ## Recently Completed
+
+### Session 11 - 2025-11-15 (Recipe Collections & Bulk Operations)
+- ✅ Create collections database schema (user_id, name, description, timestamps)
+- ✅ Add collection_id foreign key to recipes table
+- ✅ Implement full CRUD API endpoints for collections (GET/POST/PUT/DELETE)
+- ✅ Collections return recipe_count via database JOIN query
+- ✅ Create CollectionModal component for CRUD operations
+- ✅ Add collections state to Zustand store with CRUD actions
+- ✅ Add collection selector dropdown in CSVUploadModal
+- ✅ Implement collection assignment in RecipeDetailModal
+- ✅ Build folder-like navigation (click to enter collection, back button to return)
+- ✅ Create bulk selection system (checkboxes, Set data structure, O(1) operations)
+- ✅ Implement bulk move modal and bulk delete functionality
+- ✅ Add uncategorized recipes section (recipes without collection_id)
+- ✅ Fix recipe count display (use collection.recipe_count, not filtered array length)
+- ✅ Add collection_id support in PUT /api/recipes/:id endpoint
+- ✅ Add API client methods (getCollections, createCollection, updateCollection, deleteCollection)
+- ✅ Update Collection TypeScript interface with recipe_count property
+- ✅ Update SESSION_END.md to make README and prompt-effectiveness updates mandatory
+- ✅ Update README.md version to v1.8.0-alpha with collections features
+- ✅ Add comprehensive session metrics to prompt-effectiveness.md
 
 ### Session 10 - 2025-11-14 (AI Bartender Clickable Recipes & Authentication Fixes)
 - ✅ Fix authentication logout on page refresh (Added `_hasHydrated` flag to Zustand store)

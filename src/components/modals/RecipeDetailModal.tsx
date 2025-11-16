@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { X, Star, Martini, Edit2, Save, Trash2 } from 'lucide-react';
+import { X, Star, Martini, Edit2, Save, Trash2, FolderOpen } from 'lucide-react';
 import { Button, useToast } from '@/components/ui';
 import { useStore } from '@/lib/store';
-import type { Recipe } from '@/types';
+import type { Recipe, Collection } from '@/types';
 import styles from './RecipeDetailModal.module.css';
 
 interface RecipeDetailModalProps {
@@ -25,7 +25,9 @@ export function RecipeDetailModal({
   const modalRef = useRef<HTMLDivElement>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editedRecipe, setEditedRecipe] = useState<Partial<Recipe>>({});
-  const { updateRecipe, deleteRecipe, fetchRecipes } = useStore();
+  const [showCollectionSelect, setShowCollectionSelect] = useState(false);
+  const [selectedCollectionId, setSelectedCollectionId] = useState<number | null>(null);
+  const { updateRecipe, deleteRecipe, fetchRecipes, collections, fetchCollections } = useStore();
   const { showToast } = useToast();
 
   // Helper function to parse ingredients
@@ -51,8 +53,12 @@ export function RecipeDetailModal({
         category: recipe.category,
       });
       setIsEditMode(false);
+      setShowCollectionSelect(false);
+      setSelectedCollectionId(recipe.collection_id || null);
+      // Fetch collections when modal opens
+      fetchCollections().catch(console.error);
     }
-  }, [recipe, isOpen]);
+  }, [recipe, isOpen, fetchCollections]);
 
   // Handle save
   const handleSave = async () => {
@@ -85,6 +91,25 @@ export function RecipeDetailModal({
     } catch (error) {
       showToast('error', 'Failed to delete recipe');
       console.error('Failed to delete recipe:', error);
+    }
+  };
+
+  // Handle assign to collection
+  const handleAssignCollection = async () => {
+    if (!recipe?.id) return;
+
+    try {
+      await updateRecipe(recipe.id, { collection_id: selectedCollectionId || undefined });
+      await fetchRecipes();
+      await fetchCollections(); // Refresh collection counts
+      setShowCollectionSelect(false);
+      const collectionName = selectedCollectionId
+        ? collections.find((c) => c.id === selectedCollectionId)?.name || 'collection'
+        : 'no collection';
+      showToast('success', selectedCollectionId ? `Added to ${collectionName}` : 'Removed from collection');
+    } catch (error) {
+      showToast('error', 'Failed to update collection');
+      console.error('Failed to assign collection:', error);
     }
   };
 
@@ -328,6 +353,64 @@ export function RecipeDetailModal({
                   </li>
                 ))}
               </ul>
+            </section>
+          )}
+
+          {/* Collection Assignment Section */}
+          {!isEditMode && (
+            <section className={styles.section}>
+              <h3 className={styles.sectionTitle}>Collection</h3>
+              {showCollectionSelect ? (
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <select
+                    value={selectedCollectionId ?? ''}
+                    onChange={(e) => setSelectedCollectionId(e.target.value ? parseInt(e.target.value, 10) : null)}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      fontSize: '14px',
+                      fontFamily: 'var(--font-body)',
+                      color: 'var(--color-text-body)',
+                      backgroundColor: 'var(--color-ui-bg-surface)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--radius)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <option value="">No Collection</option>
+                    {(Array.isArray(collections) ? collections : []).map((collection) => (
+                      <option key={collection.id} value={collection.id}>
+                        {collection.name}
+                      </option>
+                    ))}
+                  </select>
+                  <Button variant="primary" size="sm" onClick={handleAssignCollection}>
+                    Save
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowCollectionSelect(false);
+                      setSelectedCollectionId(recipe?.collection_id || null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ color: 'var(--color-text-subtle)' }}>
+                    {recipe?.collection_id
+                      ? (Array.isArray(collections) ? collections : []).find((c) => c.id === recipe.collection_id)?.name || 'Unknown Collection'
+                      : 'Not in a collection'}
+                  </span>
+                  <Button variant="outline" size="sm" onClick={() => setShowCollectionSelect(true)}>
+                    <FolderOpen size={16} style={{ marginRight: '6px' }} />
+                    Change
+                  </Button>
+                </div>
+              )}
             </section>
           )}
         </div>

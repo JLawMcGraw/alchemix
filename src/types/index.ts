@@ -40,10 +40,21 @@ export interface Bottle {
   'Finish'?: string;
 }
 
+// Collection
+export interface Collection {
+  id?: number;
+  user_id?: number;
+  name: string;
+  description?: string;
+  recipe_count?: number;
+  created_at?: string;
+}
+
 // Recipe
 export interface Recipe {
   id?: number;
   user_id?: number;
+  collection_id?: number;
   name: string;
   ingredients: string | string[];  // JSON string or array
   instructions?: string;
@@ -96,6 +107,7 @@ export interface AppState {
   // Data
   bottles: Bottle[];
   recipes: Recipe[];
+  collections: Collection[];
   favorites: Favorite[];
   chatHistory: ChatMessage[];
 
@@ -116,10 +128,15 @@ export interface AppState {
   updateBottle: (id: number, bottle: Partial<Bottle>) => Promise<void>;
   deleteBottle: (id: number) => Promise<void>;
 
-  fetchRecipes: () => Promise<void>;
+  fetchRecipes: (page?: number, limit?: number) => Promise<Recipe[]>;
   addRecipe: (recipe: Recipe) => Promise<void>;
   updateRecipe: (id: number, recipe: Partial<Recipe>) => Promise<void>;
   deleteRecipe: (id: number) => Promise<void>;
+
+  fetchCollections: () => Promise<void>;
+  addCollection: (collection: Collection) => Promise<void>;
+  updateCollection: (id: number, collection: Partial<Collection>) => Promise<void>;
+  deleteCollection: (id: number) => Promise<void>;
 
   fetchFavorites: () => Promise<void>;
   addFavorite: (recipeName: string, recipeId?: number) => Promise<void>;
