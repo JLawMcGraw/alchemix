@@ -376,29 +376,64 @@ class TokenBlacklist {
 }
 
 /**
- * Export Singleton Instance
+ * Export Singleton Instance (LAZY INITIALIZATION)
  *
  * Single shared instance used across entire application.
+ * Uses lazy initialization to ensure database tables exist first.
  *
  * Why singleton?
  * - All routes need to check same blacklist
  * - Multiple instances would have inconsistent state
  * - Cleanup timer runs once for whole app
  *
- * Usage:
+ * Why lazy initialization?
+ * - Database tables must be created before TokenBlacklist constructor runs
+ * - ES6 imports are hoisted, so we can't control initialization order
+ * - Lazy init ensures database is ready on first access
+ *
+ * Usage (BACKWARDS COMPATIBLE):
  * ```typescript
  * import { tokenBlacklist } from '../utils/tokenBlacklist';
  *
- * // In auth middleware
+ * // In auth middleware - works exactly the same
  * if (tokenBlacklist.isBlacklisted(token)) {
  *   return res.status(401).json({ error: 'Token revoked' });
  * }
  *
- * // In logout route
+ * // In logout route - works exactly the same
  * tokenBlacklist.add(token, decoded.exp);
  * ```
  */
-export const tokenBlacklist = new TokenBlacklist();
+let _tokenBlacklistInstance: TokenBlacklist | null = null;
+
+function getTokenBlacklistInstance(): TokenBlacklist {
+  if (!_tokenBlacklistInstance) {
+    _tokenBlacklistInstance = new TokenBlacklist();
+  }
+  return _tokenBlacklistInstance;
+}
+
+// Export object with delegating methods (backwards compatible API)
+export const tokenBlacklist = {
+  add(token: string, expiresAt: number): void {
+    return getTokenBlacklistInstance().add(token, expiresAt);
+  },
+  remove(token: string): void {
+    return getTokenBlacklistInstance().remove(token);
+  },
+  isBlacklisted(token: string): boolean {
+    return getTokenBlacklistInstance().isBlacklisted(token);
+  },
+  size(): number {
+    return getTokenBlacklistInstance().size();
+  },
+  cleanup(): void {
+    return getTokenBlacklistInstance().cleanup();
+  },
+  shutdown(): void {
+    return getTokenBlacklistInstance().shutdown();
+  }
+};
 
 /**
  * Migration to Redis (Phase 3+)

@@ -12,6 +12,8 @@ import type {
   Collection,
   Favorite,
   ApiResponse,
+  ShoppingListResponse,
+  ShoppingListStats,
 } from '@/types';
 
 // API Base URL (Express backend)
@@ -161,6 +163,13 @@ export const recipeApi = {
     await apiClient.delete(`/api/recipes/${id}`);
   },
 
+  async deleteBulk(ids: number[]): Promise<{ deleted: number }> {
+    const { data } = await apiClient.delete<{ success: boolean; deleted: number }>('/api/recipes/bulk', {
+      data: { ids },
+    });
+    return { deleted: data.deleted };
+  },
+
   async deleteAll(): Promise<{ deleted: number; message: string }> {
     const { data } = await apiClient.delete<{ success: boolean; deleted: number; message: string }>('/api/recipes/all');
     return { deleted: data.deleted, message: data.message };
@@ -205,6 +214,33 @@ export const collectionsApi = {
 
   async delete(id: number): Promise<void> {
     await apiClient.delete(`/api/collections/${id}`);
+  },
+};
+
+// Shopping List API
+export const shoppingListApi = {
+  async getSmart(): Promise<ShoppingListResponse> {
+    const { data } = await apiClient.get<{
+      success: boolean;
+      data: ShoppingListResponse['data'];
+      stats: ShoppingListResponse['stats'];
+      craftableRecipes?: ShoppingListResponse['craftableRecipes'];
+      nearMissRecipes?: ShoppingListResponse['nearMissRecipes'];
+    }>('/api/shopping-list/smart');
+
+    const defaultStats: ShoppingListStats = {
+      totalRecipes: 0,
+      craftable: 0,
+      nearMisses: 0,
+      inventoryItems: 0,
+    };
+
+    return {
+      data: data.data ?? [],
+      stats: data.stats ?? defaultStats,
+      craftableRecipes: data.craftableRecipes ?? [],
+      nearMissRecipes: data.nearMissRecipes ?? [],
+    };
   },
 };
 

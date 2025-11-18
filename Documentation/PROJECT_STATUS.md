@@ -1,12 +1,12 @@
 # Project Status
 
-Last updated: 2025-11-16
+Last updated: 2025-11-17
 
 ## Current Phase
-**Security Hardening & AI Context Enhancements Complete** - Persisted JWT revocations, sanitized AI prompt context/history, and aligned UI password validation with backend requirements
+**Smart Shopping List Feature Complete & Production Hardening** - Intelligent ingredient recommendations with fuzzy matching, bulk recipe operations, and comprehensive AI/security improvements
 
 ## Current Version
-v1.9.0-alpha (Security hardening, persisted token blacklist, AI chat history context)
+v1.10.0-alpha (Smart Shopping List complete, bulk operations, production hardening)
 
 ## Implementation Status
 
@@ -92,6 +92,10 @@ v1.9.0-alpha (Security hardening, persisted token blacklist, AI chat history con
 ### Recipe Management
 - ✅ API client methods (getAll, add, update, delete) - **Full CRUD complete (Session 9)**
 - ✅ Zustand store actions (fetch, add, update, delete)
+- ✅ **Bulk Delete**: Backend DELETE /bulk endpoint handles up to 500 IDs per request
+- ✅ **Store Bulk Action**: `bulkDeleteRecipes` for atomic state updates without rate limits
+- ✅ **Pagination Fixed**: Restored proper pagination after large CSV imports (Session 13)
+- ✅ **Delete All Recipes**: Global action with selection refresh and count updates
 - ✅ Recipe grid view with cards
 - ✅ Search and filter UI (spirit type, search query)
 - ✅ Favorite/unfavorite toggle with Star icon
@@ -156,6 +160,24 @@ v1.9.0-alpha (Security hardening, persisted token blacklist, AI chat history con
 - ✅ Click to view recipe details - **Integrated RecipeDetailModal (Session 8)**
 - ✅ Recipe lookup by recipe_id - **Fallback to name matching (Session 8)**
 - ✅ Favorite/unfavorite from modal - **Auto-closes on remove (Session 8)**
+
+### Smart Shopping List (Session 13 - November 17, 2025) ⭐⭐⭐
+- ✅ **Backend Algorithm**: "Near miss" analysis (recipes missing exactly 1 ingredient)
+- ✅ **Fuzzy Matching**: Token-based matching (35% threshold) across name, liquor type, and detailed classification
+- ✅ **Multi-Field Matching**: Checks bottles against name, "Liquor Type", AND "Detailed Spirit Classification"
+- ✅ **Database-Driven**: Fetches full bottle data with classifications for intelligent matching
+- ✅ **Smart Recommendations**: Ranks ingredients by number of recipes each would unlock
+- ✅ **Pagination**: Top 10 recommendations per page with Previous/Next buttons
+- ✅ **Clickable Stats**: 4 view modes (recommendations, craftable, near misses, inventory)
+- ✅ **Craftable Recipes View**: Displays all recipes user can make with current inventory
+- ✅ **Near-Miss Recipes View**: Shows recipes missing 1 ingredient with highlighted missing item
+- ✅ **Inventory View**: Full bar inventory with bottles grouped by category
+- ✅ **Safe Array Guards**: Frontend prevents crashes during data loading
+- ✅ **Logout Cleanup**: Shopping list state cleared on logout to prevent data leaks
+- ✅ **Response Defaults**: API client returns safe defaults for all shopping list data
+- ✅ **Comprehensive Tests**: Integration tests with realistic data and fuzzy matching scenarios
+- ⬜ Recipe filtering (show only craftable or near-miss in main recipes view)
+- ⬜ Shopping list export (PDF/CSV)
 
 ### Styling & Design
 - ✅ Design system CSS variables (AlcheMix colors)
@@ -235,6 +257,15 @@ v1.9.0-alpha (Security hardening, persisted token blacklist, AI chat history con
 9. Field autocomplete for common values (spirit types, locations)
 
 ## Recent Completions
+- **Smart Shopping List Complete** - Craftable/near-miss views, fuzzy matching, pagination - 2025-11-17 Session 13
+- **Bulk Recipe Delete** - Backend endpoint + store action for up to 500 recipes - 2025-11-17 Session 13
+- **Production Hardening** - AI key validation, prompt injection tightening, rate limit fixes - 2025-11-17 Session 13
+- **Test Infrastructure** - All tests passing with updated schema (Windows + WSL) - 2025-11-17 Session 13
+- **Ingredient Parser Fix** - Stopped stripping "sugar" to preserve "sugar syrup" - 2025-11-17 Session 13
+- **Safe Array Guards** - Frontend prevents crashes during shopping list data loading - 2025-11-17 Session 13
+- **Persisted Token Blacklist** - JWT revocations survive restarts via SQLite - 2025-11-16 Session 12
+- **AI Chat History Context** - Sanitized last 10 turns sent with Claude requests - 2025-11-16 Session 12
+- **Recipe Collections Complete** - Folder navigation, bulk operations, CSV integration - 2025-11-15 Session 11
 - **AI Bartender Clickable Recipes** - Recipe names in AI responses open RecipeDetailModal - 2025-11-14 Session 10
 - **Authentication Persistence Fixed** - Users no longer logged out on page refresh - 2025-11-14 Session 10
 - **useAuthGuard Hook** - Prevents login redirect loops, waits for Zustand hydration - 2025-11-14 Session 10

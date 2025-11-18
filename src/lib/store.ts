@@ -4,7 +4,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { AppState, User, Bottle, Recipe, Collection, Favorite, ChatMessage } from '@/types';
-import { authApi, inventoryApi, recipeApi, collectionsApi, favoritesApi, aiApi } from './api';
+import { authApi, inventoryApi, recipeApi, collectionsApi, favoritesApi, aiApi, shoppingListApi } from './api';
 
 export const useStore = create<AppState>()(
   persist(
@@ -18,7 +18,12 @@ export const useStore = create<AppState>()(
       collections: [],
       favorites: [],
       chatHistory: [],
+      shoppingListSuggestions: [],
+      shoppingListStats: null,
+      craftableRecipes: [],
+      nearMissRecipes: [],
       isLoading: false,
+      isLoadingShoppingList: false,
       error: null,
       _hasHydrated: false,
 
@@ -94,6 +99,10 @@ export const useStore = create<AppState>()(
           collections: [],
           favorites: [],
           chatHistory: [],
+          shoppingListSuggestions: [],
+          shoppingListStats: null,
+          craftableRecipes: [],
+          nearMissRecipes: [],
         });
 
         // Call logout API
@@ -250,6 +259,27 @@ export const useStore = create<AppState>()(
         }
       },
 
+      bulkDeleteRecipes: async (ids) => {
+        if (!Array.isArray(ids) || ids.length === 0) {
+          return 0;
+        }
+
+        try {
+          set({ isLoading: true, error: null });
+          const { deleted } = await recipeApi.deleteBulk(ids);
+          const idsToDelete = new Set(ids);
+          set((state) => ({
+            recipes: state.recipes.filter((r) => !r.id || !idsToDelete.has(r.id)),
+            isLoading: false,
+          }));
+          return deleted;
+        } catch (error: any) {
+          const errorMessage = error.response?.data?.error || 'Failed to delete recipes';
+          set({ error: errorMessage, isLoading: false });
+          throw new Error(errorMessage);
+        }
+      },
+
       // Collection Actions
       fetchCollections: async () => {
         try {
@@ -349,6 +379,25 @@ export const useStore = create<AppState>()(
         } catch (error: any) {
           const errorMessage = error.response?.data?.error || 'Failed to remove favorite';
           set({ error: errorMessage, isLoading: false });
+          throw new Error(errorMessage);
+        }
+      },
+
+      // Shopping List Actions
+      fetchShoppingList: async () => {
+        try {
+          set({ isLoadingShoppingList: true, error: null });
+          const response = await shoppingListApi.getSmart();
+          set({
+            shoppingListSuggestions: response.data,
+            shoppingListStats: response.stats,
+            craftableRecipes: response.craftableRecipes,
+            nearMissRecipes: response.nearMissRecipes,
+            isLoadingShoppingList: false,
+          });
+        } catch (error: any) {
+          const errorMessage = error.response?.data?.error || 'Failed to fetch shopping list';
+          set({ error: errorMessage, isLoadingShoppingList: false });
           throw new Error(errorMessage);
         }
       },

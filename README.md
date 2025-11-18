@@ -8,20 +8,32 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 
 ## ✨ Current Status
 
-**Version:** v1.9.0-alpha (Security Hardening & AI Context Enhancements)
-**Phase:** Production Ready - Collections + Security Hardening Complete
-**Last Updated:** November 16, 2025
+**Version:** v1.10.0-alpha (Smart Shopping List + Production Hardening)
+**Phase:** Production Ready - Smart Shopping List Complete
+**Last Updated:** November 17, 2025
 
 ### What's Working
 - ✅ **Complete TypeScript monorepo** (Frontend + Backend) ⭐
 - ✅ **Modern Express backend** with JWT auth, full CRUD APIs ⭐
 - ✅ **SQLite database** with auto-initialization ⭐
+- ✅ **Smart Shopping List Complete** - Intelligent ingredient recommendations ⭐⭐⭐
+  - "Near miss" algorithm analyzes recipes missing exactly 1 ingredient
+  - Fuzzy matching (35% threshold) with multi-field checks (name, liquor type, classification)
+  - Smart recommendations ranked by number of recipes each ingredient unlocks
+  - Pagination (top 10 per page) with Previous/Next navigation
+  - Clickable stats for 4 view modes: recommendations, craftable, near misses, inventory
+  - Craftable recipes view shows what you can make right now
+  - Near-miss view highlights the single missing ingredient per recipe
+  - Full inventory view with category grouping
+  - Safe array guards prevent crashes during data loading
+  - Logout cleanup prevents data leaks between users
 - ✅ **Recipe Collections Complete** - Organize recipes into collections/folders with bulk operations ⭐⭐⭐
   - Create, edit, and delete collections with descriptions
   - Collections act as folders (click to enter, back button to return)
   - Assign recipes to collections from CSV import
   - Move individual recipes between collections from detail modal
   - Bulk selection with checkboxes for mass move/delete operations
+  - Bulk delete endpoint (up to 500 recipes) with atomic state updates
   - Uncategorized recipes section for recipes not in collections
   - Database-accurate recipe counts (handles 200+ recipes correctly)
 - ✅ **AI Bartender Complete** - Context-aware Claude AI integration with clickable recipe recommendations ⭐⭐⭐
@@ -86,16 +98,19 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 - ✅ Full inventory table with filtering
 - ✅ View recipe from favorites page
 
-### Latest Session (Session 11 - November 15, 2025)
-- ✅ Implemented complete Recipe Collections feature (organize recipes into folders/books)
-- ✅ Added collection CRUD operations (create, read, update, delete with descriptions)
-- ✅ Collections act as clickable folders (enter to view recipes, back button to return)
-- ✅ Added collection selector to CSV import modal (assign recipes during import)
-- ✅ Added collection assignment in RecipeDetailModal (move recipes between collections)
-- ✅ Implemented bulk selection with checkboxes (mass move/delete operations)
-- ✅ Added uncategorized recipes section (recipes not in any collection still visible)
-- ✅ Fixed recipe count display (uses database count, handles 200+ recipes correctly)
-- ✅ Updated SESSION_END.md to make README and prompt-effectiveness updates mandatory
+### Latest Session (Session 13 - November 17, 2025)
+- ✅ Completed Smart Shopping List UI (craftable and near-miss recipe displays)
+- ✅ Added safe array guards to prevent crashes during data loading
+- ✅ Fixed ingredient parser (stopped stripping "sugar" literal, preserves "sugar syrup")
+- ✅ Implemented bulk delete recipes endpoint (DELETE /bulk, up to 500 IDs)
+- ✅ Added bulkDeleteRecipes store action for atomic state updates
+- ✅ Fixed recipes page pagination after large CSV imports
+- ✅ Added logout cleanup for shopping list state (prevent data leaks)
+- ✅ Hardened AI endpoint (Anthropic key validation, placeholder detection)
+- ✅ Tightened prompt injection regex (SQL-like phrases only, not words like "Select")
+- ✅ Fixed rate limiting warnings (moved inside routers after authMiddleware)
+- ✅ Updated test infrastructure (schema alignment, all tests passing Windows + WSL)
+- ✅ Upgraded to @vitejs/plugin-react@5, renamed config to .mts for ESM
 
 ### Next Phase
 - 🚀 **Deployment to Production** (Vercel + Railway)

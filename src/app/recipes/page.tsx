@@ -27,8 +27,8 @@ export default function RecipesPage() {
     addCollection,
     updateCollection,
     deleteCollection,
-    deleteRecipe,
     updateRecipe,
+    bulkDeleteRecipes,
   } = useStore();
   const { showToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
@@ -121,7 +121,15 @@ export default function RecipesPage() {
   });
 
   // Count uncategorized recipes
-  const uncategorizedCount = recipesArray.filter((r) => !r.collection_id).length;
+  const uncategorizedRecipesOnPage = recipesArray.filter((r) => !r.collection_id).length;
+  const categorizedRecipeCount = collectionsArray.reduce(
+    (sum, collection) => sum + (collection.recipe_count ?? 0),
+    0
+  );
+  const uncategorizedCount = pagination.total
+    ? Math.max(pagination.total - categorizedRecipeCount, uncategorizedRecipesOnPage)
+    : uncategorizedRecipesOnPage;
+  const totalRecipeCount = pagination.total || recipesArray.length;
 
   const isFavorited = (recipeId: number) => {
     return favoritesArray.some((fav) => fav.recipe_id === recipeId);
@@ -172,6 +180,8 @@ export default function RecipesPage() {
     try {
       const result = await recipeApi.deleteAll();
       await loadRecipes(1);
+      await fetchCollections();
+      setSelectedRecipes(new Set());
       showToast('success', result.message);
       setShowDeleteConfirm(false);
     } catch (error) {
@@ -250,17 +260,14 @@ export default function RecipesPage() {
     }
 
     try {
-      let deleted = 0;
-      for (const recipeId of selectedRecipes) {
-        await deleteRecipe(recipeId);
-        deleted++;
-      }
-      await loadRecipes(1);
+      const ids = Array.from(selectedRecipes);
+      const deleted = await bulkDeleteRecipes(ids);
+      await loadRecipes(currentPage);
       await fetchCollections();
       setSelectedRecipes(new Set());
       showToast('success', `Deleted ${deleted} ${deleted === 1 ? 'recipe' : 'recipes'}`);
     } catch (error) {
-      showToast('error', 'Failed to delete some recipes');
+      showToast('error', 'Failed to delete recipes');
       console.error('Failed to bulk delete:', error);
     }
   };
@@ -323,21 +330,7 @@ export default function RecipesPage() {
             </p>
           </div>
           <div style={{ display: 'flex', gap: '12px' }}>
-            {activeCollection ? (
-              <>
-                {filteredRecipes.length > 0 && (
-                  <Button
-                    variant="outline"
-                    size="md"
-                    onClick={() => setShowDeleteConfirm(true)}
-                    style={{ color: 'var(--color-semantic-error)', borderColor: 'var(--color-semantic-error)' }}
-                  >
-                    <Trash2 size={18} />
-                    Delete All
-                  </Button>
-                )}
-              </>
-            ) : (
+            {activeCollection ? null : (
               <>
                 <Button
                   variant="primary"
@@ -354,6 +347,17 @@ export default function RecipesPage() {
                   <Upload size={18} />
                   Import CSV
                 </Button>
+                {totalRecipeCount > 0 && (
+                  <Button
+                    variant="outline"
+                    size="md"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    style={{ color: 'var(--color-semantic-error)', borderColor: 'var(--color-semantic-error)' }}
+                  >
+                    <Trash2 size={18} />
+                    Delete All Recipes
+                  </Button>
+                )}
               </>
             )}
           </div>
@@ -784,6 +788,9 @@ export default function RecipesPage() {
           </div>
         )}
 
+          </>
+        )}
+
         {/* Pagination Controls */}
         {pagination.totalPages > 1 && (
           <div className={styles.pagination}>
@@ -809,8 +816,6 @@ export default function RecipesPage() {
               <ChevronRight size={18} />
             </Button>
           </div>
-        )}
-          </>
         )}
 
         {/* CSV Upload Modal */}
@@ -840,9 +845,9 @@ export default function RecipesPage() {
           onClose={() => setShowDeleteConfirm(false)}
           onConfirm={handleDeleteAll}
           title="Delete All Recipes?"
-          message="Are you sure you want to delete these recipes?"
+          message="This will remove every recipe in your library, including those in collections."
           itemName="all recipes"
-          warningMessage={`This will permanently delete all ${pagination.total} ${pagination.total === 1 ? 'recipe' : 'recipes'}. This action cannot be undone.`}
+          warningMessage={`This action cannot be undone and will permanently delete ${totalRecipeCount} ${totalRecipeCount === 1 ? 'recipe' : 'recipes'}.`}
         />
 
         {/* Collection Modal */}

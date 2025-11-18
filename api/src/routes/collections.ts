@@ -19,12 +19,14 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../database/db';
 import { authMiddleware } from '../middleware/auth';
+import { userRateLimit } from '../middleware/userRateLimit';
 import { sanitizeString } from '../utils/inputValidator';
 
 const router = Router();
 
 // All routes require authentication
 router.use(authMiddleware);
+router.use(userRateLimit(100, 15));
 
 /**
  * GET /api/collections - List User's Collections

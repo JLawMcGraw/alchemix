@@ -32,6 +32,7 @@
 import { Router, Request, Response } from 'express';
 import axios from 'axios';
 import { authMiddleware } from '../middleware/auth';
+import { userRateLimit } from '../middleware/userRateLimit';
 import { sanitizeString } from '../utils/inputValidator';
 import { db } from '../database/db';
 
@@ -44,6 +45,7 @@ const router = Router();
  * Prevents anonymous abuse and tracks usage per user.
  */
 router.use(authMiddleware);
+router.use(userRateLimit(20, 15));
 
 /**
  * Prompt Injection Detection Patterns
@@ -90,7 +92,14 @@ const PROMPT_INJECTION_PATTERNS = [
   /```(python|javascript|bash|sql)/gi,
 
   // Database/system access attempts
-  /database|SELECT|INSERT|UPDATE|DELETE|DROP|TABLE/gi,
+  /\bSELECT\s+.+\s+FROM\b/gi,
+  /\bINSERT\s+INTO\b/gi,
+  /\bUPDATE\s+\w+\s+SET\b/gi,
+  /\bDELETE\s+FROM\b/gi,
+  /\bDROP\s+(TABLE|DATABASE)\b/gi,
+  /\bCREATE\s+TABLE\b/gi,
+  /\bALTER\s+TABLE\b/gi,
+  /\bDATABASE\b/gi,
   /process\.env|require\(|import\s+/gi
 ];
 
@@ -416,13 +425,14 @@ router.post('/', async (req: Request, res: Response) => {
      * Ensure Anthropic API key is set before attempting API call.
      * Fail fast with clear error message.
      */
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    const rawApiKey = process.env.ANTHROPIC_API_KEY?.trim();
+    const apiKey = rawApiKey && rawApiKey !== 'your-api-key-here' ? rawApiKey : null;
 
     if (!apiKey) {
-      console.error('❌ ANTHROPIC_API_KEY not configured');
+      console.error('❌ ANTHROPIC_API_KEY not configured or still using placeholder value');
       return res.status(503).json({
         success: false,
-        error: 'AI service is not configured. Please contact administrator.'
+        error: 'AI service is not configured. Please update ANTHROPIC_API_KEY on the API server.'
       });
     }
 

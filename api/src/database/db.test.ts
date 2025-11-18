@@ -24,18 +24,27 @@ describe('Database Operations', () => {
       expect(columns).toContain('created_at');
     });
 
-    it('should create bottles table with correct schema', () => {
+    it('should create bottles table with current schema', () => {
       const tableInfo = db.prepare("PRAGMA table_info(bottles)").all();
       const columns = tableInfo.map((col: any) => col.name);
 
-      expect(columns).toContain('id');
-      expect(columns).toContain('user_id');
-      expect(columns).toContain('name');
-      expect(columns).toContain('category');
-      expect(columns).toContain('subcategory');
-      expect(columns).toContain('quantity');
-      expect(columns).toContain('created_at');
-      expect(columns).toContain('updated_at');
+      expect(columns).toEqual(expect.arrayContaining([
+        'id',
+        'user_id',
+        'name',
+        'Stock Number',
+        'Liquor Type',
+        'Detailed Spirit Classification',
+        'Distillation Method',
+        'ABV (%)',
+        'Distillery Location',
+        'Age Statement or Barrel Finish',
+        'Additional Notes',
+        'Profile (Nose)',
+        'Palate',
+        'Finish',
+        'created_at'
+      ]));
     });
 
     it('should create recipes table with correct schema', () => {
@@ -132,6 +141,25 @@ describe('Database Operations', () => {
 
   describe('Bottle Operations', () => {
     let userId: number;
+    const insertBottle = (overrides: {
+      name?: string;
+      liquorType?: string;
+      classification?: string;
+      notes?: string | null;
+    } = {}) => {
+      const stmt = db.prepare(`
+        INSERT INTO bottles (user_id, name, "Liquor Type", "Detailed Spirit Classification", "Additional Notes")
+        VALUES (?, ?, ?, ?, ?)
+      `);
+
+      return stmt.run(
+        userId,
+        overrides.name ?? 'Test Bottle',
+        overrides.liquorType ?? 'Spirits',
+        overrides.classification ?? 'Gin',
+        overrides.notes ?? null
+      );
+    };
 
     beforeEach(() => {
       const result = db.prepare(
@@ -141,24 +169,15 @@ describe('Database Operations', () => {
     });
 
     it('should insert a bottle', () => {
-      const stmt = db.prepare(
-        'INSERT INTO bottles (user_id, name, category, subcategory, quantity) VALUES (?, ?, ?, ?, ?)'
-      );
-
-      const result = stmt.run(userId, 'Test Bottle', 'Spirits', 'Gin', 750);
+      const result = insertBottle();
 
       expect(result.changes).toBe(1);
       expect(result.lastInsertRowid).toBeGreaterThan(0);
     });
 
     it('should retrieve bottles for a user', () => {
-      db.prepare(
-        'INSERT INTO bottles (user_id, name, category, subcategory, quantity) VALUES (?, ?, ?, ?, ?)'
-      ).run(userId, 'Bottle 1', 'Spirits', 'Vodka', 1000);
-
-      db.prepare(
-        'INSERT INTO bottles (user_id, name, category, subcategory, quantity) VALUES (?, ?, ?, ?, ?)'
-      ).run(userId, 'Bottle 2', 'Spirits', 'Gin', 750);
+      insertBottle({ name: 'Bottle 1', classification: 'Vodka' });
+      insertBottle({ name: 'Bottle 2', classification: 'Gin' });
 
       const bottles = db.prepare('SELECT * FROM bottles WHERE user_id = ?').all(userId);
 
@@ -168,9 +187,7 @@ describe('Database Operations', () => {
     it('should cascade delete bottles when user is deleted', () => {
       db.pragma('foreign_keys = ON');
 
-      db.prepare(
-        'INSERT INTO bottles (user_id, name, category, subcategory, quantity) VALUES (?, ?, ?, ?, ?)'
-      ).run(userId, 'Test Bottle', 'Spirits', 'Gin', 750);
+      insertBottle();
 
       db.prepare('DELETE FROM users WHERE id = ?').run(userId);
 
@@ -178,26 +195,25 @@ describe('Database Operations', () => {
       expect(bottles).toHaveLength(0);
     });
 
-    it('should update bottle quantity', () => {
-      const result = db.prepare(
-        'INSERT INTO bottles (user_id, name, category, subcategory, quantity) VALUES (?, ?, ?, ?, ?)'
-      ).run(userId, 'Test Bottle', 'Spirits', 'Gin', 750);
+    it('should update bottle metadata fields', () => {
+      const result = insertBottle();
+      const bottleId = Number(result.lastInsertRowid);
 
-      const bottleId = result.lastInsertRowid;
+      db.prepare('UPDATE bottles SET "Stock Number" = ? WHERE id = ?').run(500, bottleId);
 
-      db.prepare('UPDATE bottles SET quantity = ? WHERE id = ?').run(500, bottleId);
-
-      const bottle = db.prepare('SELECT quantity FROM bottles WHERE id = ?').get(bottleId) as any;
-      expect(bottle.quantity).toBe(500);
+      const bottle = db.prepare('SELECT "Stock Number" as stock FROM bottles WHERE id = ?').get(bottleId) as any;
+      expect(bottle.stock).toBe(500);
     });
 
-    it('should handle optional subcategory', () => {
-      const result = db.prepare(
-        'INSERT INTO bottles (user_id, name, category, quantity) VALUES (?, ?, ?, ?)'
-      ).run(userId, 'Test Bottle', 'Spirits', 750);
+    it('should allow optional classification fields to remain null', () => {
+      const result = db.prepare(`
+        INSERT INTO bottles (user_id, name)
+        VALUES (?, ?)
+      `).run(userId, 'Minimal Bottle');
 
-      const bottle = db.prepare('SELECT subcategory FROM bottles WHERE id = ?').get(result.lastInsertRowid) as any;
-      expect(bottle.subcategory).toBeNull();
+      const bottle = db.prepare('SELECT "Detailed Spirit Classification" as detail FROM bottles WHERE id = ?')
+        .get(result.lastInsertRowid) as any;
+      expect(bottle.detail).toBeNull();
     });
   });
 
@@ -277,10 +293,10 @@ describe('Database Operations', () => {
 
     it('should add a favorite', () => {
       const stmt = db.prepare(
-        'INSERT INTO favorites (user_id, recipe_id) VALUES (?, ?)'
+        'INSERT INTO favorites (user_id, recipe_name, recipe_id) VALUES (?, ?, ?)'
       );
 
-      const result = stmt.run(userId, recipeId);
+      const result = stmt.run(userId, 'Martini', recipeId);
 
       expect(result.changes).toBe(1);
       expect(result.lastInsertRowid).toBeGreaterThan(0);
@@ -288,8 +304,8 @@ describe('Database Operations', () => {
 
     it('should retrieve favorites for a user', () => {
       db.prepare(
-        'INSERT INTO favorites (user_id, recipe_id) VALUES (?, ?)'
-      ).run(userId, recipeId);
+        'INSERT INTO favorites (user_id, recipe_name, recipe_id) VALUES (?, ?, ?)'
+      ).run(userId, 'Martini', recipeId);
 
       const favorites = db.prepare('SELECT * FROM favorites WHERE user_id = ?').all(userId);
 
@@ -298,8 +314,8 @@ describe('Database Operations', () => {
 
     it('should enforce unique user_id and recipe_id combination', () => {
       db.prepare(
-        'INSERT INTO favorites (user_id, recipe_id) VALUES (?, ?)'
-      ).run(userId, recipeId);
+        'INSERT INTO favorites (user_id, recipe_name, recipe_id) VALUES (?, ?, ?)'
+      ).run(userId, 'Martini', recipeId);
 
       expect(() => {
         db.prepare(
@@ -312,8 +328,8 @@ describe('Database Operations', () => {
       db.pragma('foreign_keys = ON');
 
       db.prepare(
-        'INSERT INTO favorites (user_id, recipe_id) VALUES (?, ?)'
-      ).run(userId, recipeId);
+        'INSERT INTO favorites (user_id, recipe_name, recipe_id) VALUES (?, ?, ?)'
+      ).run(userId, 'Martini', recipeId);
 
       db.prepare('DELETE FROM users WHERE id = ?').run(userId);
 
@@ -325,8 +341,8 @@ describe('Database Operations', () => {
       db.pragma('foreign_keys = ON');
 
       db.prepare(
-        'INSERT INTO favorites (user_id, recipe_id) VALUES (?, ?)'
-      ).run(userId, recipeId);
+        'INSERT INTO favorites (user_id, recipe_name, recipe_id) VALUES (?, ?, ?)'
+      ).run(userId, 'Martini', recipeId);
 
       db.prepare('DELETE FROM recipes WHERE id = ?').run(recipeId);
 
@@ -341,12 +357,12 @@ describe('Database Operations', () => {
       const userId2 = Number(user2Result.lastInsertRowid);
 
       db.prepare(
-        'INSERT INTO favorites (user_id, recipe_id) VALUES (?, ?)'
-      ).run(userId, recipeId);
+        'INSERT INTO favorites (user_id, recipe_name, recipe_id) VALUES (?, ?, ?)'
+      ).run(userId, 'Martini', recipeId);
 
       db.prepare(
-        'INSERT INTO favorites (user_id, recipe_id) VALUES (?, ?)'
-      ).run(userId2, recipeId);
+        'INSERT INTO favorites (user_id, recipe_name, recipe_id) VALUES (?, ?, ?)'
+      ).run(userId2, 'Martini', recipeId);
 
       const favorites = db.prepare('SELECT * FROM favorites WHERE recipe_id = ?').all(recipeId);
       expect(favorites).toHaveLength(2);
@@ -394,11 +410,11 @@ describe('Database Operations', () => {
 
       // Insert multiple bottles for performance testing
       const stmt = db.prepare(
-        'INSERT INTO bottles (user_id, name, category, subcategory, quantity) VALUES (?, ?, ?, ?, ?)'
+        'INSERT INTO bottles (user_id, name, "Liquor Type", "Detailed Spirit Classification") VALUES (?, ?, ?, ?)'
       );
 
       for (let i = 0; i < 100; i++) {
-        stmt.run(userId, `Bottle ${i}`, 'Spirits', 'Vodka', 750);
+        stmt.run(userId, `Bottle ${i}`, 'Spirits', 'Vodka');
       }
     });
 

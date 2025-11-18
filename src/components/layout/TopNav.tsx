@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
-import { Home, Wine, Sparkles, BookOpen, Star, LogOut } from 'lucide-react';
+import { Home, Wine, Sparkles, BookOpen, ShoppingCart, Star, LogOut } from 'lucide-react';
 import styles from './TopNav.module.css';
 
 export const TopNav: React.FC = () => {
@@ -33,6 +33,7 @@ export const TopNav: React.FC = () => {
     { href: '/bar', label: 'My Bar', Icon: Wine },
     { href: '/ai', label: 'AI Bartender', Icon: Sparkles },
     { href: '/recipes', label: 'Recipes', Icon: BookOpen },
+    { href: '/shopping-list', label: 'Shopping List', Icon: ShoppingCart },
     { href: '/favorites', label: 'Favorites', Icon: Star },
   ];
 

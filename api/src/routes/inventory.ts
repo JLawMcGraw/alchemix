@@ -29,6 +29,7 @@ import multer from 'multer';
 import { parse } from 'csv-parse/sync';
 import { db } from '../database/db';
 import { authMiddleware } from '../middleware/auth';
+import { userRateLimit } from '../middleware/userRateLimit';
 import { validateNumber } from '../utils/inputValidator';
 import { Bottle } from '../types';
 
@@ -64,6 +65,7 @@ const upload = multer({
  * Ensures users can only access/modify their own bottles.
  */
 router.use(authMiddleware);
+router.use(userRateLimit(100, 15));
 
 /**
  * GET /api/inventory - List User's Bottles with Pagination

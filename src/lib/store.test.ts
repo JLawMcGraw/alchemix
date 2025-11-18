@@ -19,6 +19,10 @@ vi.mock('./api', () => ({
   recipeApi: {
     getAll: vi.fn(),
     add: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    deleteAll: vi.fn(),
+    deleteBulk: vi.fn(),
   },
   favoritesApi: {
     getAll: vi.fn(),
@@ -84,10 +88,8 @@ describe('Zustand Store', () => {
       it('should login successfully', async () => {
         const { authApi } = await import('./api');
         const mockResponse = {
-          data: {
-            user: { id: 1, email: 'test@example.com' },
-            token: 'jwt-token-123',
-          },
+          user: { id: 1, email: 'test@example.com' },
+          token: 'jwt-token-123',
         };
 
         (authApi.login as any).mockResolvedValue(mockResponse);
@@ -96,14 +98,14 @@ describe('Zustand Store', () => {
         await useStore.getState().login(credentials);
 
         const state = useStore.getState();
-        expect(state.user).toEqual(mockResponse.data.user);
-        expect(state.token).toBe(mockResponse.data.token);
+        expect(state.user).toEqual(mockResponse.user);
+        expect(state.token).toBe(mockResponse.token);
         expect(state.isAuthenticated).toBe(true);
         expect(state.isLoading).toBe(false);
         expect(state.error).toBeNull();
 
-        expect(localStorage.setItem).toHaveBeenCalledWith('token', mockResponse.data.token);
-        expect(localStorage.setItem).toHaveBeenCalledWith('user', JSON.stringify(mockResponse.data.user));
+        expect(localStorage.setItem).toHaveBeenCalledWith('token', mockResponse.token);
+        expect(localStorage.setItem).toHaveBeenCalledWith('user', JSON.stringify(mockResponse.user));
       });
 
       it('should handle login error', async () => {
@@ -134,10 +136,8 @@ describe('Zustand Store', () => {
           expect(state.isLoading).toBe(true);
 
           return Promise.resolve({
-            data: {
-              user: { id: 1, email: 'test@example.com' },
-              token: 'jwt-token',
-            },
+            user: { id: 1, email: 'test@example.com' },
+            token: 'jwt-token',
           });
         });
 
@@ -149,10 +149,8 @@ describe('Zustand Store', () => {
       it('should signup successfully', async () => {
         const { authApi } = await import('./api');
         const mockResponse = {
-          data: {
-            user: { id: 2, email: 'newuser@example.com' },
-            token: 'new-jwt-token',
-          },
+          user: { id: 2, email: 'newuser@example.com' },
+          token: 'new-jwt-token',
         };
 
         (authApi.signup as any).mockResolvedValue(mockResponse);
@@ -161,8 +159,8 @@ describe('Zustand Store', () => {
         await useStore.getState().signup(credentials);
 
         const state = useStore.getState();
-        expect(state.user).toEqual(mockResponse.data.user);
-        expect(state.token).toBe(mockResponse.data.token);
+        expect(state.user).toEqual(mockResponse.user);
+        expect(state.token).toBe(mockResponse.token);
         expect(state.isAuthenticated).toBe(true);
       });
 
@@ -394,7 +392,7 @@ describe('Zustand Store', () => {
           { id: 2, name: 'Negroni', ingredients: 'Gin, Campari, Vermouth' } as Recipe,
         ];
 
-        (recipeApi.getAll as any).mockResolvedValue(mockRecipes);
+        (recipeApi.getAll as any).mockResolvedValue({ recipes: mockRecipes });
 
         await useStore.getState().fetchRecipes();
 
@@ -426,6 +424,28 @@ describe('Zustand Store', () => {
         const state = useStore.getState();
         expect(state.recipes).toHaveLength(3);
         expect(state.recipes[2]).toEqual(newRecipe);
+      });
+    });
+
+    describe('bulkDeleteRecipes', () => {
+      it('should delete multiple recipes and update state', async () => {
+        const { recipeApi } = await import('./api');
+        (recipeApi.deleteBulk as any).mockResolvedValue({ deleted: 2 });
+
+        useStore.setState({
+          recipes: [
+            { id: 1, name: 'Martini', ingredients: [] } as Recipe,
+            { id: 2, name: 'Negroni', ingredients: [] } as Recipe,
+            { id: 3, name: 'Manhattan', ingredients: [] } as Recipe,
+          ],
+        });
+
+        const deleted = await useStore.getState().bulkDeleteRecipes([1, 2]);
+
+        expect(deleted).toBe(2);
+        const state = useStore.getState();
+        expect(state.recipes).toHaveLength(1);
+        expect(state.recipes[0].id).toBe(3);
       });
     });
   });
@@ -517,8 +537,12 @@ describe('Zustand Store', () => {
 
         const state = useStore.getState();
         expect(state.chatHistory).toHaveLength(2);
-        expect(state.chatHistory[0]).toEqual({ role: 'user', content: userMessage });
-        expect(state.chatHistory[1]).toEqual({ role: 'assistant', content: aiResponse });
+        expect(state.chatHistory[0]).toEqual(
+          expect.objectContaining({ role: 'user', content: userMessage })
+        );
+        expect(state.chatHistory[1]).toEqual(
+          expect.objectContaining({ role: 'assistant', content: aiResponse })
+        );
       });
 
       it('should append to existing chat history', async () => {

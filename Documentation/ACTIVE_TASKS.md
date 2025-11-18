@@ -1,6 +1,6 @@
 # Active Tasks
 
-Last updated: 2025-11-16 (Session 12)
+Last updated: 2025-11-17 (Session 13)
 
 ## High Priority - Deployment & Testing
 - [ ] **Phase 1 Deployment** - Deploy to free tier production
@@ -71,6 +71,21 @@ Last updated: 2025-11-16 (Session 12)
 - [ ] Image uploads for recipes/bottles
 
 ## Recently Completed
+
+### Session 13 - 2025-11-17 (Smart Shopping List Complete & Production Hardening)
+- ✅ Complete Smart Shopping List UI (craftable and near-miss recipe views)
+- ✅ Implement safe array guards for shopping list data (safeCraftableRecipes, safeNearMissRecipes)
+- ✅ Fix ingredient parser (stopped stripping "sugar" literal from ingredients)
+- ✅ Implement bulk delete recipes endpoint (DELETE /bulk, up to 500 IDs)
+- ✅ Add bulkDeleteRecipes store action for atomic state updates
+- ✅ Fix recipes page pagination after large CSV imports
+- ✅ Add logout cleanup for shopping list state (prevent data leaks)
+- ✅ Harden AI endpoint (Anthropic key validation, placeholder check)
+- ✅ Tighten prompt injection regex (only SQL-like phrases, not words like "Select")
+- ✅ Fix rate limiting warnings (moved inside routers after authMiddleware)
+- ✅ Update test infrastructure (schema alignment, all tests passing)
+- ✅ Rename vitest.config.ts → vitest.config.mts for ESM compatibility
+- ✅ Upgrade to @vitejs/plugin-react@5 for Vitest/Vite compatibility
 
 ### Session 12 - 2025-11-16 (Security Hardening & AI Context)
 - ✅ Persisted JWT blacklists in SQLite (token_blacklist table) with hydration and cleanup

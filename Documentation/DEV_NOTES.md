@@ -4,6 +4,122 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-11-17 - Smart Shopping List Completion & Production Hardening (Session 13)
+
+**Context**: Completed Smart Shopping List feature UI and implemented comprehensive production hardening improvements from additional session.
+
+**Decisions & Implementation**:
+
+1. **Safe Array Guards for Shopping List Data**
+   ```typescript
+   // src/app/shopping-list/page.tsx
+   const safeCraftableRecipes = Array.isArray(craftableRecipes) ? craftableRecipes : [];
+   const safeNearMissRecipes = Array.isArray(nearMissRecipes) ? nearMissRecipes : [];
+
+   // Use safe arrays in rendering
+   {safeCraftableRecipes.length > 0 ? (
+     <div className={styles.suggestionsList}>
+       {safeCraftableRecipes.map((recipe) => ...)}
+     </div>
+   ) : (
+     <Card>No craftable recipes found</Card>
+   )}
+   ```
+   Result: Prevents runtime crashes when data is still loading or undefined. Graceful fallback to empty arrays.
+
+2. **Ingredient Parser Sugar Fix**
+   ```typescript
+   // api/src/routes/shoppingList.ts
+   // BEFORE (bug):
+   const unitsToRemove = ['ounce', 'ounces', 'oz', 'sugar', 'syrup'];
+   // "sugar syrup" → "" (broke matching!)
+
+   // AFTER (fixed):
+   const unitsToRemove = ['ounce', 'ounces', 'oz'];
+   // "sugar syrup" → "sugar syrup" (preserves ingredient name)
+   ```
+   Result: Fuzzy matching now correctly identifies "sugar syrup" and "demerara syrup". Near-miss counts accurate.
+
+3. **Bulk Delete Recipes Endpoint**
+   ```typescript
+   // api/src/routes/recipes.ts
+   router.delete('/bulk', authMiddleware, asyncHandler(async (req: Request, res: Response) => {
+     const { recipeIds } = req.body;
+
+     if (!Array.isArray(recipeIds) || recipeIds.length === 0) {
+       throw new ValidationError('recipeIds must be a non-empty array');
+     }
+
+     if (recipeIds.length > 500) {
+       throw new ValidationError('Cannot delete more than 500 recipes at once');
+     }
+
+     const placeholders = recipeIds.map(() => '?').join(',');
+     const stmt = db.prepare(`
+       DELETE FROM recipes
+       WHERE id IN (${placeholders}) AND user_id = ?
+     `);
+
+     const result = stmt.run(...recipeIds, userId);
+     res.json({ success: true, deletedCount: result.changes });
+   }));
+   ```
+   Result: Bulk operations avoid rate limits, handle up to 500 recipes efficiently.
+
+4. **Anthropic API Key Validation**
+   ```typescript
+   // api/src/routes/messages.ts
+   const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+
+   if (!ANTHROPIC_API_KEY || ANTHROPIC_API_KEY === 'your-api-key-here') {
+     return res.status(503).json({
+       success: false,
+       error: 'AI service not configured. Please set ANTHROPIC_API_KEY in .env file.'
+     });
+   }
+   ```
+   Result: Fails fast with helpful message instead of hitting Anthropic API with invalid key (401).
+
+5. **Tightened Prompt Injection Regex**
+   ```typescript
+   // BEFORE (too aggressive):
+   text = text.replace(/\b(select|drop|delete|update|insert)\b/gi, '');
+   // Stripped "Select Aperitivo" → " Aperitivo" (broke recipe names!)
+
+   // AFTER (precise):
+   text = text.replace(/\b(SELECT\s+.+\s+FROM|DROP\s+TABLE|DELETE\s+FROM|UPDATE\s+.+\s+SET|INSERT\s+INTO)\b/gi, '');
+   // Only strips SQL-like phrases, preserves legitimate words
+   ```
+   Result: Recipe names with "Select", "Drop", etc. no longer flagged as injection attempts.
+
+6. **Rate Limiting After Auth Middleware**
+   ```typescript
+   // api/src/server.ts
+   // BEFORE (warnings):
+   app.use('/api/recipes', userRateLimit(100, 15), recipesRoutes);
+
+   // AFTER (fixed):
+   // In api/src/routes/recipes.ts
+   router.use(authMiddleware);
+   router.use(userRateLimit(100, 15));
+   router.get('/', asyncHandler(async (req, res) => { ... }));
+   ```
+   Result: req.user exists when rate limiter runs. No more "undefined user" warnings.
+
+**Lessons Learned**:
+- Always guard arrays from external data sources with `Array.isArray()` checks
+- Overly aggressive text sanitization can break legitimate content - be precise with regex patterns
+- Bulk operations need explicit limits (500 recipes) to prevent abuse while enabling power user workflows
+- Fail-fast validation for environment variables prevents confusing remote API errors
+- Middleware order matters - auth must run before any middleware that depends on req.user
+
+**Future Considerations**:
+- Consider Redis for rate limiting in multi-instance deployments
+- Add bulk operation progress indicators for 100+ items
+- Implement ingredient synonym database for even better fuzzy matching
+
+---
+
 ## 2025-11-16 - Persisted Token Blacklist & AI Chat History (Session 12)
 
 **Context**: Audit flagged remaining security gaps—JWT revocations vanished on restart and stored recipe text could poison future AI prompts.

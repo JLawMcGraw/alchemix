@@ -37,7 +37,6 @@ import rateLimit from 'express-rate-limit';
 import { initializeDatabase, db } from './database/db';
 import { corsOptions } from './utils/corsConfig';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
-import { userRateLimit } from './middleware/userRateLimit';
 import { requestIdMiddleware } from './middleware/requestId';
 import { requestLoggerMiddleware, errorLoggerMiddleware } from './middleware/requestLogger';
 import { logger } from './utils/logger';
@@ -49,6 +48,7 @@ import recipesRoutes from './routes/recipes';
 import collectionsRoutes from './routes/collections';
 import favoritesRoutes from './routes/favorites';
 import messagesRoutes from './routes/messages';
+import shoppingListRoutes from './routes/shoppingList';
 
 /**
  * Initialize Express Application
@@ -537,11 +537,12 @@ app.use('/auth', authRoutes);          // Mount auth routes
 // Protected API routes (require authentication)
 // SECURITY FIX #14: Apply user-based rate limiting to authenticated routes
 // Note: Routes already include authMiddleware internally (sets req.user)
-app.use('/api/inventory', userRateLimit(100, 15), inventoryRoutes);
-app.use('/api/recipes', userRateLimit(100, 15), recipesRoutes);
-app.use('/api/collections', userRateLimit(100, 15), collectionsRoutes);
-app.use('/api/favorites', userRateLimit(100, 15), favoritesRoutes);
-app.use('/api/messages', userRateLimit(20, 15), messagesRoutes); // Lower limit for expensive AI requests
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/recipes', recipesRoutes);
+app.use('/api/collections', collectionsRoutes);
+app.use('/api/shopping-list', shoppingListRoutes);
+app.use('/api/favorites', favoritesRoutes);
+app.use('/api/messages', messagesRoutes); // Lower limit for expensive AI requests
 
 /**
  * 404 Not Found Handler
@@ -590,18 +591,23 @@ app.use(errorHandler);
  * Ensures schema is up-to-date before accepting requests.
  *
  * Tables created:
- * - users: Email, password hash, timestamps
+ * - users: Email, password hash, timestamps, token version
  * - bottles: User's inventory with 12 fields
  * - recipes: Cocktail recipes with ingredients
  * - favorites: User's saved recipes
+ * - collections: Recipe organization folders
+ * - token_blacklist: Revoked JWT tokens (security)
  *
  * If initialization fails, the server exits immediately.
  * This prevents running with a broken database.
+ *
+ * Note: TokenBlacklist uses lazy initialization, so it won't
+ * access the database until first use (after this init completes).
  */
 try {
   initializeDatabase();
   logger.info('Database initialized successfully', {
-    tables: ['users', 'bottles', 'recipes', 'favorites']
+    tables: ['users', 'bottles', 'recipes', 'favorites', 'collections', 'token_blacklist']
   });
 } catch (error) {
   logger.error('Failed to initialize database', {

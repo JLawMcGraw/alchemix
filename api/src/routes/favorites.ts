@@ -28,6 +28,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../database/db';
 import { authMiddleware } from '../middleware/auth';
+import { userRateLimit } from '../middleware/userRateLimit';
 import { sanitizeString, validateNumber } from '../utils/inputValidator';
 import { Favorite } from '../types';
 
@@ -40,6 +41,7 @@ const router = Router();
  * Ensures users can only access/modify their own favorites.
  */
 router.use(authMiddleware);
+router.use(userRateLimit(100, 15));
 
 /**
  * GET /api/favorites - List User's Favorite Recipes

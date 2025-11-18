@@ -31,6 +31,7 @@ import multer from 'multer';
 import { parse } from 'csv-parse/sync';
 import { db } from '../database/db';
 import { authMiddleware } from '../middleware/auth';
+import { userRateLimit } from '../middleware/userRateLimit';
 import { sanitizeString, validateNumber } from '../utils/inputValidator';
 import { Recipe } from '../types';
 
@@ -66,6 +67,7 @@ const upload = multer({
  * Ensures users can only access/modify their own recipes.
  */
 router.use(authMiddleware);
+router.use(userRateLimit(100, 15));
 
 /**
  * GET /api/recipes - List User's Recipes with Pagination
@@ -1124,6 +1126,75 @@ router.delete('/all', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Delete all recipes error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete recipes'
+    });
+  }
+});
+
+/**
+ * DELETE /api/recipes/bulk - Delete Multiple Recipes
+ *
+ * Accepts an array of recipe IDs and deletes them in a single request.
+ * Helps users clean up large imports without hitting user-level rate limits.
+ */
+router.delete('/bulk', (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    const rawIds = req.body?.ids;
+
+    if (!Array.isArray(rawIds) || rawIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'ids array is required'
+      });
+    }
+
+    if (rawIds.length > 500) {
+      return res.status(400).json({
+        success: false,
+        error: 'Too many IDs - maximum 500 per request'
+      });
+    }
+
+    // Sanitize and deduplicate IDs
+    const sanitizedIds = Array.from(new Set(
+      rawIds
+        .map((id) => Number(id))
+        .filter((id) => Number.isInteger(id) && id > 0)
+    ));
+
+    if (sanitizedIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No valid recipe IDs provided'
+      });
+    }
+
+    const placeholders = sanitizedIds.map(() => '?').join(', ');
+    const statement = db.prepare(`
+      DELETE FROM recipes
+      WHERE user_id = ?
+      AND id IN (${placeholders})
+    `);
+
+    const result = statement.run(userId, ...sanitizedIds);
+
+    res.json({
+      success: true,
+      deleted: result.changes,
+    });
+  } catch (error) {
+    console.error('Bulk delete recipes error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to delete recipes'

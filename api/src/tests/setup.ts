@@ -56,17 +56,36 @@ export function createTestDatabase(): Database.Database {
     )
   `);
 
-  // Create bottles table
+  // Create bottles table (matches production schema)
   db.exec(`
     CREATE TABLE IF NOT EXISTS bottles (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
       name TEXT NOT NULL,
-      category TEXT NOT NULL,
-      subcategory TEXT,
-      quantity REAL NOT NULL,
+      "Stock Number" INTEGER,
+      "Liquor Type" TEXT,
+      "Detailed Spirit Classification" TEXT,
+      "Distillation Method" TEXT,
+      "ABV (%)" TEXT,
+      "Distillery Location" TEXT,
+      "Age Statement or Barrel Finish" TEXT,
+      "Additional Notes" TEXT,
+      "Profile (Nose)" TEXT,
+      "Palate" TEXT,
+      "Finish" TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Create collections table (needed for recipes FK)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS collections (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
@@ -76,11 +95,15 @@ export function createTestDatabase(): Database.Database {
     CREATE TABLE IF NOT EXISTS recipes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
+      collection_id INTEGER,
       name TEXT NOT NULL,
       ingredients TEXT NOT NULL,
       instructions TEXT,
+      glass TEXT,
+      category TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE SET NULL
     )
   `);
 
@@ -89,11 +112,20 @@ export function createTestDatabase(): Database.Database {
     CREATE TABLE IF NOT EXISTS favorites (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
-      recipe_id INTEGER NOT NULL,
+      recipe_name TEXT NOT NULL,
+      recipe_id INTEGER,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-      FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE,
+      FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE SET NULL,
       UNIQUE(user_id, recipe_id)
+    )
+  `);
+
+  // Token blacklist table for logout tests
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS token_blacklist (
+      token TEXT PRIMARY KEY,
+      expires_at INTEGER NOT NULL
     )
   `);
 

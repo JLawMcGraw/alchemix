@@ -92,6 +92,39 @@ export interface ChatSession {
   created_at: string;
 }
 
+// Shopping List
+export interface ShoppingListSuggestion {
+  ingredient: string;
+  unlocks: number;
+}
+
+export interface ShoppingListStats {
+  totalRecipes: number;
+  craftable: number;
+  nearMisses: number;
+  inventoryItems: number;
+}
+
+export interface CraftableRecipe {
+  id: number;
+  name: string;
+  ingredients: string[];
+}
+
+export interface NearMissRecipe {
+  id: number;
+  name: string;
+  ingredients: string[];
+  missingIngredient: string;
+}
+
+export interface ShoppingListResponse {
+  data: ShoppingListSuggestion[];
+  stats: ShoppingListStats;
+  craftableRecipes: CraftableRecipe[];
+  nearMissRecipes: NearMissRecipe[];
+}
+
 // API Response Types
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -113,9 +146,14 @@ export interface AppState {
   collections: Collection[];
   favorites: Favorite[];
   chatHistory: ChatMessage[];
+  shoppingListSuggestions: ShoppingListSuggestion[];
+  shoppingListStats: ShoppingListStats | null;
+  craftableRecipes: CraftableRecipe[];
+  nearMissRecipes: NearMissRecipe[];
 
   // UI State
   isLoading: boolean;
+  isLoadingShoppingList: boolean;
   error: string | null;
   _hasHydrated: boolean;
 
@@ -135,6 +173,7 @@ export interface AppState {
   addRecipe: (recipe: Recipe) => Promise<void>;
   updateRecipe: (id: number, recipe: Partial<Recipe>) => Promise<void>;
   deleteRecipe: (id: number) => Promise<void>;
+  bulkDeleteRecipes: (ids: number[]) => Promise<number>;
 
   fetchCollections: () => Promise<void>;
   addCollection: (collection: Collection) => Promise<void>;
@@ -144,6 +183,8 @@ export interface AppState {
   fetchFavorites: () => Promise<void>;
   addFavorite: (recipeName: string, recipeId?: number) => Promise<void>;
   removeFavorite: (id: number) => Promise<void>;
+
+  fetchShoppingList: () => Promise<void>;
 
   sendMessage: (message: string) => Promise<string>;
   clearChat: () => void;

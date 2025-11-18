@@ -4,6 +4,60 @@ This file tracks the 10 most recent development sessions. Older sessions are arc
 
 ---
 
+## Session: 2025-11-17 - Smart Shopping List Feature Complete & Production Hardening
+
+### Summary
+Completed the Smart Shopping List feature by implementing full UI for craftable and near-miss recipe views. User provided comprehensive fixes from an additional session including safe array guards, backend ingredient parser improvements, pagination/bulk delete for recipes, AI improvements (prompt injection tightening, Anthropic key validation, rate limiting), and test infrastructure updates. Feature now provides intelligent ingredient recommendations with fuzzy matching, displays craftable recipes, shows near-miss recipes with highlighted missing ingredients, and includes full inventory view.
+
+### Components Worked On
+- **Frontend Pages**: Smart Shopping List page (`src/app/shopping-list/page.tsx`) - completed craftable/near-miss recipe displays
+- **Backend Routes**: Shopping list endpoint (`api/src/routes/shoppingList.ts`) - parser fixes, fuzzy matching improvements
+- **Backend Routes**: Recipes bulk delete (`api/src/routes/recipes.ts`) - DELETE /bulk endpoint (up to 500 IDs)
+- **Backend Routes**: AI messages hardening (`api/src/routes/messages.ts`) - Anthropic key validation, prompt injection tightening
+- **Zustand Store**: Added `bulkDeleteRecipes` action, logout cleanup for shopping list state
+- **API Client**: `recipeApi.deleteBulk` method, safe response defaults for shopping list
+- **React Components**: Safe array guards (`safeCraftableRecipes`, `safeNearMissRecipes`)
+- **TypeScript Types**: Extended store contract with bulk delete, shopping list interfaces
+- **Test Infrastructure**: Updated schema in `api/src/tests/setup.ts`, fixed all integration tests
+- **Configuration**: Renamed `vitest.config.ts` → `vitest.config.mts` for ESM compatibility
+
+### Key Achievements
+- ✅ **Shopping List UI Complete**: Craftable and near-miss recipe views with proper rendering
+- ✅ **Safe Array Guards**: Frontend prevents crashes when data is loading (safeCraftableRecipes, safeNearMissRecipes)
+- ✅ **Ingredient Parser Fix**: Stopped stripping literal "sugar" from ingredients (preserves "sugar syrup")
+- ✅ **Bulk Delete Recipes**: Backend endpoint handles up to 500 recipe IDs per request
+- ✅ **Store Bulk Action**: `bulkDeleteRecipes` for atomic state updates without rate limit issues
+- ✅ **Logout Cleanup**: Shopping list state cleared on logout to prevent data leaks
+- ✅ **Pagination Fixes**: Recipes page pagination restored after large CSV imports
+- ✅ **AI Hardening**: Anthropic placeholder keys fail fast with 503, not 401
+- ✅ **Prompt Injection Tightened**: Only strips SQL-like phrases, not words like "Select Aperitivo"
+- ✅ **Rate Limiting Fixed**: Moved inside routers after authMiddleware to stop warnings
+- ✅ **Test Infrastructure**: All tests passing with updated schema (Windows ✅, WSL documented)
+- ✅ **Vitest/Vite Compatibility**: Upgraded to `@vitejs/plugin-react@5` and ESM config
+
+### Issues Encountered
+- **Shopping List Array Crashes**: Initial implementation didn't guard against undefined craftableRecipes/nearMissRecipes
+  - **Resolution**: Added `safeCraftableRecipes = Array.isArray(craftableRecipes) ? craftableRecipes : []` pattern
+- **Ingredient Matching Bug**: Backend was stripping "sugar" from "sugar syrup", breaking near-miss counts
+  - **Resolution**: Removed "sugar" from unitsToRemove list in parser
+- **Pagination Broken**: Large CSV imports broke recipe pagination display
+  - **Resolution**: Fixed count display logic to use database totals, not filtered array length
+- **Rate Limit Warnings**: Per-user rate limiting logged warnings about missing req.user
+  - **Resolution**: Moved rate limiter inside routers after authMiddleware
+- **Anthropic API 401s**: Placeholder "your-api-key-here" hit remote API with clear error
+  - **Resolution**: Added guard to check for placeholder value and return 503 with helpful message
+- **Prompt Injection False Positives**: Regex stripped words like "Select" from legitimate recipe names
+  - **Resolution**: Tightened regex to only match SQL-like phrases (SELECT...FROM, DROP TABLE, etc.)
+
+### Next Session Focus
+1. Deploy to production (Vercel + Railway) with persistent storage
+2. Test full shopping list feature with 300+ recipes
+3. Verify bulk delete handles large selections (100+ recipes)
+4. Add collection search/filter functionality
+5. Implement conversation persistence for AI chat beyond in-memory
+
+---
+
 ## Session: 2025-11-16 - Security Hardening & AI Conversation Context
 
 ### Summary
