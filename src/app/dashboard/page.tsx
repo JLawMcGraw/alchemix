@@ -15,19 +15,19 @@ import styles from './dashboard.module.css';
 export default function DashboardPage() {
   const router = useRouter();
   const { isValidating, isAuthenticated } = useAuthGuard();
-  const { user, bottles, recipes, favorites, fetchBottles, fetchRecipes, fetchFavorites } = useStore();
+  const { user, inventoryItems, recipes, favorites, fetchItems, fetchRecipes, fetchFavorites } = useStore();
   const { showToast } = useToast();
   const [csvModalOpen, setCsvModalOpen] = useState(false);
-  const [csvModalType, setCsvModalType] = useState<'bottles' | 'recipes'>('bottles');
+  const [csvModalType, setCsvModalType] = useState<'items' | 'recipes'>('items');
 
   // Fetch data when authenticated
   useEffect(() => {
     if (isAuthenticated && !isValidating) {
-      fetchBottles().catch(console.error);
+      fetchItems().catch(console.error);
       fetchRecipes().catch(console.error);
       fetchFavorites().catch(console.error);
     }
-  }, [isAuthenticated, isValidating, fetchBottles, fetchRecipes, fetchFavorites]);
+  }, [isAuthenticated, isValidating, fetchItems, fetchRecipes, fetchFavorites]);
 
   // Show loading state during validation
   if (isValidating || !isAuthenticated) {
@@ -47,26 +47,26 @@ export default function DashboardPage() {
   };
 
   // Calculate stats
-  const bottlesArray = Array.isArray(bottles) ? bottles : [];
+  const itemsArray = Array.isArray(inventoryItems) ? inventoryItems : [];
   const recipesArray = Array.isArray(recipes) ? recipes : [];
   const favoritesArray = Array.isArray(favorites) ? favorites : [];
-  // Low stock feature disabled until Quantity field is added to Bottle type
+  // Low stock feature disabled until Quantity field is added to InventoryItem type
   const lowStockCount = 0;
 
   // CSV Import handlers
-  const handleOpenCSVModal = (type: 'bottles' | 'recipes') => {
+  const handleOpenCSVModal = (type: 'items' | 'recipes') => {
     setCsvModalType(type);
     setCsvModalOpen(true);
   };
 
-  const handleCSVUpload = async (file: File) => {
+  const handleCSVUpload = async (file: File, collectionId?: number) => {
     try {
-      if (csvModalType === 'bottles') {
+      if (csvModalType === 'items') {
         const result = await inventoryApi.importCSV(file);
-        showToast('success', `Successfully imported ${result.count} bottles!`);
-        await fetchBottles();
+        showToast('success', `Successfully imported ${result.imported} items!`);
+        await fetchItems();
       } else {
-        const result = await recipeApi.importCSV(file);
+        const result = await recipeApi.importCSV(file, collectionId);
         if (result.imported > 0) {
           if (result.failed > 0) {
             showToast('success', `Imported ${result.imported} recipes. ${result.failed} failed.`);
@@ -93,7 +93,7 @@ export default function DashboardPage() {
             Ready for your next experiment?
           </h1>
           <p className={styles.stats}>
-            You've got <strong>{bottlesArray.length} bottles</strong>
+            You've got <strong>{itemsArray.length} items</strong>
             {lowStockCount > 0 && (
               <span className={styles.lowStock}>
                 {' '}and <strong>{lowStockCount} low-stock spirits</strong>
@@ -120,12 +120,12 @@ export default function DashboardPage() {
               onClick={() => router.push('/bar')}
             >
               <Wine size={18} style={{ marginRight: '6px' }} />
-              Add New Bottle
+              Add New Item
             </Button>
             <Button
               variant="outline"
               size="md"
-              onClick={() => handleOpenCSVModal('bottles')}
+              onClick={() => handleOpenCSVModal('items')}
             >
               <Upload size={18} style={{ marginRight: '6px' }} />
               Import Bar Stock CSV
@@ -158,17 +158,17 @@ export default function DashboardPage() {
               </button>
             </div>
             <div className={styles.cardContent}>
-              {bottlesArray.length === 0 ? (
+              {itemsArray.length === 0 ? (
                 <p className={styles.emptyState}>
-                  No bottles yet. Start building your bar!
+                  No items yet. Start building your bar!
                 </p>
               ) : (
                 <ul className={styles.bottleList}>
-                  {bottlesArray.slice(0, 3).map((bottle) => (
-                    <li key={bottle.id} className={styles.bottleItem}>
-                      <span className={styles.bottleName}>{bottle.name}</span>
+                  {itemsArray.slice(0, 3).map((item) => (
+                    <li key={item.id} className={styles.bottleItem}>
+                      <span className={styles.bottleName}>{item.name}</span>
                       <span className={styles.bottleType}>
-                        {bottle['Liquor Type']}
+                        {item.type || item.category}
                       </span>
                     </li>
                   ))}

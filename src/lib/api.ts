@@ -7,7 +7,8 @@ import type {
   AuthResponse,
   LoginCredentials,
   SignupCredentials,
-  Bottle,
+  InventoryItem,
+  InventoryCategory,
   Recipe,
   Collection,
   Favorite,
@@ -90,33 +91,72 @@ export const authApi = {
   },
 };
 
-// Inventory API
+export interface InventoryPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+type InventoryQueryParams = {
+  category?: InventoryCategory;
+  page?: number;
+  limit?: number;
+};
+
+// Inventory API (uses new /api/inventory-items endpoint)
 export const inventoryApi = {
-  async getAll(): Promise<Bottle[]> {
-    const { data } = await apiClient.get<{ success: boolean; data: Bottle[] }>('/api/inventory');
+  async getAll(params?: InventoryQueryParams): Promise<{
+    items: InventoryItem[];
+    pagination?: InventoryPagination;
+  }> {
+    const searchParams = new URLSearchParams();
+    if (params?.category) {
+      searchParams.set('category', params.category);
+    }
+    if (params?.page) {
+      searchParams.set('page', params.page.toString());
+    }
+    if (params?.limit) {
+      searchParams.set('limit', params.limit.toString());
+    }
+
+    const queryString = searchParams.toString();
+    const url = `/api/inventory-items${queryString ? `?${queryString}` : ''}`;
+    const { data } = await apiClient.get<{
+      success: boolean;
+      data: InventoryItem[];
+      pagination?: InventoryPagination;
+    }>(url);
+
+    return {
+      items: data.data ?? [],
+      pagination: data.pagination,
+    };
+  },
+
+  async add(item: InventoryItem): Promise<InventoryItem> {
+    const { data } = await apiClient.post<{ success: boolean; data: InventoryItem }>('/api/inventory-items', item);
     return data.data;
   },
 
-  async add(bottle: Bottle): Promise<Bottle> {
-    const { data } = await apiClient.post<{ success: boolean; data: Bottle }>('/api/inventory', bottle);
-    return data.data;
-  },
-
-  async update(id: number, bottle: Partial<Bottle>): Promise<Bottle> {
-    const { data } = await apiClient.put<{ success: boolean; data: Bottle }>(`/api/inventory/${id}`, bottle);
+  async update(id: number, item: Partial<InventoryItem>): Promise<InventoryItem> {
+    const { data } = await apiClient.put<{ success: boolean; data: InventoryItem }>(`/api/inventory-items/${id}`, item);
     return data.data;
   },
 
   async delete(id: number): Promise<void> {
-    await apiClient.delete(`/api/inventory/${id}`);
+    await apiClient.delete(`/api/inventory-items/${id}`);
   },
 
-  async importCSV(file: File): Promise<{ count: number }> {
+  async importCSV(file: File): Promise<{ success: boolean; imported: number; failed: number; errors?: Array<{ row: number; error: string }> }> {
     const formData = new FormData();
     formData.append('file', file);
 
-    const { data } = await apiClient.post<{ count: number }>(
-      '/api/inventory/import',
+    const { data } = await apiClient.post<{ success: boolean; imported: number; failed: number; errors?: Array<{ row: number; error: string }> }>(
+      '/api/inventory-items/import',
       formData,
       {
         headers: {

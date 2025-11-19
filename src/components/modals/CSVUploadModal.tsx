@@ -9,7 +9,7 @@ import styles from './CSVUploadModal.module.css';
 interface CSVUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  type: 'bottles' | 'recipes';
+  type: 'items' | 'recipes';
   onUpload: (file: File, collectionId?: number) => Promise<void>;
 }
 
@@ -117,9 +117,9 @@ export function CSVUploadModal({ isOpen, onClose, type, onUpload }: CSVUploadMod
     onClose();
   };
 
-  const title = type === 'bottles' ? 'Import Bar Stock CSV' : 'Import Recipes CSV';
-  const exampleFormat = type === 'bottles'
-    ? 'Spirit,Brand,Age/Type,Quantity (ml),Cost ($),Date Added,...'
+  const title = type === 'items' ? 'Import Bar Stock CSV' : 'Import Recipes CSV';
+  const exampleFormat = type === 'items'
+    ? 'Name,Category,Type,ABV,Stock Number,...'
     : 'Name,Category,Ingredients,Instructions,Tags';
 
   return (
@@ -149,7 +149,7 @@ export function CSVUploadModal({ isOpen, onClose, type, onUpload }: CSVUploadMod
 
         <div className={styles.content} id="csv-upload-desc">
           <p className={styles.description}>
-            Upload a CSV file to import {type === 'bottles' ? 'your bar inventory' : 'cocktail recipes'}.
+            Upload a CSV file to import {type === 'items' ? 'your bar inventory' : 'cocktail recipes'}.
           </p>
 
           <div className={styles.formatInfo}>

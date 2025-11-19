@@ -43,7 +43,8 @@ import { logger } from './utils/logger';
 
 // Import API route handlers
 import authRoutes from './routes/auth';
-import inventoryRoutes from './routes/inventory';
+import inventoryItemsRoutes from './routes/inventoryItems';
+import inventoryRoutes from './routes/inventory';  // Keep old route for backwards compatibility
 import recipesRoutes from './routes/recipes';
 import collectionsRoutes from './routes/collections';
 import favoritesRoutes from './routes/favorites';
@@ -537,7 +538,8 @@ app.use('/auth', authRoutes);          // Mount auth routes
 // Protected API routes (require authentication)
 // SECURITY FIX #14: Apply user-based rate limiting to authenticated routes
 // Note: Routes already include authMiddleware internally (sets req.user)
-app.use('/api/inventory', inventoryRoutes);
+app.use('/api/inventory-items', inventoryItemsRoutes);  // New inventory system with categories
+app.use('/api/inventory', inventoryRoutes);  // Backwards compatibility (will be deprecated)
 app.use('/api/recipes', recipesRoutes);
 app.use('/api/collections', collectionsRoutes);
 app.use('/api/shopping-list', shoppingListRoutes);
@@ -657,10 +659,10 @@ const server = app.listen(PORT, () => {
   console.log('  POST /auth/login                - Authenticate user (rate limited)');
   console.log('  GET  /auth/me                   - Get current user');
   console.log('  POST /auth/logout               - End session');
-  console.log('  GET  /api/inventory             - List user bottles');
-  console.log('  POST /api/inventory             - Add new bottle');
-  console.log('  PUT  /api/inventory/:id         - Update bottle');
-  console.log('  DELETE /api/inventory/:id       - Delete bottle');
+  console.log('  GET  /api/inventory-items       - List user inventory items (with category filter)');
+  console.log('  POST /api/inventory-items       - Add new item');
+  console.log('  PUT  /api/inventory-items/:id   - Update item');
+  console.log('  DELETE /api/inventory-items/:id - Delete item');
   console.log('  GET  /api/recipes               - List recipes');
   console.log('  POST /api/recipes               - Add recipe');
   console.log('  GET  /api/favorites             - List favorites');

@@ -169,8 +169,10 @@ describe('API Client', () => {
       const mockResponse = {
         data: {
           success: true,
-          token: 'jwt-token',
-          user: { id: 1, email: 'test@example.com' },
+          data: {
+            token: 'jwt-token',
+            user: { id: 1, email: 'test@example.com' },
+          },
         },
       };
 
@@ -179,7 +181,7 @@ describe('API Client', () => {
       const result = await authApi.login(credentials);
 
       expect(mockAxiosInstance.post).toHaveBeenCalledWith('/auth/login', credentials);
-      expect(result).toEqual(mockResponse.data);
+      expect(result).toEqual(mockResponse.data.data);
     });
 
     it('should signup with credentials', async () => {
@@ -191,8 +193,10 @@ describe('API Client', () => {
       const mockResponse = {
         data: {
           success: true,
-          token: 'jwt-token',
-          user: { id: 2, email: 'newuser@example.com' },
+          data: {
+            token: 'jwt-token',
+            user: { id: 2, email: 'newuser@example.com' },
+          },
         },
       };
 
@@ -201,14 +205,17 @@ describe('API Client', () => {
       const result = await authApi.signup(credentials);
 
       expect(mockAxiosInstance.post).toHaveBeenCalledWith('/auth/signup', credentials);
-      expect(result).toEqual(mockResponse.data);
+      expect(result).toEqual(mockResponse.data.data);
     });
 
     it('should fetch current user', async () => {
       const mockResponse = {
         data: {
-          id: 1,
-          email: 'test@example.com',
+          success: true,
+          data: {
+            id: 1,
+            email: 'test@example.com',
+          },
         },
       };
 
@@ -217,7 +224,7 @@ describe('API Client', () => {
       const result = await authApi.me();
 
       expect(mockAxiosInstance.get).toHaveBeenCalledWith('/auth/me');
-      expect(result).toEqual(mockResponse.data);
+      expect(result).toEqual(mockResponse.data.data);
     });
 
     it('should logout', async () => {
@@ -230,31 +237,42 @@ describe('API Client', () => {
   });
 
   describe('inventoryApi', () => {
-    it('should fetch all bottles', async () => {
-      const mockBottles = [
-        { id: 1, name: 'Bottle 1', category: 'Spirits', quantity: 750 },
-        { id: 2, name: 'Bottle 2', category: 'Spirits', quantity: 1000 },
+    it('should fetch inventory items with pagination metadata', async () => {
+      const mockItems = [
+        { id: 1, name: 'Bottle 1', category: 'spirit' },
+        { id: 2, name: 'Bottle 2', category: 'spirit' },
       ];
 
       const mockResponse = {
         data: {
           success: true,
-          data: mockBottles,
+          data: mockItems,
+          pagination: {
+            page: 1,
+            limit: 50,
+            total: 2,
+            totalPages: 1,
+            hasNextPage: false,
+            hasPreviousPage: false,
+          },
         },
       };
 
       mockAxiosInstance.get.mockResolvedValue(mockResponse);
 
-      const result = await inventoryApi.getAll();
+      const result = await inventoryApi.getAll({ category: 'spirit', page: 1, limit: 50 });
 
-      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/api/inventory');
-      expect(result).toEqual(mockBottles);
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/api/inventory-items?category=spirit&page=1&limit=50');
+      expect(result).toEqual({
+        items: mockItems,
+        pagination: mockResponse.data.pagination,
+      });
     });
 
     it('should add a bottle', async () => {
       const newBottle = {
         name: 'New Bottle',
-        category: 'Spirits',
+        category: 'spirit',
         subcategory: 'Gin',
         quantity: 750,
       };
@@ -270,18 +288,18 @@ describe('API Client', () => {
 
       const result = await inventoryApi.add(newBottle as any);
 
-      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/api/inventory', newBottle);
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/api/inventory-items', newBottle);
       expect(result).toEqual(mockResponse.data.data);
     });
 
     it('should update a bottle', async () => {
       const bottleId = 1;
-      const updates = { quantity: 500 };
+      const updates = { abv: '40' };
 
       const mockResponse = {
         data: {
           success: true,
-          data: { id: bottleId, name: 'Bottle 1', quantity: 500 },
+          data: { id: bottleId, name: 'Gin', category: 'spirit', abv: '40' },
         },
       };
 
@@ -289,7 +307,7 @@ describe('API Client', () => {
 
       const result = await inventoryApi.update(bottleId, updates);
 
-      expect(mockAxiosInstance.put).toHaveBeenCalledWith(`/api/inventory/${bottleId}`, updates);
+      expect(mockAxiosInstance.put).toHaveBeenCalledWith(`/api/inventory-items/${bottleId}`, updates);
       expect(result).toEqual(mockResponse.data.data);
     });
 
@@ -300,7 +318,7 @@ describe('API Client', () => {
 
       await inventoryApi.delete(bottleId);
 
-      expect(mockAxiosInstance.delete).toHaveBeenCalledWith(`/api/inventory/${bottleId}`);
+      expect(mockAxiosInstance.delete).toHaveBeenCalledWith(`/api/inventory-items/${bottleId}`);
     });
 
     it('should import CSV file', async () => {
@@ -315,7 +333,7 @@ describe('API Client', () => {
       const result = await inventoryApi.importCSV(file);
 
       expect(mockAxiosInstance.post).toHaveBeenCalledWith(
-        '/api/inventory/import',
+        '/api/inventory-items/import',
         expect.any(FormData),
         expect.objectContaining({
           headers: {
@@ -338,6 +356,14 @@ describe('API Client', () => {
         data: {
           success: true,
           data: mockRecipes,
+          pagination: {
+            page: 1,
+            limit: 50,
+            total: 2,
+            totalPages: 1,
+            hasNextPage: false,
+            hasPreviousPage: false,
+          },
         },
       };
 
@@ -345,8 +371,11 @@ describe('API Client', () => {
 
       const result = await recipeApi.getAll();
 
-      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/api/recipes');
-      expect(result).toEqual(mockRecipes);
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/api/recipes?page=1&limit=50');
+      expect(result).toEqual({
+        recipes: mockRecipes,
+        pagination: mockResponse.data.pagination,
+      });
     });
 
     it('should add a recipe', async () => {
@@ -375,7 +404,7 @@ describe('API Client', () => {
       const file = new File(['content'], 'recipes.csv', { type: 'text/csv' });
 
       const mockResponse = {
-        data: { count: 10 },
+        data: { success: true, imported: 10, failed: 0, errors: [] },
       };
 
       mockAxiosInstance.post.mockResolvedValue(mockResponse);
@@ -391,7 +420,11 @@ describe('API Client', () => {
           },
         })
       );
-      expect(result).toEqual(mockResponse.data);
+      expect(result).toEqual({
+        imported: mockResponse.data.imported,
+        failed: mockResponse.data.failed,
+        errors: mockResponse.data.errors,
+      });
     });
   });
 
@@ -478,26 +511,23 @@ describe('API Client', () => {
         { role: 'user', content: 'Hello' },
         { role: 'assistant', content: 'Hi there!' },
       ];
-      const systemPrompt = 'You are a bartender assistant';
 
       const mockResponse = {
         data: {
-          content: [{ text: 'You can make a Martini!' }],
+          success: true,
+          data: {
+            message: 'You can make a Martini!',
+          },
         },
       };
 
       mockAxiosInstance.post.mockResolvedValue(mockResponse);
 
-      const result = await aiApi.sendMessage(message, conversationHistory, systemPrompt);
+      const result = await aiApi.sendMessage(message, conversationHistory);
 
       expect(mockAxiosInstance.post).toHaveBeenCalledWith('/api/messages', {
-        model: 'claude-sonnet-4-5-20250929',
-        max_tokens: 4096,
-        system: systemPrompt,
-        messages: [
-          ...conversationHistory,
-          { role: 'user', content: message },
-        ],
+        message,
+        history: conversationHistory,
       });
       expect(result).toBe('You can make a Martini!');
     });
@@ -505,17 +535,19 @@ describe('API Client', () => {
     it('should handle empty conversation history', async () => {
       const message = 'Hello';
       const conversationHistory: any[] = [];
-      const systemPrompt = 'You are helpful';
 
       const mockResponse = {
         data: {
-          content: [{ text: 'Hello! How can I help?' }],
+          success: true,
+          data: {
+            message: 'Hello! How can I help?',
+          },
         },
       };
 
       mockAxiosInstance.post.mockResolvedValue(mockResponse);
 
-      const result = await aiApi.sendMessage(message, conversationHistory, systemPrompt);
+      const result = await aiApi.sendMessage(message, conversationHistory);
 
       expect(result).toBe('Hello! How can I help?');
     });

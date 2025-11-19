@@ -219,22 +219,23 @@ export function initializeDatabase() {
   `);
 
   /**
-   * Bottles Table (Inventory)
+   * Inventory Items Table (formerly Bottles)
    *
-   * Stores user's bottle inventory with 12 detail fields.
+   * Stores user's bar inventory including spirits, mixers, garnishes, etc.
    *
    * Columns (Metadata):
    * - id: Auto-increment primary key
    * - user_id: Foreign key to users table
-   * - created_at: Bottle added timestamp
+   * - category: Item category (REQUIRED - spirit, liqueur, mixer, garnish, syrup, wine, beer, other)
+   * - created_at: Item added timestamp
    *
-   * Columns (Bottle Details):
-   * - name: Bottle name (REQUIRED, e.g., "Maker's Mark")
+   * Columns (Item Details):
+   * - name: Item name (REQUIRED, e.g., "Maker's Mark", "Simple Syrup")
+   * - type: Item type/classification (formerly "Liquor Type" - e.g., "Bourbon", "Gin", "Citrus")
+   * - abv: Alcohol by volume (formerly "ABV (%)" - for alcoholic items only)
    * - Stock Number: Optional inventory tracking number
-   * - Liquor Type: Spirit category (e.g., "Bourbon", "Gin")
    * - Detailed Spirit Classification: Sub-category (e.g., "Kentucky Straight Bourbon")
    * - Distillation Method: Production method (e.g., "Pot Still", "Column Still")
-   * - ABV (%): Alcohol by volume percentage
    * - Distillery Location: Where it's made (e.g., "Loretto, KY")
    * - Age Statement or Barrel Finish: Aging info (e.g., "6 years", "Sherry Cask")
    * - Additional Notes: Free-form notes (max 2000 chars)
@@ -289,15 +290,16 @@ export function initializeDatabase() {
    * - Add quantity_ml INTEGER (remaining volume)
    */
   db.exec(`
-    CREATE TABLE IF NOT EXISTS bottles (
+    CREATE TABLE IF NOT EXISTS inventory_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
       name TEXT NOT NULL,
+      category TEXT NOT NULL CHECK(category IN ('spirit', 'liqueur', 'mixer', 'garnish', 'syrup', 'wine', 'beer', 'other')),
+      type TEXT,
+      abv TEXT,
       "Stock Number" INTEGER,
-      "Liquor Type" TEXT,
       "Detailed Spirit Classification" TEXT,
       "Distillation Method" TEXT,
-      "ABV (%)" TEXT,
       "Distillery Location" TEXT,
       "Age Statement or Barrel Finish" TEXT,
       "Additional Notes" TEXT,
@@ -569,8 +571,50 @@ export function initializeDatabase() {
     }
   }
 
+  /**
+   * Schema Migration: Migrate bottles table to inventory_items
+   *
+   * For databases created before inventory refactor.
+   * Renames 'bottles' table to 'inventory_items' and adds category column.
+   * Safe to run multiple times (will skip if already migrated).
+   */
+  try {
+    // Check if old 'bottles' table exists
+    const tableCheck = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='bottles'`).get();
+
+    if (tableCheck) {
+      console.log('🔄 Migrating bottles table to inventory_items...');
+
+      // Rename bottles to inventory_items
+      db.exec(`ALTER TABLE bottles RENAME TO inventory_items`);
+
+      // Add category column with default value 'spirit' for existing rows
+      db.exec(`ALTER TABLE inventory_items ADD COLUMN category TEXT NOT NULL DEFAULT 'spirit' CHECK(category IN ('spirit', 'liqueur', 'mixer', 'garnish', 'syrup', 'wine', 'beer', 'other'))`);
+
+      // Rename "Liquor Type" to type (create new column, copy data, drop old)
+      db.exec(`ALTER TABLE inventory_items ADD COLUMN type TEXT`);
+      db.exec(`UPDATE inventory_items SET type = "Liquor Type"`);
+      // Note: SQLite doesn't support DROP COLUMN until version 3.35.0, so we keep both for compatibility
+
+      // Rename "ABV (%)" to abv (create new column, copy data, drop old)
+      db.exec(`ALTER TABLE inventory_items ADD COLUMN abv TEXT`);
+      db.exec(`UPDATE inventory_items SET abv = "ABV (%)"`);
+
+      console.log('✅ Successfully migrated bottles to inventory_items');
+    }
+  } catch (error: any) {
+    if (error.message?.includes('no such table: bottles')) {
+      // Table already migrated or doesn't exist, ignore
+    } else if (error.message?.includes('duplicate column name')) {
+      // Column already exists, ignore
+    } else {
+      console.error('Migration warning:', error.message);
+    }
+  }
+
   db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_bottles_user_id ON bottles(user_id);
+    CREATE INDEX IF NOT EXISTS idx_inventory_items_user_id ON inventory_items(user_id);
+    CREATE INDEX IF NOT EXISTS idx_inventory_items_category ON inventory_items(category);
     CREATE INDEX IF NOT EXISTS idx_collections_user_id ON collections(user_id);
     CREATE INDEX IF NOT EXISTS idx_recipes_user_id ON recipes(user_id);
     CREATE INDEX IF NOT EXISTS idx_recipes_collection_id ON recipes(collection_id);

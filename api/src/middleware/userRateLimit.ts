@@ -83,7 +83,7 @@ import { Request, Response, NextFunction } from 'express';
  * - Less accurate (doesn't track exact request times)
  * - Harder to debug (can't see request history)
  */
-const userRequests = new Map<number, number[]>();
+const userRequests = new Map<string, number[]>();
 
 /**
  * Cleanup Interval for Old Entries
@@ -112,6 +112,37 @@ const userRequests = new Map<number, number[]>();
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const RETENTION_PERIOD_MS = 60 * 60 * 1000; // 1 hour
 
+function buildScopeIdentifier(req: Request): string {
+  const base = req.baseUrl || '';
+  const routePath =
+    typeof req.route?.path === 'string'
+      ? req.route.path
+      : '';
+  const fallback = req.originalUrl?.split('?')[0] || 'global';
+  const scopePath = `${base}${routePath}` || base || routePath || fallback;
+  return `${req.method}:${scopePath || 'global'}`;
+}
+
+function buildBucketKey(
+  userId: number,
+  scope: string,
+  maxRequests: number,
+  windowMinutes: number
+): string {
+  const encodedScope = encodeURIComponent(scope);
+  return `${userId}|${encodedScope}|${maxRequests}|${windowMinutes}`;
+}
+
+function parseBucketKey(key: string) {
+  const [userIdStr, scopeEncoded = '', maxStr, windowStr] = key.split('|');
+  return {
+    userId: Number(userIdStr),
+    scope: decodeURIComponent(scopeEncoded),
+    maxRequests: Number(maxStr),
+    windowMinutes: Number(windowStr),
+  };
+}
+
 // Start cleanup task
 const cleanupInterval = setInterval(() => {
   const now = Date.now();
@@ -120,22 +151,22 @@ const cleanupInterval = setInterval(() => {
   let totalEntriesAfter = 0;
   let usersRemoved = 0;
 
-  for (const [userId, timestamps] of userRequests.entries()) {
-    totalEntriesBefore += timestamps.length;
+for (const [bucketKey, timestamps] of userRequests.entries()) {
+  totalEntriesBefore += timestamps.length;
 
-    // Filter out old timestamps (older than 1 hour)
-    const recentTimestamps = timestamps.filter(ts => ts > cutoff);
-    totalEntriesAfter += recentTimestamps.length;
+  // Filter out old timestamps (older than 1 hour)
+  const recentTimestamps = timestamps.filter(ts => ts > cutoff);
+  totalEntriesAfter += recentTimestamps.length;
 
-    if (recentTimestamps.length === 0) {
-      // No recent activity → remove user from Map
-      userRequests.delete(userId);
-      usersRemoved++;
-    } else if (recentTimestamps.length < timestamps.length) {
-      // Some timestamps removed → update Map
-      userRequests.set(userId, recentTimestamps);
-    }
+  if (recentTimestamps.length === 0) {
+    // No recent activity → remove user from Map
+    userRequests.delete(bucketKey);
+    usersRemoved++;
+  } else if (recentTimestamps.length < timestamps.length) {
+    // Some timestamps removed → update Map
+    userRequests.set(bucketKey, recentTimestamps);
   }
+}
 
   const entriesRemoved = totalEntriesBefore - totalEntriesAfter;
 
@@ -264,6 +295,8 @@ export function userRateLimit(
     }
 
     const userId = req.user.userId;
+    const scope = buildScopeIdentifier(req);
+    const bucketKey = buildBucketKey(userId, scope, maxRequests, windowMinutes);
     const now = Date.now();
 
     /**
@@ -272,7 +305,7 @@ export function userRateLimit(
      * Fetch timestamps of user's recent requests from Map.
      * If user not in Map (first request), initialize empty array.
      */
-    let timestamps = userRequests.get(userId) || [];
+    let timestamps = userRequests.get(bucketKey) || [];
 
     /**
      * Step 3: Filter to Sliding Window
@@ -301,7 +334,7 @@ export function userRateLimit(
       const resetTime = oldestTimestamp + windowMs;
       const retryAfterSeconds = Math.ceil((resetTime - now) / 1000);
 
-      console.log(`⚠️  Rate limit exceeded for user ${userId}:`);
+      console.log(`⚠️  Rate limit exceeded for user ${userId} on ${scope}:`);
       console.log(`   Requests in last ${windowMinutes} min: ${timestamps.length}`);
       console.log(`   Maximum allowed: ${maxRequests}`);
       console.log(`   Retry after: ${retryAfterSeconds} seconds`);
@@ -325,7 +358,7 @@ export function userRateLimit(
      * Update Map with new timestamp array.
      */
     timestamps.push(now);
-    userRequests.set(userId, timestamps);
+    userRequests.set(bucketKey, timestamps);
 
     /**
      * Step 6: Set Rate Limit Headers
@@ -383,9 +416,11 @@ export function userRateLimit(
  */
 export function getUserRateLimitStatus(
   userId: number,
+  scope: string | undefined = undefined,
   windowMinutes: number = 15
 ): {
   userId: number;
+  scope: string | 'all';
   requestCount: number;
   windowMinutes: number;
   oldestRequest: number | null;
@@ -395,15 +430,26 @@ export function getUserRateLimitStatus(
   const now = Date.now();
   const windowStart = now - windowMs;
 
-  let timestamps = userRequests.get(userId) || [];
-  timestamps = timestamps.filter(ts => ts >= windowStart);
+  const aggregated: number[] = [];
+
+  for (const [key, timestamps] of userRequests.entries()) {
+    const { userId: bucketUserId, scope: bucketScope, windowMinutes: bucketWindow } = parseBucketKey(key);
+    if (bucketUserId !== userId) continue;
+    if (bucketWindow !== windowMinutes) continue;
+    if (scope && bucketScope !== scope) continue;
+
+    aggregated.push(...timestamps);
+  }
+
+  const filtered = aggregated.filter(ts => ts >= windowStart);
 
   return {
     userId,
-    requestCount: timestamps.length,
+    scope: scope || 'all',
+    requestCount: filtered.length,
     windowMinutes,
-    oldestRequest: timestamps.length > 0 ? Math.min(...timestamps) : null,
-    newestRequest: timestamps.length > 0 ? Math.max(...timestamps) : null
+    oldestRequest: filtered.length > 0 ? Math.min(...filtered) : null,
+    newestRequest: filtered.length > 0 ? Math.max(...filtered) : null
   };
 }
 
@@ -436,8 +482,15 @@ export function getUserRateLimitStatus(
  * ```
  */
 export function resetUserRateLimit(userId: number): void {
-  userRequests.delete(userId);
-  console.log(`🔓 Rate limit reset for user ${userId}`);
+  let removed = 0;
+  for (const key of userRequests.keys()) {
+    const { userId: bucketUserId } = parseBucketKey(key);
+    if (bucketUserId === userId) {
+      userRequests.delete(key);
+      removed++;
+    }
+  }
+  console.log(`🔓 Rate limit reset for user ${userId} (cleared ${removed} bucket(s))`);
 }
 
 /**

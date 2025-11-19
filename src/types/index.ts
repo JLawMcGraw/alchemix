@@ -22,26 +22,38 @@ export interface SignupCredentials {
   password: string;
 }
 
-// Bottle & Inventory
-export interface Bottle {
+export type InventoryCategory =
+  | 'spirit'
+  | 'liqueur'
+  | 'mixer'
+  | 'garnish'
+  | 'syrup'
+  | 'wine'
+  | 'beer'
+  | 'other';
+
+// Inventory Item
+export interface InventoryItem {
   id?: number;
   user_id?: number;
   name: string;
-  category?: string;
-  subcategory?: string;
-  quantity?: number;
+  category: InventoryCategory;  // Required categories enforced by union
+  type?: string;  // Formerly "Liquor Type" - item classification (e.g., "Bourbon", "Gin", "Citrus")
+  abv?: string | number;  // Formerly "ABV (%)" - alcohol by volume
   'Stock Number'?: number;
-  'Liquor Type'?: string;
   'Detailed Spirit Classification'?: string;
   'Distillation Method'?: string;
-  'ABV (%)'?: string | number;
   'Distillery Location'?: string;
   'Age Statement or Barrel Finish'?: string;
   'Additional Notes'?: string;
   'Profile (Nose)'?: string;
   'Palate'?: string;
   'Finish'?: string;
+  created_at?: string;
 }
+
+// Backwards compatibility alias
+export type Bottle = InventoryItem;
 
 // Collection
 export interface Collection {
@@ -141,7 +153,7 @@ export interface AppState {
   isAuthenticated: boolean;
 
   // Data
-  bottles: Bottle[];
+  inventoryItems: InventoryItem[];
   recipes: Recipe[];
   collections: Collection[];
   favorites: Favorite[];
@@ -164,10 +176,10 @@ export interface AppState {
   setUser: (user: User, token: string) => void;
   validateToken: () => Promise<boolean>;
 
-  fetchBottles: () => Promise<void>;
-  addBottle: (bottle: Bottle) => Promise<void>;
-  updateBottle: (id: number, bottle: Partial<Bottle>) => Promise<void>;
-  deleteBottle: (id: number) => Promise<void>;
+  fetchItems: () => Promise<void>;
+  addItem: (item: InventoryItem) => Promise<void>;
+  updateItem: (id: number, item: Partial<InventoryItem>) => Promise<void>;
+  deleteItem: (id: number) => Promise<void>;
 
   fetchRecipes: (page?: number, limit?: number) => Promise<Recipe[]>;
   addRecipe: (recipe: Recipe) => Promise<void>;

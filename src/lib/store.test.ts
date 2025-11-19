@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useStore } from './store';
-import type { Bottle, Recipe, Favorite } from '@/types';
+import type { InventoryItem, Recipe, Favorite } from '@/types';
 
 // Mock the API modules
 vi.mock('./api', () => ({
@@ -46,7 +46,7 @@ describe('Zustand Store', () => {
       user: null,
       token: null,
       isAuthenticated: false,
-      bottles: [],
+      inventoryItems: [],
       recipes: [],
       favorites: [],
       chatHistory: [],
@@ -74,7 +74,7 @@ describe('Zustand Store', () => {
       expect(state.user).toBeNull();
       expect(state.token).toBeNull();
       expect(state.isAuthenticated).toBe(false);
-      expect(state.bottles).toEqual([]);
+      expect(state.inventoryItems).toEqual([]);
       expect(state.recipes).toEqual([]);
       expect(state.favorites).toEqual([]);
       expect(state.chatHistory).toEqual([]);
@@ -191,7 +191,7 @@ describe('Zustand Store', () => {
           user: { id: 1, email: 'test@example.com' },
           token: 'jwt-token',
           isAuthenticated: true,
-          bottles: [{ id: 1, name: 'Bottle 1' }] as any,
+          inventoryItems: [{ id: 1, name: 'Gin', category: 'spirit' }] as any,
           recipes: [{ id: 1, name: 'Recipe 1' }] as any,
           favorites: [{ id: 1, recipe_id: 1 }] as any,
           chatHistory: [{ role: 'user', content: 'Hello' }],
@@ -203,7 +203,7 @@ describe('Zustand Store', () => {
         expect(state.user).toBeNull();
         expect(state.token).toBeNull();
         expect(state.isAuthenticated).toBe(false);
-        expect(state.bottles).toEqual([]);
+        expect(state.inventoryItems).toEqual([]);
         expect(state.recipes).toEqual([]);
         expect(state.favorites).toEqual([]);
         expect(state.chatHistory).toEqual([]);
@@ -273,21 +273,31 @@ describe('Zustand Store', () => {
     });
   });
 
-  describe('Bottle Actions', () => {
-    describe('fetchBottles', () => {
-      it('should fetch bottles successfully', async () => {
+  describe('Inventory Item Actions', () => {
+    describe('fetchItems', () => {
+      it('should fetch items successfully', async () => {
         const { inventoryApi } = await import('./api');
-        const mockBottles: Bottle[] = [
-          { id: 1, name: 'Gin', category: 'Spirits', quantity: 750 } as Bottle,
-          { id: 2, name: 'Vodka', category: 'Spirits', quantity: 1000 } as Bottle,
+        const mockItems: InventoryItem[] = [
+          { id: 1, name: 'Gin', category: 'spirit' } as InventoryItem,
+          { id: 2, name: 'Vodka', category: 'spirit' } as InventoryItem,
         ];
 
-        (inventoryApi.getAll as any).mockResolvedValue(mockBottles);
+        (inventoryApi.getAll as any).mockResolvedValue({
+          items: mockItems,
+          pagination: {
+            page: 1,
+            limit: 100,
+            total: mockItems.length,
+            totalPages: 1,
+            hasNextPage: false,
+            hasPreviousPage: false,
+          },
+        });
 
-        await useStore.getState().fetchBottles();
+        await useStore.getState().fetchItems();
 
         const state = useStore.getState();
-        expect(state.bottles).toEqual(mockBottles);
+        expect(state.inventoryItems).toEqual(mockItems);
         expect(state.isLoading).toBe(false);
         expect(state.error).toBeNull();
       });
@@ -300,85 +310,83 @@ describe('Zustand Store', () => {
           response: { data: { error: errorMessage } },
         });
 
-        await expect(useStore.getState().fetchBottles()).rejects.toThrow(errorMessage);
+        await expect(useStore.getState().fetchItems()).rejects.toThrow(errorMessage);
 
         const state = useStore.getState();
         expect(state.error).toBe(errorMessage);
       });
     });
 
-    describe('addBottle', () => {
-      it('should add bottle to state', async () => {
+    describe('addItem', () => {
+      it('should add item to state', async () => {
         const { inventoryApi } = await import('./api');
-        const newBottle: Bottle = {
+        const newItem: InventoryItem = {
           id: 3,
           name: 'Rum',
-          category: 'Spirits',
-          quantity: 750,
-        } as Bottle;
+          category: 'spirit',
+        } as InventoryItem;
 
-        (inventoryApi.add as any).mockResolvedValue(newBottle);
+        (inventoryApi.add as any).mockResolvedValue(newItem);
 
         useStore.setState({
-          bottles: [
-            { id: 1, name: 'Gin' } as Bottle,
-            { id: 2, name: 'Vodka' } as Bottle,
+          inventoryItems: [
+            { id: 1, name: 'Gin', category: 'spirit' } as InventoryItem,
+            { id: 2, name: 'Vodka', category: 'spirit' } as InventoryItem,
           ],
         });
 
-        await useStore.getState().addBottle(newBottle);
+        await useStore.getState().addItem(newItem);
 
         const state = useStore.getState();
-        expect(state.bottles).toHaveLength(3);
-        expect(state.bottles[2]).toEqual(newBottle);
+        expect(state.inventoryItems).toHaveLength(3);
+        expect(state.inventoryItems[2]).toEqual(newItem);
       });
     });
 
-    describe('updateBottle', () => {
-      it('should update bottle in state', async () => {
+    describe('updateItem', () => {
+      it('should update item in state', async () => {
         const { inventoryApi } = await import('./api');
-        const updatedBottle: Bottle = {
+        const updatedItem: InventoryItem = {
           id: 1,
           name: 'Gin',
-          category: 'Spirits',
-          quantity: 500,
-        } as Bottle;
+          category: 'spirit',
+          abv: '40',
+        } as InventoryItem;
 
-        (inventoryApi.update as any).mockResolvedValue(updatedBottle);
+        (inventoryApi.update as any).mockResolvedValue(updatedItem);
 
         useStore.setState({
-          bottles: [
-            { id: 1, name: 'Gin', quantity: 750 } as Bottle,
-            { id: 2, name: 'Vodka', quantity: 1000 } as Bottle,
+          inventoryItems: [
+            { id: 1, name: 'Gin', category: 'spirit' } as InventoryItem,
+            { id: 2, name: 'Vodka', category: 'spirit' } as InventoryItem,
           ],
         });
 
-        await useStore.getState().updateBottle(1, { quantity: 500 });
+        await useStore.getState().updateItem(1, { abv: '40' });
 
         const state = useStore.getState();
-        expect(state.bottles[0].quantity).toBe(500);
-        expect(state.bottles[1].quantity).toBe(1000);
+        expect(state.inventoryItems[0].abv).toBe('40');
       });
     });
 
-    describe('deleteBottle', () => {
-      it('should remove bottle from state', async () => {
+    describe('deleteItem', () => {
+      it('should remove item from state', async () => {
         const { inventoryApi } = await import('./api');
 
         (inventoryApi.delete as any).mockResolvedValue(undefined);
 
         useStore.setState({
-          bottles: [
-            { id: 1, name: 'Gin' } as Bottle,
-            { id: 2, name: 'Vodka' } as Bottle,
+          inventoryItems: [
+            { id: 1, name: 'Gin', category: 'spirit' } as InventoryItem,
+            { id: 2, name: 'Vodka', category: 'spirit' } as InventoryItem,
           ],
         });
 
-        await useStore.getState().deleteBottle(1);
+        await useStore.getState().deleteItem(1);
 
         const state = useStore.getState();
-        expect(state.bottles).toHaveLength(1);
-        expect(state.bottles[0].id).toBe(2);
+        expect(state.inventoryItems).toHaveLength(1);
+        expect(state.inventoryItems[0].id).toBe(2);
       });
     });
   });
@@ -524,7 +532,7 @@ describe('Zustand Store', () => {
         (aiApi.sendMessage as any).mockResolvedValue(aiResponse);
 
         useStore.setState({
-          bottles: [{ id: 1, name: 'Gin' }] as Bottle[],
+          inventoryItems: [{ id: 1, name: 'Gin', category: 'spirit' }] as InventoryItem[],
           recipes: [{ id: 1, name: 'Martini' }] as Recipe[],
           favorites: [],
           chatHistory: [],

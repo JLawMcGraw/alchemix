@@ -20,9 +20,9 @@ export default function ShoppingListPage() {
     isLoadingShoppingList,
     fetchShoppingList,
     recipes,
-    bottles,
+    inventoryItems,
     fetchRecipes,
-    fetchBottles,
+    fetchItems,
   } = useStore();
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -36,9 +36,9 @@ export default function ShoppingListPage() {
     if (isAuthenticated && !isValidating) {
       fetchShoppingList().catch(console.error);
       fetchRecipes().catch(console.error);
-      fetchBottles().catch(console.error);
+      fetchItems().catch(console.error);
     }
-  }, [isAuthenticated, isValidating, fetchShoppingList, fetchRecipes, fetchBottles]);
+  }, [isAuthenticated, isValidating, fetchShoppingList, fetchRecipes, fetchItems]);
 
   if (isValidating || !isAuthenticated) {
     return null;
@@ -229,7 +229,7 @@ export default function ShoppingListPage() {
                 {totalPages > 1 && (
                   <div className={styles.pagination}>
                     <Button
-                      variant="secondary"
+                      variant="outline"
                       onClick={handlePrevPage}
                       disabled={currentPage === 1}
                     >
@@ -240,7 +240,7 @@ export default function ShoppingListPage() {
                       Page {currentPage} of {totalPages}
                     </span>
                     <Button
-                      variant="secondary"
+                      variant="outline"
                       onClick={handleNextPage}
                       disabled={currentPage === totalPages}
                     >
@@ -365,27 +365,27 @@ export default function ShoppingListPage() {
             )}
 
             {/* Inventory View */}
-            {viewMode === 'inventory' && bottles && (
+            {viewMode === 'inventory' && inventoryItems && (
               <div className={styles.recommendations}>
                 <h2 className={styles.sectionTitle}>
                   <Wine size={24} />
-                  Your Bar Inventory ({bottles.length} items)
+                  Your Bar Inventory ({inventoryItems.length} items)
                 </h2>
                 <p className={styles.sectionSubtitle}>
-                  All bottles and ingredients in your collection
+                  All items and ingredients in your collection
                 </p>
                 <div className={styles.inventoryList}>
-                  {bottles.map((bottle, index) => (
+                  {inventoryItems.map((item, index) => (
                     <Card
-                      key={bottle.id || index}
+                      key={item.id || index}
                       padding="md"
                       hover
                       className={styles.inventoryCard}
                     >
                       <div className={styles.inventoryContent}>
-                        <h3 className={styles.bottleName}>{bottle.name}</h3>
-                        {bottle.category && (
-                          <span className={styles.bottleCategory}>{bottle.category}</span>
+                        <h3 className={styles.bottleName}>{item.name}</h3>
+                        {item.category && (
+                          <span className={styles.bottleCategory}>{item.category}</span>
                         )}
                       </div>
                     </Card>

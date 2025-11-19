@@ -3,7 +3,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { AppState, User, Bottle, Recipe, Collection, Favorite, ChatMessage } from '@/types';
+import type { AppState, User, InventoryItem, Recipe, Collection, Favorite, ChatMessage } from '@/types';
 import { authApi, inventoryApi, recipeApi, collectionsApi, favoritesApi, aiApi, shoppingListApi } from './api';
 
 export const useStore = create<AppState>()(
@@ -13,7 +13,7 @@ export const useStore = create<AppState>()(
       user: null,
       token: null,
       isAuthenticated: false,
-      bottles: [],
+      inventoryItems: [],
       recipes: [],
       collections: [],
       favorites: [],
@@ -94,7 +94,7 @@ export const useStore = create<AppState>()(
           user: null,
           token: null,
           isAuthenticated: false,
-          bottles: [],
+          inventoryItems: [],
           recipes: [],
           collections: [],
           favorites: [],
@@ -138,63 +138,83 @@ export const useStore = create<AppState>()(
         }
       },
 
-      // Bottle Actions
-      fetchBottles: async () => {
+      // Inventory Item Actions
+      fetchItems: async () => {
         try {
           set({ isLoading: true, error: null });
-          const bottles = await inventoryApi.getAll();
-          console.log('📦 Fetched bottles:', bottles);
-          console.log('📦 Bottles length:', bottles?.length);
-          console.log('📦 Bottles type:', typeof bottles, Array.isArray(bottles));
-          set({ bottles, isLoading: false });
+          let page = 1;
+          const limit = 100;
+          const aggregatedItems: InventoryItem[] = [];
+          let hasMore = true;
+
+          while (hasMore) {
+            const { items, pagination } = await inventoryApi.getAll({ page, limit });
+            aggregatedItems.push(...items);
+
+            if (!pagination) {
+              hasMore = false;
+            } else {
+              hasMore = pagination.hasNextPage;
+              page += 1;
+            }
+
+            if (items.length === 0) {
+              break;
+            }
+          }
+
+          console.log('📦 Fetched inventory items:', aggregatedItems);
+          console.log('📦 Items length:', aggregatedItems.length);
+          console.log('📦 Items type:', typeof aggregatedItems, Array.isArray(aggregatedItems));
+          set({ inventoryItems: aggregatedItems, isLoading: false });
         } catch (error: any) {
-          console.error('❌ Error fetching bottles:', error);
-          const errorMessage = error.response?.data?.error || 'Failed to fetch bottles';
+          console.error('❌ Error fetching inventory items:', error);
+          const errorMessage = error.response?.data?.error || 'Failed to fetch inventory items';
           set({ error: errorMessage, isLoading: false });
           throw new Error(errorMessage);
         }
       },
 
-      addBottle: async (bottle) => {
+      addItem: async (item) => {
         try {
           set({ isLoading: true, error: null });
-          const newBottle = await inventoryApi.add(bottle);
+          const newItem = await inventoryApi.add(item);
           set((state) => ({
-            bottles: [...state.bottles, newBottle],
+            inventoryItems: [...state.inventoryItems, newItem],
             isLoading: false,
           }));
         } catch (error: any) {
-          const errorMessage = error.response?.data?.error || 'Failed to add bottle';
+          const errorMessage = error.response?.data?.error || 'Failed to add inventory item';
           set({ error: errorMessage, isLoading: false });
           throw new Error(errorMessage);
         }
       },
 
-      updateBottle: async (id, bottle) => {
+      updateItem: async (id, item) => {
         try {
           set({ isLoading: true, error: null });
-          const updatedBottle = await inventoryApi.update(id, bottle);
+          const updatedItem = await inventoryApi.update(id, item);
           set((state) => ({
-            bottles: state.bottles.map((b) => (b.id === id ? updatedBottle : b)),
+            inventoryItems: state.inventoryItems.map((i) => (i.id === id ? updatedItem : i)),
             isLoading: false,
           }));
         } catch (error: any) {
-          const errorMessage = error.response?.data?.error || 'Failed to update bottle';
+          const errorMessage = error.response?.data?.error || 'Failed to update inventory item';
           set({ error: errorMessage, isLoading: false });
           throw new Error(errorMessage);
         }
       },
 
-      deleteBottle: async (id) => {
+      deleteItem: async (id) => {
         try {
           set({ isLoading: true, error: null });
           await inventoryApi.delete(id);
           set((state) => ({
-            bottles: state.bottles.filter((b) => b.id !== id),
+            inventoryItems: state.inventoryItems.filter((i) => i.id !== id),
             isLoading: false,
           }));
         } catch (error: any) {
-          const errorMessage = error.response?.data?.error || 'Failed to delete bottle';
+          const errorMessage = error.response?.data?.error || 'Failed to delete inventory item';
           set({ error: errorMessage, isLoading: false });
           throw new Error(errorMessage);
         }

@@ -2,505 +2,272 @@
 
 It's time to update our documentation before ending this session. This prompt ensures we maintain a complete and up-to-date record of our work on the **AlcheMix React App** (Next.js 14 + TypeScript).
 
+**NOTE: This prompt only updates documentation. It will NOT commit or push to git. You control when to commit.**
+
 ---
 
 ## Documentation Update Checklist
 
-**⚠️ MANDATORY: All 7 steps below MUST be completed before ending the session. Do not skip any step.**
+**⚠️ MANDATORY: All 4 steps below MUST be completed before ending the session. Do not skip any step.**
 
-### 1. **MANDATORY: Update Session History**
-
-**This step is REQUIRED every session. Do NOT skip it.**
-
-- Add a new entry to `Documentation/SESSION_HISTORY.md` with today's date and session details
-- Include all significant work completed during this session
-- Organize by key components and achievements (React Components, TypeScript Types, API Integration, Next.js Pages, etc.)
-- Use the format: `## Session: [Date] - [Brief Title]`
-- **IMPORTANT**: The main history file keeps only the **10 most recent sessions**
-- Place new entries at the **top** of the file
-- If there are more than 10 entries after adding yours, move the oldest entry to `Documentation/archives/session-history-archive.md`
-- When archiving, place the entry below the "Last archived" date line and update that date
-
-### 2. **MANDATORY: Update Project Status**
+### 1. MANDATORY: Update Project Development Log
 
 **This step is REQUIRED every session. Do NOT skip it.**
 
-- Refresh `Documentation/PROJECT_STATUS.md` with current implementation status
-- Update "Implementation Status" sections for any features worked on
-- Mark completed items as ✅
-- Add new "Active Next Steps" based on today's progress
-- Update any blockers or issues discovered
+Update `Documentation/PROJECT_PROGRESS.md` - the single source of truth for project development.
 
-### 3. **MANDATORY: Update Active Tasks**
+This file combines:
+- **Session history**: What was done and when
+- **Current status**: What's implemented and working
+- **Active tasks**: What needs to be done next
 
-**This step is REQUIRED every session. Do NOT skip it.**
+Add a new session entry at the **top** of the file with:
+- Date and session title
+- Summary of work completed
+- Components/features worked on
+- Implementation status changes (mark ✅ completed items)
+- Tasks completed (move to "Recently Completed")
+- New tasks identified
+- Blockers or issues discovered
+- Next session priorities
 
-- Modify `Documentation/ACTIVE_TASKS.md`
-- Mark completed tasks with ✅ and today's date
-- Add new tasks identified during this session
-- Update priorities based on current development phase
-- Move completed tasks to the "Recently Completed" section
+**Important**: Keep only the **10 most recent sessions** in the main log. Archive older sessions to `Documentation/archives/progress-archive.md`.
 
-### 4. **MANDATORY: Update Development Notes**
-
-**This step is REQUIRED every session. Do NOT skip it.**
-
-- **Always** add technical decisions made during the session to `Documentation/DEV_NOTES.md`
-- **Always** document any workarounds, gotchas, or lessons learned
-- **Always** include code snippets or configuration changes for future reference
-- **Always** note any dependencies or breaking changes
-- **Always** document React/Next.js/TypeScript-specific considerations or fixes
-- **Always** record database schema changes or migrations
-- Create the file if it doesn't exist
-
-### 5. **MANDATORY: Update README.md**
+### 2. MANDATORY: Update Development Notes
 
 **This step is REQUIRED every session. Do NOT skip it.**
 
-- **Always** update the version number if features were added
-- **Always** update the "Features" section with new capabilities
-- **Always** add new features to the feature checkboxes (✅/🚧/⬜)
-- **Always** update any setup instructions that changed
-- **Always** document new API endpoints or database changes
-- Update CHANGELOG.md with version changes
+Add to `Documentation/DEV_NOTES.md`:
+- Technical decisions made during the session
+- Workarounds, gotchas, or lessons learned
+- Code snippets or configuration changes for future reference
+- Dependencies or breaking changes
+- React/Next.js/TypeScript-specific considerations or fixes
+- Database schema changes or migrations
+
+Create the file if it doesn't exist.
+
+### 3. MANDATORY: Update README and Public Documentation
+
+**This step is REQUIRED every session. Do NOT skip it.**
+
+Update user-facing documentation to reflect current state:
+
+#### `README.md`
+- Update version number if features were added
+- Update "Features" section with new capabilities
+- Update feature checkboxes (✅/🚧/⬜) to reflect current completion state
+- Update setup instructions if changed
+- Document new API endpoints or database changes
 - Ensure all examples and commands still work
-- Update PROGRESS_SUMMARY.md with phase completions
 
-### 6. **MANDATORY: Check Implementation Progress**
+#### `CHANGELOG.md` (if applicable)
+- Add version changes with detailed descriptions
+- Include breaking changes, new features, and bug fixes
 
-**This step is REQUIRED every session. Do NOT skip it.**
-
-- **Always** review "Features" section in README.md
-- **Always** update checkboxes (✅/🚧/⬜) to reflect current completion state
-- **Always** add any new features or components to the list
-- **Always** document any changes to API integration, page routing, or component library
-
-### 7. **MANDATORY: Update Prompt Effectiveness Metrics**
+### 4. MANDATORY: Update Prompt Effectiveness Metrics
 
 **This step is REQUIRED every session. Do NOT skip it.**
 
-- **MUST** add a new entry to `Documentation/metrics/prompt-effectiveness.md`
-- Create the file/directory if they don't exist
-- Record session focus, files updated, completion status
-- Rate documentation quality (1-5)
-- Estimate time saved in minutes
-- Note any errors prevented
-- Rate overall satisfaction (1-5)
-- Add any observations for improvement
-- **This helps improve future sessions - it is not optional!**
+Add a new entry to `Documentation/metrics/prompt-effectiveness.md`:
+- Session focus and files updated
+- Completion status (✅ Successful / ⚠️ Partial / ❌ Unsuccessful)
+- Documentation quality rating (1-5)
+- Time saved estimate (minutes)
+- Errors prevented
+- Overall satisfaction (1-5)
+- Observations for improvement
+
+Create the file/directory if they don't exist.
+
+---
+
+## Pre-Session End Verification
+
+Before marking the session complete, verify:
+
+### Code Quality & Functionality
+- [ ] No console errors in browser
+- [ ] ESLint passes (`npm run lint`)
+- [ ] TypeScript type checking passes (`npm run type-check`)
+- [ ] Build succeeds without errors (`npm run build`)
+- [ ] Application starts successfully (`npm run dev` or `npm run dev:all`)
+- [ ] Core functionality works (auth, CRUD operations, etc.)
+- [ ] State persistence works as expected
+
+### Documentation Completeness
+- [ ] PROJECT_PROGRESS.md has new session entry
+- [ ] DEV_NOTES.md includes today's technical decisions
+- [ ] README.md features/version are current
+- [ ] Metrics recorded in prompt-effectiveness.md
+
+### Environment & Security
+- [ ] `.env` files configured correctly
+- [ ] No sensitive data exposed in code
+- [ ] All dependencies installed
+- [ ] Database/data files in correct locations
 
 ---
 
 ## Required Documentation Structure
 
-If these files don't exist yet, create them with the following structure:
+### `Documentation/PROJECT_PROGRESS.md`
 
-### `Documentation/SESSION_HISTORY.md`
-
-```markdown
-# Session History
-
-This file tracks the 10 most recent development sessions. Older sessions are archived in `archives/session-history-archive.md`.
-
----
-
-## Session: YYYY-MM-DD - [Brief Title]
-
-### Summary
-[One paragraph overview of what was accomplished]
-
-### Components Worked On
-- **React Components**: [UI components, layouts, pages built/modified]
-- **TypeScript Types**: [Type definitions added/modified in src/types/]
-- **Next.js Pages**: [App Router pages created/updated in src/app/]
-- **Zustand Store**: [State management changes in src/lib/store.ts]
-- **API Integration**: [API client changes in src/lib/api.ts]
-- **CSS Modules**: [Styling changes in component .module.css files]
-- **Design System**: [CSS variables or globals.css updates]
-- **Backend**: [Express backend changes if applicable]
-- **Documentation**: [Docs updated]
-
-### Key Achievements
-- [Achievement 1]
-- [Achievement 2]
-
-### Issues Encountered
-- [Issue and resolution]
-
-### Next Session Focus
-- [Priority 1]
-- [Priority 2]
-
----
-```
-
-### `Documentation/PROJECT_STATUS.md`
+This is your **single unified progress document** combining session history, project status, and active tasks.
 
 ```markdown
-# Project Status
+# Project Development Progress
 
 Last updated: YYYY-MM-DD
 
-## Current Phase
-[Feature Complete / Deployment / Post-MVP Enhancements / Bug Fixes / etc.]
+---
 
-## Current Version
-v1.0.0 (MVP - Feature Complete)
+## Current Status
+
+**Version**: v1.0.0
+**Phase**: [Feature Complete / Deployment / Post-MVP / etc.]
+**Blockers**: [None / List current blockers]
+
+---
+
+## Active Tasks
+
+### High Priority
+- [ ] Task 1
+- [ ] Task 2
+
+### Medium Priority
+- [ ] Task 3
+
+### Low Priority / Future
+- [ ] Enhancement 1
+
+---
 
 ## Implementation Status
 
-### Foundation Setup ✅ COMPLETE
+### Foundation ✅ COMPLETE
 - ✅ Next.js 14 project structure
-- ✅ TypeScript configuration (strict mode)
-- ✅ Design system (globals.css with CSS variables, animations)
-- ✅ All UI components (Button, Card, Input, Spinner, SuccessCheckmark)
-- ✅ Zustand store with localStorage persistence
-- ✅ API client (Axios with interceptors, auto-retry)
-- ✅ TypeScript type definitions (25+ interfaces)
-- ✅ Logo added (PNG + SVG)
-- ✅ Dependencies installed
-- ✅ All pages implemented
+- ✅ TypeScript configuration
+- ✅ Design system setup
+- ✅ Core UI components
 
-### Backend API ✅ COMPLETE (Session 5)
-- ✅ Express TypeScript backend in `/api` folder
-- ✅ SQLite database with auto-initialization
-- ✅ Authentication API (signup, login, logout, me)
-- ✅ Inventory API (full CRUD operations)
-- ✅ Recipes API (get, add, CSV import)
-- ✅ Favorites API (get, add, remove)
-- ✅ AI Messages API (Anthropic Claude integration)
-- ✅ JWT authentication with bcrypt
-- ✅ Security middleware (Helmet, CORS, rate limiting)
+### Authentication ✅ COMPLETE
+- ✅ JWT authentication
+- ✅ Login/signup flows
+- ✅ Protected routes
 
-### Authentication & User Management ✅ COMPLETE
-- ✅ JWT authentication (7-day expiry)
-- ✅ Login/signup API integration
-- ✅ Auto-logout on 401 (Axios interceptor)
-- ✅ Persisted auth state (Zustand + localStorage)
-- ✅ Login page UI with form validation
-- ✅ Account settings page
-- ⬜ Password reset flow (post-MVP)
+### Feature Name 🚧 IN PROGRESS
+- ✅ Backend API
+- ✅ Frontend UI
+- [ ] Testing
+- [ ] Documentation
 
-### UI Components Library ✅ COMPLETE
-- ✅ Button (primary, outline, text variants with sizes)
-- ✅ Card (padding options, hover states)
-- ✅ Input (label, error states, forwardRef support)
-- ✅ Spinner (loading indicator with sizes)
-- ✅ SuccessCheckmark (animated success feedback)
-- ✅ TopNav component with navigation
-- ✅ Toast notification system
-- ✅ Modal components (CSV Upload, Add/Edit Bottle, Delete)
-
-### Pages (Next.js App Router) ✅ COMPLETE
-- ✅ Login page (`/login`)
-- ✅ Dashboard page (`/dashboard`)
-- ✅ My Bar page (`/bar`)
-- ✅ AI Bartender page (`/ai`)
-- ✅ Recipes page (`/recipes`)
-- ✅ Favorites page (`/favorites`)
-- ✅ Account page (`/account`)
-- ✅ Root layout with TopNav and ToastProvider
-
-### Bar Inventory Management ✅ COMPLETE
-- ✅ API client methods (getAll, add, update, delete)
-- ✅ Zustand store actions
-- ✅ Inventory table UI with full CRUD
-- ✅ Add/Edit bottle modal forms (12 fields)
-- ✅ CSV import modal
-- ✅ Delete confirmation modal
-
-### Recipe Management ✅ COMPLETE
-- ✅ API client methods (getAll, add, CSV import)
-- ✅ Zustand store actions
-- ✅ Recipe grid view
-- ✅ CSV import modal
-- ⬜ Recipe detail overlay (optional enhancement)
-
-### AI Bartender ✅ COMPLETE
-- ✅ API client integration
-- ✅ Zustand chat actions
-- ✅ Chat interface UI
-- ✅ Message bubbles (user/AI)
-- ✅ Conversation display
-
-### Favorites & History ✅ COMPLETE
-- ✅ API client methods
-- ✅ Zustand store actions
-- ✅ Favorites tab UI
-- ✅ History tab UI
-- ✅ Empty states
-
-### Styling & Design ✅ COMPLETE
-- ✅ Design system CSS variables
-- ✅ AlcheMix brand colors (teal #3DD6C1, orange #F2A74B)
-- ✅ Typography (Space Grotesk, Inter)
-- ✅ 8px spacing grid
-- ✅ Component CSS Modules
-- ✅ Responsive layouts
-- ✅ Mobile optimization with full-screen modals
-- ✅ Accessibility (ARIA labels, keyboard navigation)
-- ⬜ Dark mode support (post-MVP)
-
-### Accessibility ✅ COMPLETE
-- ✅ ARIA labels for screen readers
-- ✅ Keyboard navigation (Tab, Shift+Tab, ESC, Enter)
-- ✅ Focus management (auto-focus, focus trapping)
-- ✅ Semantic HTML (role attributes)
-- ✅ Mobile touch targets (44x44px minimum)
-
-## Current Blockers
-- None - ready for deployment
-
-## Active Next Steps
-1. Deploy frontend to Vercel
-2. Deploy backend to Railway
-3. Configure production environment variables
-4. Set up persistent storage for SQLite database
-5. Test full stack in production
-
-## Recent Completions
-- Session 5: Complete TypeScript backend with SQLite (2025-11-09)
-- Session 4: Modal system polish with full accessibility (2025-11-08)
-- Session 3: Modal system implementation (2025-11-07)
-- Session 2: Icon refactor & MVP testing (2025-11-07)
-- Session 1: Foundation complete (2025-11-07)
+### Feature Name ⬜ PLANNED
+- [ ] Task 1
+- [ ] Task 2
 
 ---
-```
 
-### `Documentation/ACTIVE_TASKS.md`
+## Session History
 
-```markdown
-# Active Tasks
+### Session: YYYY-MM-DD - [Brief Title]
 
-Last updated: YYYY-MM-DD
+**Summary**: One paragraph overview of what was accomplished
 
-## High Priority - Deployment
-- [ ] Deploy frontend to Vercel
-- [ ] Deploy backend to Railway with persistent storage
-- [ ] Configure production environment variables
-- [ ] Test authentication flow in production
-- [ ] Test CRUD operations in production
+**Components Worked On**:
+- React Components: [components modified]
+- TypeScript Types: [types added/modified]
+- Next.js Pages: [pages created/updated]
+- Backend: [API changes]
+- Styling: [CSS/design updates]
+- Documentation: [docs updated]
 
-## Medium Priority - Post-MVP Enhancements
-- [ ] Recipe detail modal/overlay
-- [ ] CSV import with column mapping preview
-- [ ] Field autocomplete for spirit types and locations
-- [ ] Password reset flow
-- [ ] Error boundary components
+**Key Achievements**:
+- Achievement 1
+- Achievement 2
+- Achievement 3
 
-## Low Priority / Future
-- [ ] Dark mode support
-- [ ] Progressive Web App (PWA) features
-- [ ] Image uploads for custom bottles/recipes
-- [ ] Advanced recipe search filters
-- [ ] Export inventory/recipes to CSV
+**Tasks Completed**:
+- ✅ Task name - [component/file affected]
+- ✅ Task name - [component/file affected]
 
-## Bug Fixes
-- [ ] [Any bugs discovered during testing]
+**New Tasks Identified**:
+- [ ] New task 1
+- [ ] New task 2
 
-## Recently Completed
-- ✅ Complete TypeScript backend with SQLite - 2025-11-09
-- ✅ Modal system polish with full accessibility - 2025-11-08
-- ✅ Modal system implementation (CSV Upload, Add/Edit Bottle, Delete) - 2025-11-07
-- ✅ All 7 pages built and tested - 2025-11-07
-- ✅ Icon refactor (emoji → Lucide React) - 2025-11-07
-- ✅ Next.js project structure - 2025-11-07
-- ✅ Design system setup - 2025-11-07
-- ✅ Core UI components (Button, Card, Input) - 2025-11-07
-- ✅ API client with Axios - 2025-11-07
-- ✅ Zustand store setup - 2025-11-07
-- ✅ TypeScript types - 2025-11-07
+**Issues/Blockers Encountered**:
+- Issue description and resolution/workaround
+
+**Next Session Focus**:
+- Priority 1
+- Priority 2
 
 ---
-```
+
+### Session: YYYY-MM-DD - [Previous Session]
+
+[Previous session details...]
+
+---
+
+[Keep only 10 most recent sessions here]
+[Archive older sessions to Documentation/archives/progress-archive.md]
+
+---
+
+## Recently Completed (Last 30 Days)
+
+- ✅ Major feature X - YYYY-MM-DD
+- ✅ Bug fix Y - YYYY-MM-DD
+- ✅ Enhancement Z - YYYY-MM-DD
+
+---
 
 ### `Documentation/DEV_NOTES.md`
 
 ```markdown
 # Development Notes
 
-Technical decisions, gotchas, and lessons learned during development of AlcheMix React (Next.js 14 + TypeScript).
+Technical decisions, gotchas, and lessons learned.
 
 ---
 
 ## YYYY-MM-DD - [Topic]
 
-**Context**: [Why this was needed]
+**Context**: Why this was needed
 
-**Decision**: [What was implemented]
+**Decision**: What was implemented
 
 **Details**:
 ```typescript
-// Code or commands
+// Code examples or commands
 ```
 
-**Result**: [Outcome]
+**Result**: Outcome and impact
 
-**Future Considerations**: [Things to watch out for]
+**Future Considerations**: Things to watch out for
+
+**Files Modified**:
+- `path/to/file.ts`
+- `path/to/other.tsx`
 
 ---
+
+## YYYY-MM-DD - [Previous Topic]
+
+[Previous entry...]
 ```
 
-### `Documentation/archives/session-history-archive.md`
 
-```markdown
-# Session History Archive
-
-This file contains archived session history entries (sessions older than the 10 most recent).
-
-**Last archived**: YYYY-MM-DD
-
----
-
-[Archived sessions go here in chronological order, oldest to newest]
-```
-
----
-
-## Summary Format
-
-Provide a concise report of all documentation updates made (no more than 10 lines) covering:
-
-- Which documents were updated
-- Key changes made to each document
-- Features/components completed or progressed
-- Any new tasks or blockers identified
-- Current focus for next session
-
----
-
-## Important Notes
-
-1. **Paths**: Always use relative paths from project root
-2. **History Management**: Only keep the 10 most recent sessions in SESSION_HISTORY.md
-3. **Archive**: Move older entries to `Documentation/archives/session-history-archive.md` (create if needed)
-4. **Dates**: All dates should be in YYYY-MM-DD format (use current date: 2025-11-09)
-5. **Consistency**: Keep status aligned across PROJECT_STATUS.md, README.md, PROGRESS_SUMMARY.md, and CHANGELOG.md
-6. **Git Status**: Note any uncommitted changes or branches
-7. **TypeScript**: Document any type definition changes or type errors encountered (frontend and backend)
-8. **Monorepo Structure**: Backend is in `api` folder - document any backend API changes separately
-9. **PRESERVE ALL HISTORICAL RECORDS - THEY ARE VALUABLE CONTEXT**
-
----
-
-## Categories for This Project
-
-When documenting work, organize by these categories:
-
-### **React Components**
-- Client components ('use client' directive)
-- Server components (default)
-- Component props and TypeScript interfaces
-- CSS Modules styling
-- Component composition patterns
-
-### **UI Components & Modals**
-- Base UI components (Button, Card, Input, Spinner, SuccessCheckmark)
-- Modal components (CSV Upload, Add/Edit Bottle, Delete Confirm)
-- Toast notification system
-- Layout components (TopNav)
-- Accessibility features (ARIA labels, keyboard navigation, focus management)
-
-### **TypeScript Types**
-- Interface definitions (`src/types/index.ts`)
-- Type exports and imports
-- Generic types
-- API response types
-- Zustand store types
-
-### **Next.js Pages (App Router)**
-- Page components (`src/app/*/page.tsx`)
-- Layout components (`layout.tsx`)
-- Loading states (`loading.tsx`)
-- Error boundaries (`error.tsx`)
-- Route groups and nested routes
-
-### **Zustand State Management**
-- Store setup (`src/lib/store.ts`)
-- State slices
-- Actions and async operations
-- Persistence configuration
-- Store selectors
-
-### **API Integration (Axios)**
-- API client configuration (`src/lib/api.ts`)
-- Request/response interceptors
-- Endpoint methods
-- Error handling
-- JWT token management
-
-### **CSS Modules & Design System**
-- Component-scoped styles (`.module.css`)
-- Global CSS variables (`globals.css`)
-- Design tokens (colors, spacing, typography)
-- Responsive breakpoints
-- Animation and transitions
-
-### **Navigation & Routing**
-- Next.js Link components
-- Programmatic navigation (useRouter)
-- Route parameters
-- Query strings
-- Navigation guards
-
-### **Authentication**
-- JWT token storage (`localStorage`)
-- Login/signup flows
-- Protected routes
-- Auto-logout on 401
-- Auth state persistence
-
-### **Backend (Express API in `api` folder)**
-- API routes (auth, inventory, recipes, favorites, messages)
-- Database operations (SQLite with better-sqlite3)
-- Middleware changes (authMiddleware, errorHandler)
-- Server configuration (CORS, rate limiting, Helmet)
-- Environment variables (`.env` configuration)
-
-### **Build & Configuration**
-- `package.json` dependencies
-- `tsconfig.json` settings
-- `next.config.js` (API proxy, etc.)
-- Environment variables (`.env.local`)
-- ESLint and Prettier
-
-### **Documentation**
-- README updates
-- PROGRESS_SUMMARY updates
-- Session documentation
-- Code comments and JSDoc
-
-### **Testing**
-- Component testing (if implemented)
-- API integration tests
-- Type checking (`npm run type-check`)
-- Manual testing procedures
-
----
-
-## Next Steps Prompt
-
-After completing the documentation update, respond with:
-
-**"Documentation has been updated to reflect today's progress. We're ready to continue. In our next session, we should focus on [brief description of next priority based on PROJECT_STATUS.md]."**
-
----
-
-## Metrics Collection
-
-After using this prompt, record its effectiveness to improve future sessions.
-
-### Metrics File Location
-
-**Create or update**: `Documentation/metrics/prompt-effectiveness.md`
-
-**If metrics directory doesn't exist**: Create `Documentation/metrics/` first
-
-### Metrics File Structure
+### `Documentation/metrics/prompt-effectiveness.md`
 
 ```markdown
 # Prompt Effectiveness Metrics
+
+**Last updated**: YYYY-MM-DD
+
+---
 
 ## Summary Statistics
 
@@ -508,193 +275,132 @@ After using this prompt, record its effectiveness to improve future sessions.
 |--------|---------|
 | Time Saved per Session | [X] minutes |
 | Documentation Quality | [X]/5 |
-| Tasks Completed | [X] per session |
 | Overall Satisfaction | [X]/5 |
 
-Last updated: YYYY-MM-DD
-
 ---
 
-## Detailed Records
+## Session Records
 
-**IMPORTANT: Always ADD a NEW entry - NEVER edit existing entries - these are historical records!**
+**IMPORTANT: Always ADD a NEW entry - NEVER edit existing entries!**
 
-### YYYY-MM-DD - end-of-session
+### YYYY-MM-DD - Session End Documentation
 
-- **Session Focus**: Brief description of what was worked on
-- **Documentation Updated**: List of files updated
+- **Session Focus**: Brief description of work
+- **Files Updated**: 
+  - PROJECT_PROGRESS.md
+  - DEV_NOTES.md
+  - README.md
+  - [other files]
 - **Completion**: ✅ Successful / ⚠️ Partial / ❌ Unsuccessful
-- **Time Saved**: Estimated time saved by using structured prompt (in minutes)
-- **Quality**: Documentation quality rating (1-5)
-- **Errors Prevented**: Description of any errors the prompt helped avoid
-- **TypeScript Issues**: Any type errors or configuration issues encountered
-- **Satisfaction**: Overall satisfaction (1-5)
-- **Notes**: Observations or suggestions for improvement
+- **Time Saved**: [X] minutes (estimated)
+- **Quality**: [1-5]
+- **Errors Prevented**: [description]
+- **Satisfaction**: [1-5]
+- **Notes**: Observations or suggestions
 
 ---
+
+### `Documentation/archives/progress-archive.md`
+
+```markdown
+# Progress Archive
+
+This file contains archived session history (older than 10 most recent sessions).
+
+**Last archived**: YYYY-MM-DD
+
+---
+
+[Archived session entries in chronological order]
 ```
-
----
-
-## Git Workflow Checklist
-
-Before ending the session, ensure:
-
-- [ ] All changes are committed with descriptive messages
-- [ ] Current branch is pushed to remote
-- [ ] No uncommitted changes remain (unless intentional)
-- [ ] Branch name follows `claude/` prefix convention
-- [ ] Commit messages follow conventional commits format
-
-### Git Commands Reference
-
-```bash
-# Check status
-git status
-
-# Stage all changes
-git add .
-
-# Commit with message
-git commit -m "type: description
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude <noreply@anthropic.com>"
-
-# Push to remote
-git push -u origin <branch-name>
-
-# Check branch
-git branch --show-current
-
-# View recent commits
-git log --oneline -10
-```
-
----
-
-## Pre-Session End Verification
-
-### 1. Code Quality
-- [ ] No console errors in browser
-- [ ] Frontend ESLint passes (`npm run lint`)
-- [ ] Frontend TypeScript type checking passes (`npm run type-check`)
-- [ ] Backend TypeScript type checking passes (`cd api && npm run type-check`)
-- [ ] No build errors (frontend: `npm run build`, backend: `cd api && npm run build`)
-
-### 2. Functionality
-- [ ] Both services start successfully (`npm run dev:all`)
-- [ ] Frontend loads without errors (http://localhost:3001)
-- [ ] Backend responds to health check (http://localhost:3000/health)
-- [ ] Authentication works (signup/login/logout)
-- [ ] CRUD operations work (add/edit/delete bottles, recipes)
-- [ ] State persistence works (Zustand + localStorage)
-- [ ] Database persists between restarts
-
-### 3. Documentation
-- [ ] All new features documented in SESSION_HISTORY.md
-- [ ] API changes reflected in docs (if backend modified)
-- [ ] README.md is current
-- [ ] PROGRESS_SUMMARY.md reflects phase status
-- [ ] Code comments and JSDoc are clear
-- [ ] MONOREPO_SETUP.md updated (if workflow changed)
-
-### 4. Environment
-- [ ] Backend `.env` file configured correctly (`api/.env`)
-- [ ] All dependencies installed (`npm run install:all`)
-- [ ] No sensitive data in git (`.env` files ignored)
-- [ ] Database file location correct (`api/alchemix.db`)
-- [ ] CORS configured for localhost:3001
-
-### 5. TypeScript
-- [ ] All frontend types properly defined
-- [ ] All backend types properly defined
-- [ ] No `any` types used (unless necessary)
-- [ ] Type exports are correct
-- [ ] Store types match interface definitions
-- [ ] API route types match frontend expectations
 
 ---
 
 ## Session Completion Response Template
 
-After completing all updates, Claude should respond with:
+After completing all updates, respond with:
 
 ```
+
 ✅ Session documentation updated successfully!
 
-**Documentation Updates:**
-- SESSION_HISTORY.md: Added entry for [date] - [topic]
-- PROJECT_STATUS.md: Updated [sections]
-- ACTIVE_TASKS.md: [X] tasks completed, [Y] new tasks added
-- DEV_NOTES.md: Added notes on [topics]
-- PROGRESS_SUMMARY.md: [Updated/Not updated]
-- CHANGELOG.md: [Updated/Not updated]
+**Documentation Updates**:
+- PROJECT_PROGRESS.md: New session entry added
+- DEV_NOTES.md: Technical decisions documented
+- README.md: Features/version updated
+- Metrics: Session recorded
 
-**Session Summary:**
-[Brief 2-3 sentence summary of what was accomplished]
+**Session Summary**:
+[2-3 sentence summary of accomplishments]
 
-**Git Status:**
-- Branch: [branch-name]
-- Commits: [number] new commits
-- Status: ✅ All changes committed and pushed / ⚠️ Uncommitted changes
+**Project Status**:
+- Version: v1.X.X
+- Phase: [current phase]
+- Blockers: [none/list]
 
-**Next Session Priority:**
-Focus on [next priority based on PROJECT_STATUS.md and ACTIVE_TASKS.md]
+**Next Session Priority**:
+Focus on [next priorities from PROJECT_PROGRESS.md]
 
-**Metrics Recorded:** ✅ Added entry to prompt-effectiveness.md
+**Note**: Documentation updated. Remember to commit changes when ready.
 ```
 
 ---
 
-## Session Initialization Complete
+## Important Notes
 
-✅ Ready to document session progress and wrap up work.
-
-**Remember**: Thorough documentation now saves significant time in future sessions by providing complete context for continuation.
+- **Single Source of Truth**: PROJECT_PROGRESS.md combines session history, project status, and active tasks
+- **Keep Recent**: Only 10 most recent sessions in main file, archive older ones
+- **No Git Automation**: This prompt only updates docs - you control when to commit/push
+- **Consistency**: Keep status aligned between PROJECT_PROGRESS.md and README.md
+- **Dates**: Use YYYY-MM-DD format
+- **Preserve History**: Archive old sessions, don't delete them
 
 ---
 
-## AlcheMix-Specific Notes
+## AlcheMix-Specific Context
 
-### Architecture Context
-- **Monorepo Structure**: Full-stack TypeScript application in single Git repository
-- **Frontend**: Next.js 14 + React 18 in root directory
-- **Backend**: Express.js + TypeScript in `api` folder
-- **Database**: SQLite with auto-initialization (`api/alchemix.db`)
-- **State**: Zustand with localStorage persistence
-- **Design**: AlcheMix brand (teal #3DD6C1 + orange #F2A74B, scientific lab aesthetic)
+### Architecture
 
-### Key Dependencies
+- **Monorepo**: Full-stack TypeScript (Frontend: root, Backend: api/ folder)
+- **Frontend**: Next.js 14 + React 18 + Zustand
+- **Backend**: Express.js + TypeScript + SQLite
+- **Design**: Teal (#3DD6C1) + Orange (#F2A74B)
 
-**Frontend:**
-- Next.js 14 (App Router)
-- React 18
-- TypeScript 5.3
-- Zustand 4.5 (state management)
-- Axios 1.6 (API client)
-- Lucide React (icons)
+### Development Commands
 
-**Backend:**
-- Express 4.x
-- TypeScript 5.3
-- better-sqlite3 (database)
-- jsonwebtoken + bcrypt (authentication)
-- Helmet.js (security)
+- **Install**: `npm run install:all`
+- **Start**: `npm run dev:all`
+- **Frontend**: http://localhost:3001
+- **Backend**: http://localhost:3000
 
-### Development Workflow
-1. Install all dependencies: `npm run install:all`
-2. Create backend .env: `cd api && cp .env.example .env` (add JWT_SECRET, ANTHROPIC_API_KEY)
-3. Start both services: `npm run dev:all`
-4. Access frontend: http://localhost:3001
-5. Backend API: http://localhost:3000
-6. Health check: http://localhost:3000/health
+### Documentation Categories
 
-### Current Phase
-**Phase 1 (Foundation)**: ✅ Complete (Session 1)
-**Phase 2 (Page Implementation)**: ✅ Complete (Sessions 2-3)
-**Phase 3 (Modal System & Polish)**: ✅ Complete (Sessions 3-4)
-**Phase 4 (Backend Development)**: ✅ Complete (Session 5)
-**Phase 5 (Deployment)**: 🚧 Next Phase
-**Phase 6 (Post-MVP Enhancements)**: ⬜ Future
+- React Components (UI, pages, layouts)
+- TypeScript Types
+- Next.js Pages (App Router)
+- Zustand State Management
+- API Integration (Axios)
+- Backend (Express routes, database)
+- Styling (CSS Modules, design system)
+- Authentication (JWT)
+- Testing & Build
+
+---
+
+## Ready to Document
+
+✅ Complete the 4 mandatory steps above, then verify your work.
+
+Remember: Thorough documentation saves time in future sessions. Commit when you're ready.
+
+
+---
+
+## Key Changes:
+
+1. **Single unified document**: `PROJECT_PROGRESS.md` replaces SESSION_HISTORY.md, PROJECT_STATUS.md, and ACTIVE_TASKS.md
+2. **Combined structure**: Each session entry includes status updates, completed tasks, and new tasks all in one place
+3. **Current status at top**: Quick overview of version, phase, blockers, and active tasks
+4. **NO git automation**: Removed all instructions about committing, pushing, branch names, etc.
+5. **User controls commits**: Clear notes that this only updates docs, you decide when to commit
+

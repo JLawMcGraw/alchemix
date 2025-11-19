@@ -418,17 +418,11 @@ export const tokenBlacklist = {
   add(token: string, expiresAt: number): void {
     return getTokenBlacklistInstance().add(token, expiresAt);
   },
-  remove(token: string): void {
-    return getTokenBlacklistInstance().remove(token);
-  },
   isBlacklisted(token: string): boolean {
     return getTokenBlacklistInstance().isBlacklisted(token);
   },
   size(): number {
     return getTokenBlacklistInstance().size();
-  },
-  cleanup(): void {
-    return getTokenBlacklistInstance().cleanup();
   },
   shutdown(): void {
     return getTokenBlacklistInstance().shutdown();

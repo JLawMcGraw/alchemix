@@ -4,6 +4,153 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-11-18 - My Bar UI Overhaul & Inventory Type System (Session 14)
+
+**Context**: Modernized the My Bar page from table view to category-based tabs with card grid layout. Implemented comprehensive type safety with `InventoryCategory` union type. Created ItemDetailModal for viewing/editing inventory items.
+
+**Decisions & Implementation**:
+
+1. **InventoryCategory Union Type for Type Safety**
+   ```typescript
+   // src/types/index.ts & api/src/types/index.ts
+   export type InventoryCategory =
+     | 'spirit' | 'liqueur' | 'mixer' | 'garnish'
+     | 'syrup' | 'wine' | 'beer' | 'other';
+
+   export interface InventoryItem {
+     category: string; // In practice, constrained to InventoryCategory
+     // ... other fields
+   }
+   ```
+   Result: Prevents invalid category strings from bypassing TypeScript checks and failing at database level. Category validation now enforced at compile time.
+
+2. **Category-Based Tab Navigation**
+   ```typescript
+   // src/app/bar/page.tsx
+   type CategoryTab = {
+     id: InventoryCategory | 'all';
+     label: string;
+     icon: typeof Wine;
+   };
+
+   const CATEGORIES: CategoryTab[] = [
+     { id: 'all', label: 'All Items', icon: Wine },
+     { id: 'spirit', label: 'Spirits', icon: Wine },
+     // ... 7 more categories
+   ];
+
+   const [activeCategory, setActiveCategory] = useState<InventoryCategory | 'all'>('all');
+   ```
+   Result: Type-safe tab system with live item counts per category. User can quickly filter to see specific types of inventory.
+
+3. **Card Grid Layout (Replacing Table View)**
+   ```css
+   /* src/app/bar/bar.module.css */
+   .itemsGrid {
+     display: grid;
+     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+     gap: var(--space-3);
+   }
+
+   .itemCard {
+     cursor: pointer;
+     transition: transform var(--transition-base), box-shadow var(--transition-base);
+   }
+
+   .itemCard:hover {
+     transform: translateY(-4px);
+     box-shadow: var(--shadow-lg);
+   }
+   ```
+   Result: Modern, visual interface matching the Recipes page design. Cards show preview of key fields (type, ABV, profile, location). Responsive grid collapses to single column on mobile.
+
+4. **ItemDetailModal with View/Edit Modes**
+   ```typescript
+   // src/components/modals/ItemDetailModal.tsx
+   const [isEditMode, setIsEditMode] = useState(false);
+   const [editedItem, setEditedItem] = useState<Partial<InventoryItem>>({});
+
+   // View mode: Clean display of all fields
+   {!isEditMode && <p className={styles.value}>{item['Profile (Nose)'] || '-'}</p>}
+
+   // Edit mode: Inline editing
+   {isEditMode && (
+     <textarea
+       value={editedItem['Profile (Nose)'] || ''}
+       onChange={(e) => setEditedItem({ ...editedItem, 'Profile (Nose)': e.target.value })}
+       rows={3}
+     />
+   )}
+   ```
+   Result: Unified modal for viewing and editing. User can click "Edit" button to enable inline editing, "Save" to commit changes, "Cancel" to revert. Replaces the previous separate EditBottleModal.
+
+5. **Paginated Inventory Fetching**
+   ```typescript
+   // src/lib/store.ts
+   fetchItems: async () => {
+     set({ isLoading: true, error: null });
+     let allItems: InventoryItem[] = [];
+     let currentPage = 1;
+     let hasMore = true;
+
+     while (hasMore) {
+       const response = await inventoryApi.getAll(undefined, currentPage, 100);
+       allItems = [...allItems, ...response.items];
+       hasMore = response.pagination.hasNextPage;
+       currentPage++;
+     }
+
+     set({ inventoryItems: allItems, isLoading: false });
+   }
+   ```
+   Result: Fixes the previous 50-item cap. Store now fetches all inventory items by requesting 100 per page until `hasNextPage` is false. Critical for bars with 100+ items.
+
+6. **Test File Alignment**
+   ```typescript
+   // src/lib/store.test.ts
+   // BEFORE: expect(state.bottles).toEqual(mockBottles);
+   // AFTER: expect(state.inventoryItems).toEqual(mockItems);
+
+   // All method names updated:
+   // fetchBottles → fetchItems
+   // addBottle → addItem
+   // updateBottle → updateItem
+   // deleteBottle → deleteItem
+   ```
+   Result: Test suite now aligned with refactored store. 27 tests passing. Reduced TypeScript errors from 32 → 9 (only 8 pre-existing backend errors remain).
+
+7. **Windows Native Module Fix**
+   ```bash
+   # better-sqlite3 and bcrypt compiled for Linux/WSL, running on Windows
+   # Error: is not a valid Win32 application
+
+   # Solution:
+   cd api && npm rebuild better-sqlite3
+   cd api && rm -rf node_modules/bcrypt && npm install bcrypt
+   ```
+   Result: Native modules rebuilt for Windows architecture. Dev servers start successfully on Windows without ERR_DLOPEN_FAILED errors.
+
+**Result**: My Bar page transformed from basic table to modern category-organized interface. Type safety improved with union types. All tests aligned. Dev environment fixed for Windows.
+
+**Future Considerations**:
+- Backend still needs database migration (bottles → inventory_items table)
+- Backend API endpoints need updating (/api/inventory → /api/inventory-items)
+- Consider adding category-specific icons instead of generic Wine icon
+- Shopping list recommendations could be enhanced with category filtering
+
+**Files Modified**:
+- `src/app/bar/page.tsx` - Complete rewrite with tabs and card grid
+- `src/app/bar/bar.module.css` - Complete rewrite with new styles
+- `src/components/modals/ItemDetailModal.tsx` - New modal component
+- `src/components/modals/ItemDetailModal.module.css` - New modal styles
+- `src/components/modals/index.ts` - Export ItemDetailModal
+- `src/types/index.ts` - Added InventoryCategory union type
+- `src/lib/store.test.ts` - Updated all inventory references
+- `src/lib/api.test.ts` - Fixed test assertions
+- `src/app/shopping-list/page.tsx` - Fixed Button variant
+
+---
+
 ## 2025-11-17 - Smart Shopping List Completion & Production Hardening (Session 13)
 
 **Context**: Completed Smart Shopping List feature UI and implemented comprehensive production hardening improvements from additional session.

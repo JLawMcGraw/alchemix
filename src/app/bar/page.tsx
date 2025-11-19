@@ -6,47 +6,68 @@ import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { Button, useToast } from '@/components/ui';
 import { Card } from '@/components/ui/Card';
-import { Wine, Upload, Plus, Edit2, Trash2, Martini } from 'lucide-react';
-import { CSVUploadModal, AddBottleModal, EditBottleModal, DeleteConfirmModal } from '@/components/modals';
+import { Wine, Upload, Plus, Martini } from 'lucide-react';
+import { CSVUploadModal, AddBottleModal, ItemDetailModal } from '@/components/modals';
 import { inventoryApi } from '@/lib/api';
-import type { Bottle } from '@/types';
+import type { InventoryCategory, InventoryItem } from '@/types';
 import styles from './bar.module.css';
+
+type CategoryTab = {
+  id: InventoryCategory | 'all';
+  label: string;
+  icon: typeof Wine;
+};
+
+// Category definitions
+const CATEGORIES: CategoryTab[] = [
+  { id: 'all', label: 'All Items', icon: Wine },
+  { id: 'spirit', label: 'Spirits', icon: Wine },
+  { id: 'liqueur', label: 'Liqueurs', icon: Wine },
+  { id: 'mixer', label: 'Mixers', icon: Wine },
+  { id: 'syrup', label: 'Syrups', icon: Wine },
+  { id: 'garnish', label: 'Garnishes', icon: Wine },
+  { id: 'wine', label: 'Wine', icon: Wine },
+  { id: 'beer', label: 'Beer', icon: Wine },
+  { id: 'other', label: 'Other', icon: Wine },
+];
 
 export default function BarPage() {
   const router = useRouter();
   const { isValidating, isAuthenticated } = useAuthGuard();
-  const { bottles, fetchBottles, addBottle, updateBottle, deleteBottle } = useStore();
+  const { inventoryItems, fetchItems, addItem, deleteItem } = useStore();
   const { showToast } = useToast();
-  const [filterType, setFilterType] = useState<string>('all');
+  const [activeCategory, setActiveCategory] = useState<InventoryCategory | 'all'>('all');
 
   // Modal states
   const [csvModalOpen, setCsvModalOpen] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [selectedBottle, setSelectedBottle] = useState<Bottle | null>(null);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
 
   useEffect(() => {
     if (isAuthenticated && !isValidating) {
-      fetchBottles().catch(console.error);
+      fetchItems().catch(console.error);
     }
-  }, [isAuthenticated, isValidating, fetchBottles]);
+  }, [isAuthenticated, isValidating, fetchItems]);
 
   if (isValidating || !isAuthenticated) {
     return null;
   }
 
-  // Ensure bottles is always an array
-  const bottlesArray = Array.isArray(bottles) ? bottles : [];
+  // Ensure inventoryItems is always an array
+  const itemsArray = Array.isArray(inventoryItems) ? inventoryItems : [];
 
-  // Get unique liquor types for filter
-  const liquorTypes = ['all', ...new Set(bottlesArray.map((b) => b['Liquor Type']).filter(Boolean))];
+  // Filter items by category
+  const filteredItems =
+    activeCategory === 'all'
+      ? itemsArray
+      : itemsArray.filter((i) => i.category === activeCategory);
 
-  // Filter bottles
-  const filteredBottles =
-    filterType === 'all'
-      ? bottlesArray
-      : bottlesArray.filter((b) => b['Liquor Type'] === filterType);
+  // Get count for each category
+  const getCategoryCount = (categoryId: InventoryCategory | 'all') => {
+    if (categoryId === 'all') return itemsArray.length;
+    return itemsArray.filter((i) => i.category === categoryId).length;
+  };
 
   // Modal handlers
   const handleCSVUpload = async (file: File) => {
@@ -54,11 +75,11 @@ export default function BarPage() {
       console.log('🔄 Starting CSV import...');
       const result = await inventoryApi.importCSV(file);
       console.log('✅ CSV import result:', result);
-      console.log('🔄 Fetching bottles after import...');
-      await fetchBottles();
-      console.log('✅ Bottles fetched successfully');
-      if (result.count > 0) {
-        showToast('success', `Successfully imported ${result.count} bottles from CSV`);
+      console.log('🔄 Fetching items after import...');
+      await fetchItems();
+      console.log('✅ Items fetched successfully');
+      if (result.imported > 0) {
+        showToast('success', `Successfully imported ${result.imported} items from CSV`);
       } else {
         showToast('error', 'CSV import failed. Check console for details.');
       }
@@ -69,46 +90,19 @@ export default function BarPage() {
     }
   };
 
-  const handleAddBottle = async (bottle: Omit<Bottle, 'id'>) => {
+  const handleAddItem = async (item: Omit<InventoryItem, 'id'>) => {
     try {
-      await addBottle(bottle);
-      showToast('success', 'Bottle added successfully');
+      await addItem(item);
+      showToast('success', 'Item added successfully');
     } catch (error) {
-      showToast('error', 'Failed to add bottle');
+      showToast('error', 'Failed to add item');
       throw error;
     }
   };
 
-  const handleEditBottle = async (id: number, updates: Partial<Bottle>) => {
-    try {
-      await updateBottle(id, updates);
-      showToast('success', 'Bottle updated successfully');
-    } catch (error) {
-      showToast('error', 'Failed to update bottle');
-      throw error;
-    }
-  };
-
-  const handleDeleteBottle = async () => {
-    if (selectedBottle?.id) {
-      try {
-        await deleteBottle(selectedBottle.id);
-        showToast('success', 'Bottle deleted successfully');
-      } catch (error) {
-        showToast('error', 'Failed to delete bottle');
-        throw error;
-      }
-    }
-  };
-
-  const openEditModal = (bottle: Bottle) => {
-    setSelectedBottle(bottle);
-    setEditModalOpen(true);
-  };
-
-  const openDeleteModal = (bottle: Bottle) => {
-    setSelectedBottle(bottle);
-    setDeleteModalOpen(true);
+  const handleCardClick = (item: InventoryItem) => {
+    setSelectedItem(item);
+    setDetailModalOpen(true);
   };
 
   return (
@@ -122,7 +116,8 @@ export default function BarPage() {
               My Bar
             </h1>
             <p className={styles.subtitle}>
-              {filteredBottles.length} {filteredBottles.length === 1 ? 'bottle' : 'bottles'}
+              {filteredItems.length} {filteredItems.length === 1 ? 'item' : 'items'}
+              {activeCategory !== 'all' && ` in ${CATEGORIES.find(c => c.id === activeCategory)?.label}`}
             </p>
           </div>
           <div className={styles.actions}>
@@ -132,122 +127,126 @@ export default function BarPage() {
             </Button>
             <Button variant="primary" size="md" onClick={() => setAddModalOpen(true)}>
               <Plus size={18} />
-              Add Bottle
+              Add Item
             </Button>
           </div>
         </div>
 
-        {/* Filter */}
-        <div className={styles.filterSection}>
-          <label htmlFor="liquorType" className={styles.filterLabel}>
-            Filter by Type:
-          </label>
-          <select
-            id="liquorType"
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            className={styles.filterSelect}
-          >
-            {liquorTypes.map((type) => (
-              <option key={type} value={type}>
-                {type === 'all' ? 'All Types' : type}
-              </option>
-            ))}
-          </select>
+        {/* Category Tabs */}
+        <div className={styles.tabs}>
+          {CATEGORIES.map((category) => {
+            const count = getCategoryCount(category.id);
+            return (
+              <button
+                key={category.id}
+                className={`${styles.tab} ${activeCategory === category.id ? styles.tabActive : ''}`}
+                onClick={() => setActiveCategory(category.id)}
+              >
+                {category.label}
+                <span className={styles.tabCount}>{count}</span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* Inventory Table */}
-        {filteredBottles.length === 0 ? (
+        {/* Items Grid */}
+        {filteredItems.length === 0 ? (
           <Card padding="lg">
             <div className={styles.emptyState}>
               <Martini size={64} className={styles.emptyIcon} strokeWidth={1.5} />
-              <h3 className={styles.emptyTitle}>Your bar is empty</h3>
+              <h3 className={styles.emptyTitle}>
+                {activeCategory === 'all'
+                  ? 'Your bar is empty'
+                  : `No ${CATEGORIES.find(c => c.id === activeCategory)?.label.toLowerCase()} yet`
+                }
+              </h3>
               <p className={styles.emptyText}>
-                Start building your collection by adding bottles or importing from CSV
+                {activeCategory === 'all'
+                  ? 'Start building your collection by adding items or importing from CSV'
+                  : `Add ${CATEGORIES.find(c => c.id === activeCategory)?.label.toLowerCase()} to your bar`
+                }
               </p>
               <Button variant="primary" size="md" onClick={() => setAddModalOpen(true)}>
                 <Plus size={18} />
-                Add Your First Bottle
+                Add Your First Item
               </Button>
             </div>
           </Card>
         ) : (
-          <Card padding="none" className={styles.tableCard}>
-            <div className={styles.tableWrapper}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Type</th>
-                    <th>ABV</th>
-                    <th>Profile</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredBottles.map((bottle, index) => (
-                    <tr
-                      key={bottle.id}
-                      className={index % 2 === 0 ? styles.evenRow : styles.oddRow}
-                    >
-                      <td className={styles.nameCell}>{bottle.name}</td>
-                      <td>{bottle['Liquor Type'] || '-'}</td>
-                      <td>{bottle['ABV (%)'] ? `${bottle['ABV (%)']}%` : '-'}</td>
-                      <td className={styles.profileCell}>
-                        {bottle['Profile (Nose)'] || '-'}
-                      </td>
-                      <td className={styles.actionsCell}>
-                        <button
-                          className={styles.actionBtn}
-                          onClick={() => openEditModal(bottle)}
-                          title="Edit"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          className={styles.actionBtn}
-                          onClick={() => openDeleteModal(bottle)}
-                          title="Delete"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+          <div className={styles.itemsGrid}>
+            {filteredItems.map((item) => (
+              <Card
+                key={item.id}
+                padding="md"
+                hover
+                className={styles.itemCard}
+                onClick={() => handleCardClick(item)}
+              >
+                <div className={styles.cardHeader}>
+                  <h3 className={styles.itemName}>{item.name}</h3>
+                  <span className={styles.categoryBadge}>
+                    {item.category}
+                  </span>
+                </div>
+
+                <div className={styles.cardBody}>
+                  {item.type && (
+                    <div className={styles.itemDetail}>
+                      <span className={styles.detailLabel}>Type:</span>
+                      <span className={styles.detailValue}>{item.type}</span>
+                    </div>
+                  )}
+
+                  {item.abv && (
+                    <div className={styles.itemDetail}>
+                      <span className={styles.detailLabel}>ABV:</span>
+                      <span className={styles.detailValue}>
+                        {item.abv}{item.abv.toString().includes('%') ? '' : '%'}
+                      </span>
+                    </div>
+                  )}
+
+                  {item['Profile (Nose)'] && (
+                    <div className={styles.itemDetail}>
+                      <span className={styles.detailLabel}>Profile:</span>
+                      <span className={styles.detailValue}>{item['Profile (Nose)']}</span>
+                    </div>
+                  )}
+
+                  {item['Distillery Location'] && (
+                    <div className={styles.itemDetail}>
+                      <span className={styles.detailLabel}>Location:</span>
+                      <span className={styles.detailValue}>{item['Distillery Location']}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className={styles.cardFooter}>
+                  <span className={styles.cardHint}>Click to view details</span>
+                </div>
+              </Card>
+            ))}
+          </div>
         )}
 
         {/* Modals */}
         <CSVUploadModal
           isOpen={csvModalOpen}
           onClose={() => setCsvModalOpen(false)}
-          type="bottles"
+          type="items"
           onUpload={handleCSVUpload}
         />
 
         <AddBottleModal
           isOpen={addModalOpen}
           onClose={() => setAddModalOpen(false)}
-          onAdd={handleAddBottle}
+          onAdd={handleAddItem}
         />
 
-        <EditBottleModal
-          isOpen={editModalOpen}
-          onClose={() => setEditModalOpen(false)}
-          bottle={selectedBottle}
-          onUpdate={handleEditBottle}
-        />
-
-        <DeleteConfirmModal
-          isOpen={deleteModalOpen}
-          onClose={() => setDeleteModalOpen(false)}
-          onConfirm={handleDeleteBottle}
-          title="Delete Bottle?"
-          message="Are you sure you want to delete this bottle from your inventory?"
-          itemName={selectedBottle ? selectedBottle.name : ''}
+        <ItemDetailModal
+          isOpen={detailModalOpen}
+          onClose={() => setDetailModalOpen(false)}
+          item={selectedItem}
         />
       </div>
     </div>

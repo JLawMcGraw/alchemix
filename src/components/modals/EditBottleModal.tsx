@@ -3,30 +3,31 @@
 import { useState, useEffect, useRef } from 'react';
 import { Edit2, X, AlertCircle } from 'lucide-react';
 import { Button, Input, Spinner, SuccessCheckmark } from '@/components/ui';
-import type { Bottle } from '@/types';
+import type { InventoryItem } from '@/types';
 import styles from './BottleFormModal.module.css';
 
 interface EditBottleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  bottle: Bottle | null;
-  onUpdate: (id: number, bottle: Partial<Bottle>) => Promise<void>;
+  bottle: InventoryItem | null;
+  onUpdate: (id: number, item: Partial<InventoryItem>) => Promise<void>;
 }
 
 export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottleModalProps) {
   const [formData, setFormData] = useState({
     name: '',
+    category: 'spirit',
+    type: '',
+    abv: '',
     'Stock Number': '',
-    'Liquor Type': '',
     'Detailed Spirit Classification': '',
     'Distillation Method': '',
-    'ABV (%)': '',
     'Distillery Location': '',
     'Age Statement or Barrel Finish': '',
     'Additional Notes': '',
     'Profile (Nose)': '',
-    'Palate': '',
-    'Finish': '',
+    Palate: '',
+    Finish: '',
   });
 
   const [loading, setLoading] = useState(false);
@@ -43,17 +44,18 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
     if (bottle) {
       setFormData({
         name: bottle.name || '',
+        category: bottle.category || 'spirit',
+        type: bottle.type || '',
+        abv: bottle.abv?.toString() || '',
         'Stock Number': bottle['Stock Number']?.toString() || '',
-        'Liquor Type': bottle['Liquor Type'] || '',
         'Detailed Spirit Classification': bottle['Detailed Spirit Classification'] || '',
         'Distillation Method': bottle['Distillation Method'] || '',
-        'ABV (%)': bottle['ABV (%)']?.toString() || '',
         'Distillery Location': bottle['Distillery Location'] || '',
         'Age Statement or Barrel Finish': bottle['Age Statement or Barrel Finish'] || '',
         'Additional Notes': bottle['Additional Notes'] || '',
         'Profile (Nose)': bottle['Profile (Nose)'] || '',
-        'Palate': bottle['Palate'] || '',
-        'Finish': bottle['Finish'] || '',
+        Palate: bottle.Palate || '',
+        Finish: bottle.Finish || '',
       });
       // Reset scroll position when bottle changes
       if (contentRef.current) {
@@ -158,18 +160,19 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
     setError(null);
 
     try {
-      const updates: Partial<Bottle> = {
+      const updates: Partial<InventoryItem> = {
         name: formData.name,
+        category: formData.category,
+        type: formData.type || undefined,
+        abv: formData.abv || undefined,
         'Stock Number': formData['Stock Number'] ? parseInt(formData['Stock Number']) : undefined,
-        'Liquor Type': formData['Liquor Type'] || undefined,
         'Detailed Spirit Classification': formData['Detailed Spirit Classification'] || undefined,
         'Distillation Method': formData['Distillation Method'] || undefined,
-        'ABV (%)': formData['ABV (%)'] || undefined,
         'Distillery Location': formData['Distillery Location'] || undefined,
         'Age Statement or Barrel Finish': formData['Age Statement or Barrel Finish'] || undefined,
         'Additional Notes': formData['Additional Notes'] || undefined,
         'Profile (Nose)': formData['Profile (Nose)'] || undefined,
-        'Palate': formData['Palate'] || undefined,
+        Palate: formData.Palate || undefined,
         'Finish': formData['Finish'] || undefined,
       };
 
@@ -260,10 +263,10 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
                   error={fieldErrors['Stock Number']}
                 />
                 <Input
-                  label="Liquor Type"
-                  value={formData['Liquor Type']}
-                  onChange={(e) => handleChange('Liquor Type', e.target.value)}
-                  placeholder="e.g., Whiskey, Rum, Gin"
+                  label="Type"
+                  value={formData.type}
+                  onChange={(e) => handleChange('type', e.target.value)}
+                  placeholder="e.g., Bourbon, Gin, Citrus"
                   fullWidth
                 />
               </div>
@@ -287,11 +290,13 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
                 />
                 <Input
                   label="ABV (%)"
-                  value={formData['ABV (%)']}
-                  onChange={(e) => handleChange('ABV (%)', e.target.value)}
+                  type="number"
+                  step="0.1"
+                  value={formData.abv}
+                  onChange={(e) => handleChange('abv', e.target.value)}
                   placeholder="e.g., 40, 43.5"
                   fullWidth
-                  error={fieldErrors['ABV (%)']}
+                  error={fieldErrors.abv}
                 />
               </div>
 

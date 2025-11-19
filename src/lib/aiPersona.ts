@@ -90,18 +90,19 @@ The recipes below have been pre-filtered to match the user's query. These are th
 
 ` : ''}${showingAllRecipes ? `**Note:** The user asked to see recipes even if they don't have all ingredients. The recipes below may require ingredients not in their inventory. Mention what they're missing if recommending these.
 
-` : ''}**User's Bar Stock (${inventory.length} bottles):**
+` : ''}**User's Bar Stock (${inventory.length} items):**
 ${inventory.length > 0 ? inventory
     .map((item) => {
       let line = `- **${item.name}**`;
-      if (item['Liquor Type']) {
-        line += ` [${item['Liquor Type']}]`;
+      if (item.type) {
+        line += ` [${item.type}]`;
       }
       if (item['Detailed Spirit Classification']) {
         line += ` (${item['Detailed Spirit Classification']})`;
       }
-      if (item['ABV (%)']) {
-        line += ` - ${item['ABV (%)']}% ABV`;
+      if (item.abv) {
+        const abvStr = typeof item.abv === 'string' ? item.abv : item.abv.toString();
+        line += ` - ${abvStr}${abvStr.includes('%') ? '' : '%'} ABV`;
       }
       // Emphasize tasting notes - these are KEY for your recommendations
       if (item['Profile (Nose)']) {

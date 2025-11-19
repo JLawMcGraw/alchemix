@@ -3,30 +3,49 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, X, AlertCircle } from 'lucide-react';
 import { Button, Input, Spinner, SuccessCheckmark } from '@/components/ui';
-import type { Bottle } from '@/types';
+import type { InventoryCategory, InventoryItem } from '@/types';
 import styles from './BottleFormModal.module.css';
 
 interface AddBottleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (bottle: Omit<Bottle, 'id'>) => Promise<void>;
+  onAdd: (item: Omit<InventoryItem, 'id'>) => Promise<void>;
 }
 
+type FormState = {
+  name: string;
+  category: InventoryCategory;
+  type: string;
+  abv: string;
+  'Stock Number': string;
+  'Detailed Spirit Classification': string;
+  'Distillation Method': string;
+  'Distillery Location': string;
+  'Age Statement or Barrel Finish': string;
+  'Additional Notes': string;
+  'Profile (Nose)': string;
+  Palate: string;
+  Finish: string;
+};
+
+const createInitialFormState = (): FormState => ({
+  name: '',
+  category: 'spirit',
+  type: '',
+  abv: '',
+  'Stock Number': '',
+  'Detailed Spirit Classification': '',
+  'Distillation Method': '',
+  'Distillery Location': '',
+  'Age Statement or Barrel Finish': '',
+  'Additional Notes': '',
+  'Profile (Nose)': '',
+  Palate: '',
+  Finish: '',
+});
+
 export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) {
-  const [formData, setFormData] = useState({
-    Spirit: '',
-    Brand: '',
-    'Age/Type': '',
-    'Quantity (ml)': '',
-    'Cost ($)': '',
-    'Date Added': new Date().toISOString().split('T')[0],
-    'Date Opened': '',
-    'Estimated Remaining (ml)': '',
-    'Restock Threshold (ml)': '200',
-    Location: '',
-    'Tasting Notes': '',
-    Tags: '',
-  });
+  const [formData, setFormData] = useState<FormState>(createInitialFormState());
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,9 +56,11 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
   const modalRef = useRef<HTMLDivElement>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
 
-  // Focus management and keyboard shortcuts
   useEffect(() => {
     if (isOpen) {
+      setShowSuccess(false);
+
+      // Focus management and keyboard shortcuts
       // Auto-focus first input
       setTimeout(() => firstInputRef.current?.focus(), 100);
 
@@ -77,59 +98,18 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
 
   if (!isOpen) return null;
 
-  const validateField = (field: string, value: string): string => {
+  const validateField = (field: string, value: string | InventoryCategory): string => {
     switch (field) {
-      case 'Spirit':
-        return !value.trim() ? 'Spirit type is required' : '';
-      case 'Brand':
-        return !value.trim() ? 'Brand is required' : '';
-      case 'Quantity (ml)': {
-        const num = parseFloat(value);
-        if (!value) return 'Quantity is required';
-        if (isNaN(num)) return 'Must be a valid number';
-        if (num <= 0) return 'Must be greater than 0';
-        if (num > 5000) return 'Unusually large bottle size';
-        return '';
-      }
-      case 'Cost ($)': {
+      case 'name':
+        return !value.trim() ? 'Name is required' : '';
+      case 'category':
+        const validCategories = ['spirit', 'liqueur', 'mixer', 'garnish', 'syrup', 'wine', 'beer', 'other'];
+        return !validCategories.includes(value) ? 'Invalid category' : '';
+      case 'abv': {
         if (!value) return '';
         const num = parseFloat(value);
         if (isNaN(num)) return 'Must be a valid number';
-        if (num < 0) return 'Cannot be negative';
-        return '';
-      }
-      case 'Date Added': {
-        if (!value) return 'Date added is required';
-        const date = new Date(value);
-        const today = new Date();
-        today.setHours(23, 59, 59, 999);
-        if (date > today) return 'Cannot be in the future';
-        return '';
-      }
-      case 'Date Opened': {
-        if (!value) return '';
-        const dateOpened = new Date(value);
-        const dateAdded = new Date(formData['Date Added']);
-        const today = new Date();
-        today.setHours(23, 59, 59, 999);
-        if (dateOpened > today) return 'Cannot be in the future';
-        if (formData['Date Added'] && dateOpened < dateAdded) return 'Cannot be before date added';
-        return '';
-      }
-      case 'Estimated Remaining (ml)': {
-        if (!value) return '';
-        const num = parseFloat(value);
-        if (isNaN(num)) return 'Must be a valid number';
-        if (num < 0) return 'Cannot be negative';
-        const quantity = parseFloat(formData['Quantity (ml)']);
-        if (!isNaN(quantity) && num > quantity) return 'Cannot exceed bottle quantity';
-        return '';
-      }
-      case 'Restock Threshold (ml)': {
-        if (!value) return '';
-        const num = parseFloat(value);
-        if (isNaN(num)) return 'Must be a valid number';
-        if (num < 0) return 'Cannot be negative';
+        if (num < 0 || num > 100) return 'Must be between 0 and 100';
         return '';
       }
       default:
@@ -137,12 +117,12 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
     }
   };
 
-  const handleChange = (field: string, value: string) => {
+  const handleChange = <K extends keyof FormState>(field: K, value: FormState[K]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     setIsDirty(true); // Mark form as dirty
 
     // Validate the field
-    const error = validateField(field, value);
+    const error = validateField(field, value as string);
     setFieldErrors((prev) => ({
       ...prev,
       [field]: error,
@@ -155,23 +135,31 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
     setError(null);
 
     try {
-      // Map form data to Bottle type fields
-      const bottle: Omit<Bottle, 'id'> = {
-        name: formData.Spirit || '', // Use Spirit as the bottle name
-        'Liquor Type': formData.Brand || '', // Map Brand to Liquor Type for now
-        'Detailed Spirit Classification': formData['Age/Type'] || '',
-        'ABV (%)': '', // Not in form
-        'Additional Notes': formData['Tasting Notes'] || '',
+      // Map form data to InventoryItem type
+      const item: Omit<InventoryItem, 'id'> = {
+        name: formData.name,
+        category: formData.category,
+        type: formData.type || undefined,
+        abv: formData.abv || undefined,
+        'Stock Number': formData['Stock Number'] ? parseInt(formData['Stock Number']) : undefined,
+        'Detailed Spirit Classification': formData['Detailed Spirit Classification'] || undefined,
+        'Distillation Method': formData['Distillation Method'] || undefined,
+        'Distillery Location': formData['Distillery Location'] || undefined,
+        'Age Statement or Barrel Finish': formData['Age Statement or Barrel Finish'] || undefined,
+        'Additional Notes': formData['Additional Notes'] || undefined,
+        'Profile (Nose)': formData['Profile (Nose)'] || undefined,
+        Palate: formData.Palate || undefined,
+        Finish: formData.Finish || undefined,
       };
 
-      await onAdd(bottle);
+      await onAdd(item);
       setIsDirty(false); // Reset dirty flag on successful save
       setShowSuccess(true); // Show success animation
     } catch (err: unknown) {
       if (err instanceof Error) {
-        setError(err.message || 'Failed to add bottle');
+        setError(err.message || 'Failed to add item');
       } else {
-        setError('Failed to add bottle');
+        setError('Failed to add item');
       }
     } finally {
       setLoading(false);
@@ -187,23 +175,11 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
       if (!confirmClose) return;
     }
 
-    setFormData({
-      Spirit: '',
-      Brand: '',
-      'Age/Type': '',
-      'Quantity (ml)': '',
-      'Cost ($)': '',
-      'Date Added': new Date().toISOString().split('T')[0],
-      'Date Opened': '',
-      'Estimated Remaining (ml)': '',
-      'Restock Threshold (ml)': '200',
-      Location: '',
-      'Tasting Notes': '',
-      Tags: '',
-    });
+    setFormData(createInitialFormState());
     setError(null);
     setLoading(false);
     setIsDirty(false);
+    setShowSuccess(false);
     onClose();
   };
 
@@ -211,7 +187,7 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
     <>
       {showSuccess && (
         <SuccessCheckmark
-          message="Bottle added successfully!"
+          message="Item added successfully!"
           onComplete={handleClose}
         />
       )}
@@ -228,7 +204,7 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
         <div className={styles.header}>
           <h2 className={styles.title} id="add-bottle-title">
             <Plus size={24} style={{ marginRight: '12px', verticalAlign: 'middle' }} />
-            Add New Bottle
+            Add New Item
           </h2>
           <button
             className={styles.closeBtn}
@@ -247,130 +223,120 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
                 <h3 className={styles.sectionTitle}>Basic Information</h3>
                 <Input
                   ref={firstInputRef}
-                  label="Spirit Type *"
-                  value={formData.Spirit}
-                  onChange={(e) => handleChange('Spirit', e.target.value)}
-                  placeholder="e.g., Whiskey, Rum, Gin"
+                  label="Name *"
+                  value={formData.name}
+                  onChange={(e) => handleChange('name', e.target.value)}
+                  placeholder="e.g., Maker's Mark Bourbon"
                   required
                   fullWidth
-                  error={fieldErrors.Spirit}
+                  error={fieldErrors.name}
                 />
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500 }}>
+                    Category *
+                  </label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => handleChange('category', e.target.value as InventoryCategory)}
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      fontSize: '14px',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--radius)',
+                      backgroundColor: 'var(--color-ui-bg-surface)',
+                      color: 'var(--color-text-body)',
+                    }}
+                  >
+                    <option value="spirit">Spirit</option>
+                    <option value="liqueur">Liqueur</option>
+                    <option value="mixer">Mixer</option>
+                    <option value="garnish">Garnish</option>
+                    <option value="syrup">Syrup</option>
+                    <option value="wine">Wine</option>
+                    <option value="beer">Beer</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
                 <Input
-                  label="Brand *"
-                  value={formData.Brand}
-                  onChange={(e) => handleChange('Brand', e.target.value)}
-                  placeholder="e.g., Maker's Mark"
-                  required
+                  label="Type"
+                  value={formData.type}
+                  onChange={(e) => handleChange('type', e.target.value)}
+                  placeholder="e.g., Bourbon, Gin, Citrus"
                   fullWidth
-                  error={fieldErrors.Brand}
                 />
                 <Input
-                  label="Age/Type"
-                  value={formData['Age/Type']}
-                  onChange={(e) => handleChange('Age/Type', e.target.value)}
+                  label="ABV (%)"
+                  type="number"
+                  step="0.1"
+                  value={formData.abv}
+                  onChange={(e) => handleChange('abv', e.target.value)}
+                  placeholder="e.g., 40"
+                  fullWidth
+                  error={fieldErrors.abv}
+                />
+              </div>
+
+              {/* Optional Details for Spirits */}
+              <div className={styles.formSection}>
+                <h3 className={styles.sectionTitle}>Additional Details (Optional)</h3>
+                <Input
+                  label="Detailed Classification"
+                  value={formData['Detailed Spirit Classification']}
+                  onChange={(e) => handleChange('Detailed Spirit Classification', e.target.value)}
+                  placeholder="e.g., Single Malt Scotch"
+                  fullWidth
+                />
+                <Input
+                  label="Age Statement / Barrel Finish"
+                  value={formData['Age Statement or Barrel Finish']}
+                  onChange={(e) => handleChange('Age Statement or Barrel Finish', e.target.value)}
                   placeholder="e.g., 12 Year, VSOP"
                   fullWidth
                 />
-              </div>
-
-              {/* Quantity & Cost */}
-              <div className={styles.formSection}>
-                <h3 className={styles.sectionTitle}>Quantity & Cost</h3>
-                <div className={styles.formRow}>
-                  <Input
-                    label="Quantity (ml) *"
-                    type="number"
-                    value={formData['Quantity (ml)']}
-                    onChange={(e) => handleChange('Quantity (ml)', e.target.value)}
-                    placeholder="750"
-                    required
-                    fullWidth
-                    error={fieldErrors['Quantity (ml)']}
-                  />
-                  <Input
-                    label="Cost ($)"
-                    type="number"
-                    step="0.01"
-                    value={formData['Cost ($)']}
-                    onChange={(e) => handleChange('Cost ($)', e.target.value)}
-                    placeholder="45.00"
-                    fullWidth
-                    error={fieldErrors['Cost ($)']}
-                  />
-                </div>
-                <div className={styles.formRow}>
-                  <Input
-                    label="Estimated Remaining (ml)"
-                    type="number"
-                    value={formData['Estimated Remaining (ml)']}
-                    onChange={(e) => handleChange('Estimated Remaining (ml)', e.target.value)}
-                    placeholder="Leave empty if unopened"
-                    fullWidth
-                    error={fieldErrors['Estimated Remaining (ml)']}
-                  />
-                  <Input
-                    label="Restock Threshold (ml)"
-                    type="number"
-                    value={formData['Restock Threshold (ml)']}
-                    onChange={(e) => handleChange('Restock Threshold (ml)', e.target.value)}
-                    placeholder="200"
-                    fullWidth
-                    error={fieldErrors['Restock Threshold (ml)']}
-                  />
-                </div>
-              </div>
-
-              {/* Dates & Location */}
-              <div className={styles.formSection}>
-                <h3 className={styles.sectionTitle}>Dates & Location</h3>
-                <div className={styles.formRow}>
-                  <Input
-                    label="Date Added *"
-                    type="date"
-                    value={formData['Date Added']}
-                    onChange={(e) => handleChange('Date Added', e.target.value)}
-                    required
-                    fullWidth
-                    error={fieldErrors['Date Added']}
-                  />
-                  <Input
-                    label="Date Opened"
-                    type="date"
-                    value={formData['Date Opened']}
-                    onChange={(e) => handleChange('Date Opened', e.target.value)}
-                    fullWidth
-                    error={fieldErrors['Date Opened']}
-                  />
-                </div>
                 <Input
-                  label="Location"
-                  value={formData.Location}
-                  onChange={(e) => handleChange('Location', e.target.value)}
-                  placeholder="e.g., Top shelf, Cabinet A"
+                  label="Distillery Location"
+                  value={formData['Distillery Location']}
+                  onChange={(e) => handleChange('Distillery Location', e.target.value)}
+                  placeholder="e.g., Kentucky, Scotland"
                   fullWidth
                 />
               </div>
 
-              {/* Notes & Tags */}
+              {/* Tasting Notes */}
               <div className={styles.formSection}>
-                <h3 className={styles.sectionTitle}>Additional Details</h3>
+                <h3 className={styles.sectionTitle}>Tasting Notes (Optional)</h3>
                 <div className={styles.textareaWrapper}>
-                  <label className={styles.textareaLabel}>Tasting Notes</label>
+                  <label className={styles.textareaLabel}>Nose</label>
                   <textarea
                     className={styles.textarea}
-                    value={formData['Tasting Notes']}
-                    onChange={(e) => handleChange('Tasting Notes', e.target.value)}
-                    placeholder="Notes about flavor, aroma, etc."
-                    rows={3}
+                    value={formData['Profile (Nose)']}
+                    onChange={(e) => handleChange('Profile (Nose)', e.target.value)}
+                    placeholder="Aroma and scent profile"
+                    rows={2}
                   />
                 </div>
-                <Input
-                  label="Tags"
-                  value={formData.Tags}
-                  onChange={(e) => handleChange('Tags', e.target.value)}
-                  placeholder="e.g., smooth, smoky, gift"
-                  fullWidth
-                />
+                <div className={styles.textareaWrapper}>
+                  <label className={styles.textareaLabel}>Palate</label>
+                  <textarea
+                    className={styles.textarea}
+                    value={formData.Palate}
+                    onChange={(e) => handleChange('Palate', e.target.value)}
+                    placeholder="Taste and flavor profile"
+                    rows={2}
+                  />
+                </div>
+                <div className={styles.textareaWrapper}>
+                  <label className={styles.textareaLabel}>Finish</label>
+                  <textarea
+                    className={styles.textarea}
+                    value={formData.Finish}
+                    onChange={(e) => handleChange('Finish', e.target.value)}
+                    placeholder="Aftertaste and lingering notes"
+                    rows={2}
+                  />
+                </div>
               </div>
             </div>
 
@@ -392,7 +358,7 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
                   <Spinner size="sm" color="white" /> Adding...
                 </>
               ) : (
-                'Add Bottle'
+                'Add Item'
               )}
             </Button>
           </div>

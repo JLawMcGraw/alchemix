@@ -8,25 +8,37 @@ export interface User {
   created_at?: string;
 }
 
-export interface Bottle {
+export type InventoryCategory =
+  | 'spirit'
+  | 'liqueur'
+  | 'mixer'
+  | 'garnish'
+  | 'syrup'
+  | 'wine'
+  | 'beer'
+  | 'other';
+
+export interface InventoryItem {
   id?: number;
   user_id?: number;
   name: string;
-  category?: string;
-  subcategory?: string;
-  quantity?: number;
+  category: InventoryCategory;  // Required categories enforced by union
+  type?: string;  // Formerly "Liquor Type" - item classification (e.g., "Bourbon", "Gin", "Citrus")
+  abv?: string | number;  // Formerly "ABV (%)" - alcohol by volume
   'Stock Number'?: number;
-  'Liquor Type'?: string;
   'Detailed Spirit Classification'?: string;
   'Distillation Method'?: string;
-  'ABV (%)'?: string | number;
   'Distillery Location'?: string;
   'Age Statement or Barrel Finish'?: string;
   'Additional Notes'?: string;
   'Profile (Nose)'?: string;
   'Palate'?: string;
   'Finish'?: string;
+  created_at?: string;
 }
+
+// Backwards compatibility alias
+export type Bottle = InventoryItem;
 
 export interface Recipe {
   id?: number;
