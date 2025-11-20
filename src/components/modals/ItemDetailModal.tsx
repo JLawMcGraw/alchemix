@@ -42,6 +42,7 @@ export function ItemDetailModal({
         'Profile (Nose)': item['Profile (Nose)'],
         Palate: item.Palate,
         Finish: item.Finish,
+        tasting_notes: item.tasting_notes,
       });
       setIsEditMode(false);
 
@@ -103,6 +104,7 @@ export function ItemDetailModal({
         'Profile (Nose)': item['Profile (Nose)'],
         Palate: item.Palate,
         Finish: item.Finish,
+        tasting_notes: item.tasting_notes,
       });
     }
     setIsEditMode(false);
@@ -395,6 +397,26 @@ export function ItemDetailModal({
                 />
               ) : (
                 <p className={styles.value}>{item.Finish || '-'}</p>
+              )}
+            </div>
+
+            <div className={styles.field}>
+              <label className={styles.label}>Personal Notes</label>
+              {isEditMode ? (
+                <>
+                  <textarea
+                    value={editedItem.tasting_notes || ''}
+                    onChange={(e) => setEditedItem({ ...editedItem, tasting_notes: e.target.value })}
+                    className={styles.textarea}
+                    placeholder="Your personal impressions and recommendations"
+                    rows={4}
+                  />
+                  <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginTop: '4px', fontStyle: 'italic' }}>
+                    Adding notes will improve your Lab Assistant's recommendations.
+                  </p>
+                </>
+              ) : (
+                <p className={styles.value}>{item.tasting_notes || '-'}</p>
               )}
             </div>
           </section>

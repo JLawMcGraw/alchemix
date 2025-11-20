@@ -26,6 +26,7 @@ type FormState = {
   'Profile (Nose)': string;
   Palate: string;
   Finish: string;
+  tasting_notes: string;
 };
 
 const createInitialFormState = (): FormState => ({
@@ -42,6 +43,7 @@ const createInitialFormState = (): FormState => ({
   'Profile (Nose)': '',
   Palate: '',
   Finish: '',
+  tasting_notes: '',
 });
 
 export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) {
@@ -150,6 +152,7 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
         'Profile (Nose)': formData['Profile (Nose)'] || undefined,
         Palate: formData.Palate || undefined,
         Finish: formData.Finish || undefined,
+        tasting_notes: formData.tasting_notes || undefined,
       };
 
       await onAdd(item);
@@ -336,6 +339,19 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
                     placeholder="Aftertaste and lingering notes"
                     rows={2}
                   />
+                </div>
+                <div className={styles.textareaWrapper}>
+                  <label className={styles.textareaLabel}>Personal Notes</label>
+                  <textarea
+                    className={styles.textarea}
+                    value={formData.tasting_notes}
+                    onChange={(e) => handleChange('tasting_notes', e.target.value)}
+                    placeholder="Your personal impressions and recommendations"
+                    rows={3}
+                  />
+                  <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginTop: '4px', fontStyle: 'italic' }}>
+                    Adding notes will improve your Lab Assistant's recommendations.
+                  </p>
                 </div>
               </div>
             </div>

@@ -24,25 +24,27 @@ describe('Database Operations', () => {
       expect(columns).toContain('created_at');
     });
 
-    it('should create bottles table with current schema', () => {
-      const tableInfo = db.prepare("PRAGMA table_info(bottles)").all();
+    it('should create inventory_items table with current schema', () => {
+      const tableInfo = db.prepare("PRAGMA table_info(inventory_items)").all();
       const columns = tableInfo.map((col: any) => col.name);
 
       expect(columns).toEqual(expect.arrayContaining([
         'id',
         'user_id',
         'name',
+        'category',
+        'type',
+        'abv',
         'Stock Number',
-        'Liquor Type',
         'Detailed Spirit Classification',
         'Distillation Method',
-        'ABV (%)',
         'Distillery Location',
         'Age Statement or Barrel Finish',
         'Additional Notes',
         'Profile (Nose)',
         'Palate',
         'Finish',
+        'tasting_notes',
         'created_at'
       ]));
     });
@@ -139,24 +141,26 @@ describe('Database Operations', () => {
     });
   });
 
-  describe('Bottle Operations', () => {
+  describe('Inventory Operations', () => {
     let userId: number;
-    const insertBottle = (overrides: {
+    const insertItem = (overrides: {
       name?: string;
-      liquorType?: string;
+      category?: string;
+      type?: string;
       classification?: string;
       notes?: string | null;
     } = {}) => {
       const stmt = db.prepare(`
-        INSERT INTO bottles (user_id, name, "Liquor Type", "Detailed Spirit Classification", "Additional Notes")
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO inventory_items (user_id, name, category, type, "Detailed Spirit Classification", "Additional Notes")
+        VALUES (?, ?, ?, ?, ?, ?)
       `);
 
       return stmt.run(
         userId,
-        overrides.name ?? 'Test Bottle',
-        overrides.liquorType ?? 'Spirits',
-        overrides.classification ?? 'Gin',
+        overrides.name ?? 'Test Item',
+        overrides.category ?? 'spirit',
+        overrides.type ?? 'Gin',
+        overrides.classification ?? 'London Dry Gin',
         overrides.notes ?? null
       );
     };
@@ -168,52 +172,52 @@ describe('Database Operations', () => {
       userId = Number(result.lastInsertRowid);
     });
 
-    it('should insert a bottle', () => {
-      const result = insertBottle();
+    it('should insert an inventory item', () => {
+      const result = insertItem();
 
       expect(result.changes).toBe(1);
       expect(result.lastInsertRowid).toBeGreaterThan(0);
     });
 
-    it('should retrieve bottles for a user', () => {
-      insertBottle({ name: 'Bottle 1', classification: 'Vodka' });
-      insertBottle({ name: 'Bottle 2', classification: 'Gin' });
+    it('should retrieve inventory items for a user', () => {
+      insertItem({ name: 'Item 1', type: 'Vodka' });
+      insertItem({ name: 'Item 2', type: 'Gin' });
 
-      const bottles = db.prepare('SELECT * FROM bottles WHERE user_id = ?').all(userId);
+      const items = db.prepare('SELECT * FROM inventory_items WHERE user_id = ?').all(userId);
 
-      expect(bottles).toHaveLength(2);
+      expect(items).toHaveLength(2);
     });
 
-    it('should cascade delete bottles when user is deleted', () => {
+    it('should cascade delete inventory items when user is deleted', () => {
       db.pragma('foreign_keys = ON');
 
-      insertBottle();
+      insertItem();
 
       db.prepare('DELETE FROM users WHERE id = ?').run(userId);
 
-      const bottles = db.prepare('SELECT * FROM bottles WHERE user_id = ?').all(userId);
-      expect(bottles).toHaveLength(0);
+      const items = db.prepare('SELECT * FROM inventory_items WHERE user_id = ?').all(userId);
+      expect(items).toHaveLength(0);
     });
 
-    it('should update bottle metadata fields', () => {
-      const result = insertBottle();
-      const bottleId = Number(result.lastInsertRowid);
+    it('should update inventory item metadata fields', () => {
+      const result = insertItem();
+      const itemId = Number(result.lastInsertRowid);
 
-      db.prepare('UPDATE bottles SET "Stock Number" = ? WHERE id = ?').run(500, bottleId);
+      db.prepare('UPDATE inventory_items SET "Stock Number" = ? WHERE id = ?').run(500, itemId);
 
-      const bottle = db.prepare('SELECT "Stock Number" as stock FROM bottles WHERE id = ?').get(bottleId) as any;
-      expect(bottle.stock).toBe(500);
+      const item = db.prepare('SELECT "Stock Number" as stock FROM inventory_items WHERE id = ?').get(itemId) as any;
+      expect(item.stock).toBe(500);
     });
 
     it('should allow optional classification fields to remain null', () => {
       const result = db.prepare(`
-        INSERT INTO bottles (user_id, name)
-        VALUES (?, ?)
-      `).run(userId, 'Minimal Bottle');
+        INSERT INTO inventory_items (user_id, name, category)
+        VALUES (?, ?, ?)
+      `).run(userId, 'Minimal Item', 'other');
 
-      const bottle = db.prepare('SELECT "Detailed Spirit Classification" as detail FROM bottles WHERE id = ?')
+      const item = db.prepare('SELECT "Detailed Spirit Classification" as detail FROM inventory_items WHERE id = ?')
         .get(result.lastInsertRowid) as any;
-      expect(bottle.detail).toBeNull();
+      expect(item.detail).toBeNull();
     });
   });
 
@@ -370,11 +374,18 @@ describe('Database Operations', () => {
   });
 
   describe('Indices', () => {
-    it('should have index on bottles user_id', () => {
-      const indices = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='bottles'").all();
+    it('should have index on inventory_items user_id', () => {
+      const indices = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='inventory_items'").all();
       const indexNames = indices.map((idx: any) => idx.name);
 
-      expect(indexNames).toContain('idx_bottles_user_id');
+      expect(indexNames).toContain('idx_inventory_items_user_id');
+    });
+
+    it('should have index on inventory_items category', () => {
+      const indices = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='inventory_items'").all();
+      const indexNames = indices.map((idx: any) => idx.name);
+
+      expect(indexNames).toContain('idx_inventory_items_category');
     });
 
     it('should have index on recipes user_id', () => {
@@ -408,20 +419,20 @@ describe('Database Operations', () => {
       ).run('test@example.com', 'hashed_password');
       userId = Number(result.lastInsertRowid);
 
-      // Insert multiple bottles for performance testing
+      // Insert multiple inventory items for performance testing
       const stmt = db.prepare(
-        'INSERT INTO bottles (user_id, name, "Liquor Type", "Detailed Spirit Classification") VALUES (?, ?, ?, ?)'
+        'INSERT INTO inventory_items (user_id, name, category, type, "Detailed Spirit Classification") VALUES (?, ?, ?, ?, ?)'
       );
 
       for (let i = 0; i < 100; i++) {
-        stmt.run(userId, `Bottle ${i}`, 'Spirits', 'Vodka');
+        stmt.run(userId, `Item ${i}`, 'spirit', 'Vodka', 'Premium Vodka');
       }
     });
 
-    it('should efficiently query bottles by user_id', () => {
+    it('should efficiently query inventory items by user_id', () => {
       const startTime = Date.now();
 
-      db.prepare('SELECT * FROM bottles WHERE user_id = ?').all(userId);
+      db.prepare('SELECT * FROM inventory_items WHERE user_id = ?').all(userId);
 
       const endTime = Date.now();
       const duration = endTime - startTime;
@@ -430,8 +441,8 @@ describe('Database Operations', () => {
       expect(duration).toBeLessThan(10);
     });
 
-    it('should efficiently count bottles for a user', () => {
-      const result = db.prepare('SELECT COUNT(*) as count FROM bottles WHERE user_id = ?').get(userId) as any;
+    it('should efficiently count inventory items for a user', () => {
+      const result = db.prepare('SELECT COUNT(*) as count FROM inventory_items WHERE user_id = ?').get(userId) as any;
 
       expect(result.count).toBe(100);
     });

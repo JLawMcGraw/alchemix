@@ -4,13 +4,14 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
-import { Button, useToast } from '@/components/ui';
+import { Button, useToast, Spinner } from '@/components/ui';
 import { Card } from '@/components/ui/Card';
-import { BookOpen, Upload, Star, Martini, ChevronLeft, ChevronRight, Trash2, FolderOpen, Plus, Edit, Trash, CheckSquare, Square } from 'lucide-react';
+import { BookOpen, Upload, Star, Martini, ChevronLeft, ChevronRight, Trash2, FolderOpen, Plus, Edit, Trash, CheckSquare, Square, ShoppingCart, CheckCircle, AlertCircle, Wine } from 'lucide-react';
 import { CSVUploadModal, RecipeDetailModal, DeleteConfirmModal, CollectionModal } from '@/components/modals';
 import { recipeApi } from '@/lib/api';
 import type { Recipe, Collection } from '@/types';
 import styles from './recipes.module.css';
+import shoppingStyles from '../shopping-list/shopping-list.module.css';
 
 export default function RecipesPage() {
   const router = useRouter();
@@ -29,6 +30,13 @@ export default function RecipesPage() {
     deleteCollection,
     updateRecipe,
     bulkDeleteRecipes,
+    shoppingListStats,
+    craftableRecipes,
+    nearMissRecipes,
+    isLoadingShoppingList,
+    fetchShoppingList,
+    inventoryItems,
+    fetchItems,
   } = useStore();
   const { showToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
@@ -73,8 +81,10 @@ export default function RecipesPage() {
       loadRecipes(1);
       fetchFavorites().catch(console.error);
       fetchCollections().catch(console.error);
+      fetchShoppingList().catch(console.error);
+      fetchItems().catch(console.error);
     }
-  }, [isAuthenticated, isValidating, fetchFavorites, fetchCollections]);
+  }, [isAuthenticated, isValidating, fetchFavorites, fetchCollections, fetchShoppingList, fetchItems]);
 
   if (isValidating || !isAuthenticated) {
     return null;
@@ -362,6 +372,56 @@ export default function RecipesPage() {
             )}
           </div>
         </div>
+
+        {/* Loading State for Shopping List Stats */}
+        {isLoadingShoppingList && (
+          <div className={shoppingStyles.loadingContainer}>
+            <Spinner />
+            <p className={shoppingStyles.loadingText}>Loading statistics...</p>
+          </div>
+        )}
+
+        {/* Statistics Cards */}
+        {!isLoadingShoppingList && shoppingListStats && (
+          <div className={shoppingStyles.statsGrid}>
+            <Card
+              padding="md"
+              hover
+              className={shoppingStyles.statCard}
+            >
+              <div className={shoppingStyles.statLabel}>Total Recipes</div>
+              <div className={shoppingStyles.statValue}>{shoppingListStats.totalRecipes}</div>
+              <div className={shoppingStyles.statHint}>In your collection</div>
+            </Card>
+            <Card
+              padding="md"
+              hover
+              className={shoppingStyles.statCard}
+            >
+              <div className={shoppingStyles.statLabel}>Already Craftable</div>
+              <div className={shoppingStyles.statValue}>{shoppingListStats.craftable}</div>
+              <div className={shoppingStyles.statHint}>You can make now</div>
+            </Card>
+            <Card
+              padding="md"
+              hover
+              className={shoppingStyles.statCard}
+            >
+              <div className={shoppingStyles.statLabel}>Near Misses</div>
+              <div className={shoppingStyles.statValue}>{shoppingListStats.nearMisses}</div>
+              <div className={shoppingStyles.statHint}>Missing 1 ingredient</div>
+            </Card>
+            <Card
+              padding="md"
+              hover
+              className={shoppingStyles.statCard}
+            >
+              <div className={shoppingStyles.statLabel}>Inventory Items</div>
+              <div className={shoppingStyles.statValue}>{shoppingListStats.inventoryItems}</div>
+              <div className={shoppingStyles.statHint}>In your bar</div>
+            </Card>
+          </div>
+        )}
 
         {/* Show Collections List when not viewing a specific collection */}
         {!activeCollection && (

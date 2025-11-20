@@ -199,7 +199,7 @@ router.get('/', (req: Request, res: Response) => {
      * - Result is small (single integer)
      */
     const countResult = db.prepare(
-      'SELECT COUNT(*) as total FROM bottles WHERE user_id = ?'
+      'SELECT COUNT(*) as total FROM inventory_items WHERE user_id = ?'
     ).get(userId) as { total: number };
 
     const total = countResult.total;
@@ -219,7 +219,7 @@ router.get('/', (req: Request, res: Response) => {
      * ORDER BY created_at DESC LIMIT 50 OFFSET 0
      */
     const bottles = db.prepare(`
-      SELECT * FROM bottles
+      SELECT * FROM inventory_items
       WHERE user_id = ?
       ORDER BY created_at DESC
       LIMIT ? OFFSET ?
@@ -293,7 +293,8 @@ router.get('/', (req: Request, res: Response) => {
  *   "Additional Notes": "...",                 // Optional (max 2000 chars)
  *   "Profile (Nose)": "...",                   // Optional (max 500 chars)
  *   "Palate": "...",                           // Optional (max 500 chars)
- *   "Finish": "..."                            // Optional (max 500 chars)
+ *   "Finish": "...",                           // Optional (max 500 chars)
+ *   "tasting_notes": "..."                     // Optional (user's personal notes)
  * }
  *
  * Response (201 Created):
@@ -373,27 +374,29 @@ router.post('/', (req: Request, res: Response) => {
      * - created_at: Current timestamp (DEFAULT)
      */
     const result = db.prepare(`
-      INSERT INTO bottles (
-        user_id, name, "Stock Number", "Liquor Type",
-        "Detailed Spirit Classification", "Distillation Method",
-        "ABV (%)", "Distillery Location",
+      INSERT INTO inventory_items (
+        user_id, name, category, type, abv,
+        "Stock Number", "Detailed Spirit Classification",
+        "Distillation Method", "Distillery Location",
         "Age Statement or Barrel Finish", "Additional Notes",
-        "Profile (Nose)", "Palate", "Finish"
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        "Profile (Nose)", "Palate", "Finish", tasting_notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       userId,
       bottle.name,
+      bottle.category || 'other',
+      bottle.type || null,
+      bottle.abv || null,
       bottle['Stock Number'] || null,
-      bottle['Liquor Type'] || null,
       bottle['Detailed Spirit Classification'] || null,
       bottle['Distillation Method'] || null,
-      bottle['ABV (%)'] || null,
       bottle['Distillery Location'] || null,
       bottle['Age Statement or Barrel Finish'] || null,
       bottle['Additional Notes'] || null,
       bottle['Profile (Nose)'] || null,
       bottle['Palate'] || null,
-      bottle['Finish'] || null
+      bottle['Finish'] || null,
+      bottle.tasting_notes || null
     );
 
     const bottleId = result.lastInsertRowid as number;
@@ -405,7 +408,7 @@ router.post('/', (req: Request, res: Response) => {
      * This includes database-generated fields (id, created_at).
      */
     const createdBottle = db.prepare(
-      'SELECT * FROM bottles WHERE id = ?'
+      'SELECT * FROM inventory_items WHERE id = ?'
     ).get(bottleId) as Bottle;
 
     /**
@@ -512,7 +515,7 @@ router.put('/:id', (req: Request, res: Response) => {
      * - Prevents leaking information about other users' inventories
      */
     const existingBottle = db.prepare(
-      'SELECT id FROM bottles WHERE id = ? AND user_id = ?'
+      'SELECT id FROM inventory_items WHERE id = ? AND user_id = ?'
     ).get(bottleId, userId);
 
     if (!existingBottle) {
@@ -550,33 +553,37 @@ router.put('/:id', (req: Request, res: Response) => {
      * Consider adding in Phase 3 for audit trails.
      */
     db.prepare(`
-      UPDATE bottles SET
+      UPDATE inventory_items SET
         name = ?,
+        category = ?,
+        type = ?,
+        abv = ?,
         "Stock Number" = ?,
-        "Liquor Type" = ?,
         "Detailed Spirit Classification" = ?,
         "Distillation Method" = ?,
-        "ABV (%)" = ?,
         "Distillery Location" = ?,
         "Age Statement or Barrel Finish" = ?,
         "Additional Notes" = ?,
         "Profile (Nose)" = ?,
         "Palate" = ?,
-        "Finish" = ?
+        "Finish" = ?,
+        tasting_notes = ?
       WHERE id = ? AND user_id = ?
     `).run(
       bottle.name,
+      bottle.category || 'other',
+      bottle.type || null,
+      bottle.abv || null,
       bottle['Stock Number'] || null,
-      bottle['Liquor Type'] || null,
       bottle['Detailed Spirit Classification'] || null,
       bottle['Distillation Method'] || null,
-      bottle['ABV (%)'] || null,
       bottle['Distillery Location'] || null,
       bottle['Age Statement or Barrel Finish'] || null,
       bottle['Additional Notes'] || null,
       bottle['Profile (Nose)'] || null,
       bottle['Palate'] || null,
       bottle['Finish'] || null,
+      bottle.tasting_notes || null,
       bottleId,
       userId
     );
@@ -587,7 +594,7 @@ router.put('/:id', (req: Request, res: Response) => {
      * Fetch the complete updated record to return in response.
      */
     const updatedBottle = db.prepare(
-      'SELECT * FROM bottles WHERE id = ?'
+      'SELECT * FROM inventory_items WHERE id = ?'
     ).get(bottleId) as Bottle;
 
     /**
@@ -677,7 +684,7 @@ router.delete('/:id', (req: Request, res: Response) => {
      * Prevents deleting other users' bottles.
      */
     const existingBottle = db.prepare(
-      'SELECT id FROM bottles WHERE id = ? AND user_id = ?'
+      'SELECT id FROM inventory_items WHERE id = ? AND user_id = ?'
     ).get(bottleId, userId);
 
     if (!existingBottle) {
@@ -701,7 +708,7 @@ router.delete('/:id', (req: Request, res: Response) => {
      * - UPDATE bottles SET deleted_at = CURRENT_TIMESTAMP
      * - WHERE deleted_at IS NULL in all queries
      */
-    db.prepare('DELETE FROM bottles WHERE id = ? AND user_id = ?')
+    db.prepare('DELETE FROM inventory_items WHERE id = ? AND user_id = ?')
       .run(bottleId, userId);
 
     /**
@@ -780,17 +787,19 @@ function validateBottleData(record: any): { isValid: boolean; errors: string[]; 
   // Sanitize the data - be very flexible with column names
   const sanitized = {
     name: safeString(nameField),
+    category: safeString(findField(record, ['category', 'Category', 'CATEGORY'])) || 'other',
+    type: safeString(findField(record, ['type', 'Type', 'Liquor Type', 'liquor type'])),
+    abv: safeString(findField(record, ['abv', 'ABV', 'ABV (%)', 'Alcohol', 'alcohol', 'Proof', 'proof', 'Alcohol Content'])),
     'Stock Number': safeNumber(findField(record, ['Stock Number', 'stock number', 'Stock', 'stock', 'Number', '#'])),
-    'Liquor Type': safeString(findField(record, ['Liquor Type', 'liquor type', 'Type', 'type', 'Category', 'category'])),
     'Detailed Spirit Classification': safeString(findField(record, ['Detailed Spirit Classification', 'Classification', 'classification', 'Spirit Type', 'spirit type'])),
     'Distillation Method': safeString(findField(record, ['Distillation Method', 'distillation method', 'Method', 'method'])),
-    'ABV (%)': safeString(findField(record, ['ABV (%)', 'ABV', 'abv', 'Alcohol', 'alcohol', 'Proof', 'proof', 'Alcohol Content'])),
     'Distillery Location': safeString(findField(record, ['Distillery Location', 'distillery location', 'Location', 'location', 'Origin', 'origin', 'Country', 'country'])),
-    'Age Statement or Barrel Finish': safeString(findField(record, ['Age Statement or Barrel Finish', 'Age Statement', 'age statement', 'Age', 'age', 'Barrel Finish', 'barrel finish', 'Finish', 'finish'])),
+    'Age Statement or Barrel Finish': safeString(findField(record, ['Age Statement or Barrel Finish', 'Age Statement', 'age statement', 'Age', 'age', 'Barrel Finish', 'barrel finish'])),
     'Additional Notes': safeString(findField(record, ['Additional Notes', 'additional notes', 'Notes', 'notes', 'Description', 'description', 'Comments', 'comments'])),
     'Profile (Nose)': safeString(findField(record, ['Profile (Nose)', 'Nose', 'nose', 'Aroma', 'aroma', 'Smell', 'smell'])),
     'Palate': safeString(findField(record, ['Palate', 'palate', 'Taste', 'taste', 'Flavor', 'flavor'])),
     'Finish': safeString(findField(record, ['Finish', 'finish', 'Aftertaste', 'aftertaste'])),
+    tasting_notes: safeString(findField(record, ['tasting_notes', 'Tasting Notes', 'tasting notes', 'tastingnotes', 'TastingNotes'])),
   };
 
   return { isValid: true, errors: [], sanitized };
@@ -897,27 +906,29 @@ router.post('/import', upload.single('file'), async (req: Request, res: Response
 
         // Insert into database
         db.prepare(`
-          INSERT INTO bottles (
-            user_id, name, "Stock Number", "Liquor Type",
-            "Detailed Spirit Classification", "Distillation Method",
-            "ABV (%)", "Distillery Location",
+          INSERT INTO inventory_items (
+            user_id, name, category, type, abv,
+            "Stock Number", "Detailed Spirit Classification",
+            "Distillation Method", "Distillery Location",
             "Age Statement or Barrel Finish", "Additional Notes",
-            "Profile (Nose)", "Palate", "Finish"
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            "Profile (Nose)", "Palate", "Finish", tasting_notes
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           userId,
           bottle.name,
+          bottle.category || 'other',
+          bottle.type || null,
+          bottle.abv || null,
           bottle['Stock Number'] || null,
-          bottle['Liquor Type'] || null,
           bottle['Detailed Spirit Classification'] || null,
           bottle['Distillation Method'] || null,
-          bottle['ABV (%)'] || null,
           bottle['Distillery Location'] || null,
           bottle['Age Statement or Barrel Finish'] || null,
           bottle['Additional Notes'] || null,
           bottle['Profile (Nose)'] || null,
           bottle['Palate'] || null,
-          bottle['Finish'] || null
+          bottle['Finish'] || null,
+          bottle.tasting_notes || null
         );
 
         imported++;

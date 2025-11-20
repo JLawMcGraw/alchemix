@@ -218,6 +218,10 @@ function isCraftable(ingredients: string[], bottles: BottleData[]): boolean {
 
   return ingredients.every(ingredient => {
     const ingredientName = parseIngredientName(ingredient);
+    // Skip empty ingredient names (parsing failures or bad data)
+    if (!ingredientName || ingredientName.trim() === '') {
+      return true; // Don't let empty ingredients block craftability
+    }
     return hasIngredient(bottles, ingredientName);
   });
 }
@@ -240,7 +244,11 @@ function findMissingIngredients(ingredients: string[], bottles: BottleData[]): s
 
   for (const ingredient of ingredients) {
     const ingredientName = parseIngredientName(ingredient);
-    if (ingredientName && !hasIngredient(bottles, ingredientName)) {
+    // Skip empty ingredient names (parsing failures or bad data)
+    if (!ingredientName || ingredientName.trim() === '') {
+      continue;
+    }
+    if (!hasIngredient(bottles, ingredientName)) {
       missing.push(ingredientName);
     }
   }
@@ -317,16 +325,16 @@ router.get('/smart', (req: Request, res: Response) => {
      *
      * Example:
      * - name: "Maker's Mark"
-     * - "Liquor Type": "Whiskey"
+     * - type: "Whiskey"
      * - "Detailed Spirit Classification": "Bourbon"
      * → Matches ingredient "bourbon" via classification field
      */
     const bottlesRaw = db.prepare(`
       SELECT
         name,
-        "Liquor Type" as liquorType,
+        type as liquorType,
         "Detailed Spirit Classification" as detailedClassification
-      FROM bottles
+      FROM inventory_items
       WHERE user_id = ?
     `).all(userId) as Array<{
       name: string;

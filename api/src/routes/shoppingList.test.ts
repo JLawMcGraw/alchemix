@@ -105,8 +105,8 @@ describe('Shopping List Routes Integration Tests', () => {
     it('should identify a simple near miss (1 ingredient unlocks 1 recipe)', async () => {
       // Add bourbon and sugar to inventory
       testDb.prepare(`
-        INSERT INTO bottles (user_id, name)
-        VALUES (?, ?), (?, ?)
+        INSERT INTO inventory_items (user_id, name, category)
+        VALUES (?, ?, 'spirit'), (?, ?, 'other')
       `).run(userId, 'Buffalo Trace Bourbon', userId, 'Sugar Cubes');
 
       // Add Old Fashioned recipe (needs bourbon + bitters)
@@ -145,8 +145,8 @@ describe('Shopping List Routes Integration Tests', () => {
     it('should count multiple recipes unlocked by the same ingredient', async () => {
       // Add rum, lime juice, and mint leaves to inventory
       testDb.prepare(`
-        INSERT INTO bottles (user_id, name)
-        VALUES (?, ?), (?, ?), (?, ?)
+        INSERT INTO inventory_items (user_id, name, category)
+        VALUES (?, ?, 'spirit'), (?, ?, 'mixer'), (?, ?, 'garnish')
       `).run(userId, 'Havana Club Rum', userId, 'Fresh Lime Juice', userId, 'Mint Leaves');
 
       // Add three recipes that all need simple syrup
@@ -186,8 +186,8 @@ describe('Shopping List Routes Integration Tests', () => {
     it('should sort recommendations by unlock count (descending)', async () => {
       // Add vodka to inventory
       testDb.prepare(`
-        INSERT INTO bottles (user_id, name)
-        VALUES (?, ?)
+        INSERT INTO inventory_items (user_id, name, category)
+        VALUES (?, ?, 'spirit')
       `).run(userId, 'Grey Goose Vodka');
 
       // Add recipes:
@@ -233,8 +233,8 @@ describe('Shopping List Routes Integration Tests', () => {
     it('should exclude already craftable recipes from recommendations', async () => {
       // Add bourbon, bitters, and lemon juice to inventory
       testDb.prepare(`
-        INSERT INTO bottles (user_id, name)
-        VALUES (?, ?), (?, ?), (?, ?)
+        INSERT INTO inventory_items (user_id, name, category)
+        VALUES (?, ?, 'spirit'), (?, ?, 'spirit'), (?, ?, 'mixer')
       `).run(userId, 'Bourbon', userId, 'Angostura Bitters', userId, 'Fresh Lemon Juice');
 
       // Add two recipes:
@@ -264,8 +264,8 @@ describe('Shopping List Routes Integration Tests', () => {
     it('should exclude recipes missing 2+ ingredients', async () => {
       // Add only bourbon to inventory
       testDb.prepare(`
-        INSERT INTO bottles (user_id, name)
-        VALUES (?, ?)
+        INSERT INTO inventory_items (user_id, name, category)
+        VALUES (?, ?, 'spirit')
       `).run(userId, 'Bourbon');
 
       // Add recipe that needs 3 ingredients but user only has 1 (missing 2)
@@ -291,8 +291,8 @@ describe('Shopping List Routes Integration Tests', () => {
     it('should handle recipes with empty or malformed ingredients', async () => {
       // Add vodka to inventory
       testDb.prepare(`
-        INSERT INTO bottles (user_id, name)
-        VALUES (?, ?)
+        INSERT INTO inventory_items (user_id, name, category)
+        VALUES (?, ?, 'spirit')
       `).run(userId, 'Vodka');
 
       // Add recipes with edge cases
@@ -324,8 +324,8 @@ describe('Shopping List Routes Integration Tests', () => {
     it('should perform case-insensitive ingredient matching', async () => {
       // Add bourbon with mixed case to inventory
       testDb.prepare(`
-        INSERT INTO bottles (user_id, name)
-        VALUES (?, ?)
+        INSERT INTO inventory_items (user_id, name, category)
+        VALUES (?, ?, 'spirit')
       `).run(userId, 'BUFFALO TRACE BOURBON');
 
       // Add recipe with lowercase bourbon reference
@@ -357,8 +357,8 @@ describe('Shopping List Routes Integration Tests', () => {
     it('should handle fuzzy matching for ingredient names', async () => {
       // Add "Angostura Aromatic Bitters" and Bourbon to inventory
       testDb.prepare(`
-        INSERT INTO bottles (user_id, name)
-        VALUES (?, ?), (?, ?)
+        INSERT INTO inventory_items (user_id, name, category)
+        VALUES (?, ?, 'spirit'), (?, ?, 'spirit')
       `).run(userId, 'Angostura Aromatic Bitters', userId, 'Bourbon');
 
       // Add recipe that just says "bitters"
@@ -395,8 +395,8 @@ describe('Shopping List Routes Integration Tests', () => {
     it('should return correct statistics', async () => {
       // Add 2 bottles to inventory
       testDb.prepare(`
-        INSERT INTO bottles (user_id, name)
-        VALUES (?, ?), (?, ?)
+        INSERT INTO inventory_items (user_id, name, category)
+        VALUES (?, ?, 'spirit'), (?, ?, 'spirit')
       `).run(userId, 'Vodka', userId, 'Rum');
 
       // Add 4 recipes:

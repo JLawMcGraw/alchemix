@@ -6,6 +6,9 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { Card } from '@/components/ui/Card';
 import { Spinner, Button } from '@/components/ui';
 import { ShoppingCart, TrendingUp, AlertCircle, ChevronRight, ChevronLeft, CheckCircle, Wine } from 'lucide-react';
+import { RecipeDetailModal } from '@/components/modals/RecipeDetailModal';
+import { ItemDetailModal } from '@/components/modals/ItemDetailModal';
+import type { Recipe, InventoryItem } from '@/types';
 import styles from './shopping-list.module.css';
 
 type ViewMode = 'recommendations' | 'craftable' | 'nearMisses' | 'inventory';
@@ -23,10 +26,18 @@ export default function ShoppingListPage() {
     inventoryItems,
     fetchRecipes,
     fetchItems,
+    favorites,
+    addFavorite,
+    removeFavorite,
+    fetchFavorites,
   } = useStore();
 
   const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState<ViewMode>('recommendations');
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [isItemModalOpen, setIsItemModalOpen] = useState(false);
   const itemsPerPage = 10;
 
   const safeCraftableRecipes = Array.isArray(craftableRecipes) ? craftableRecipes : [];
@@ -37,8 +48,9 @@ export default function ShoppingListPage() {
       fetchShoppingList().catch(console.error);
       fetchRecipes().catch(console.error);
       fetchItems().catch(console.error);
+      fetchFavorites().catch(console.error);
     }
-  }, [isAuthenticated, isValidating, fetchShoppingList, fetchRecipes, fetchItems]);
+  }, [isAuthenticated, isValidating, fetchShoppingList, fetchRecipes, fetchItems, fetchFavorites]);
 
   if (isValidating || !isAuthenticated) {
     return null;
@@ -67,6 +79,82 @@ export default function ShoppingListPage() {
   const handleStatClick = (mode: ViewMode) => {
     setViewMode(mode);
     setCurrentPage(1);
+  };
+
+  const handleRecipeClick = (recipe: any) => {
+    setSelectedRecipe(recipe);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedRecipe(null);
+  };
+
+  const safeFavorites = Array.isArray(favorites) ? favorites : [];
+  const safeInventoryItems = Array.isArray(inventoryItems) ? inventoryItems : [];
+
+  const handleToggleFavorite = async () => {
+    if (!selectedRecipe) return;
+    const recipeId = selectedRecipe.id;
+    const existingFavorite = recipeId
+      ? safeFavorites.find((fav) => fav.recipe_id === recipeId)
+      : safeFavorites.find(
+          (fav) => fav.recipe_name?.toLowerCase() === selectedRecipe.name.toLowerCase()
+        );
+
+    try {
+      if (existingFavorite?.id) {
+        await removeFavorite(existingFavorite.id);
+      } else {
+        await addFavorite(selectedRecipe.name, recipeId);
+      }
+      await fetchFavorites();
+    } catch (error) {
+      console.error('Failed to toggle favorite:', error);
+    }
+  };
+
+  const isRecipeFavorited = (recipeId?: number, recipeName?: string) => {
+    if (!safeFavorites.length) return false;
+    if (recipeId) {
+      return safeFavorites.some((fav) => fav.recipe_id === recipeId);
+    }
+    if (recipeName) {
+      return safeFavorites.some(
+        (fav) => fav.recipe_name?.toLowerCase() === recipeName.toLowerCase()
+      );
+    }
+    return false;
+  };
+
+  const parseIngredients = (ingredients: string | string[] | undefined): string[] => {
+    if (!ingredients) return [];
+    if (Array.isArray(ingredients)) {
+      return ingredients.filter((ingredient) => typeof ingredient === 'string');
+    }
+    try {
+      const parsed = JSON.parse(ingredients);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((ingredient) => typeof ingredient === 'string');
+      }
+    } catch {
+      // Fallback below
+    }
+    return ingredients
+      .split(',')
+      .map((ingredient) => ingredient.trim())
+      .filter(Boolean);
+  };
+
+  const handleItemClick = (item: InventoryItem) => {
+    setSelectedItem(item);
+    setIsItemModalOpen(true);
+  };
+
+  const handleCloseItemModal = () => {
+    setIsItemModalOpen(false);
+    setSelectedItem(null);
   };
 
   return (
@@ -270,6 +358,7 @@ export default function ShoppingListPage() {
                         padding="md"
                         hover
                         className={styles.suggestionCard}
+                        onClick={() => handleRecipeClick(recipe)}
                       >
                         <CheckCircle
                           size={24}
@@ -279,11 +368,7 @@ export default function ShoppingListPage() {
                         <div className={styles.suggestionContent}>
                           <h3 className={styles.ingredientName}>{recipe.name}</h3>
                           <div style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', marginTop: 'var(--space-1)' }}>
-                            {Array.isArray(recipe.ingredients)
-                              ? recipe.ingredients.join(', ')
-                              : typeof recipe.ingredients === 'string'
-                              ? JSON.parse(recipe.ingredients).join(', ')
-                              : ''}
+                            {parseIngredients(recipe.ingredients).join(', ')}
                           </div>
                         </div>
                       </Card>
@@ -317,6 +402,7 @@ export default function ShoppingListPage() {
                         padding="md"
                         hover
                         className={styles.suggestionCard}
+                        onClick={() => handleRecipeClick(recipe)}
                       >
                         <AlertCircle
                           size={24}
@@ -325,11 +411,7 @@ export default function ShoppingListPage() {
                         <div className={styles.suggestionContent}>
                           <h3 className={styles.ingredientName}>{recipe.name}</h3>
                           <div style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', marginTop: 'var(--space-1)' }}>
-                            {Array.isArray(recipe.ingredients)
-                              ? recipe.ingredients.join(', ')
-                              : typeof recipe.ingredients === 'string'
-                              ? JSON.parse(recipe.ingredients).join(', ')
-                              : ''}
+                            {parseIngredients(recipe.ingredients).join(', ')}
                           </div>
                           <div style={{
                             fontSize: 'var(--text-sm)',
@@ -365,22 +447,23 @@ export default function ShoppingListPage() {
             )}
 
             {/* Inventory View */}
-            {viewMode === 'inventory' && inventoryItems && (
+            {viewMode === 'inventory' && safeInventoryItems.length > 0 && (
               <div className={styles.recommendations}>
                 <h2 className={styles.sectionTitle}>
                   <Wine size={24} />
-                  Your Bar Inventory ({inventoryItems.length} items)
+                  Your Bar Inventory ({safeInventoryItems.length} items)
                 </h2>
                 <p className={styles.sectionSubtitle}>
                   All items and ingredients in your collection
                 </p>
                 <div className={styles.inventoryList}>
-                  {inventoryItems.map((item, index) => (
+                  {safeInventoryItems.map((item, index) => (
                     <Card
                       key={item.id || index}
                       padding="md"
                       hover
                       className={styles.inventoryCard}
+                      onClick={() => handleItemClick(item)}
                     >
                       <div className={styles.inventoryContent}>
                         <h3 className={styles.bottleName}>{item.name}</h3>
@@ -413,6 +496,26 @@ export default function ShoppingListPage() {
           </Card>
         )}
       </div>
+
+      {/* Recipe Detail Modal */}
+      <RecipeDetailModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        recipe={selectedRecipe}
+        isFavorited={
+          selectedRecipe
+            ? isRecipeFavorited(selectedRecipe.id, selectedRecipe.name)
+            : false
+        }
+        onToggleFavorite={handleToggleFavorite}
+      />
+
+      {/* Item Detail Modal */}
+      <ItemDetailModal
+        isOpen={isItemModalOpen}
+        onClose={handleCloseItemModal}
+        item={selectedItem}
+      />
     </div>
   );
 }

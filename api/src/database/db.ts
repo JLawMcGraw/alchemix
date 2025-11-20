@@ -612,6 +612,25 @@ export function initializeDatabase() {
     }
   }
 
+  /**
+   * Schema Migration: Add tasting_notes to inventory_items
+   *
+   * Adds a tasting_notes column for users to provide detailed tasting notes
+   * for their spirits and ingredients. This enriches the AI's ability to make
+   * nuanced cocktail recommendations.
+   *
+   * Safe to run multiple times (will fail silently if column exists).
+   */
+  try {
+    db.exec(`ALTER TABLE inventory_items ADD COLUMN tasting_notes TEXT`);
+    console.log('✅ Added tasting_notes column to inventory_items table');
+  } catch (error: any) {
+    // Column already exists, ignore error
+    if (!error.message?.includes('duplicate column name')) {
+      console.error('Migration warning:', error.message);
+    }
+  }
+
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_inventory_items_user_id ON inventory_items(user_id);
     CREATE INDEX IF NOT EXISTS idx_inventory_items_category ON inventory_items(category);

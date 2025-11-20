@@ -113,14 +113,19 @@ const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const RETENTION_PERIOD_MS = 60 * 60 * 1000; // 1 hour
 
 function buildScopeIdentifier(req: Request): string {
-  const base = req.baseUrl || '';
-  const routePath =
-    typeof req.route?.path === 'string'
-      ? req.route.path
-      : '';
+  const basePath = req.baseUrl || '';
+  const routePath = typeof req.route?.path === 'string' ? req.route.path : '';
+
+  if (routePath) {
+    return `${req.method}:${basePath}${routePath}`;
+  }
+
+  if (basePath) {
+    return `${req.method}:${basePath}`;
+  }
+
   const fallback = req.originalUrl?.split('?')[0] || 'global';
-  const scopePath = `${base}${routePath}` || base || routePath || fallback;
-  return `${req.method}:${scopePath || 'global'}`;
+  return `${req.method}:${fallback}`;
 }
 
 function buildBucketKey(

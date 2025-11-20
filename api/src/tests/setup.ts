@@ -56,23 +56,25 @@ export function createTestDatabase(): Database.Database {
     )
   `);
 
-  // Create bottles table (matches production schema)
+  // Create inventory_items table (matches production schema)
   db.exec(`
-    CREATE TABLE IF NOT EXISTS bottles (
+    CREATE TABLE IF NOT EXISTS inventory_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
       name TEXT NOT NULL,
+      category TEXT NOT NULL CHECK(category IN ('spirit', 'liqueur', 'mixer', 'garnish', 'syrup', 'wine', 'beer', 'other')),
+      type TEXT,
+      abv TEXT,
       "Stock Number" INTEGER,
-      "Liquor Type" TEXT,
       "Detailed Spirit Classification" TEXT,
       "Distillation Method" TEXT,
-      "ABV (%)" TEXT,
       "Distillery Location" TEXT,
       "Age Statement or Barrel Finish" TEXT,
       "Additional Notes" TEXT,
       "Profile (Nose)" TEXT,
       "Palate" TEXT,
       "Finish" TEXT,
+      tasting_notes TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
@@ -130,8 +132,11 @@ export function createTestDatabase(): Database.Database {
   `);
 
   // Create indices
-  db.exec('CREATE INDEX IF NOT EXISTS idx_bottles_user_id ON bottles(user_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_inventory_items_user_id ON inventory_items(user_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_inventory_items_category ON inventory_items(category)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_collections_user_id ON collections(user_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_recipes_user_id ON recipes(user_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_recipes_collection_id ON recipes(collection_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites(user_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_favorites_recipe_id ON favorites(recipe_id)');
 

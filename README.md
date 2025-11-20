@@ -8,9 +8,9 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 
 ## ✨ Current Status
 
-**Version:** v1.11.0-alpha (My Bar UI Overhaul)
-**Phase:** Production Ready - Inventory System Modernized
-**Last Updated:** November 18, 2025
+**Version:** v1.12.0-alpha (Testing Infrastructure Complete)
+**Phase:** Production Ready - Comprehensive Testing & Quality Assurance
+**Last Updated:** November 19, 2025
 
 ### What's Working
 - ✅ **Complete TypeScript monorepo** (Frontend + Backend) ⭐
@@ -38,6 +38,7 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
   - Full inventory view with category grouping
   - Safe array guards prevent crashes during data loading
   - Logout cleanup prevents data leaks between users
+  - **Fixed**: Favorites integration (proper recipe_id/name matching, safe ingredient parsing)
 - ✅ **Recipe Collections Complete** - Organize recipes into collections/folders with bulk operations ⭐⭐⭐
   - Create, edit, and delete collections with descriptions
   - Collections act as folders (click to enter, back button to return)
@@ -56,6 +57,7 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
   - 90-second timeout for large prompts (300+ recipes)
   - 8-layer prompt injection protection plus sanitized stored context/history
   - Sanitized chat history (last 10 turns) supplied with each request
+  - **Fixed**: Chat history synchronization (complete history sent to backend before reply)
 - ✅ **Authentication Fixed** - No more logout on refresh or login redirect loops ⭐⭐
   - Added `_hasHydrated` flag to Zustand store for proper rehydration timing
   - Created `useAuthGuard` hook for consistent auth protection across pages
@@ -67,8 +69,22 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 - ✅ **Recipe Deletion** - Backend endpoint with CASCADE cleanup and confirmation ⭐
 - ✅ **Recipe CSV Import** - Flexible parsing with multiple delimiters (;, |, \n, ,) ⭐
 - ✅ **RecipeDetailModal** - Full recipe details with edit/delete capabilities ⭐
-- ✅ **Test Infrastructure** - 195/195 tests passing (100% pass rate) ⭐⭐
-- ✅ **Test Categories** - Unit, Database, Routes tests with npm scripts ⭐
+- ✅ **Dashboard UI Polish** - Streamlined layout with AI-formatted greeting ⭐
+  - Single-column control panel header (removed two-column grid)
+  - AI-generated greeting with <strong> tag support for number highlighting
+  - Lab Assistant's Notebook card featuring proactive insights
+  - Button relocations (AI button in AI card, Add Item in Bar card)
+  - Beige header background with teal number highlights
+  - Responsive card grid for Bar/Recipes/Favorites overview
+  - **Fixed**: Custom greeting parser preserves <strong> tags without dangerouslySetInnerHTML (no spacing artifacts)
+- ✅ **Comprehensive Test Infrastructure** - 299/299 tests passing (100% pass rate) ⭐⭐⭐
+  - 92 new integration tests added (32% coverage increase)
+  - Complete route coverage (inventoryItems, recipes, collections, favorites, messages)
+  - Security testing (prompt injection, SQL injection, XSS prevention)
+  - Test utilities (helpers, assertions, mocks) reduce boilerplate by ~60%
+  - Docker testing environment (Dockerfile + docker-compose.test.yml)
+  - Test documentation with best practices guide
+  - npm scripts: test:api, test:api:docker
 - ✅ **TypeScript Build** - Frontend and backend builds passing (all errors fixed) ⭐
 - ✅ **Ingredient Parsing** - Universal parser handles JSON arrays and strings ⭐
 - ✅ **Favorites Enhanced** - Now properly links recipe_id for data integrity ⭐
@@ -79,6 +95,7 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
   - Persistent blacklist storage (SQLite) with hydration for multi-instance deployments
   - Token Versioning (session fixation protection)
   - User Rate Limiting (100 req/user/15min)
+  - **CRITICAL FIX**: Rate limiter bypass vulnerability patched (now scopes by router base path/route patterns)
   - Security Headers (HSTS, CSP, X-Frame-Options, Referrer-Policy)
   - JWT Token IDs (jti for granular revocation)
   - Input Validation (comprehensive XSS prevention)

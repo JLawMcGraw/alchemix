@@ -22,8 +22,11 @@ export const useStore = create<AppState>()(
       shoppingListStats: null,
       craftableRecipes: [],
       nearMissRecipes: [],
+      dashboardGreeting: 'Ready for your next experiment?',
+      dashboardInsight: '',
       isLoading: false,
       isLoadingShoppingList: false,
+      isDashboardInsightLoading: false,
       error: null,
       _hasHydrated: false,
 
@@ -224,6 +227,35 @@ export const useStore = create<AppState>()(
       fetchRecipes: async (page: number = 1, limit: number = 50) => {
         try {
           set({ isLoading: true, error: null });
+
+          // When requesting the default page, fetch the entire collection to keep UI in sync
+          if (page === 1) {
+            const aggregated: Recipe[] = [];
+            let currentPage = page;
+            let hasMore = true;
+
+            while (hasMore) {
+              const { recipes: pageRecipes, pagination } = await recipeApi.getAll(currentPage, limit);
+              if (Array.isArray(pageRecipes)) {
+                aggregated.push(...pageRecipes);
+              }
+
+              const shouldContinue =
+                Boolean(pagination?.hasNextPage) &&
+                Boolean(pageRecipes?.length);
+
+              if (shouldContinue) {
+                currentPage += 1;
+              } else {
+                hasMore = false;
+              }
+            }
+
+            set({ recipes: aggregated, isLoading: false });
+            return aggregated;
+          }
+
+          // Fallback: fetch a single requested page
           const { recipes } = await recipeApi.getAll(page, limit);
           set({ recipes, isLoading: false });
           return recipes;
@@ -422,6 +454,22 @@ export const useStore = create<AppState>()(
         }
       },
 
+      fetchDashboardInsight: async () => {
+        try {
+          set({ isDashboardInsightLoading: true });
+          const response = await aiApi.getDashboardInsight();
+          set({
+            dashboardGreeting: response.greeting,
+            dashboardInsight: response.insight,
+            isDashboardInsightLoading: false,
+          });
+        } catch (error: any) {
+          console.error('Failed to fetch dashboard insight:', error);
+          // Keep default greeting on error
+          set({ isDashboardInsightLoading: false });
+        }
+      },
+
       // AI Chat Actions
       sendMessage: async (message) => {
         try {
@@ -434,16 +482,15 @@ export const useStore = create<AppState>()(
             content: message,
             timestamp: new Date().toISOString()
           };
-          set((state) => ({
-            chatHistory: [...state.chatHistory, userMessage],
-          }));
+          const historyWithUser = [...get().chatHistory, userMessage];
+          set({ chatHistory: historyWithUser });
           console.log('📝 [Store] User message added to history');
 
           // Get AI response (backend builds the system prompt from database)
           console.log('🌐 [Store] Calling API...');
           const response = await aiApi.sendMessage(
             message,
-            get().chatHistory,
+            historyWithUser,
           );
           console.log('✅ [Store] AI response received:', response?.substring(0, 50) + '...');
 

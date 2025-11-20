@@ -34,6 +34,7 @@ export interface InventoryItem {
   'Profile (Nose)'?: string;
   'Palate'?: string;
   'Finish'?: string;
+  tasting_notes?: string;  // User's personal tasting notes for enriched AI recommendations
   created_at?: string;
 }
 

@@ -49,6 +49,7 @@ export interface InventoryItem {
   'Profile (Nose)'?: string;
   'Palate'?: string;
   'Finish'?: string;
+  tasting_notes?: string;  // User's personal tasting notes for enriched AI recommendations
   created_at?: string;
 }
 
@@ -162,10 +163,13 @@ export interface AppState {
   shoppingListStats: ShoppingListStats | null;
   craftableRecipes: CraftableRecipe[];
   nearMissRecipes: NearMissRecipe[];
+  dashboardGreeting: string;
+  dashboardInsight: string;
 
   // UI State
   isLoading: boolean;
   isLoadingShoppingList: boolean;
+  isDashboardInsightLoading: boolean;
   error: string | null;
   _hasHydrated: boolean;
 
@@ -197,6 +201,7 @@ export interface AppState {
   removeFavorite: (id: number) => Promise<void>;
 
   fetchShoppingList: () => Promise<void>;
+  fetchDashboardInsight: () => Promise<void>;
 
   sendMessage: (message: string) => Promise<string>;
   clearChat: () => void;

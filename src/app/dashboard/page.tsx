@@ -12,10 +12,74 @@ import { Sparkles, Wine, Upload, BookOpen, Star } from 'lucide-react';
 import { inventoryApi, recipeApi } from '@/lib/api';
 import styles from './dashboard.module.css';
 
+const renderGreetingContent = (greeting: string): React.ReactNode => {
+  if (!greeting) {
+    return 'Ready for your next experiment?';
+  }
+
+  const tokens = greeting.split(/(<\/?strong>)/gi);
+  let isStrong = false;
+  let key = 0;
+  const nodes: React.ReactNode[] = [];
+
+  tokens.forEach((token) => {
+    if (!token) {
+      return;
+    }
+
+    const normalized = token.toLowerCase();
+
+    if (normalized === '<strong>') {
+      isStrong = true;
+      return;
+    }
+
+    if (normalized === '</strong>') {
+      isStrong = false;
+      return;
+    }
+
+    const sanitizedText = token.replace(/<\/?[^>]+>/g, '');
+    const isWhitespaceOnly = sanitizedText.trim().length === 0;
+
+    if (isWhitespaceOnly) {
+      if (sanitizedText.length > 0) {
+        nodes.push(' ');
+      }
+      return;
+    }
+
+    key += 1;
+    if (isStrong) {
+      nodes.push(<strong key={`greeting-strong-${key}`}>{sanitizedText}</strong>);
+    } else {
+      nodes.push(<span key={`greeting-text-${key}`}>{sanitizedText}</span>);
+    }
+  });
+
+  if (nodes.length === 0) {
+    return 'Ready for your next experiment?';
+  }
+
+  return nodes;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const { isValidating, isAuthenticated } = useAuthGuard();
-  const { user, inventoryItems, recipes, favorites, fetchItems, fetchRecipes, fetchFavorites } = useStore();
+  const {
+    user,
+    inventoryItems,
+    recipes,
+    favorites,
+    dashboardGreeting,
+    dashboardInsight,
+    isDashboardInsightLoading,
+    fetchItems,
+    fetchRecipes,
+    fetchFavorites,
+    fetchDashboardInsight,
+  } = useStore();
   const { showToast } = useToast();
   const [csvModalOpen, setCsvModalOpen] = useState(false);
   const [csvModalType, setCsvModalType] = useState<'items' | 'recipes'>('items');
@@ -26,8 +90,9 @@ export default function DashboardPage() {
       fetchItems().catch(console.error);
       fetchRecipes().catch(console.error);
       fetchFavorites().catch(console.error);
+      fetchDashboardInsight().catch(console.error);
     }
-  }, [isAuthenticated, isValidating, fetchItems, fetchRecipes, fetchFavorites]);
+  }, [isAuthenticated, isValidating, fetchItems, fetchRecipes, fetchFavorites, fetchDashboardInsight]);
 
   // Show loading state during validation
   if (isValidating || !isAuthenticated) {
@@ -87,163 +152,146 @@ export default function DashboardPage() {
   return (
     <div className={styles.dashboard}>
       <div className={styles.container}>
-        {/* Header Section */}
-        <section className={styles.header}>
-          <h1 className={styles.greeting}>
-            Ready for your next experiment?
-          </h1>
-          <p className={styles.stats}>
-            You've got <strong>{itemsArray.length} items</strong>
-            {lowStockCount > 0 && (
-              <span className={styles.lowStock}>
-                {' '}and <strong>{lowStockCount} low-stock spirits</strong>
-              </span>
-            )}
-          </p>
-        </section>
-
-        {/* Action Buttons */}
-        <section className={styles.actions}>
-          <Button
-            variant="primary"
-            size="lg"
-            onClick={() => router.push('/ai')}
-            className={styles.primaryAction}
-          >
-            <Sparkles size={20} style={{ marginRight: '8px' }} />
-            Ask the AI Bartender
-          </Button>
-          <div className={styles.secondaryActions}>
-            <Button
-              variant="outline"
-              size="md"
-              onClick={() => router.push('/bar')}
-            >
-              <Wine size={18} style={{ marginRight: '6px' }} />
-              Add New Item
-            </Button>
-            <Button
-              variant="outline"
-              size="md"
-              onClick={() => handleOpenCSVModal('items')}
-            >
-              <Upload size={18} style={{ marginRight: '6px' }} />
-              Import Bar Stock CSV
-            </Button>
-            <Button
-              variant="outline"
-              size="md"
-              onClick={() => handleOpenCSVModal('recipes')}
-            >
-              <Upload size={18} style={{ marginRight: '6px' }} />
-              Import Recipes CSV
-            </Button>
+        {/* Header & Control Panel Section */}
+        <header className={styles.header}>
+          <div className={styles.headerTop}>
+            <h1 className={styles.greeting}>
+              {isDashboardInsightLoading
+                ? 'Brewing up a greeting...'
+                : renderGreetingContent(dashboardGreeting)}
+            </h1>
           </div>
-        </section>
 
-        {/* Overview Cards */}
+        </header>
+
+        {/* Overview Section */}
         <section className={styles.overview}>
-          {/* My Bar Overview */}
-          <Card padding="md" className={styles.overviewCard}>
+          {/* Lab Assistant's Notebook */}
+          <Card padding="lg" className={styles.overviewCard}>
             <div className={styles.cardHeader}>
               <h3 className={styles.cardTitle}>
-                <Wine size={20} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
-                My Bar Overview
+                <Sparkles size={20} style={{ marginRight: '8px' }} />
+                Lab Assistant's Notebook
               </h3>
-              <button
-                onClick={() => router.push('/bar')}
-                className={styles.viewAllBtn}
-              >
-                View All →
-              </button>
             </div>
             <div className={styles.cardContent}>
-              {itemsArray.length === 0 ? (
-                <p className={styles.emptyState}>
-                  No items yet. Start building your bar!
-                </p>
+              {isDashboardInsightLoading ? (
+                <p className={styles.loadingText}>Analyzing your lab notes...</p>
+              ) : dashboardInsight ? (
+                <p className={styles.insightText}>{dashboardInsight}</p>
               ) : (
-                <ul className={styles.bottleList}>
-                  {itemsArray.slice(0, 3).map((item) => (
-                    <li key={item.id} className={styles.bottleItem}>
-                      <span className={styles.bottleName}>{item.name}</span>
-                      <span className={styles.bottleType}>
-                        {item.type || item.category}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                <p className={styles.emptyState}>
+                  Add items and recipes to get personalized insights!
+                </p>
               )}
+              {/* Ask the AI Bartender Button */}
+              <div className={styles.aiActionButton}>
+                <Button
+                  variant="primary"
+                  size="lg"
+                  onClick={() => router.push('/ai')}
+                >
+                  <Sparkles size={20} style={{ marginRight: '8px' }} />
+                  Ask the AI Bartender
+                </Button>
+              </div>
             </div>
           </Card>
 
-          {/* Recent Recipes */}
-          <Card padding="md" className={styles.overviewCard}>
-            <div className={styles.cardHeader}>
-              <h3 className={styles.cardTitle}>
-                <BookOpen size={20} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
-                Recent Recipes
-              </h3>
-              <button
-                onClick={() => router.push('/recipes')}
-                className={styles.viewAllBtn}
-              >
-                View All →
-              </button>
-            </div>
-            <div className={styles.cardContent}>
-              {recipesArray.length === 0 ? (
-                <p className={styles.emptyState}>
-                  No recipes yet. Import your collection!
-                </p>
-              ) : (
-                <ul className={styles.recipeList}>
-                  {recipesArray.slice(0, 3).map((recipe) => (
-                    <li key={recipe.id} className={styles.recipeItem}>
-                      <span className={styles.recipeName}>{recipe.name}</span>
-                      <span className={styles.recipeIngredients}>
-                        {parseIngredients(recipe.ingredients).length} ingredients
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </Card>
+          {/* Other Cards */}
+          <div className={styles.overviewGrid}>
+            {/* My Bar Overview */}
+            <Card padding="md" className={styles.overviewCard}>
+              <div className={styles.cardHeader}>
+                <h3 className={styles.cardTitle}>
+                  <Wine size={20} style={{ marginRight: '8px' }} />
+                  My Bar Overview
+                </h3>
+                <button onClick={() => router.push('/bar')} className={styles.viewAllBtn}>
+                  View All →
+                </button>
+              </div>
+              <div className={styles.cardContent}>
+                {itemsArray.length === 0 ? (
+                  <p className={styles.emptyState}>No items yet.</p>
+                ) : (
+                  <ul className={styles.bottleList}>
+                    {itemsArray.slice(0, 3).map((item) => (
+                      <li key={item.id} className={styles.bottleItem}>
+                        <span className={styles.bottleName}>{item.name}</span>
+                        <span className={styles.bottleType}>{item.type || item.category}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {/* Add New Item Button */}
+                <div className={styles.cardActionButton}>
+                  <Button variant="outline" size="md" onClick={() => router.push('/bar')}>
+                    <Wine size={18} style={{ marginRight: '6px' }} />
+                    Add New Item
+                  </Button>
+                </div>
+              </div>
+            </Card>
 
-          {/* Favorites / History */}
-          <Card padding="md" className={styles.overviewCard}>
-            <div className={styles.cardHeader}>
-              <h3 className={styles.cardTitle}>
-                <Star size={20} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
-                Favorites
-              </h3>
-              <button
-                onClick={() => router.push('/favorites')}
-                className={styles.viewAllBtn}
-              >
-                View All →
-              </button>
-            </div>
-            <div className={styles.cardContent}>
-              {favoritesArray.length === 0 ? (
-                <p className={styles.emptyState}>
-                  No favorites yet. Save your favorite drinks!
-                </p>
-              ) : (
-                <ul className={styles.favoriteList}>
-                  {favoritesArray.slice(0, 2).map((favorite) => (
-                    <li key={favorite.id} className={styles.favoriteItem}>
-                      <Star size={18} className={styles.favoriteIcon} />
-                      <span className={styles.favoriteName}>
-                        {favorite.recipe_name || 'Saved Recipe'}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </Card>
+            {/* Recent Recipes */}
+            <Card padding="md" className={styles.overviewCard}>
+              <div className={styles.cardHeader}>
+                <h3 className={styles.cardTitle}>
+                  <BookOpen size={20} style={{ marginRight: '8px' }} />
+                  Recent Recipes
+                </h3>
+                <button onClick={() => router.push('/recipes')} className={styles.viewAllBtn}>
+                  View All →
+                </button>
+              </div>
+              <div className={styles.cardContent}>
+                {recipesArray.length === 0 ? (
+                  <p className={styles.emptyState}>No recipes yet.</p>
+                ) : (
+                  <ul className={styles.recipeList}>
+                    {recipesArray.slice(0, 3).map((recipe) => (
+                      <li key={recipe.id} className={styles.recipeItem}>
+                        <span className={styles.recipeName}>{recipe.name}</span>
+                        <span className={styles.recipeIngredients}>
+                          {parseIngredients(recipe.ingredients).length} ingredients
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </Card>
+
+            {/* Favorites */}
+            <Card padding="md" className={styles.overviewCard}>
+              <div className={styles.cardHeader}>
+                <h3 className={styles.cardTitle}>
+                  <Star size={20} style={{ marginRight: '8px' }} />
+                  Favorites
+                </h3>
+                <button onClick={() => router.push('/favorites')} className={styles.viewAllBtn}>
+                  View All →
+                </button>
+              </div>
+              <div className={styles.cardContent}>
+                {favoritesArray.length === 0 ? (
+                  <p className={styles.emptyState}>No favorites yet.</p>
+                ) : (
+                  <ul className={styles.favoriteList}>
+                    {favoritesArray.slice(0, 2).map((favorite) => (
+                      <li key={favorite.id} className={styles.favoriteItem}>
+                        <Star size={18} className={styles.favoriteIcon} />
+                        <span className={styles.favoriteName}>
+                          {favorite.recipe_name || 'Saved Recipe'}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </Card>
+          </div>
         </section>
 
         {/* CSV Upload Modal */}

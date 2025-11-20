@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  api-test:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+      target: test
+    container_name: alchemix-api-test
+    environment:
+      - NODE_ENV=test
+      - JWT_SECRET=test-secret-key-for-testing
+      - DATABASE_PATH=/app/data/test.db
+      - LOG_LEVEL=error
+    volumes:
+      - ./api/src:/app/src:ro
+      - ./api/vitest.config.ts:/app/vitest.config.ts:ro
+    command: npm test
+    networks:
+      - alchemix-test-network
+
+networks:
+  alchemix-test-network:
+    driver: bridge

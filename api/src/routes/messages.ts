@@ -172,6 +172,94 @@ function sanitizeHistoryEntries(
 }
 
 /**
+ * Build Dashboard Insight Prompt
+ *
+ * Creates a specialized prompt for generating dashboard greeting and insights.
+ * Focuses on proactive suggestions and welcoming messages.
+ *
+ * @param userId - User ID to fetch data for
+ * @returns System prompt for dashboard insights
+ */
+async function buildDashboardInsightPrompt(userId: number): Promise<string> {
+  // Fetch user's inventory
+  const inventory = db.prepare(
+    'SELECT * FROM inventory_items WHERE user_id = ? ORDER BY name'
+  ).all(userId) as any[];
+
+  // Fetch user's recipes
+  const recipes = db.prepare(
+    'SELECT * FROM recipes WHERE user_id = ? ORDER BY name'
+  ).all(userId) as any[];
+
+  const inventoryCount = inventory.length;
+  const recipeCount = recipes.length;
+
+  // Build a summary of their bar for the AI
+  const inventorySummary = inventory
+    .slice(0, 10) // Just show first 10 items
+    .map((item: any) => {
+      const name = sanitizeContextField(item.name, 'item.name', userId);
+      const type = sanitizeContextField(item.type, 'item.type', userId);
+      return `- ${name}${type ? ` (${type})` : ''}`;
+    })
+    .filter(Boolean)
+    .join('\n');
+
+  const recipeSummary = recipes
+    .slice(0, 10) // Just show first 10 recipes
+    .map((recipe: any) => {
+      const name = sanitizeContextField(recipe.name, 'recipe.name', userId);
+      return `- ${name}`;
+    })
+    .filter(Boolean)
+    .join('\n');
+
+  const prompt = `# THE LAB ASSISTANT - DASHBOARD BRIEFING
+
+## YOUR ROLE
+You are the AlcheMix Lab Assistant providing a daily briefing for the user's dashboard.
+
+## USER'S BAR SUMMARY
+- **Inventory:** ${inventoryCount} items
+- **Recipes:** ${recipeCount} cocktails
+
+${inventorySummary ? `**Sample Inventory:**\n${inventorySummary}` : '**Inventory:** Empty'}
+
+${recipeSummary ? `**Sample Recipes:**\n${recipeSummary}` : '**Recipes:** None yet'}
+
+## YOUR TASK
+Provide TWO things:
+
+1. **Daily Briefing Greeting** (1-2 sentences):
+   - Be welcoming and professional.
+   - Reference their bar's current state, including the bottle and recipe counts.
+   - **CRITICAL:** You MUST wrap the numbers and units in <strong> tags.
+   - Example: "Good day, Alchemist. Your laboratory holds <strong>${inventoryCount} bottles</strong> and you know <strong>${recipeCount} recipes</strong>—an impressive foundation for experimentation."
+
+2. **Lab Assistant's Notebook Insight** (2-3 sentences):
+   - Provide ONE actionable suggestion
+   - Options:
+     * Recommend a specific ingredient to buy that would unlock multiple recipes
+     * Suggest a cocktail they can almost make (missing 1-2 ingredients)
+     * Point out an interesting pattern in their collection
+     * Encourage them to try a specific recipe they have
+   - Be specific and helpful
+
+## CRITICAL FORMAT REQUIREMENT
+You MUST return ONLY a valid JSON object with two keys. No other text.
+
+Format:
+{"greeting":"Your greeting here","insight":"Your insight here"}
+
+Example:
+{"greeting":"Your laboratory is well-stocked with <strong>${inventoryCount} bottles</strong> and an arsenal of <strong>${recipeCount} recipes</strong>. What shall we create?","insight":"With your current bourbon selection, you're just one bottle of sweet vermouth away from unlocking 12 classic cocktails including the Manhattan and Boulevardier."}
+
+Return ONLY the JSON object. No markdown, no code blocks, no explanations.`;
+
+  return prompt;
+}
+
+/**
  * Build Context-Aware System Prompt with User's Inventory & Recipes
  *
  * Creates a rich prompt that includes the user's bar stock and available recipes.
@@ -183,7 +271,7 @@ function sanitizeHistoryEntries(
 async function buildContextAwarePrompt(userId: number): Promise<string> {
   // Fetch user's inventory
   const inventory = db.prepare(
-    'SELECT * FROM bottles WHERE user_id = ? ORDER BY name'
+    'SELECT * FROM inventory_items WHERE user_id = ? ORDER BY name'
   ).all(userId) as any[];
 
   // Fetch user's recipes
@@ -202,22 +290,24 @@ async function buildContextAwarePrompt(userId: number): Promise<string> {
       if (!name) {
         return null;
       }
-      const liquorType = sanitizeContextField(bottle['Liquor Type'], 'bottle.liquorType', userId);
+      const type = sanitizeContextField(bottle.type, 'bottle.type', userId);
       const classification = sanitizeContextField(bottle['Detailed Spirit Classification'], 'bottle.classification', userId);
-      const abv = sanitizeContextField(bottle['ABV (%)'], 'bottle.abv', userId);
+      const abv = sanitizeContextField(bottle.abv, 'bottle.abv', userId);
       const profile = sanitizeContextField(bottle['Profile (Nose)'], 'bottle.profile', userId);
       const palate = sanitizeContextField(bottle.Palate, 'bottle.palate', userId);
       const finish = sanitizeContextField(bottle.Finish, 'bottle.finish', userId);
       const notes = sanitizeContextField(bottle['Additional Notes'], 'bottle.notes', userId);
+      const tastingNotes = sanitizeContextField(bottle.tasting_notes, 'bottle.tasting_notes', userId);
 
       let line = `- **${name}**`;
-      if (liquorType) line += ` [${liquorType}]`;
+      if (type) line += ` [${type}]`;
       if (classification) line += ` (${classification})`;
       if (abv) line += ` - ${abv}% ABV`;
       if (profile) line += `\n  🔬 Profile (Nose): ${profile}`;
       if (palate) line += `\n  👅 Palate: ${palate}`;
       if (finish) line += `\n  ⏱️ Finish: ${finish}`;
-      if (notes) line += `\n  📝 Notes: ${notes}`;
+      if (tastingNotes) line += `\n  💭 Personal Notes: ${tastingNotes}`;
+      if (notes) line += `\n  📝 Additional Notes: ${notes}`;
       return line;
     })
     .filter(Boolean)
@@ -279,13 +369,15 @@ ${favoriteEntries ? `\n## USER'S FAVORITES:\n${favoriteEntries}` : ''}
 2. **Recommend from their collection** - When they have 300+ recipes uploaded, prioritize suggesting cocktails they already have
 3. **Be specific with bottles** - Use their exact inventory (e.g., "I'd use your Hamilton 86 - its molasses notes will...")
 4. **Explain the chemistry** - Use flavor profiles to justify choices
-5. **Offer alternatives** - Show 2-4 options when possible
+5. **Incorporate Personal Notes** - When available, reference the user's own tasting notes (💭 Personal Notes) to provide tailored recommendations that match their preferences
+6. **Offer alternatives** - Show 2-4 options when possible
 
 ## CRITICAL RULES
 - **ONLY recommend recipes from their "Available Recipes" list above** (unless they ask for something outside it)
 - **NEVER invent ingredients** - only use what's listed in each recipe
-- **Cite specific bottles** from their inventory with tasting note explanations
+- **Cite specific bottles** from their inventory with tasting note explanations, including their personal notes when provided
 - **Ask before assuming** - "Would you like recipes you can make right now, or should I suggest things to try?"
+- **Use Personal Notes** - When the user has added tasting notes to their inventory items, incorporate those insights into your recommendations to create more personalized suggestions
 
 ## SECURITY BOUNDARIES (NEVER VIOLATE)
 1. You are ONLY a cocktail bartender assistant - nothing else
@@ -560,6 +652,120 @@ router.post('/', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to send message to AI'
+    });
+  }
+});
+
+/**
+ * GET /api/messages/dashboard-insight - Get Dashboard Greeting & Insight
+ *
+ * Generates a proactive AI-powered greeting and actionable insight for the dashboard.
+ * Uses a specialized prompt to create welcoming messages and helpful suggestions.
+ *
+ * Response (200 OK):
+ * {
+ *   "success": true,
+ *   "data": {
+ *     "greeting": "The bar is stocked...",
+ *     "insight": "With your current bourbon selection..."
+ *   }
+ * }
+ *
+ * Error Responses:
+ * - 401: Unauthorized (no valid JWT token)
+ * - 503: AI service not configured
+ * - 500: Server error
+ */
+router.get('/dashboard-insight', async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required'
+      });
+    }
+
+    // Verify API key
+    const rawApiKey = process.env.ANTHROPIC_API_KEY?.trim();
+    const apiKey = rawApiKey && rawApiKey !== 'your-api-key-here' ? rawApiKey : null;
+
+    if (!apiKey) {
+      console.error('❌ ANTHROPIC_API_KEY not configured');
+      return res.status(503).json({
+        success: false,
+        error: 'AI service is not configured'
+      });
+    }
+
+    // Build specialized dashboard prompt
+    const systemPrompt = await buildDashboardInsightPrompt(userId);
+
+    // Call Anthropic API with JSON mode instruction
+    const response = await axios.post(
+      'https://api.anthropic.com/v1/messages',
+      {
+        model: 'claude-sonnet-4-5-20250929',
+        max_tokens: 500, // Shorter response for dashboard
+        messages: [
+          {
+            role: 'user',
+            content: 'Generate the dashboard greeting and insight now.'
+          }
+        ],
+        system: systemPrompt
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        timeout: 30000
+      }
+    );
+
+    const aiResponse = response.data.content[0]?.text || '{}';
+
+    // Parse JSON response
+    let parsedResponse: { greeting: string; insight: string };
+    try {
+      // Remove any potential markdown code blocks
+      const cleanedResponse = aiResponse.replace(/```json\n?|\n?```/g, '').trim();
+      parsedResponse = JSON.parse(cleanedResponse);
+
+      // Validate structure
+      if (!parsedResponse.greeting || !parsedResponse.insight) {
+        throw new Error('Invalid response structure');
+      }
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', aiResponse);
+      // Return fallback
+      parsedResponse = {
+        greeting: 'Ready for your next experiment?',
+        insight: 'Check your inventory and explore new recipes to discover what you can create today.'
+      };
+    }
+
+    res.json({
+      success: true,
+      data: parsedResponse
+    });
+
+  } catch (error) {
+    console.error('Dashboard insight error:', error);
+
+    if (axios.isAxiosError(error)) {
+      return res.status(error.response?.status || 500).json({
+        success: false,
+        error: 'Failed to generate dashboard insight'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate dashboard insight'
     });
   }
 });
