@@ -27,8 +27,8 @@ cd ~/Desktop/DEV\ Work/  # Or your preferred directory
 # Clone AlcheMix (if not already cloned)
 git clone https://github.com/YOUR_USERNAME/alchemix.git
 
-# Clone MemMachine (if not already cloned)
-git clone https://github.com/MemMachine/MemMachine.git memmachine
+# Clone MemMachine fork (if not already cloned)
+git clone https://github.com/JLawMcGraw/MemMachine.git MemMachine
 ```
 
 **Directory structure should look like:**
@@ -36,10 +36,11 @@ git clone https://github.com/MemMachine/MemMachine.git memmachine
 DEV Work/
 ├── alchemix/          ← You are here
 │   ├── docker-compose.yml
+│   ├── docker/bar-server/Dockerfile
 │   ├── api/
 │   ├── src/
 │   └── ...
-└── memmachine/        ← Sibling directory
+└── MemMachine/        ← Sibling directory (your fork)
     ├── Dockerfile
     ├── examples/bar_assistant/
     └── ...

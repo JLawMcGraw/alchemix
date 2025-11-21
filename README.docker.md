@@ -35,15 +35,15 @@ cd ~/Desktop/DEV\ Work/  # Or your preferred directory
 # Clone AlcheMix (if not already)
 git clone https://github.com/YOUR_USERNAME/alchemix.git
 
-# Clone MemMachine (if not already)
-git clone https://github.com/MemMachine/MemMachine.git memmachine
+# Clone MemMachine fork (if not already)
+git clone https://github.com/JLawMcGraw/MemMachine.git MemMachine
 ```
 
 **Directory structure:**
 ```
 DEV Work/
 ├── alchemix/      ← AlcheMix repo
-└── memmachine/    ← MemMachine repo (sibling directory)
+└── MemMachine/    ← MemMachine fork (sibling directory)
 ```
 
 ### 2. Configure API Keys

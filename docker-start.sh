@@ -28,13 +28,13 @@ if [ ! -f .env ]; then
 fi
 
 # Check if MemMachine directory exists
-if [ ! -d "../memmachine" ]; then
+if [ ! -d "../MemMachine" ]; then
     echo "❌ Error: MemMachine directory not found"
-    echo "Expected: ../memmachine"
+    echo "Expected: ../MemMachine"
     echo ""
-    echo "Please clone MemMachine:"
+    echo "Please clone MemMachine fork:"
     echo "  cd .."
-    echo "  git clone https://github.com/MemMachine/MemMachine.git memmachine"
+    echo "  git clone https://github.com/JLawMcGraw/MemMachine.git MemMachine"
     exit 1
 fi
 

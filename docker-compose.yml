@@ -48,7 +48,7 @@ services:
   # MemMachine Backend - Core memory service
   memmachine:
     build:
-      context: ../memmachine
+      context: ../MemMachine
       dockerfile: Dockerfile
     container_name: alchemix-memmachine
     ports:
@@ -81,8 +81,10 @@ services:
   # Bar Server - FastAPI middleware with BarQueryConstructor
   bar-server:
     build:
-      context: ../memmachine/examples/bar_assistant
+      context: ./docker/bar-server
       dockerfile: Dockerfile
+    volumes:
+      - ../MemMachine:/memmachine:ro  # Mount MemMachine as read-only
     container_name: alchemix-bar-server
     ports:
       - "8001:8001"
