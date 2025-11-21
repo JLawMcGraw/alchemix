@@ -1,0 +1,171 @@
+version: '3.8'
+
+services:
+  # Neo4j - Graph database for vector embeddings
+  neo4j:
+    image: neo4j:5.15.0
+    container_name: alchemix-neo4j
+    ports:
+      - "7474:7474"  # HTTP
+      - "7687:7687"  # Bolt
+    environment:
+      - NEO4J_AUTH=neo4j/alchemixpassword
+      - NEO4J_PLUGINS=["apoc"]
+      - NEO4J_apoc_export_file_enabled=true
+      - NEO4J_apoc_import_file_enabled=true
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - alchemix-network
+
+  # Postgres - Profile storage for MemMachine
+  postgres:
+    image: postgres:16-alpine
+    container_name: alchemix-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=memmachine
+      - POSTGRES_USER=memmachine
+      - POSTGRES_PASSWORD=memmachinepassword
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U memmachine -d memmachine"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - alchemix-network
+
+  # MemMachine Backend - Core memory service
+  memmachine:
+    build:
+      context: ../memmachine
+      dockerfile: Dockerfile
+    container_name: alchemix-memmachine
+    ports:
+      - "8080:8080"
+    environment:
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=alchemixpassword
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=memmachine
+      - POSTGRES_DB=memmachine
+      - POSTGRES_PASSWORD=memmachinepassword
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PORT=8080
+      - HOST=0.0.0.0
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks:
+      - alchemix-network
+
+  # Bar Server - FastAPI middleware with BarQueryConstructor
+  bar-server:
+    build:
+      context: ../memmachine/examples/bar_assistant
+      dockerfile: Dockerfile
+    container_name: alchemix-bar-server
+    ports:
+      - "8001:8001"
+    environment:
+      - MEMMACHINE_API_URL=http://memmachine:8080
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=alchemixpassword
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=memmachine
+      - POSTGRES_DB=memmachine
+      - POSTGRES_PASSWORD=memmachinepassword
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PORT=8001
+      - HOST=0.0.0.0
+    depends_on:
+      memmachine:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks:
+      - alchemix-network
+
+  # AlcheMix API - Express backend
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile.dev
+    container_name: alchemix-api
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - JWT_SECRET=${JWT_SECRET}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - MEMMACHINE_API_URL=http://bar-server:8001
+      - FRONTEND_URL=http://localhost:3001
+    volumes:
+      - ./api:/app
+      - /app/node_modules
+      - ./api/data:/app/data  # Persist SQLite database
+    depends_on:
+      bar-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks:
+      - alchemix-network
+
+  # AlcheMix Frontend - Next.js
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: alchemix-web
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:3000
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - alchemix-network
+
+networks:
+  alchemix-network:
+    driver: bridge
+
+volumes:
+  neo4j_data:
+  neo4j_logs:
+  postgres_data:
