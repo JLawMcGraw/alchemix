@@ -35,6 +35,7 @@ import { authMiddleware } from '../middleware/auth';
 import { userRateLimit } from '../middleware/userRateLimit';
 import { sanitizeString } from '../utils/inputValidator';
 import { db } from '../database/db';
+import { memoryService } from '../services/MemoryService';
 
 const router = Router();
 
@@ -268,7 +269,7 @@ Return ONLY the JSON object. No markdown, no code blocks, no explanations.`;
  * @param userId - User ID to fetch data for
  * @returns System prompt with user context and security boundaries
  */
-async function buildContextAwarePrompt(userId: number): Promise<string> {
+async function buildContextAwarePrompt(userId: number, userMessage: string = ''): Promise<string> {
   // Fetch user's inventory
   const inventory = db.prepare(
     'SELECT * FROM inventory_items WHERE user_id = ? ORDER BY name'
@@ -344,6 +345,23 @@ async function buildContextAwarePrompt(userId: number): Promise<string> {
     .map((name: string) => `- ${name}`)
     .join('\n');
 
+  // Query MemMachine for user's own recipes and preferences (if available and user message provided)
+  let memoryContext = '';
+  if (userMessage && userMessage.trim().length > 0) {
+    try {
+      const { userContext } = await memoryService.getEnhancedContext(userId, userMessage);
+
+      // Add user's own recipes and preferences
+      if (userContext) {
+        memoryContext += memoryService.formatContextForPrompt(userContext, 10); // Show more user recipes
+        memoryContext += memoryService.formatUserProfileForPrompt(userContext);
+      }
+    } catch (error) {
+      // MemMachine is optional - continue without it if unavailable
+      console.warn('MemMachine unavailable, continuing without memory enhancement:', error);
+    }
+  }
+
   const basePrompt = `# THE LAB ASSISTANT (AlcheMix AI)
 
 ## YOUR IDENTITY
@@ -362,7 +380,7 @@ ${inventoryEntries || 'No bottles in inventory yet.'}
 ## AVAILABLE RECIPES (${recipes.length} cocktails in their collection):
 ${recipeEntries || 'No recipes uploaded yet.'}
 
-${favoriteEntries ? `\n## USER'S FAVORITES:\n${favoriteEntries}` : ''}
+${favoriteEntries ? `\n## USER'S FAVORITES:\n${favoriteEntries}` : ''}${memoryContext}
 
 ## YOUR APPROACH
 1. **Ask clarifying questions** - "Should my recommendations come from your recipe inventory, or would you like classic suggestions?"
@@ -534,8 +552,10 @@ router.post('/', async (req: Request, res: Response) => {
      * CRITICAL: System prompt MUST be server-controlled.
      * Server builds prompt with user's inventory and recipes from database.
      * NEVER use user-provided context for security.
+     *
+     * Now enhanced with MemMachine memory for semantic recipe search.
      */
-    const systemPrompt = await buildContextAwarePrompt(userId);
+    const systemPrompt = await buildContextAwarePrompt(userId, sanitizedMessage);
     // Note: We fetch user data from database, not from request body
 
     /**

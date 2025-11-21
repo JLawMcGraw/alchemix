@@ -34,6 +34,7 @@ import { authMiddleware } from '../middleware/auth';
 import { userRateLimit } from '../middleware/userRateLimit';
 import { sanitizeString, validateNumber } from '../utils/inputValidator';
 import { Recipe } from '../types';
+import { memoryService } from '../services/MemoryService';
 
 const router = Router();
 
@@ -67,7 +68,7 @@ const upload = multer({
  * Ensures users can only access/modify their own recipes.
  */
 router.use(authMiddleware);
-router.use(userRateLimit(100, 15));
+router.use(userRateLimit(500, 15)); // Increased for development
 
 /**
  * GET /api/recipes - List User's Recipes with Pagination
@@ -545,6 +546,22 @@ router.post('/', (req: Request, res: Response) => {
     };
 
     /**
+     * Step 7.5: Store Recipe in MemMachine (Non-Blocking)
+     *
+     * Store recipe in user's MemMachine memory for AI semantic search.
+     * This is fire-and-forget - errors won't block the response.
+     */
+    memoryService.storeUserRecipe(userId, {
+      name: sanitizedName,
+      ingredients: parsedRecipe.ingredients,
+      instructions: sanitizedInstructions || undefined,
+      glass: sanitizedGlass || undefined,
+      category: sanitizedCategory || undefined,
+    }).catch(err => {
+      console.error('Failed to store recipe in MemMachine (non-critical):', err);
+    });
+
+    /**
      * Step 8: Return Success Response
      *
      * 201 Created status indicates new resource was created.
@@ -823,6 +840,17 @@ router.post('/import', upload.single('file'), async (req: Request, res: Response
           recipe.glass,
           recipe.category
         );
+
+        // Store in MemMachine (fire-and-forget)
+        memoryService.storeUserRecipe(userId, {
+          name: recipe.name,
+          ingredients: recipe.ingredients,
+          instructions: recipe.instructions,
+          glass: recipe.glass,
+          category: recipe.category,
+        }).catch(err => {
+          console.error('Failed to store imported recipe in MemMachine:', err);
+        });
 
         imported++;
       } catch (error: any) {
@@ -1247,10 +1275,10 @@ router.delete('/:id', (req: Request, res: Response) => {
       });
     }
 
-    // Check if recipe exists and belongs to user
+    // Check if recipe exists and belongs to user (get name for MemMachine deletion)
     const existingRecipe = db.prepare(
-      'SELECT id FROM recipes WHERE id = ? AND user_id = ?'
-    ).get(recipeId, userId);
+      'SELECT id, name FROM recipes WHERE id = ? AND user_id = ?'
+    ).get(recipeId, userId) as { id: number; name: string } | undefined;
 
     if (!existingRecipe) {
       return res.status(404).json({
@@ -1261,6 +1289,11 @@ router.delete('/:id', (req: Request, res: Response) => {
 
     // Delete recipe (CASCADE will handle favorites)
     db.prepare('DELETE FROM recipes WHERE id = ?').run(recipeId);
+
+    // Delete from MemMachine (fire-and-forget, currently no-op)
+    memoryService.deleteUserRecipe(userId, existingRecipe.name).catch(err => {
+      console.error('Failed to delete recipe from MemMachine:', err);
+    });
 
     res.json({
       success: true,

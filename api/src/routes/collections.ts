@@ -21,12 +21,13 @@ import { db } from '../database/db';
 import { authMiddleware } from '../middleware/auth';
 import { userRateLimit } from '../middleware/userRateLimit';
 import { sanitizeString } from '../utils/inputValidator';
+import { memoryService } from '../services/MemoryService';
 
 const router = Router();
 
 // All routes require authentication
 router.use(authMiddleware);
-router.use(userRateLimit(100, 15));
+router.use(userRateLimit(500, 15)); // Increased for development
 
 /**
  * GET /api/collections - List User's Collections
@@ -142,6 +143,14 @@ router.post('/', async (req: Request, res: Response) => {
     const collection = db.prepare(
       'SELECT * FROM collections WHERE id = ?'
     ).get(result.lastInsertRowid);
+
+    // Store collection in MemMachine (fire-and-forget)
+    memoryService.storeUserCollection(userId, {
+      name: sanitizedName,
+      description: sanitizedDescription || undefined,
+    }).catch(err => {
+      console.error('Failed to store collection in MemMachine (non-critical):', err);
+    });
 
     res.status(201).json({
       success: true,

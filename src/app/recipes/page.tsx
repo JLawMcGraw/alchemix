@@ -7,7 +7,7 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { Button, useToast, Spinner } from '@/components/ui';
 import { Card } from '@/components/ui/Card';
 import { BookOpen, Upload, Star, Martini, ChevronLeft, ChevronRight, Trash2, FolderOpen, Plus, Edit, Trash, CheckSquare, Square, ShoppingCart, CheckCircle, AlertCircle, Wine } from 'lucide-react';
-import { CSVUploadModal, RecipeDetailModal, DeleteConfirmModal, CollectionModal } from '@/components/modals';
+import { CSVUploadModal, RecipeDetailModal, DeleteConfirmModal, CollectionModal, AddRecipeModal } from '@/components/modals';
 import { recipeApi } from '@/lib/api';
 import type { Recipe, Collection } from '@/types';
 import styles from './recipes.module.css';
@@ -23,6 +23,7 @@ export default function RecipesPage() {
     fetchRecipes,
     fetchFavorites,
     fetchCollections,
+    addRecipe,
     addFavorite,
     removeFavorite,
     addCollection,
@@ -43,6 +44,7 @@ export default function RecipesPage() {
   const [filterSpirit, setFilterSpirit] = useState<string>('all');
   const [filterCollection, setFilterCollection] = useState<string>('all');
   const [csvModalOpen, setCsvModalOpen] = useState(false);
+  const [addRecipeModalOpen, setAddRecipeModalOpen] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
@@ -143,6 +145,21 @@ export default function RecipesPage() {
 
   const isFavorited = (recipeId: number) => {
     return favoritesArray.some((fav) => fav.recipe_id === recipeId);
+  };
+
+  const handleAddRecipe = async (recipe: Omit<Recipe, 'id' | 'user_id' | 'created_at'>) => {
+    try {
+      await addRecipe(recipe);
+      await loadRecipes(1); // Reload first page after adding
+      // Refresh collections to update recipe counts if recipe was added to a collection
+      if (recipe.collection_id) {
+        await fetchCollections();
+      }
+      showToast('success', 'Recipe added successfully');
+    } catch (error) {
+      showToast('error', 'Failed to add recipe');
+      throw error;
+    }
   };
 
   const handleCSVUpload = async (file: File, collectionId?: number) => {
@@ -344,6 +361,14 @@ export default function RecipesPage() {
               <>
                 <Button
                   variant="primary"
+                  size="md"
+                  onClick={() => setAddRecipeModalOpen(true)}
+                >
+                  <Plus size={18} />
+                  New Recipe
+                </Button>
+                <Button
+                  variant="outline"
                   size="md"
                   onClick={() => {
                     setEditingCollection(null);
@@ -877,6 +902,14 @@ export default function RecipesPage() {
             </Button>
           </div>
         )}
+
+        {/* Add Recipe Modal */}
+        <AddRecipeModal
+          isOpen={addRecipeModalOpen}
+          onClose={() => setAddRecipeModalOpen(false)}
+          onAdd={handleAddRecipe}
+          collections={collectionsArray}
+        />
 
         {/* CSV Upload Modal */}
         <CSVUploadModal

@@ -65,7 +65,7 @@ const upload = multer({
  * Ensures users can only access/modify their own items.
  */
 router.use(authMiddleware);
-router.use(userRateLimit(100, 15));
+router.use(userRateLimit(500, 15)); // Increased for development
 
 /**
  * GET /api/inventory-items - List User's Inventory Items with Pagination & Filtering

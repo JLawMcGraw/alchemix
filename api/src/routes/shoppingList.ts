@@ -41,7 +41,7 @@ const router = Router();
  * Ensures users only get recommendations based on their own data.
  */
 router.use(authMiddleware);
-router.use(userRateLimit(100, 15));
+router.use(userRateLimit(500, 15)); // Increased for development
 
 /**
  * Helper: Parse Ingredient Name from Full String

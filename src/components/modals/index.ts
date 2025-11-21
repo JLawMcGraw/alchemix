@@ -5,3 +5,4 @@ export { DeleteConfirmModal } from './DeleteConfirmModal';
 export { RecipeDetailModal } from './RecipeDetailModal';
 export { CollectionModal } from './CollectionModal';
 export { ItemDetailModal } from './ItemDetailModal';
+export { AddRecipeModal } from './AddRecipeModal';
