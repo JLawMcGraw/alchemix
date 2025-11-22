@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { Button, useToast, Spinner } from '@/components/ui';
@@ -13,8 +13,9 @@ import type { Recipe, Collection } from '@/types';
 import styles from './recipes.module.css';
 import shoppingStyles from '../shopping-list/shopping-list.module.css';
 
-export default function RecipesPage() {
+function RecipesPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isValidating, isAuthenticated } = useAuthGuard();
   const {
     recipes,
@@ -34,6 +35,8 @@ export default function RecipesPage() {
     shoppingListStats,
     craftableRecipes,
     nearMissRecipes,
+    needFewRecipes,
+    majorGapsRecipes,
     isLoadingShoppingList,
     fetchShoppingList,
     inventoryItems,
@@ -43,6 +46,7 @@ export default function RecipesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterSpirit, setFilterSpirit] = useState<string>('all');
   const [filterCollection, setFilterCollection] = useState<string>('all');
+  const [masteryFilter, setMasteryFilter] = useState<string | null>(null);
   const [csvModalOpen, setCsvModalOpen] = useState(false);
   const [addRecipeModalOpen, setAddRecipeModalOpen] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
@@ -66,21 +70,87 @@ export default function RecipesPage() {
     hasPreviousPage: false
   });
 
-  const loadRecipes = async (page: number = 1) => {
+  const loadRecipes = async (page: number = 1, loadAll: boolean = false) => {
     try {
-      const result = await recipeApi.getAll(page, 50);
-      // Manually update the store's recipes since fetchRecipes expects the old format
-      useStore.setState({ recipes: result.recipes });
-      setPagination(result.pagination);
-      setCurrentPage(page);
+      if (loadAll) {
+        // Load all recipes by making multiple paginated requests
+        console.log('📖 Loading ALL recipes...');
+        const firstResult = await recipeApi.getAll(1, 100); // Max limit is 100
+        let allRecipes = [...firstResult.recipes];
+        const totalPages = firstResult.pagination.totalPages;
+
+        console.log(`📖 Page 1/${totalPages}: ${firstResult.recipes.length} recipes`);
+
+        // Load remaining pages
+        for (let p = 2; p <= totalPages; p++) {
+          const pageResult = await recipeApi.getAll(p, 100);
+          allRecipes = [...allRecipes, ...pageResult.recipes];
+          console.log(`📖 Page ${p}/${totalPages}: ${pageResult.recipes.length} recipes (total: ${allRecipes.length})`);
+        }
+
+        console.log(`✅ Loaded all ${allRecipes.length} recipes`);
+        useStore.setState({ recipes: allRecipes });
+        setPagination({
+          page: 1,
+          limit: allRecipes.length,
+          total: allRecipes.length,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPreviousPage: false
+        });
+        setCurrentPage(1);
+      } else {
+        // Normal paginated load
+        const result = await recipeApi.getAll(page, 50);
+        useStore.setState({ recipes: result.recipes });
+        setPagination(result.pagination);
+        setCurrentPage(page);
+        console.log(`📖 Loaded ${result.recipes.length} recipes (page ${page})`);
+      }
     } catch (error) {
       console.error('Failed to load recipes:', error);
     }
   };
 
+  // Handle URL parameters and recipe loading
+  useEffect(() => {
+    if (!isAuthenticated || isValidating) return;
+
+    const filter = searchParams.get('filter');
+    const collectionId = searchParams.get('collection');
+
+    console.log('🔍 URL params:', { filter, collectionId });
+
+    if (filter) {
+      console.log('✅ Setting mastery filter:', filter);
+      setMasteryFilter(filter);
+      setActiveCollection(null); // Clear collection when mastery filter is active
+      // Load all recipes when mastery filter is active
+      loadRecipes(1, true);
+    } else if (collectionId && collections.length > 0) {
+      const collectionsArr = Array.isArray(collections) ? collections : [];
+      const collection = collectionsArr.find(c => c.id === parseInt(collectionId));
+      if (collection) {
+        console.log('✅ Setting active collection:', collection.name);
+        setActiveCollection(collection);
+        setShowCollectionsPanel(true);
+        setMasteryFilter(null); // Clear mastery filter when viewing a collection
+        // Load all recipes when viewing a collection
+        loadRecipes(1, true);
+      }
+    } else {
+      // No filter, no collection - load normal paginated recipes
+      setMasteryFilter(null);
+      setActiveCollection(null);
+      setShowCollectionsPanel(false);
+      loadRecipes(1, false);
+    }
+  }, [searchParams, collections, isAuthenticated, isValidating]);
+
   useEffect(() => {
     if (isAuthenticated && !isValidating) {
-      loadRecipes(1);
+      // Don't load recipes here - the URL parameter effect handles it
+      // Only load supporting data
       fetchFavorites().catch(console.error);
       fetchCollections().catch(console.error);
       fetchShoppingList().catch(console.error);
@@ -99,8 +169,13 @@ export default function RecipesPage() {
 
   // Helper function to parse ingredients
   const parseIngredients = (ingredients: string | string[] | undefined): string[] => {
-    if (!ingredients) return [];
-    if (Array.isArray(ingredients)) return ingredients;
+    if (!ingredients) {
+      return [];
+    }
+    if (Array.isArray(ingredients)) {
+      return ingredients;
+    }
+
     try {
       const parsed = JSON.parse(ingredients);
       return Array.isArray(parsed) ? parsed : [ingredients];
@@ -112,7 +187,19 @@ export default function RecipesPage() {
   // Get unique spirit types
   const spiritTypes = ['all', ...new Set(recipesArray.map((r) => r.spirit_type).filter(Boolean))];
 
-  // Filter recipes based on active collection
+  // Helper to calculate missing ingredients
+  const getMissingIngredients = (recipe: Recipe): string[] => {
+    const ingredientsArray = parseIngredients(recipe.ingredients);
+    const inventoryNames = (inventoryItems || []).map((item) => item.name.toLowerCase());
+
+    const missing = ingredientsArray.filter(
+      (ingredient) => !inventoryNames.includes(ingredient.toLowerCase())
+    );
+
+    return missing;
+  };
+
+  // Filter recipes based on mastery level, active collection, search, and spirit
   const filteredRecipes = recipesArray.filter((recipe) => {
     const ingredientsArray = parseIngredients(recipe.ingredients);
     const ingredientsText = ingredientsArray.join(' ').toLowerCase();
@@ -123,6 +210,26 @@ export default function RecipesPage() {
       : true;
     const matchesSpirit = filterSpirit === 'all' || recipe.spirit_type === filterSpirit;
 
+    // Apply mastery filter if set - use data from shopping list API
+    if (masteryFilter) {
+      // Use the recipe lists from the shopping list API
+      switch (masteryFilter) {
+        case 'craftable':
+          // Check if recipe is in craftableRecipes list
+          // craftableRecipes is an array of objects with {id, name, ingredients}
+          return matchesSearch && matchesSpirit && craftableRecipes.some(cr => cr.name === recipe.name);
+        case 'almost':
+          // Check if recipe is in nearMissRecipes list (missing exactly 1 ingredient)
+          return matchesSearch && matchesSpirit && nearMissRecipes.some(nr => nr.name === recipe.name);
+        case 'need-few':
+          // Check if recipe is in needFewRecipes list (missing 2-3 ingredients)
+          return matchesSearch && matchesSpirit && needFewRecipes.some(nf => nf.name === recipe.name);
+        case 'major-gaps':
+          // Check if recipe is in majorGapsRecipes list (missing 4+ ingredients)
+          return matchesSearch && matchesSpirit && majorGapsRecipes.some(mg => mg.name === recipe.name);
+      }
+    }
+
     // If viewing a collection, show only recipes in that collection
     // Otherwise, show only uncategorized recipes
     const matchesCollection = activeCollection
@@ -130,6 +237,23 @@ export default function RecipesPage() {
       : !recipe.collection_id;
 
     return matchesSearch && matchesSpirit && matchesCollection;
+  });
+
+  // Debug logging for filtering
+  console.log('📊 Filtering state:', {
+    masteryFilter,
+    activeCollection: activeCollection?.name,
+    totalRecipes: recipesArray.length,
+    filteredCount: filteredRecipes.length,
+    inventoryCount: inventoryItems?.length || 0,
+    craftableRecipesCount: craftableRecipes?.length || 0,
+    craftableRecipesSample: craftableRecipes?.slice(0, 3) || [],
+    nearMissRecipesCount: nearMissRecipes?.length || 0,
+    nearMissRecipesSample: nearMissRecipes?.slice(0, 3) || [],
+    needFewRecipesCount: needFewRecipes?.length || 0,
+    needFewRecipesSample: needFewRecipes?.slice(0, 3) || [],
+    majorGapsRecipesCount: majorGapsRecipes?.length || 0,
+    majorGapsRecipesSample: majorGapsRecipes?.slice(0, 3) || []
   });
 
   // Count uncategorized recipes
@@ -422,6 +546,8 @@ export default function RecipesPage() {
               padding="md"
               hover
               className={shoppingStyles.statCard}
+              onClick={() => router.push('/recipes?filter=craftable')}
+              style={{ cursor: 'pointer' }}
             >
               <div className={shoppingStyles.statLabel}>Already Craftable</div>
               <div className={shoppingStyles.statValue}>{shoppingListStats.craftable}</div>
@@ -431,6 +557,8 @@ export default function RecipesPage() {
               padding="md"
               hover
               className={shoppingStyles.statCard}
+              onClick={() => router.push('/recipes?filter=almost')}
+              style={{ cursor: 'pointer' }}
             >
               <div className={shoppingStyles.statLabel}>Near Misses</div>
               <div className={shoppingStyles.statValue}>{shoppingListStats.nearMisses}</div>
@@ -440,6 +568,8 @@ export default function RecipesPage() {
               padding="md"
               hover
               className={shoppingStyles.statCard}
+              onClick={() => router.push('/bar')}
+              style={{ cursor: 'pointer' }}
             >
               <div className={shoppingStyles.statLabel}>Inventory Items</div>
               <div className={shoppingStyles.statValue}>{shoppingListStats.inventoryItems}</div>
@@ -511,12 +641,32 @@ export default function RecipesPage() {
               </>
             )}
 
-            {/* Uncategorized Recipes Section */}
-            {uncategorizedCount > 0 && (
+            {/* Uncategorized Recipes Section or Mastery Filter View */}
+            {(uncategorizedCount > 0 || masteryFilter) && (
               <>
-                <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--color-text-heading)', marginBottom: '16px' }}>
-                  Uncategorized Recipes ({uncategorizedCount})
-                </h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                  <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--color-text-heading)', margin: 0 }}>
+                    {masteryFilter ? (
+                      masteryFilter === 'craftable' ? `Craftable Recipes (${filteredRecipes.length})` :
+                      masteryFilter === 'almost' ? `Near Miss Recipes (${filteredRecipes.length})` :
+                      masteryFilter === 'need-few' ? `Need 2-3 Items (${filteredRecipes.length})` :
+                      masteryFilter === 'major-gaps' ? `Major Gaps (${filteredRecipes.length})` :
+                      `Recipes (${filteredRecipes.length})`
+                    ) : (
+                      `Uncategorized Recipes (${uncategorizedCount})`
+                    )}
+                  </h2>
+                  {masteryFilter && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => router.push('/recipes')}
+                      style={{ fontSize: '14px' }}
+                    >
+                      Clear Filter
+                    </Button>
+                  )}
+                </div>
                 <div className={styles.controls} style={{ marginBottom: '20px' }}>
                   <Button
                     variant="ghost"
@@ -1043,5 +1193,13 @@ export default function RecipesPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function RecipesPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <RecipesPageContent />
+    </Suspense>
   );
 }

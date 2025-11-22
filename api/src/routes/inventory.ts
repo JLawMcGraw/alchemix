@@ -65,7 +65,7 @@ const upload = multer({
  * Ensures users can only access/modify their own bottles.
  */
 router.use(authMiddleware);
-router.use(userRateLimit(500, 15)); // Increased for development
+// No rate limiting on inventory - users should be able to view their bar freely
 
 /**
  * GET /api/inventory - List User's Bottles with Pagination

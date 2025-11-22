@@ -376,8 +376,10 @@ const authLimiter = rateLimit({
   skip: (req) => req.method === 'OPTIONS',
 });
 
-// Apply general rate limiting to all API routes
-app.use('/api/', apiLimiter);
+// DISABLED: Rate limiting removed for data viewing routes per user request
+// User should be able to freely view their bar and recipes without limits
+// Rate limiting is only applied to expensive operations (AI bartender in messages.ts)
+// app.use('/api/', apiLimiter);
 
 /**
  * CORS (Cross-Origin Resource Sharing) Middleware

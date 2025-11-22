@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { CSVUploadModal } from '@/components/modals/CSVUploadModal';
 import { useToast } from '@/components/ui/Toast';
-import { Sparkles, Wine, Upload, BookOpen, Star } from 'lucide-react';
+import { Sparkles, Wine, Upload, BookOpen, Star, Zap, FolderOpen } from 'lucide-react';
 import { inventoryApi, recipeApi } from '@/lib/api';
 import styles from './dashboard.module.css';
 
@@ -72,13 +72,19 @@ export default function DashboardPage() {
     inventoryItems,
     recipes,
     favorites,
+    collections,
     dashboardGreeting,
     dashboardInsight,
     isDashboardInsightLoading,
+    shoppingListStats,
+    craftableRecipes,
+    nearMissRecipes,
     fetchItems,
     fetchRecipes,
     fetchFavorites,
+    fetchCollections,
     fetchDashboardInsight,
+    fetchShoppingList,
   } = useStore();
   const { showToast } = useToast();
   const [csvModalOpen, setCsvModalOpen] = useState(false);
@@ -90,9 +96,11 @@ export default function DashboardPage() {
       fetchItems().catch(console.error);
       fetchRecipes().catch(console.error);
       fetchFavorites().catch(console.error);
+      fetchCollections().catch(console.error);
       fetchDashboardInsight().catch(console.error);
+      fetchShoppingList().catch(console.error);
     }
-  }, [isAuthenticated, isValidating, fetchItems, fetchRecipes, fetchFavorites, fetchDashboardInsight]);
+  }, [isAuthenticated, isValidating, fetchItems, fetchRecipes, fetchFavorites, fetchCollections, fetchDashboardInsight, fetchShoppingList]);
 
   // Show loading state during validation
   if (isValidating || !isAuthenticated) {
@@ -115,6 +123,7 @@ export default function DashboardPage() {
   const itemsArray = Array.isArray(inventoryItems) ? inventoryItems : [];
   const recipesArray = Array.isArray(recipes) ? recipes : [];
   const favoritesArray = Array.isArray(favorites) ? favorites : [];
+  const collectionsArray = Array.isArray(collections) ? collections : [];
   // Low stock feature disabled until Quantity field is added to InventoryItem type
   const lowStockCount = 0;
 
@@ -178,7 +187,7 @@ export default function DashboardPage() {
               {isDashboardInsightLoading ? (
                 <p className={styles.loadingText}>Analyzing your lab notes...</p>
               ) : dashboardInsight ? (
-                <p className={styles.insightText}>{dashboardInsight}</p>
+                <p className={styles.insightText} dangerouslySetInnerHTML={{ __html: dashboardInsight }} />
               ) : (
                 <p className={styles.emptyState}>
                   Add items and recipes to get personalized insights!
@@ -215,13 +224,41 @@ export default function DashboardPage() {
                 {itemsArray.length === 0 ? (
                   <p className={styles.emptyState}>No items yet.</p>
                 ) : (
-                  <ul className={styles.bottleList}>
-                    {itemsArray.slice(0, 3).map((item) => (
-                      <li key={item.id} className={styles.bottleItem}>
-                        <span className={styles.bottleName}>{item.name}</span>
-                        <span className={styles.bottleType}>{item.type || item.category}</span>
-                      </li>
-                    ))}
+                  <ul className={styles.categoryList}>
+                    {(() => {
+                      const categoryCounts = itemsArray.reduce((acc, item) => {
+                        const category = item.category || 'other';
+                        acc[category] = (acc[category] || 0) + 1;
+                        return acc;
+                      }, {} as Record<string, number>);
+
+                      const categoryLabels: Record<string, string> = {
+                        spirit: 'Spirits',
+                        liqueur: 'Liqueurs',
+                        mixer: 'Mixers',
+                        syrup: 'Syrups',
+                        garnish: 'Garnishes',
+                        wine: 'Wines',
+                        beer: 'Beers',
+                        other: 'Other'
+                      };
+
+                      return Object.entries(categoryCounts)
+                        .sort(([, a], [, b]) => b - a)
+                        .map(([category, count]) => (
+                          <li
+                            key={category}
+                            className={styles.categoryItem}
+                            onClick={() => router.push(`/bar?category=${category}`)}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <span className={styles.categoryLabel}>
+                              {categoryLabels[category] || category}
+                            </span>
+                            <span className={styles.categoryCount}>{count}</span>
+                          </li>
+                        ));
+                    })()}
                   </ul>
                 )}
                 {/* Add New Item Button */}
@@ -234,12 +271,12 @@ export default function DashboardPage() {
               </div>
             </Card>
 
-            {/* Recent Recipes */}
+            {/* Recipe Mastery */}
             <Card padding="md" className={styles.overviewCard}>
               <div className={styles.cardHeader}>
                 <h3 className={styles.cardTitle}>
-                  <BookOpen size={20} style={{ marginRight: '8px' }} />
-                  Recent Recipes
+                  <Zap size={20} style={{ marginRight: '8px' }} />
+                  Recipe Mastery
                 </h3>
                 <button onClick={() => router.push('/recipes')} className={styles.viewAllBtn}>
                   View All →
@@ -249,44 +286,100 @@ export default function DashboardPage() {
                 {recipesArray.length === 0 ? (
                   <p className={styles.emptyState}>No recipes yet.</p>
                 ) : (
-                  <ul className={styles.recipeList}>
-                    {recipesArray.slice(0, 3).map((recipe) => (
-                      <li key={recipe.id} className={styles.recipeItem}>
-                        <span className={styles.recipeName}>{recipe.name}</span>
-                        <span className={styles.recipeIngredients}>
-                          {parseIngredients(recipe.ingredients).length} ingredients
-                        </span>
-                      </li>
-                    ))}
+                  <ul className={styles.masteryList}>
+                    {(() => {
+                      // Use backend-calculated stats for 100% accuracy
+                      const craftable = shoppingListStats?.craftable || 0;
+                      const almostThere = shoppingListStats?.nearMisses || 0;
+                      const needFew = shoppingListStats?.missing2to3 || 0;
+                      const majorGaps = shoppingListStats?.missing4plus || 0;
+
+                      return (
+                        <>
+                          <li
+                            className={styles.masteryItem}
+                            onClick={() => router.push('/recipes?filter=craftable')}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <span className={styles.masteryLabel}>
+                              <span className={styles.masteryIcon} style={{ backgroundColor: 'var(--color-semantic-success)' }}></span>
+                              Craftable Now
+                            </span>
+                            <span className={styles.masteryCount}>{craftable}</span>
+                          </li>
+                          <li
+                            className={styles.masteryItem}
+                            onClick={() => router.push('/recipes?filter=almost')}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <span className={styles.masteryLabel}>
+                              <span className={styles.masteryIcon} style={{ backgroundColor: 'var(--color-semantic-warning)' }}></span>
+                              Almost There (1 away)
+                            </span>
+                            <span className={styles.masteryCount}>{almostThere}</span>
+                          </li>
+                          <li
+                            className={styles.masteryItem}
+                            onClick={() => router.push('/recipes?filter=need-few')}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <span className={styles.masteryLabel}>
+                              <span className={styles.masteryIcon} style={{ backgroundColor: 'var(--color-semantic-info)' }}></span>
+                              Need 2-3 Items
+                            </span>
+                            <span className={styles.masteryCount}>{needFew}</span>
+                          </li>
+                          <li
+                            className={styles.masteryItem}
+                            onClick={() => router.push('/recipes?filter=major-gaps')}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <span className={styles.masteryLabel}>
+                              <span className={styles.masteryIcon} style={{ backgroundColor: 'var(--color-text-muted)' }}></span>
+                              Major Gaps (4+)
+                            </span>
+                            <span className={styles.masteryCount}>{majorGaps}</span>
+                          </li>
+                        </>
+                      );
+                    })()}
                   </ul>
                 )}
               </div>
             </Card>
 
-            {/* Favorites */}
+            {/* Collections Overview */}
             <Card padding="md" className={styles.overviewCard}>
               <div className={styles.cardHeader}>
                 <h3 className={styles.cardTitle}>
-                  <Star size={20} style={{ marginRight: '8px' }} />
-                  Favorites
+                  <FolderOpen size={20} style={{ marginRight: '8px' }} />
+                  My Collections
                 </h3>
-                <button onClick={() => router.push('/favorites')} className={styles.viewAllBtn}>
+                <button onClick={() => router.push('/recipes')} className={styles.viewAllBtn}>
                   View All →
                 </button>
               </div>
               <div className={styles.cardContent}>
-                {favoritesArray.length === 0 ? (
-                  <p className={styles.emptyState}>No favorites yet.</p>
+                {collectionsArray.length === 0 ? (
+                  <p className={styles.emptyState}>No collections yet.</p>
                 ) : (
-                  <ul className={styles.favoriteList}>
-                    {favoritesArray.slice(0, 2).map((favorite) => (
-                      <li key={favorite.id} className={styles.favoriteItem}>
-                        <Star size={18} className={styles.favoriteIcon} />
-                        <span className={styles.favoriteName}>
-                          {favorite.recipe_name || 'Saved Recipe'}
-                        </span>
-                      </li>
-                    ))}
+                  <ul className={styles.collectionList}>
+                    {collectionsArray
+                      .sort((a, b) => (b.recipe_count || 0) - (a.recipe_count || 0))
+                      .slice(0, 3)
+                      .map((collection) => (
+                        <li
+                          key={collection.id}
+                          className={styles.collectionItem}
+                          onClick={() => router.push(`/recipes?collection=${collection.id}`)}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <span className={styles.collectionName}>{collection.name}</span>
+                          <span className={styles.collectionCount}>
+                            {collection.recipe_count || 0} {collection.recipe_count === 1 ? 'recipe' : 'recipes'}
+                          </span>
+                        </li>
+                      ))}
                   </ul>
                 )}
               </div>

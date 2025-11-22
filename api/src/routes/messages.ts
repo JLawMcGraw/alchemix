@@ -175,8 +175,9 @@ function sanitizeHistoryEntries(
 /**
  * Build Dashboard Insight Prompt
  *
- * Creates a specialized prompt for generating dashboard greeting and insights.
- * Focuses on proactive suggestions and welcoming messages.
+ * Creates a specialized prompt for generating dashboard greeting and seasonal suggestions.
+ * Uses the same "Lab Assistant" persona as the AI Bartender for consistency.
+ * Provides context-aware recommendations based on current season/time of year.
  *
  * @param userId - User ID to fetch data for
  * @returns System prompt for dashboard insights
@@ -195,65 +196,101 @@ async function buildDashboardInsightPrompt(userId: number): Promise<string> {
   const inventoryCount = inventory.length;
   const recipeCount = recipes.length;
 
-  // Build a summary of their bar for the AI
-  const inventorySummary = inventory
-    .slice(0, 10) // Just show first 10 items
-    .map((item: any) => {
-      const name = sanitizeContextField(item.name, 'item.name', userId);
-      const type = sanitizeContextField(item.type, 'item.type', userId);
-      return `- ${name}${type ? ` (${type})` : ''}`;
-    })
-    .filter(Boolean)
-    .join('\n');
+  // Get current date for seasonal context
+  const now = new Date();
+  const month = now.getMonth() + 1; // 1-12
+  const season =
+    month >= 3 && month <= 5 ? 'Spring' :
+    month >= 6 && month <= 8 ? 'Summer' :
+    month >= 9 && month <= 11 ? 'Fall' :
+    'Winter';
 
-  const recipeSummary = recipes
-    .slice(0, 10) // Just show first 10 recipes
-    .map((recipe: any) => {
-      const name = sanitizeContextField(recipe.name, 'recipe.name', userId);
-      return `- ${name}`;
-    })
-    .filter(Boolean)
-    .join('\n');
+  // Build full recipe list with categories for analysis
+  const recipesWithCategories = recipes.map((recipe: any) => {
+    const name = sanitizeContextField(recipe.name, 'recipe.name', userId);
+    const category = sanitizeContextField(recipe.category, 'recipe.category', userId);
+    const spiritType = sanitizeContextField(recipe.spirit_type, 'recipe.spirit_type', userId);
+    return { name, category, spiritType };
+  }).filter(r => r.name);
 
-  const prompt = `# THE LAB ASSISTANT - DASHBOARD BRIEFING
+  // Build inventory list for craftability analysis
+  const inventoryList = inventory.map((item: any) => {
+    const name = sanitizeContextField(item.name, 'item.name', userId);
+    const type = sanitizeContextField(item.type, 'item.type', userId);
+    const classification = sanitizeContextField(item['Detailed Spirit Classification'], 'item.classification', userId);
+    return { name, type, classification };
+  }).filter(i => i.name);
 
-## YOUR ROLE
-You are the AlcheMix Lab Assistant providing a daily briefing for the user's dashboard.
+  // Query MemMachine for user's conversation history and preferences
+  let memoryContext = '';
+  try {
+    const { userContext } = await memoryService.getEnhancedContext(userId, `seasonal cocktail suggestions for ${season}`);
 
-## USER'S BAR SUMMARY
-- **Inventory:** ${inventoryCount} items
-- **Recipes:** ${recipeCount} cocktails
+    // Add user's preferences and conversation history for personalized suggestions
+    if (userContext) {
+      memoryContext += memoryService.formatContextForPrompt(userContext, 5); // Show recent conversations
+      memoryContext += memoryService.formatUserProfileForPrompt(userContext);
+    }
+  } catch (error) {
+    // MemMachine is optional - continue without it if unavailable
+    console.warn('MemMachine unavailable for dashboard insight, continuing without memory enhancement:', error);
+  }
 
-${inventorySummary ? `**Sample Inventory:**\n${inventorySummary}` : '**Inventory:** Empty'}
+  const prompt = `# THE LAB ASSISTANT - SEASONAL DASHBOARD BRIEFING
 
-${recipeSummary ? `**Sample Recipes:**\n${recipeSummary}` : '**Recipes:** None yet'}
+## YOUR IDENTITY
+You are **"The Lab Assistant,"** the AI bartender for **"AlcheMix."** You are a specialized expert with a distinct personality.
+
+## CORE PERSONALITY (MAINTAIN THIS VOICE)
+- **Tone:** Informed Enthusiasm - analytical but warmly conversational
+- **Voice:** Scientific but Human - use sensory and chemical metaphors
+- **Empathy:** Supportive Curiosity - assume the user is experimenting
+- **Humor:** Dry, observational wordplay
+
+## CURRENT CONTEXT
+- **Season:** ${season}
+- **User's Inventory:** ${inventoryCount} bottles
+- **User's Recipes:** ${recipeCount} cocktails
+
+## USER'S COMPLETE RECIPE COLLECTION
+${recipesWithCategories.map(r => `- ${r.name}${r.category ? ` (${r.category})` : ''}${r.spiritType ? ` [${r.spiritType}]` : ''}`).join('\n')}
+
+## USER'S COMPLETE INVENTORY
+${inventoryList.map(i => `- ${i.name}${i.type ? ` [${i.type}]` : ''}${i.classification ? ` (${i.classification})` : ''}`).join('\n')}${memoryContext}
 
 ## YOUR TASK
-Provide TWO things:
+Generate a **Seasonal Suggestions** insight for the dashboard. Provide TWO things:
 
-1. **Daily Briefing Greeting** (1-2 sentences):
-   - Be welcoming and professional.
-   - Reference their bar's current state, including the bottle and recipe counts.
-   - **CRITICAL:** You MUST wrap the numbers and units in <strong> tags.
-   - Example: "Good day, Alchemist. Your laboratory holds <strong>${inventoryCount} bottles</strong> and you know <strong>${recipeCount} recipes</strong>—an impressive foundation for experimentation."
+1. **Greeting** (1-2 sentences):
+   - Be welcoming and reference their bar's state
+   - **CRITICAL:** Wrap numbers and units in <strong> tags
+   - Example: "Your laboratory holds <strong>${inventoryCount} bottles</strong> and <strong>${recipeCount} recipes</strong>—quite the arsenal for ${season.toLowerCase()} experimentation."
 
-2. **Lab Assistant's Notebook Insight** (2-3 sentences):
-   - Provide ONE actionable suggestion
-   - Options:
-     * Recommend a specific ingredient to buy that would unlock multiple recipes
-     * Suggest a cocktail they can almost make (missing 1-2 ingredients)
-     * Point out an interesting pattern in their collection
-     * Encourage them to try a specific recipe they have
-   - Be specific and helpful
+2. **Seasonal Suggestion** (2-4 sentences):
+   - **CONTEXT-AWARE:** Reference the current season (${season})
+   - **USE MEMORY CONTEXT:** If conversation history is provided above, reference their past preferences and frequently discussed cocktails to make suggestions more personal
+   - **ANALYZE THEIR RECIPES:** Count how many recipes they can actually make with their current inventory (check if ingredients match inventory items)
+   - **SUGGEST CATEGORIES:** Recommend 2-3 cocktail categories/styles perfect for ${season}
+   - **SHOW CRAFTABLE COUNTS:** Format like "Refreshing Sours (<strong>12 craftable</strong>)" with exact counts
+   - **BE SPECIFIC:** Reference actual recipe names or spirit types from their collection
+
+## SEASONAL GUIDANCE BY SEASON
+- **Spring:** Light & floral - sours, fizzes, gin cocktails, aperitifs
+- **Summer:** Refreshing & tropical - tiki drinks, daiquiris, mojitos, frozen drinks
+- **Fall:** Rich & spiced - Old Fashioneds, Manhattans, whiskey cocktails, apple/pear drinks
+- **Winter:** Warm & bold - stirred spirit-forward, hot toddies, bourbon drinks, darker spirits
 
 ## CRITICAL FORMAT REQUIREMENT
-You MUST return ONLY a valid JSON object with two keys. No other text.
+Return ONLY a valid JSON object with two keys. No other text.
 
 Format:
-{"greeting":"Your greeting here","insight":"Your insight here"}
+{"greeting":"Your greeting here","insight":"Your seasonal suggestion here"}
 
-Example:
-{"greeting":"Your laboratory is well-stocked with <strong>${inventoryCount} bottles</strong> and an arsenal of <strong>${recipeCount} recipes</strong>. What shall we create?","insight":"With your current bourbon selection, you're just one bottle of sweet vermouth away from unlocking 12 classic cocktails including the Manhattan and Boulevardier."}
+Example for Summer:
+{"greeting":"Your laboratory holds <strong>45 bottles</strong> and <strong>241 recipes</strong>—an impressive collection primed for summer exploration.","insight":"Perfect for summer heat: You can craft <strong>18 Tiki drinks</strong> with your current rum selection, including classics like the Zombie and Mai Tai. Your citrus spirits also unlock <strong>12 refreshing Sours</strong>—the Daiquiri and Whiskey Sour are calling your name."}
+
+Example for Winter:
+{"greeting":"The laboratory is well-stocked with <strong>32 bottles</strong> and <strong>156 recipes</strong> for the winter season.","insight":"Perfect for winter nights: Your bourbon and rye collection unlocks <strong>15 spirit-forward stirred cocktails</strong> including the Manhattan and Old Fashioned. You can also craft <strong>8 warming whiskey drinks</strong>—the Irish Coffee and Hot Toddy will keep the cold at bay."}
 
 Return ONLY the JSON object. No markdown, no code blocks, no explanations.`;
 
@@ -593,6 +630,9 @@ router.post('/', async (req: Request, res: Response) => {
     );
 
     const aiMessage = response.data.content[0]?.text || 'No response from AI';
+
+    // Store conversation turn in MemMachine for future context
+    await memoryService.storeConversationTurn(userId, sanitizedMessage, aiMessage);
 
     /**
      * SECURITY LAYER 8: Output Filtering (Defense in Depth)

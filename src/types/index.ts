@@ -116,6 +116,8 @@ export interface ShoppingListStats {
   craftable: number;
   nearMisses: number;
   inventoryItems: number;
+  missing2to3?: number;
+  missing4plus?: number;
 }
 
 export interface CraftableRecipe {
@@ -131,11 +133,27 @@ export interface NearMissRecipe {
   missingIngredient: string;
 }
 
+export interface NeedFewRecipe {
+  id: number;
+  name: string;
+  ingredients: string[];
+  missingCount: number;
+}
+
+export interface MajorGapsRecipe {
+  id: number;
+  name: string;
+  ingredients: string[];
+  missingCount: number;
+}
+
 export interface ShoppingListResponse {
   data: ShoppingListSuggestion[];
   stats: ShoppingListStats;
   craftableRecipes: CraftableRecipe[];
   nearMissRecipes: NearMissRecipe[];
+  needFewRecipes: NeedFewRecipe[];
+  majorGapsRecipes: MajorGapsRecipe[];
 }
 
 // API Response Types
@@ -163,6 +181,8 @@ export interface AppState {
   shoppingListStats: ShoppingListStats | null;
   craftableRecipes: CraftableRecipe[];
   nearMissRecipes: NearMissRecipe[];
+  needFewRecipes: NeedFewRecipe[];
+  majorGapsRecipes: MajorGapsRecipe[];
   dashboardGreeting: string;
   dashboardInsight: string;
 

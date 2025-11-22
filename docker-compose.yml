@@ -126,6 +126,7 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - MEMMACHINE_API_URL=http://bar-server:8001
+      - MEMMACHINE_ENABLED=true
       - FRONTEND_URL=http://localhost:3001
     volumes:
       - ./api:/app

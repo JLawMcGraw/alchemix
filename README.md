@@ -8,9 +8,9 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 
 ## ✨ Current Status
 
-**Version:** v1.13.0 (MemMachine AI Memory Integration)
-**Phase:** Production Ready - AI Memory System Integrated
-**Last Updated:** November 21, 2025
+**Version:** v1.14.0 (Recipe Mastery Filters + Seasonal Dashboard Insights)
+**Phase:** Production Ready - Enhanced User Experience
+**Last Updated:** November 22, 2025
 
 ### What's Working
 - ✅ **Complete TypeScript monorepo** (Frontend + Backend) ⭐
@@ -39,6 +39,13 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
   - Safe array guards prevent crashes during data loading
   - Logout cleanup prevents data leaks between users
   - **Fixed**: Favorites integration (proper recipe_id/name matching, safe ingredient parsing)
+- ✅ **Recipe Mastery Filters** - Navigate recipes by craftability level ⭐⭐ **NEW v1.14**
+  - 4 mastery levels: Craftable (0 missing), Near Misses (1 missing), Need 2-3 (2-3 missing), Major Gaps (4+ missing)
+  - Clickable stat cards on dashboard bounce to filtered recipe view
+  - Dynamic heading shows filter type and exact recipe count
+  - "Clear Filter" button to return to full recipe list
+  - Backend categorization in shopping list API with accurate counts
+  - **Fixed**: Browser cache-busting prevents stale 304 responses blocking new API fields
 - ✅ **Recipe Collections Complete** - Organize recipes into collections/folders with bulk operations ⭐⭐⭐
   - Create, edit, and delete collections with descriptions
   - Collections act as folders (click to enter, back button to return)
@@ -85,6 +92,14 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
   - Beige header background with teal number highlights
   - Responsive card grid for Bar/Recipes/Favorites overview
   - **Fixed**: Custom greeting parser preserves <strong> tags without dangerouslySetInnerHTML (no spacing artifacts)
+- ✅ **Seasonal Dashboard Insights** - Context-aware AI recommendations based on season ⭐⭐ **NEW v1.14**
+  - Automatic season detection (Spring/Summer/Fall/Winter) based on current month
+  - Seasonal cocktail category suggestions (e.g., Winter: stirred spirit-forward, Summer: tiki drinks)
+  - MemMachine integration retrieves conversation history for personalized recommendations
+  - AI analyzes full recipe and inventory lists to count craftable recipes by category
+  - Consistent Lab Assistant personality matching AI Bartender voice
+  - HTML rendering for `<strong>` tags to highlight recipe counts
+  - Example: "Perfect for winter: Your bourbon collection unlocks **15 stirred cocktails**"
 - ✅ **Comprehensive Test Infrastructure** - 299/299 tests passing (100% pass rate) ⭐⭐⭐
   - 92 new integration tests added (32% coverage increase)
   - Complete route coverage (inventoryItems, recipes, collections, favorites, messages)

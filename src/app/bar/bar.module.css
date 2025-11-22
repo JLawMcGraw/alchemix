@@ -31,11 +31,39 @@
   margin: 0;
 }
 
+.subtitleContainer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
 .subtitle {
   font-family: var(--font-body);
   font-size: var(--text-base);
   color: var(--color-text-muted);
   margin: var(--space-1) 0 0 0;
+}
+
+.clearFilterBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--color-primary);
+  background-color: rgba(61, 214, 193, 0.1);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.clearFilterBtn:hover {
+  background-color: var(--color-primary);
+  color: white;
 }
 
 .actions {
@@ -101,6 +129,69 @@
 
 .tabActive .tabCount {
   background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Spirit Distribution */
+.spiritDistribution {
+  margin-bottom: var(--space-3);
+}
+
+.spiritDistributionTitle {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--color-text-body);
+  margin: 0 0 var(--space-3) 0;
+  display: flex;
+  align-items: center;
+}
+
+.spiritGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-2);
+}
+
+.spiritItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--color-ui-bg-base);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  width: 100%;
+  font-family: inherit;
+}
+
+.spiritItem:hover {
+  background-color: rgba(61, 214, 193, 0.1);
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.spiritItem:active {
+  transform: translateY(0);
+}
+
+.spiritName {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--color-text-body);
+}
+
+.spiritCount {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--color-primary);
+  background-color: rgba(61, 214, 193, 0.1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
 }
 
 /* Items Grid */
@@ -264,5 +355,9 @@
 
   .itemName {
     white-space: normal;
+  }
+
+  .spiritGrid {
+    grid-template-columns: 1fr;
   }
 }

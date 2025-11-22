@@ -41,7 +41,7 @@ const router = Router();
  * Ensures users only get recommendations based on their own data.
  */
 router.use(authMiddleware);
-router.use(userRateLimit(500, 15)); // Increased for development
+// No rate limiting on shopping list - users should be able to view their shopping list freely
 
 /**
  * Helper: Parse Ingredient Name from Full String
@@ -479,11 +479,23 @@ router.get('/smart', (req: Request, res: Response) => {
      *
      * Provide context about the analysis.
      */
+
+    // Calculate breakdown by missing ingredient count
+    const missingBreakdown = new Map<number, number>();
+    allNonCraftable.forEach(recipe => {
+      const count = recipe.missingIngredients.length;
+      missingBreakdown.set(count, (missingBreakdown.get(count) || 0) + 1);
+    });
+
     const stats = {
       totalRecipes: parsedRecipes.length,
       craftable: craftableRecipes.length,
       nearMisses: nearMissRecipes.length,
-      inventoryItems: bottles.length
+      inventoryItems: bottles.length,
+      missing2to3: (missingBreakdown.get(2) || 0) + (missingBreakdown.get(3) || 0),
+      missing4plus: Array.from(missingBreakdown.entries())
+        .filter(([count]) => count >= 4)
+        .reduce((sum, [, recipeCount]) => sum + recipeCount, 0)
     };
 
     /**
@@ -491,6 +503,14 @@ router.get('/smart', (req: Request, res: Response) => {
      *
      * Success response with recommendations, statistics, and recipe lists.
      */
+    // Categorize recipes by missing ingredient count
+    const needFewRecipes = allNonCraftable.filter(r =>
+      r.missingIngredients.length >= 2 && r.missingIngredients.length <= 3
+    );
+    const majorGapsRecipes = allNonCraftable.filter(r =>
+      r.missingIngredients.length >= 4
+    );
+
     res.json({
       success: true,
       data: recommendations,
@@ -505,6 +525,18 @@ router.get('/smart', (req: Request, res: Response) => {
         name: r.name,
         ingredients: r.ingredients,
         missingIngredient: r.missingIngredients[0] // Only 1 missing for near-miss
+      })),
+      needFewRecipes: needFewRecipes.map(r => ({
+        id: r.id,
+        name: r.name,
+        ingredients: r.ingredients,
+        missingCount: r.missingIngredients.length
+      })),
+      majorGapsRecipes: majorGapsRecipes.map(r => ({
+        id: r.id,
+        name: r.name,
+        ingredients: r.ingredients,
+        missingCount: r.missingIngredients.length
       }))
     });
   } catch (error) {

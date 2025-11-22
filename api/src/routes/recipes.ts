@@ -68,7 +68,7 @@ const upload = multer({
  * Ensures users can only access/modify their own recipes.
  */
 router.use(authMiddleware);
-router.use(userRateLimit(500, 15)); // Increased for development
+// No rate limiting on recipes - users should be able to view their recipes freely
 
 /**
  * GET /api/recipes - List User's Recipes with Pagination

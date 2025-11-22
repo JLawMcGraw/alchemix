@@ -164,7 +164,10 @@
 /* Item Lists */
 .bottleList,
 .recipeList,
-.favoriteList {
+.favoriteList,
+.categoryList,
+.masteryList,
+.collectionList {
   list-style: none;
   padding: 0;
   margin: 0;
@@ -175,29 +178,47 @@
 
 .bottleItem,
 .recipeItem,
-.favoriteItem {
+.favoriteItem,
+.categoryItem,
+.masteryItem,
+.collectionItem {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: var(--space-2) var(--space-1);
   border-bottom: 1px solid var(--color-border-light);
+  transition: background-color var(--transition-fast);
+}
+
+.categoryItem:hover,
+.masteryItem:hover,
+.collectionItem:hover {
+  background-color: rgba(61, 214, 193, 0.05);
 }
 .bottleItem:first-child,
 .recipeItem:first-child,
-.favoriteItem:first-child {
+.favoriteItem:first-child,
+.categoryItem:first-child,
+.masteryItem:first-child,
+.collectionItem:first-child {
   padding-top: 0;
 }
 
 .bottleItem:last-child,
 .recipeItem:last-child,
-.favoriteItem:last-child {
+.favoriteItem:last-child,
+.categoryItem:last-child,
+.masteryItem:last-child,
+.collectionItem:last-child {
   border-bottom: none;
   padding-bottom: 0;
 }
 
 .bottleName,
 .recipeName,
-.favoriteName {
+.favoriteName,
+.categoryLabel,
+.collectionName {
   font-family: var(--font-body);
   font-size: var(--text-base);
   font-weight: 500;
@@ -209,6 +230,24 @@
   font-family: var(--font-body);
   font-size: var(--text-sm);
   color: var(--color-text-muted);
+}
+
+.collectionCount {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.categoryCount {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--color-primary);
+  background-color: var(--color-ui-bg-base);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius);
 }
 
 .favoriteItem {
@@ -231,5 +270,33 @@
 .greeting strong {
   color: var(--color-primary);
   font-weight: 700;
+}
+
+/* Recipe Mastery Styles */
+.masteryLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--color-text-body);
+}
+
+.masteryIcon {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.masteryCount {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--color-text-body);
+  background-color: var(--color-ui-bg-base);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius);
 }
 

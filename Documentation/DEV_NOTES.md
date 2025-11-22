@@ -4,6 +4,103 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-11-22 - Browser Cache Busting + Seasonal Dashboard Insights
+
+**Context**: Fixed critical bug where recipe mastery filters (craftable, near miss, need 2-3, major gaps) were showing (0) recipes despite backend returning correct data. Enhanced dashboard "Lab Assistant's Notebook" with seasonal awareness and MemMachine personalization.
+
+**Problem**: Browser Cache 304 Responses Blocking New API Fields
+
+When the shopping list API was enhanced to return `needFewRecipes` and `majorGapsRecipes`, browsers were returning HTTP 304 (Not Modified) responses with cached data from the old API structure. This caused:
+- Frontend receiving old response without new fields
+- TypeScript interfaces not expecting new fields → data dropped
+- All mastery filter counts showing as (0)
+
+**Solution 1: Cache-Busting Timestamp**
+
+```typescript
+// src/lib/api.ts:271
+export const shoppingListApi = {
+  async getSmart(): Promise<ShoppingListResponse> {
+    const { data } = await apiClient.get<{
+      success: boolean;
+      data: ShoppingListResponse['data'];
+      stats: ShoppingListResponse['stats'];
+      craftableRecipes?: ShoppingListResponse['craftableRecipes'];
+      nearMissRecipes?: ShoppingListResponse['nearMissRecipes'];
+      needFewRecipes?: ShoppingListResponse['needFewRecipes'];      // ← Added
+      majorGapsRecipes?: ShoppingListResponse['majorGapsRecipes'];  // ← Added
+    }>('/api/shopping-list/smart?_t=' + Date.now()); // ← Cache-busting timestamp
+
+    return {
+      data: data.data ?? [],
+      stats: data.stats ?? defaultStats,
+      craftableRecipes: data.craftableRecipes ?? [],
+      nearMissRecipes: data.nearMissRecipes ?? [],
+      needFewRecipes: data.needFewRecipes ?? [],        // ← Added
+      majorGapsRecipes: data.majorGapsRecipes ?? [],    // ← Added
+    };
+  },
+};
+```
+
+**Result**: Browser forced to fetch fresh data on every request, no more 304 cached responses.
+
+**Solution 2: Enhanced Dashboard with Seasonal Context**
+
+```typescript
+// api/src/routes/messages.ts - buildDashboardInsightPrompt()
+
+// Detect current season
+const now = new Date();
+const month = now.getMonth() + 1; // 1-12
+const season =
+  month >= 3 && month <= 5 ? 'Spring' :
+  month >= 6 && month <= 8 ? 'Summer' :
+  month >= 9 && month <= 11 ? 'Fall' :
+  'Winter';
+
+// Query MemMachine for personalized context
+const { userContext } = await memoryService.getEnhancedContext(
+  userId,
+  `seasonal cocktail suggestions for ${season}`
+);
+
+// Provide complete recipe/inventory lists for AI analysis
+const recipesWithCategories = recipes.map(recipe => ({
+  name: sanitizeContextField(recipe.name, 'recipe.name', userId),
+  category: sanitizeContextField(recipe.category, 'recipe.category', userId),
+  spiritType: sanitizeContextField(recipe.spirit_type, 'recipe.spirit_type', userId),
+}));
+```
+
+**AI Prompt Enhancement**:
+- Seasonal guidance per season (Spring: light & floral, Summer: refreshing & tropical, Fall: rich & spiced, Winter: warm & bold)
+- Full recipe and inventory lists provided to AI for accurate counting
+- MemMachine conversation history for personalized suggestions
+- Instruction to count craftable recipes by category with exact numbers
+- Consistent Lab Assistant personality matching AI Bartender
+
+**Example Output**:
+```
+Greeting: "Your laboratory holds <strong>45 bottles</strong> and <strong>241 recipes</strong>—an impressive collection primed for winter exploration."
+
+Insight: "Perfect for winter nights: Your bourbon and rye collection unlocks <strong>15 spirit-forward stirred cocktails</strong> including the Manhattan and Old Fashioned. I noticed you've been exploring Tiki territory lately—you can also craft <strong>18 Tiki drinks</strong> year-round."
+```
+
+**Future Considerations**:
+- Monitor if cache-busting timestamp causes server load issues
+- Consider implementing ETag-based cache invalidation instead
+- Add "Refresh Suggestions" button if users want to regenerate dashboard insight
+- Evaluate seasonal suggestion quality across all 4 seasons
+
+**Files Modified**:
+- `src/lib/api.ts:261-289` (cache-busting, TypeScript interfaces)
+- `src/app/recipes/page.tsx:243-257` (enhanced debug logging)
+- `src/app/dashboard/page.tsx:190` (HTML rendering for <strong> tags)
+- `api/src/routes/messages.ts:185-282` (seasonal detection, MemMachine integration, enhanced prompt)
+
+---
+
 ## 2025-11-21 - MemMachine User-Specific Memory Integration
 
 **Context**: Integrated MemMachine AI memory system to provide semantic search over user's own recipes and preferences. Pivoted from global knowledge base architecture to isolated per-user memory for privacy and scalability.

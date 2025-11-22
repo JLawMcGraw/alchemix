@@ -27,7 +27,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authMiddleware);
-router.use(userRateLimit(500, 15)); // Increased for development
+// No rate limiting on collections - users should be able to view their collections freely
 
 /**
  * GET /api/collections - List User's Collections

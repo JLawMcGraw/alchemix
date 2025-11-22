@@ -266,7 +266,9 @@ export const shoppingListApi = {
       stats: ShoppingListResponse['stats'];
       craftableRecipes?: ShoppingListResponse['craftableRecipes'];
       nearMissRecipes?: ShoppingListResponse['nearMissRecipes'];
-    }>('/api/shopping-list/smart');
+      needFewRecipes?: ShoppingListResponse['needFewRecipes'];
+      majorGapsRecipes?: ShoppingListResponse['majorGapsRecipes'];
+    }>('/api/shopping-list/smart?_t=' + Date.now()); // Cache-busting timestamp
 
     const defaultStats: ShoppingListStats = {
       totalRecipes: 0,
@@ -280,6 +282,8 @@ export const shoppingListApi = {
       stats: data.stats ?? defaultStats,
       craftableRecipes: data.craftableRecipes ?? [],
       nearMissRecipes: data.nearMissRecipes ?? [],
+      needFewRecipes: data.needFewRecipes ?? [],
+      majorGapsRecipes: data.majorGapsRecipes ?? [],
     };
   },
 };

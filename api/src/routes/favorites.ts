@@ -41,7 +41,7 @@ const router = Router();
  * Ensures users can only access/modify their own favorites.
  */
 router.use(authMiddleware);
-router.use(userRateLimit(500, 15)); // Increased for development
+// No rate limiting on favorites - users should be able to view their favorites freely
 
 /**
  * GET /api/favorites - List User's Favorite Recipes

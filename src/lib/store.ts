@@ -22,6 +22,8 @@ export const useStore = create<AppState>()(
       shoppingListStats: null,
       craftableRecipes: [],
       nearMissRecipes: [],
+      needFewRecipes: [],
+      majorGapsRecipes: [],
       dashboardGreeting: 'Ready for your next experiment?',
       dashboardInsight: '',
       isLoading: false,
@@ -106,6 +108,8 @@ export const useStore = create<AppState>()(
           shoppingListStats: null,
           craftableRecipes: [],
           nearMissRecipes: [],
+          needFewRecipes: [],
+          majorGapsRecipes: [],
         });
 
         // Call logout API
@@ -445,6 +449,8 @@ export const useStore = create<AppState>()(
             shoppingListStats: response.stats,
             craftableRecipes: response.craftableRecipes,
             nearMissRecipes: response.nearMissRecipes,
+            needFewRecipes: response.needFewRecipes || [],
+            majorGapsRecipes: response.majorGapsRecipes || [],
             isLoadingShoppingList: false,
           });
         } catch (error: any) {

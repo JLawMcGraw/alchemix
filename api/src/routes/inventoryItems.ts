@@ -65,7 +65,7 @@ const upload = multer({
  * Ensures users can only access/modify their own items.
  */
 router.use(authMiddleware);
-router.use(userRateLimit(500, 15)); // Increased for development
+// No rate limiting on inventory - users should be able to view their inventory freely
 
 /**
  * GET /api/inventory-items - List User's Inventory Items with Pagination & Filtering
