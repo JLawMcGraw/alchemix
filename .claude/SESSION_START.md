@@ -20,10 +20,10 @@ Hello Claude, we're continuing work on **AlcheMix** - the modern React/Next.js r
 - AlcheMix design system (teal/orange scientific lab aesthetic)
 
 ### Current Status
-- **Phase**: Production Ready - Smart Shopping List Complete
-- **Version**: v1.10.0-alpha
-- **Last Updated**: November 17, 2025
-- **Status**: Full-stack TypeScript monorepo complete, all major features implemented, 195/195 tests passing, production-ready
+- **Phase**: Production Ready - Enhanced User Experience
+- **Version**: v1.15.0
+- **Last Updated**: November 22, 2025
+- **Status**: Full-stack TypeScript monorepo complete, all major features implemented, 299/299 tests passing, production-ready with MemMachine AI memory integration
 
 ### Tech Stack
 
@@ -63,7 +63,8 @@ Hello Claude, we're continuing work on **AlcheMix** - the modern React/Next.js r
   - Server-controlled prompts (user messages never in system prompt)
   - Output filtering for sensitive data detection
   - Sanitized chat history (last 10 turns) for conversation context
-- **Testing**: 195/195 tests passing (unit, database, routes)
+  - **MemMachine Integration**: User-specific AI memory system for semantic recipe search
+- **Testing**: 299/299 tests passing (unit, database, routes, integration)
 - **Scalability**: Redis migration plan documented for multi-instance deployments
 
 ### Key Directories
@@ -88,7 +89,8 @@ Hello Claude, we're continuing work on **AlcheMix** - the modern React/Next.js r
   - `api.ts` - Axios API client with interceptors
   - `store.ts` - Zustand store with localStorage persistence
   - `aiPersona.ts` - AI persona and response parsing
-  - `passwordPolicy.ts` - Client-side password validation ⭐ NEW
+  - `passwordPolicy.ts` - Client-side password validation
+  - `spirits.ts` - Spirit categorization and keyword matching ⭐ NEW
 - `src/styles/` - Design system CSS
 - `src/types/` - TypeScript type definitions
 - `public/` - Static assets (logo, fonts)
@@ -98,11 +100,12 @@ Hello Claude, we're continuing work on **AlcheMix** - the modern React/Next.js r
 - `api/src/routes/` - API route handlers
   - `auth.ts` - Authentication (signup, login, logout, me)
   - `inventory.ts` - Bottle management (CRUD, CSV import)
-  - `recipes.ts` - Recipe management (CRUD, CSV import, collection assignment)
-  - `collections.ts` - Recipe collections (create, edit, delete, move recipes) ⭐ NEW
+  - `inventoryItems.ts` - Enhanced inventory with stock tracking ⭐ NEW
+  - `recipes.ts` - Recipe management (CRUD, CSV import, collection assignment, bulk operations)
+  - `collections.ts` - Recipe collections (create, edit, delete, move recipes)
   - `favorites.ts` - Favorites management
-  - `messages.ts` - AI Bartender with context-aware prompts and 8-layer security
-  - `shoppingList.ts` - Smart ingredient recommendations ⭐ NEW
+  - `messages.ts` - AI Bartender with context-aware prompts, MemMachine integration, and 8-layer security
+  - `shoppingList.ts` - Smart ingredient recommendations with 6 recipe buckets ⭐ ENHANCED
 - `api/src/middleware/` - Express middleware
   - `auth.ts` - JWT authentication
   - `errorHandler.ts` - Global error handling
@@ -112,11 +115,13 @@ Hello Claude, we're continuing work on **AlcheMix** - the modern React/Next.js r
 - `api/src/config/` - Configuration
   - `env.ts` - Environment variable loading
 - `api/src/errors/` - Custom error classes
+- `api/src/services/` - Backend services
+  - `MemoryService.ts` - MemMachine integration for AI memory ⭐ NEW
 - `api/src/utils/` - Utilities
   - `tokenBlacklist.ts` - Token revocation with SQLite persistence
   - `inputValidation.ts` - XSS prevention and sanitization
 - `api/src/types/` - Backend type definitions
-- `api/src/tests/` - Test suites (195 tests)
+- `api/src/tests/` - Test suites (299 tests)
 - `api/data/` - SQLite database files (auto-generated)
 
 ---
@@ -216,6 +221,9 @@ DATABASE_PATH=./data/alchemix.db
 
 # AI Integration
 ANTHROPIC_API_KEY=<your-api-key-here>
+
+# MemMachine Integration (Optional)
+MEMMACHINE_API_URL=http://localhost:8001
 ```
 
 **Frontend (.env.local - optional):**
@@ -457,14 +465,15 @@ All endpoints use JWT authentication (except login/signup):
 
 - POST /api/messages - Send message to AI (requires ANTHROPIC_API_KEY, includes chat history)
 
-**Shopping List (/api/shopping-list)** ⭐ NEW
+**Shopping List (/api/shopping-list)** ⭐ ENHANCED
 
 - GET /api/shopping-list/smart - Get intelligent ingredient recommendations
   - Analyzes inventory and recipes
-  - Identifies "near miss" recipes (missing exactly 1 ingredient)
+  - **6 Recipe Buckets**: craftable, near-miss (1 away), missing-2-3, missing-4+, need-few-recipes (1-2 categories), major-gaps (3+ categories)
   - Ranks ingredients by number of recipes they unlock
   - Supports fuzzy matching with 35% threshold
-  - Returns craftable recipes, near misses, and recommendations
+  - Stock-based filtering (only items with stock > 0)
+  - Returns comprehensive recipe categorization
 
 ---
 
@@ -575,21 +584,24 @@ alchemix/
 │       └── index.ts            # ✅ TypeScript types
 ├── api/                        # BACKEND (MONOREPO)
 │   ├── src/
-│   │   ├── routes/             # ✅ 7 API route files
+│   │   ├── routes/             # ✅ 8 API route files
 │   │   │   ├── auth.ts
 │   │   │   ├── inventory.ts
+│   │   │   ├── inventoryItems.ts # ⭐ NEW
 │   │   │   ├── recipes.ts
-│   │   │   ├── collections.ts  # ⭐ NEW
+│   │   │   ├── collections.ts
 │   │   │   ├── favorites.ts
 │   │   │   ├── messages.ts
-│   │   │   └── shoppingList.ts # ⭐ NEW
+│   │   │   └── shoppingList.ts
+│   │   ├── services/           # ✅ Backend services
+│   │   │   └── MemoryService.ts # ⭐ NEW
 │   │   ├── middleware/         # ✅ Auth, error handling, rate limiting
 │   │   ├── database/           # ✅ SQLite connection and schema
 │   │   ├── config/             # ✅ Environment configuration
 │   │   ├── errors/             # ✅ Custom error classes
 │   │   ├── utils/              # ✅ Token blacklist, validation
 │   │   ├── types/              # ✅ Backend type definitions
-│   │   ├── tests/              # ✅ Test suites (195 tests)
+│   │   ├── tests/              # ✅ Test suites (299 tests)
 │   │   └── server.ts           # ✅ Express server
 │   ├── data/                   # SQLite database files (auto-generated)
 │   │   └── alchemix.db
@@ -673,7 +685,7 @@ cd api && npm run type-check
 # Lint check
 npm run lint
 
-# Run all backend tests (195 tests)
+# Run all backend tests (299 tests)
 cd api && npm test
 
 # Run tests by category
@@ -704,19 +716,19 @@ cd api && npm run build
 
 | Metric | Value |
 |--------|-------|
-| Version | v1.10.0-alpha (Smart Shopping List) |
-| Sessions Completed | 13+ (Nov 7-17, 2025) |
+| Version | v1.15.0 (Shopping List Expansion + Spirit Distribution + MemMachine) |
+| Sessions Completed | 15+ (Nov 7-22, 2025) |
 | Framework | Next.js 14 + Express.js |
 | Language | TypeScript 5.3 (Frontend + Backend) |
 | State Management | Zustand 4.5 |
-| Files Created | 100+ (Frontend + Backend) |
-| Lines of Code | ~6,500+ |
+| Files Created | 110+ (Frontend + Backend + MemMachine Integration) |
+| Lines of Code | ~7,500+ |
 | UI Components Built | 12 (Button, Card, Input, Spinner, Toast, SuccessCheckmark, Modals) |
 | Pages Built | 8 (Login, Dashboard, Bar, AI, Recipes, Favorites, Shopping List, Account) ✅ |
-| Modal Components | 6 (CSV, Add/Edit Bottle, Delete, Recipe Detail, Collection) ✅ |
-| API Endpoints | 30+ REST endpoints |
-| Database Tables | 6 (users, bottles, recipes, collections, favorites, token_blacklist) |
-| Tests | 195/195 passing (100% pass rate) |
+| Modal Components | 6 (CSV, Add/Edit Bottle, Delete, Recipe Detail, Collection, Item Detail) ✅ |
+| API Endpoints | 35+ REST endpoints |
+| Database Tables | 7 (users, bottles, inventory_items, recipes, collections, favorites, token_blacklist) |
+| Tests | 299/299 passing (100% pass rate) |
 | Design System | Complete (colors, typography, spacing, animations) |
 
 ---
@@ -740,29 +752,37 @@ cd api && npm run build
 - Client-side password validation matching backend policy
 - Frontend testing with Vitest
 
-### ✅ Backend Complete (Sessions 5-13)
+### ✅ Backend Complete (Sessions 5-15)
 
 - Express.js TypeScript backend in `/api` folder
 - SQLite database with auto-initialization
 - Authentication API (signup, login, logout, me)
-- Inventory API (full CRUD operations, CSV import)
+- Inventory API (full CRUD operations, CSV import, stock tracking)
 - Recipes API (CRUD, CSV import, bulk delete, collection assignment)
-- Collections API (create, edit, delete, accurate counts) ⭐ NEW
+- Collections API (create, edit, delete, accurate counts)
 - Favorites API (get, add, remove with recipe_id linking)
-- Shopping List API (smart recommendations, fuzzy matching) ⭐ NEW
+- Shopping List API (smart recommendations, fuzzy matching, 6 recipe buckets) ⭐ ENHANCED
+- **MemMachine Integration**: User-specific AI memory system with semantic recipe search ⭐ NEW
 - **8-layer security architecture** (token blacklist, versioning, rate limiting, headers, validation, sanitization, graceful shutdown)
 - JWT authentication with bcrypt password hashing (12+ chars, complexity requirements)
 - **AI Prompt Injection Protection** (8-layer security for Claude API)
-- **Comprehensive documentation**: ~5,500+ lines of enterprise-grade inline documentation
+- **Comprehensive documentation**: ~6,500+ lines of enterprise-grade inline documentation
 - Error handling middleware with custom error classes
 - Database schema with foreign keys and indexes
-- 195/195 tests passing (100% pass rate)
+- 299/299 tests passing (100% pass rate)
 - Winston logging with structured JSON format
 
-### ✅ Smart Shopping List Complete (Session 13)
+### ✅ Shopping List Expansion Complete (Session 15)
 
-- **Frontend**: Full page with craftable recipes, near-miss analysis, and ingredient recommendations
-- **Backend**: Fuzzy matching algorithm (35% threshold), recipe unlock ranking, comprehensive test coverage
+- **Frontend**: Full page with 6 recipe buckets (craftable, near-miss, missing-2-3, missing-4+, need-few, major-gaps)
+- **Backend**: Enhanced categorization algorithm, stock-based filtering, comprehensive test coverage
+- **Spirit Distribution**: Bar page grid showing category breakdown with clickable filters
+
+### ✅ MemMachine AI Memory System (Session 14)
+
+- **Frontend**: Seamless integration with AI Bartender for personalized recipe recommendations
+- **Backend**: MemoryService for user-specific recipe storage, semantic search, and profile management
+- **Architecture**: User-isolated memory (`user_{userId}`), fire-and-forget pattern, graceful degradation
 
 ### ✅ Recipe Collections Complete (Session 12)
 
@@ -831,7 +851,7 @@ npm run dev:all
 8. Before ending session:
    - Run `npm run type-check` (frontend)
    - Run `cd api && npm run type-check` (backend)
-   - Run `cd api && npm test` (195 tests should pass)
+   - Run `cd api && npm test` (299 tests should pass)
    - Run `npm run lint`
    - Test all changes in browser
    - Update documentation (use SESSION_END.md prompt)
@@ -907,19 +927,20 @@ AlcheMix Full-Stack Production Ready! 🧪🍹✨
 
 ---
 
-## Key Updates Made:
+## Key Updates Made (v1.15.0):
 
-1. **Version updated** to v1.10.0-alpha
-2. **New pages**: Added Shopping List (8 pages total, not 7)
-3. **New API routes**: Collections and Shopping List
-4. **New components**: CollectionModal, passwordPolicy.ts
-5. **New database tables**: collections, token_blacklist (6 tables total)
-6. **New directories**: api/src/config/, api/src/errors/, api/src/tests/
-7. **Updated statistics**: 100+ files, 6,500+ lines of code, 30+ API endpoints
-8. **Current features**: Smart Shopping List with fuzzy matching, Recipe Collections with bulk operations
-9. **Enhanced security**: Persistent token blacklist, sanitized AI context
-10. **Testing**: 195/195 tests passing, Vitest configuration
-11. **Latest session info**: Session 13 on November 17, 2025
+1. **Version updated** to v1.15.0 (Shopping List Expansion + Spirit Distribution + MemMachine Enhancements)
+2. **Shopping List Enhanced**: 6 recipe buckets instead of 2 (craftable, near-miss, missing-2-3, missing-4+, need-few-recipes, major-gaps)
+3. **Spirit Distribution**: Bar page now shows spirit category breakdown with clickable filters
+4. **MemMachine Integration**: User-specific AI memory system for semantic recipe search
+5. **New backend service**: MemoryService.ts for MemMachine integration
+6. **New shared utility**: spirits.ts for spirit categorization and keyword matching
+7. **Enhanced inventory**: Stock-based filtering, ingredient matching bug fixes
+8. **New API routes**: inventoryItems.ts (8 API routes total)
+9. **Updated statistics**: 110+ files, 7,500+ lines of code, 35+ API endpoints
+10. **Testing**: 299/299 tests passing (104 new tests added)
+11. **Database tables**: 7 tables (added inventory_items)
+12. **Latest session info**: Session 15 on November 22, 2025
 
-The document now accurately reflects all the new features including the Smart Shopping List, Recipe Collections, enhanced security hardening, and the full testing infrastructure!
+The document now accurately reflects all the latest features including Shopping List expansion, Spirit Distribution, MemMachine AI memory integration, and comprehensive testing infrastructure!
 

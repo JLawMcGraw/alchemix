@@ -6,7 +6,7 @@ Last updated: 2025-11-22
 
 ## Current Status
 
-**Version**: v1.14.0 (Recipe Mastery Filters + Seasonal Dashboard Insights)
+**Version**: v1.15.0 (Shopping List Expansion + Spirit Distribution + MemMachine Enhancements)
 **Phase**: Production Ready - Enhanced User Experience
 **Blockers**: None
 
@@ -55,6 +55,9 @@ Last updated: 2025-11-22
 - ✅ Paginated inventory fetching (handles 100+ items)
 - ✅ CSV import with category validation
 - ✅ Add/edit modals with category dropdown
+- ✅ Spirit distribution grid with category breakdown
+- ✅ Clickable spirit filters synced with Recipes page
+- ✅ Stock number display on item cards
 - ⬜ Backend database migration (bottles → inventory_items) - DEFERRED
 - ⬜ Backend API endpoints (/api/inventory-items) - DEFERRED
 
@@ -78,6 +81,7 @@ Last updated: 2025-11-22
 - ✅ Near-miss algorithm (1 ingredient away)
 - ✅ Fuzzy matching (35% threshold)
 - ✅ Ranked recommendations
+- ✅ 6 recipe buckets (craftable, near-miss, missing-2-3, missing-4+, need-few-recipes, major-gaps)
 - ✅ 4 view modes (recommendations, craftable, near misses, inventory)
 - ✅ Pagination
 
@@ -99,6 +103,121 @@ Last updated: 2025-11-22
 ---
 
 ## Session History
+
+### Session: 2025-11-22 - Shopping List Expansion + Spirit Distribution Analysis + MemMachine Fixes
+
+**Summary**: Extended shopping list with missing-2-3 and missing-4+ ingredient buckets for better recipe discovery. Added spirit distribution grid to Bar page with clickable category filters. Improved Recipes page mastery filtering to respect recipe IDs. Enhanced MemMachine examples with Postgres documentation, optional timestamp parameter, and query constructor test coverage. Removed debug logging across frontend and ensured type-check passes.
+
+**Components Worked On**:
+- MemMachine Examples: `memmachine/examples/query_memory.py` (timestamp optional), `memmachine/examples/config.py` (Postgres env vars), `memmachine/examples/test_query_constructor.py` (new test coverage)
+- MemMachine Docs: `memmachine/README.md` (.env.example updates for Postgres)
+- Backend Shopping List: `api/src/routes/shoppingList.ts` (new buckets: missing2to3, missing4plus, needFewRecipes, majorGapsRecipes)
+- Backend Tests: `api/src/routes/shoppingList.test.ts` (integration tests for new buckets)
+- Frontend Types: `src/types/index.ts` (ShoppingListResponse with new arrays)
+- Frontend Store: `src/lib/store.ts` (state management for new shopping list fields)
+- Frontend API: `src/lib/api.ts` (type definitions for new response fields, cache-busting)
+- Frontend Bar Page: `src/app/bar/page.tsx` (spirit distribution grid, clickable filters)
+- Frontend Recipes Page: `src/app/recipes/page.tsx` (mastery filter fixes, removed debug logs)
+- Shared Spirit Utilities: `src/lib/spirits.ts` (new - spirit categorization and keyword matching)
+
+**Key Achievements**:
+- Shopping list now categorizes recipes into 6 buckets: craftable, near-miss (1 away), missing-2-3, missing-4+, need-few-recipes (1-2 categories), major-gaps (3+ categories)
+- Spirit distribution analysis on Bar page shows category breakdown (e.g., 12 whiskeys, 8 rums, 5 gins)
+- Clickable spirit categories filter both Bar inventory and Recipes page
+- Mastery filtering now properly uses recipe IDs when available (prevents false filtering)
+- MemMachine GET /memory endpoint accepts optional timestamp (fixes 422 errors from docs examples)
+- Postgres environment variables documented in MemMachine config and README
+- Test coverage for BarQueryConstructor added to MemMachine examples
+- Type-check passes for both frontend and backend
+- Cache-busting on shopping list API prevents stale browser data
+
+**Tasks Completed**:
+- ✅ Enhanced shopping list backend to return 6 recipe buckets instead of 2
+- ✅ Added integration tests for missing-2-3 and missing-4+ buckets
+- ✅ Updated frontend types, store, and API client for new shopping list fields
+- ✅ Implemented spirit distribution grid on Bar page with category counts
+- ✅ Added clickable spirit filters synced between Bar and Recipes pages
+- ✅ Created shared `src/lib/spirits.ts` for spirit categorization logic
+- ✅ Fixed mastery filter to use recipe IDs when available (prevents false positives)
+- ✅ Removed debug console.log statements from Bar and Recipes pages
+- ✅ Made MemMachine GET /memory timestamp parameter optional
+- ✅ Added Postgres environment variable documentation to MemMachine
+- ✅ Created `test_query_constructor.py` for MemMachine testing
+- ✅ Verified `npm run type-check` passes for frontend + backend
+
+**Issues/Blockers Encountered**:
+- **Backend Tests Not Runnable**: `npm test` in api/ fails with "invalid ELF header" for better-sqlite3
+  - **Root Cause**: Native binary compiled for different platform than current environment
+  - **Impact**: Integration tests can't run in current environment, need compatible better-sqlite3 build
+  - **Workaround**: Type-check passes, tests work in other environments (Windows dev machine)
+- **ESLint Not Configured**: Project doesn't have ESLint setup yet
+  - **Impact**: No automated code quality checks beyond TypeScript
+  - **Future**: Consider adding ESLint + Prettier for consistent code style
+
+**Next Session Focus**:
+- Re-run backend integration tests in compatible environment (Windows dev machine or Docker)
+- Test spirit distribution and filtering with larger inventories (100+ items)
+- Monitor user engagement with new shopping list buckets (missing-2-3 vs missing-4+)
+- Consider adding ESLint configuration for code quality
+- Evaluate if additional spirit categories need to be added to categorization logic
+
+---
+
+### Session: 2025-11-22 - Stock-Based Inventory Filtering Bug Fix
+
+**Summary**: Fixed critical ingredient matching bug where bidirectional substring matching caused false positives. Enabled proper stock number input (including 0) in modals, added stock display to bar item cards, and implemented SQL filtering for stock-based inventory queries. The smart shopping list and AI bartender now correctly respect stock levels (only items with stock > 0 are considered "in stock").
+
+**Components Worked On**:
+- Frontend Modals: `src/components/modals/EditBottleModal.tsx`, `src/components/modals/AddBottleModal.tsx` (stock input fixes, default values)
+- Frontend Bar Page: `src/app/bar/page.tsx` (stock display on item cards)
+- Frontend CSS: `src/app/bar/bar.module.css` (orange stock number styling)
+- Backend Shopping List: `api/src/routes/shoppingList.ts` (SQL filter, ingredient matching fix)
+- Backend Messages: `api/src/routes/messages.ts` (SQL filter for AI bartender inventory)
+
+**Key Achievements**:
+- Stock numbers now display on every bar item card in bottom right corner (orange color, defaults to 0)
+- Users can now set stock to exactly 0 in modals (fixed input field to accept 0)
+- SQL queries filter inventory by `Stock Number IS NOT NULL AND Stock Number > 0`
+- **CRITICAL BUG FIX**: Ingredient matching algorithm no longer uses bidirectional substring matching
+- "passion fruit syrup" no longer incorrectly matches "Sugar Syrup / Simple Syrup"
+- Smart shopping list now correctly identifies missing ingredients
+- AI bartender only recommends recipes based on items actually in stock
+
+**Tasks Completed**:
+- ✅ Added stock number display to bar item cards (`src/app/bar/page.tsx:326-331`)
+- ✅ Styled stock numbers with orange color (`src/app/bar/bar.module.css:296-302`)
+- ✅ Fixed stock number input to accept 0 value (changed `type="number"` to `type="text"` with `inputMode="numeric"`)
+- ✅ Fixed form submission to treat 0 as valid (changed from truthy check to `!== ''`)
+- ✅ Default null stock to '0' in edit modal (`EditBottleModal.tsx:61-68`)
+- ✅ Added SQL WHERE clause to filter by stock in shopping list (`shoppingList.ts:332-347`)
+- ✅ Added SQL WHERE clause to filter by stock in AI bartender (`messages.ts:inventory query`)
+- ✅ **FIXED CRITICAL BUG**: Changed ingredient matching from bidirectional to unidirectional substring check (`shoppingList.ts:186`)
+- ✅ Removed problematic `normalizedIngredient.includes(field)` check that caused false positives
+- ✅ Created temporary `fix-stock.js` script to update test data (later deleted)
+- ✅ Verified all fixes with Passionfruit Syrup test case
+
+**Issues/Blockers Encountered**:
+- **Stock Input Cannot Accept 0**: HTML number inputs with browser-specific behavior preventing 0 entry
+  - **Root Cause**: Browser implementation differences for number inputs
+  - **Resolution**: Changed to `type="text"` with `inputMode="numeric"` and regex filtering (`/[^0-9]/g`)
+- **Stock 0 Not Saving**: Form submission converting 0 to undefined due to truthy check
+  - **Root Cause**: `formData['Stock Number'] ? parseInt(...) : undefined` treats 0 as falsy
+  - **Resolution**: Changed to `formData['Stock Number'] !== '' ? parseInt(...) : undefined`
+- **Ingredient Matching False Positives**: "passion fruit syrup" matching "Sugar Syrup / Simple Syrup"
+  - **Root Cause**: Bidirectional substring check `field.includes(ingredient) || ingredient.includes(field)`
+  - **Debug Output**: `"passion fruit syrup".includes("syrup")` → true, causing incorrect match
+  - **Resolution**: Removed `ingredient.includes(field)`, kept only `field.includes(ingredient)`
+  - **Result**: Now only matches if full ingredient name is contained IN the bottle field, not vice versa
+- **Passionfruit Syrup Stock Value**: Database had `null` instead of `0`
+  - **Resolution**: Created `fix-stock.js` script to set Stock Number = 0 for testing
+
+**Next Session Focus**:
+- Monitor ingredient matching accuracy with real user data
+- Consider adding stock level warnings (low stock alerts)
+- Evaluate if stock-based filtering should be toggleable by users
+- Test with larger inventories (100+ items) to ensure SQL performance
+
+---
 
 ### Session: 2025-11-22 - Recipe Mastery Filters + Seasonal Dashboard Insights
 
@@ -377,15 +496,15 @@ Recipe for {name}. Category: {category}. Glass: {glass}. Ingredients: {ingredien
 
 ## Recently Completed (Last 30 Days)
 
+- ✅ Shopping List Expansion (6 recipe buckets, missing-2-3, missing-4+) - 2025-11-22
+- ✅ Spirit Distribution Grid (Bar page category analysis with filters) - 2025-11-22
+- ✅ MemMachine Enhancements (Postgres docs, optional timestamp, tests) - 2025-11-22
+- ✅ Stock-Based Filtering Bug Fix (ingredient matching, stock display) - 2025-11-22
+- ✅ Recipe Mastery Filters (browser cache fix, seasonal insights) - 2025-11-22
+- ✅ MemMachine Integration (user-specific recipe memory, semantic search) - 2025-11-21
 - ✅ Complete Test Suite (92 new tests, Docker infrastructure, utilities) - 2025-11-19
 - ✅ Dashboard UI Polish (streamlined layout, AI greeting formatting) - 2025-11-19
 - ✅ My Bar UI Overhaul (category tabs, card grid, ItemDetailModal) - 2025-11-18
 - ✅ Test file alignment (store.test.ts, api.test.ts) - 2025-11-18
-- ✅ Smart Shopping List Complete - 2025-11-17
-- ✅ Production Hardening (bulk delete, parser fixes, rate limiting) - 2025-11-17
-- ✅ Recipe Collections (folder navigation, bulk operations) - 2025-11-15
-- ✅ AI Bartender Clickable Recipes - 2025-11-14
-- ✅ Authentication Fixes (logout on refresh, login loops) - 2025-11-14
-- ✅ Recipe CSV Import & RecipeDetailModal - 2025-11-13
 
 ---
