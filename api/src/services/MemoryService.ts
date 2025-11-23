@@ -7,10 +7,10 @@
  * - Query user profile and conversation history
  *
  * Architecture:
- * - bar_server (port 8001): MemMachine middleware with BarQueryConstructor
- * - MemMachine backend (port 8080): Core memory service (Docker)
- * - system_knowledge_base: Global recipe knowledge base
- * - user-specific: Per-user preferences and conversation history
+ * - MemMachine backend (port 8080): Core memory service (Docker - default port)
+ * - User isolation: Each user has a separate namespace (user_1, user_2, etc.)
+ * - No cross-user data leakage: User 1 cannot access User 2's recipes
+ * - Semantic search: OpenAI embeddings for intelligent recipe recommendations
  */
 
 import axios, { AxiosInstance } from 'axios';
@@ -462,7 +462,10 @@ export class MemoryService {
 /**
  * Singleton instance for application-wide use
  */
+const memMachineURL = process.env.MEMMACHINE_API_URL || 'http://localhost:8080';
+console.log(`🔧 MemMachine Service initialized with URL: ${memMachineURL}`);
+
 export const memoryService = new MemoryService({
-  baseURL: process.env.MEMMACHINE_API_URL || 'http://localhost:8001',
+  baseURL: memMachineURL,
   timeout: 30000,
 });

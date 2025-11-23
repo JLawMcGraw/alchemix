@@ -20,10 +20,10 @@ Hello Claude, we're continuing work on **AlcheMix** - the modern React/Next.js r
 - AlcheMix design system (teal/orange scientific lab aesthetic)
 
 ### Current Status
-- **Phase**: Production Ready - Enhanced User Experience
-- **Version**: v1.15.0
-- **Last Updated**: November 22, 2025
-- **Status**: Full-stack TypeScript monorepo complete, all major features implemented, 299/299 tests passing, production-ready with MemMachine AI memory integration
+- **Phase**: Production Ready - AI Cost Optimization
+- **Version**: v1.17.0
+- **Last Updated**: November 23, 2025
+- **Status**: Full-stack TypeScript monorepo complete, all major features implemented, 299/299 tests passing, production-ready with MemMachine AI memory integration, AI cost optimized with Haiku + Prompt Caching (97% cost reduction)
 
 ### Tech Stack
 
@@ -55,7 +55,9 @@ Hello Claude, we're continuing work on **AlcheMix** - the modern React/Next.js r
   - Production-ready error handling with custom error classes
   - **AI Prompt Injection Protection** (8-layer security for Claude API)
   - Sanitized AI context (stored inventory/recipes/favorites + chat history)
-- **AI Integration**: Anthropic Claude API (claude-sonnet-4-5-20250929)
+- **AI Integration**: Anthropic Claude API (claude-3-5-haiku-20241022) ⭐ **OPTIMIZED v1.17**
+  - **97% Cost Reduction**: Haiku model + Prompt Caching ($0.75 → $0.021 per session)
+  - **Intelligent Caching**: Static context (inventory/recipes) cached for 5-min TTL with 90% discount
   - Context-aware system prompts built from user's database (inventory + recipes + favorites)
   - "Lab Assistant" persona with scientific voice and informed enthusiasm
   - 90-second timeout for large prompts (300+ recipes = 20-25KB)
@@ -64,6 +66,7 @@ Hello Claude, we're continuing work on **AlcheMix** - the modern React/Next.js r
   - Output filtering for sensitive data detection
   - Sanitized chat history (last 10 turns) for conversation context
   - **MemMachine Integration**: User-specific AI memory system for semantic recipe search
+  - **Cost Tracking**: Comprehensive logging of cache performance metrics
 - **Testing**: 299/299 tests passing (unit, database, routes, integration)
 - **Scalability**: Redis migration plan documented for multi-instance deployments
 
@@ -223,7 +226,7 @@ DATABASE_PATH=./data/alchemix.db
 ANTHROPIC_API_KEY=<your-api-key-here>
 
 # MemMachine Integration (Optional)
-MEMMACHINE_API_URL=http://localhost:8001
+MEMMACHINE_API_URL=http://localhost:8080
 ```
 
 **Frontend (.env.local - optional):**

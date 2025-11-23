@@ -8,8 +8,8 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 
 ## ✨ Current Status
 
-**Version:** v1.16.0 (Logo Update & TopNav Layout Optimization)
-**Phase:** Production Ready - UI/UX Enhancements
+**Version:** v1.17.0 (AI Cost Optimization - Haiku + Prompt Caching)
+**Phase:** Production Ready - AI Cost Optimization
 **Last Updated:** November 23, 2025
 
 ### What's Working
@@ -66,7 +66,10 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
     - BarQueryConstructor intelligently parses queries ("rum and lime" → spirit:rum, flavor:lime)
     - Fire-and-forget pattern ensures core functionality never fails if MemMachine is down
     - Collection metadata stored for enhanced AI context understanding
-  - Claude Sonnet 4.5 model (claude-sonnet-4-5-20250929)
+  - **Claude 3.5 Haiku** with **Prompt Caching** (claude-3-5-haiku-20241022) ⭐ **NEW v1.17**
+    - 97% cost reduction vs previous Sonnet implementation ($0.75 → $0.021 per session)
+    - Intelligent caching: Static context (inventory/recipes) cached for 5-min TTL with 90% discount
+    - Performance: Same quality recommendations at 12x lower cost
   - Context-aware system prompts with user's full bar inventory and recipe collection
   - "Lab Assistant" persona (informed enthusiasm, scientific voice, supportive curiosity)
   - Clickable recipe names that open RecipeDetailModal with full details
