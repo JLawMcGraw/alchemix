@@ -8,9 +8,9 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 
 ## ✨ Current Status
 
-**Version:** v1.14.0 (Recipe Mastery Filters + Seasonal Dashboard Insights)
-**Phase:** Production Ready - Enhanced User Experience
-**Last Updated:** November 22, 2025
+**Version:** v1.16.0 (Logo Update & TopNav Layout Optimization)
+**Phase:** Production Ready - UI/UX Enhancements
+**Last Updated:** November 23, 2025
 
 ### What's Working
 - ✅ **Complete TypeScript monorepo** (Frontend + Backend) ⭐
@@ -38,6 +38,8 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
   - Full inventory view with category grouping
   - Safe array guards prevent crashes during data loading
   - Logout cleanup prevents data leaks between users
+  - **Stock-Based Filtering**: Only items with stock > 0 are considered "in stock" ⭐ **NEW v1.15**
+  - **Critical Bug Fix**: Ingredient matching no longer uses bidirectional substring matching (eliminates false positives) ⭐ **NEW v1.15**
   - **Fixed**: Favorites integration (proper recipe_id/name matching, safe ingredient parsing)
 - ✅ **Recipe Mastery Filters** - Navigate recipes by craftability level ⭐⭐ **NEW v1.14**
   - 4 mastery levels: Craftable (0 missing), Near Misses (1 missing), Need 2-3 (2-3 missing), Major Gaps (4+ missing)

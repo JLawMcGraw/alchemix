@@ -30,6 +30,7 @@ export default function ShoppingListPage() {
     addFavorite,
     removeFavorite,
     fetchFavorites,
+    inventoryVersion,
   } = useStore();
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -38,10 +39,13 @@ export default function ShoppingListPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
+  const [isManualRefresh, setIsManualRefresh] = useState(false);
   const itemsPerPage = 10;
 
   const safeCraftableRecipes = Array.isArray(craftableRecipes) ? craftableRecipes : [];
   const safeNearMissRecipes = Array.isArray(nearMissRecipes) ? nearMissRecipes : [];
+  const safeFavorites = Array.isArray(favorites) ? favorites : [];
+  const safeInventoryItems = Array.isArray(inventoryItems) ? inventoryItems : [];
 
   useEffect(() => {
     if (isAuthenticated && !isValidating) {
@@ -51,6 +55,20 @@ export default function ShoppingListPage() {
       fetchFavorites().catch(console.error);
     }
   }, [isAuthenticated, isValidating, fetchShoppingList, fetchRecipes, fetchItems, fetchFavorites]);
+
+  // Re-fetch shopping list whenever inventory changes (stock adjustments, add/delete)
+  useEffect(() => {
+    if (isAuthenticated && !isValidating) {
+      fetchShoppingList().catch(console.error);
+    }
+  }, [inventoryVersion, isAuthenticated, isValidating, fetchShoppingList]);
+
+  // Keep shopping list in sync with the in-memory inventory list (edge cases where version misses)
+  useEffect(() => {
+    if (isAuthenticated && !isValidating) {
+      fetchShoppingList().catch(console.error);
+    }
+  }, [safeInventoryItems, isAuthenticated, isValidating, fetchShoppingList]);
 
   if (isValidating || !isAuthenticated) {
     return null;
@@ -91,8 +109,15 @@ export default function ShoppingListPage() {
     setSelectedRecipe(null);
   };
 
-  const safeFavorites = Array.isArray(favorites) ? favorites : [];
-  const safeInventoryItems = Array.isArray(inventoryItems) ? inventoryItems : [];
+  const handleRefreshShoppingList = async () => {
+    if (isLoadingShoppingList || isManualRefresh) return;
+    setIsManualRefresh(true);
+    try {
+      await fetchShoppingList();
+    } finally {
+      setIsManualRefresh(false);
+    }
+  };
 
   const handleToggleFavorite = async () => {
     if (!selectedRecipe) return;
@@ -163,12 +188,25 @@ export default function ShoppingListPage() {
         {/* Header */}
         <div className={styles.header}>
           <div className={styles.headerContent}>
-            <ShoppingCart className={styles.headerIcon} size={32} />
-            <div>
-              <h1 className={styles.title}>Smart Shopping List</h1>
-              <p className={styles.subtitle}>
-                Discover which ingredients will unlock the most new cocktails
-              </p>
+            <div className={styles.headerLeft}>
+              <ShoppingCart className={styles.headerIcon} size={32} />
+              <div>
+                <h1 className={styles.title}>Smart Shopping List</h1>
+                <p className={styles.subtitle}>
+                  Discover which ingredients will unlock the most new cocktails
+                </p>
+              </div>
+            </div>
+            <div className={styles.headerActions}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefreshShoppingList}
+                disabled={isLoadingShoppingList || isManualRefresh}
+              >
+                {(isLoadingShoppingList || isManualRefresh) && <Spinner size="sm" />}
+                Refresh
+              </Button>
             </div>
           </div>
         </div>

@@ -1,18 +1,25 @@
 import jwt from 'jsonwebtoken';
+import type { Secret, SignOptions } from 'jsonwebtoken';
 import Database from 'better-sqlite3';
 
 /**
  * Generate a JWT token for testing
  */
 export function generateTestToken(payload: { userId: number; email: string }, expiresIn: string = '1h'): string {
-  return jwt.sign(payload, process.env.JWT_SECRET || 'test-secret', { expiresIn });
+  const secret: Secret = process.env.JWT_SECRET || 'test-secret';
+  const expires: SignOptions['expiresIn'] = expiresIn as SignOptions['expiresIn'];
+  const options: SignOptions = { expiresIn: expires };
+  return jwt.sign(payload, secret, options);
 }
 
 /**
  * Generate an expired JWT token for testing
  */
 export function generateExpiredToken(payload: { userId: number; email: string }): string {
-  return jwt.sign(payload, process.env.JWT_SECRET || 'test-secret', { expiresIn: '-1h' });
+  const secret: Secret = process.env.JWT_SECRET || 'test-secret';
+  const expires: SignOptions['expiresIn'] = '-1h';
+  const options: SignOptions = { expiresIn: expires };
+  return jwt.sign(payload, secret, options);
 }
 
 /**

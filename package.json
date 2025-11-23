@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3001 --turbo",
+    "dev": "next dev -p 3001",
     "dev:api": "cd api && npm run dev",
     "dev:all": "concurrently \"npm run dev:api\" \"npm run dev\" --names \"API,WEB\" --prefix-colors \"cyan,magenta\"",
     "dev:clean": "kill-ports.bat && npm run dev:all",

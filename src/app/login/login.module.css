@@ -29,18 +29,15 @@
 .logoContainer {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-left: -40px;
+  justify-content: center;
+  width: 100%;
+  max-width: 350px;
 }
 
-.logoTitle {
-  font-family: var(--font-display);
-  font-size: 72px;
-  font-weight: 700;
-  color: var(--color-primary);
-  margin: 0 0 0 -30px;
-  letter-spacing: 0.05em;
-  line-height: 1;
+.logoContainer img {
+  width: 100%;
+  height: auto !important;
+  object-fit: contain;
 }
 
 .logoTagline {
@@ -129,17 +126,8 @@
     padding: var(--space-2);
   }
 
-  .logoContainer {
-    margin-left: -40px;
-  }
-
   .logoContainer img {
-    width: 120px;
-    height: 120px;
-  }
-
-  .logoTitle {
-    font-size: 54px;
-    margin-left: -30px;
+    width: 240px;
+    height: auto;
   }
 }

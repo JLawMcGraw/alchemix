@@ -307,6 +307,128 @@ router.get('/', (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/inventory-items/category-counts - Get Counts for All Categories
+ *
+ * Returns item counts for each category including total.
+ * Used by the Bar page to display accurate counts on category tabs.
+ *
+ * Response (200 OK):
+ * {
+ *   "success": true,
+ *   "data": {
+ *     "all": 45,
+ *     "spirit": 28,
+ *     "liqueur": 12,
+ *     "mixer": 3,
+ *     "syrup": 2,
+ *     "garnish": 0,
+ *     "wine": 0,
+ *     "beer": 0,
+ *     "other": 0
+ *   }
+ * }
+ *
+ * Security:
+ * - User isolation: WHERE user_id = ? ensures data privacy
+ * - No parameters to validate (simple GET)
+ * - SQL injection: Parameterized queries
+ */
+router.get('/category-counts', (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+
+    /**
+     * Step 1: Authentication Check
+     */
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    /**
+     * Step 2: Get Total Count
+     *
+     * Simple COUNT(*) query for all items belonging to user.
+     */
+    const totalResult = db.prepare(
+      'SELECT COUNT(*) as total FROM inventory_items WHERE user_id = ?'
+    ).get(userId) as { total: number };
+
+    /**
+     * Step 3: Get Category Breakdown
+     *
+     * Use GROUP BY to count items per category in a single query.
+     * This is more efficient than separate queries per category.
+     *
+     * SQL Query:
+     * SELECT category, COUNT(*) as count
+     * FROM inventory_items
+     * WHERE user_id = ?
+     * GROUP BY category
+     *
+     * Example result:
+     * [
+     *   { category: 'spirit', count: 28 },
+     *   { category: 'liqueur', count: 12 },
+     *   { category: 'mixer', count: 3 }
+     * ]
+     */
+    const categoryResults = db.prepare(`
+      SELECT category, COUNT(*) as count
+      FROM inventory_items
+      WHERE user_id = ?
+      GROUP BY category
+    `).all(userId) as Array<{ category: string; count: number }>;
+
+    /**
+     * Step 4: Build Complete Response
+     *
+     * Initialize all categories to 0, then fill in actual counts.
+     * This ensures frontend always receives all categories even if count is 0.
+     */
+    const counts: Record<string, number> = {
+      all: totalResult.total,
+      spirit: 0,
+      liqueur: 0,
+      mixer: 0,
+      syrup: 0,
+      garnish: 0,
+      wine: 0,
+      beer: 0,
+      other: 0
+    };
+
+    // Fill in actual counts from database
+    categoryResults.forEach(({ category, count }) => {
+      if (category in counts) {
+        counts[category] = count;
+      }
+    });
+
+    console.log('📊 Category counts calculated:', counts);
+
+    res.json({
+      success: true,
+      data: counts
+    });
+  } catch (error) {
+    /**
+     * Error Handling
+     *
+     * Log detailed error server-side.
+     * Return generic error to client (don't leak internals).
+     */
+    console.error('❌ Get category counts error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch category counts'
+    });
+  }
+});
+
+/**
  * POST /api/inventory-items - Add New Item to Inventory
  *
  * Creates a new item in user's inventory.
@@ -390,7 +512,16 @@ router.post('/', (req: Request, res: Response) => {
       });
     }
 
-    const item = validation.sanitized;
+    const item = {
+      ...validation.sanitized,
+      // Normalize zero/negative stock to null so availability checks work reliably
+      'Stock Number':
+        validation.sanitized['Stock Number'] !== undefined &&
+        validation.sanitized['Stock Number'] !== null &&
+        validation.sanitized['Stock Number'] <= 0
+          ? null
+          : validation.sanitized['Stock Number'],
+    };
 
     /**
      * Step 3: Insert Item into Database
@@ -418,7 +549,7 @@ router.post('/', (req: Request, res: Response) => {
       item.category,
       item.type || null,
       item.abv || null,
-      item['Stock Number'] || null,
+      item['Stock Number'] ?? null,
       item['Detailed Spirit Classification'] || null,
       item['Distillation Method'] || null,
       item['Distillery Location'] || null,
@@ -571,7 +702,16 @@ router.put('/:id', (req: Request, res: Response) => {
       });
     }
 
-    const item = validation.sanitized;
+    const item = {
+      ...validation.sanitized,
+      // Normalize zero/negative stock to null so availability checks work reliably
+      'Stock Number':
+        validation.sanitized['Stock Number'] !== undefined &&
+        validation.sanitized['Stock Number'] !== null &&
+        validation.sanitized['Stock Number'] <= 0
+          ? null
+          : validation.sanitized['Stock Number'],
+    };
 
     /**
      * Step 5: Update Item in Database
@@ -603,7 +743,7 @@ router.put('/:id', (req: Request, res: Response) => {
       item.category,
       item.type || null,
       item.abv || null,
-      item['Stock Number'] || null,
+      item['Stock Number'] ?? null,
       item['Detailed Spirit Classification'] || null,
       item['Distillation Method'] || null,
       item['Distillery Location'] || null,

@@ -10,6 +10,7 @@ import { BookOpen, Upload, Star, Martini, ChevronLeft, ChevronRight, Trash2, Fol
 import { CSVUploadModal, RecipeDetailModal, DeleteConfirmModal, CollectionModal, AddRecipeModal } from '@/components/modals';
 import { recipeApi } from '@/lib/api';
 import type { Recipe, Collection } from '@/types';
+import { matchesSpiritCategory, SpiritCategory } from '@/lib/spirits';
 import styles from './recipes.module.css';
 import shoppingStyles from '../shopping-list/shopping-list.module.css';
 
@@ -44,7 +45,7 @@ function RecipesPageContent() {
   } = useStore();
   const { showToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterSpirit, setFilterSpirit] = useState<string>('all');
+  const [filterSpirit, setFilterSpirit] = useState<SpiritCategory | 'all'>('all');
   const [filterCollection, setFilterCollection] = useState<string>('all');
   const [masteryFilter, setMasteryFilter] = useState<string | null>(null);
   const [csvModalOpen, setCsvModalOpen] = useState(false);
@@ -74,21 +75,16 @@ function RecipesPageContent() {
     try {
       if (loadAll) {
         // Load all recipes by making multiple paginated requests
-        console.log('📖 Loading ALL recipes...');
         const firstResult = await recipeApi.getAll(1, 100); // Max limit is 100
         let allRecipes = [...firstResult.recipes];
         const totalPages = firstResult.pagination.totalPages;
-
-        console.log(`📖 Page 1/${totalPages}: ${firstResult.recipes.length} recipes`);
 
         // Load remaining pages
         for (let p = 2; p <= totalPages; p++) {
           const pageResult = await recipeApi.getAll(p, 100);
           allRecipes = [...allRecipes, ...pageResult.recipes];
-          console.log(`📖 Page ${p}/${totalPages}: ${pageResult.recipes.length} recipes (total: ${allRecipes.length})`);
         }
 
-        console.log(`✅ Loaded all ${allRecipes.length} recipes`);
         useStore.setState({ recipes: allRecipes });
         setPagination({
           page: 1,
@@ -105,7 +101,6 @@ function RecipesPageContent() {
         useStore.setState({ recipes: result.recipes });
         setPagination(result.pagination);
         setCurrentPage(page);
-        console.log(`📖 Loaded ${result.recipes.length} recipes (page ${page})`);
       }
     } catch (error) {
       console.error('Failed to load recipes:', error);
@@ -119,10 +114,7 @@ function RecipesPageContent() {
     const filter = searchParams.get('filter');
     const collectionId = searchParams.get('collection');
 
-    console.log('🔍 URL params:', { filter, collectionId });
-
     if (filter) {
-      console.log('✅ Setting mastery filter:', filter);
       setMasteryFilter(filter);
       setActiveCollection(null); // Clear collection when mastery filter is active
       // Load all recipes when mastery filter is active
@@ -131,7 +123,6 @@ function RecipesPageContent() {
       const collectionsArr = Array.isArray(collections) ? collections : [];
       const collection = collectionsArr.find(c => c.id === parseInt(collectionId));
       if (collection) {
-        console.log('✅ Setting active collection:', collection.name);
         setActiveCollection(collection);
         setShowCollectionsPanel(true);
         setMasteryFilter(null); // Clear mastery filter when viewing a collection
@@ -185,19 +176,24 @@ function RecipesPageContent() {
   };
 
   // Get unique spirit types
-  const spiritTypes = ['all', ...new Set(recipesArray.map((r) => r.spirit_type).filter(Boolean))];
-
-  // Helper to calculate missing ingredients
-  const getMissingIngredients = (recipe: Recipe): string[] => {
-    const ingredientsArray = parseIngredients(recipe.ingredients);
-    const inventoryNames = (inventoryItems || []).map((item) => item.name.toLowerCase());
-
-    const missing = ingredientsArray.filter(
-      (ingredient) => !inventoryNames.includes(ingredient.toLowerCase())
-    );
-
-    return missing;
-  };
+  const spiritTypes: Array<SpiritCategory | 'all'> = [
+    'all',
+    ...new Set(
+      recipesArray
+        .map((r) => {
+          if (!r.spirit_type) return null;
+          // Categorize known spirits; fallback to Other
+          if (matchesSpiritCategory(r.spirit_type, 'Whiskey')) return 'Whiskey';
+          if (matchesSpiritCategory(r.spirit_type, 'Rum')) return 'Rum';
+          if (matchesSpiritCategory(r.spirit_type, 'Gin')) return 'Gin';
+          if (matchesSpiritCategory(r.spirit_type, 'Vodka')) return 'Vodka';
+          if (matchesSpiritCategory(r.spirit_type, 'Tequila')) return 'Tequila';
+          if (matchesSpiritCategory(r.spirit_type, 'Brandy')) return 'Brandy';
+          return 'Other Spirits';
+        })
+        .filter((v): v is SpiritCategory => Boolean(v))
+    ),
+  ];
 
   // Filter recipes based on mastery level, active collection, search, and spirit
   const filteredRecipes = recipesArray.filter((recipe) => {
@@ -208,25 +204,36 @@ function RecipesPageContent() {
       ? recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         ingredientsText.includes(searchQuery.toLowerCase())
       : true;
-    const matchesSpirit = filterSpirit === 'all' || recipe.spirit_type === filterSpirit;
+    const matchesSpirit =
+      filterSpirit === 'all' ||
+      matchesSpiritCategory(recipe.spirit_type, filterSpirit as SpiritCategory);
 
     // Apply mastery filter if set - use data from shopping list API
     if (masteryFilter) {
+      const matchesList = (list: Array<{ id?: number; name: string }> = []) => {
+        return list.some(entry => {
+          if (recipe.id && entry.id) {
+            return entry.id === recipe.id;
+          }
+          return entry.name === recipe.name;
+        });
+      };
+
       // Use the recipe lists from the shopping list API
       switch (masteryFilter) {
         case 'craftable':
           // Check if recipe is in craftableRecipes list
           // craftableRecipes is an array of objects with {id, name, ingredients}
-          return matchesSearch && matchesSpirit && craftableRecipes.some(cr => cr.name === recipe.name);
+          return matchesSearch && matchesSpirit && matchesList(craftableRecipes);
         case 'almost':
           // Check if recipe is in nearMissRecipes list (missing exactly 1 ingredient)
-          return matchesSearch && matchesSpirit && nearMissRecipes.some(nr => nr.name === recipe.name);
+          return matchesSearch && matchesSpirit && matchesList(nearMissRecipes);
         case 'need-few':
           // Check if recipe is in needFewRecipes list (missing 2-3 ingredients)
-          return matchesSearch && matchesSpirit && needFewRecipes.some(nf => nf.name === recipe.name);
+          return matchesSearch && matchesSpirit && matchesList(needFewRecipes);
         case 'major-gaps':
           // Check if recipe is in majorGapsRecipes list (missing 4+ ingredients)
-          return matchesSearch && matchesSpirit && majorGapsRecipes.some(mg => mg.name === recipe.name);
+          return matchesSearch && matchesSpirit && matchesList(majorGapsRecipes);
       }
     }
 
@@ -237,23 +244,6 @@ function RecipesPageContent() {
       : !recipe.collection_id;
 
     return matchesSearch && matchesSpirit && matchesCollection;
-  });
-
-  // Debug logging for filtering
-  console.log('📊 Filtering state:', {
-    masteryFilter,
-    activeCollection: activeCollection?.name,
-    totalRecipes: recipesArray.length,
-    filteredCount: filteredRecipes.length,
-    inventoryCount: inventoryItems?.length || 0,
-    craftableRecipesCount: craftableRecipes?.length || 0,
-    craftableRecipesSample: craftableRecipes?.slice(0, 3) || [],
-    nearMissRecipesCount: nearMissRecipes?.length || 0,
-    nearMissRecipesSample: nearMissRecipes?.slice(0, 3) || [],
-    needFewRecipesCount: needFewRecipes?.length || 0,
-    needFewRecipesSample: needFewRecipes?.slice(0, 3) || [],
-    majorGapsRecipesCount: majorGapsRecipes?.length || 0,
-    majorGapsRecipesSample: majorGapsRecipes?.slice(0, 3) || []
   });
 
   // Count uncategorized recipes
@@ -689,7 +679,7 @@ function RecipesPageContent() {
                   />
                   <select
                     value={filterSpirit}
-                    onChange={(e) => setFilterSpirit(e.target.value)}
+                    onChange={(e) => setFilterSpirit(e.target.value as SpiritCategory | 'all')}
                     className={styles.filterSelect}
                   >
                     {spiritTypes.map((type) => (
@@ -869,7 +859,7 @@ function RecipesPageContent() {
               />
               <select
                 value={filterSpirit}
-                onChange={(e) => setFilterSpirit(e.target.value)}
+                onChange={(e) => setFilterSpirit(e.target.value as SpiritCategory | 'all')}
                 className={styles.filterSelect}
               >
                 {spiritTypes.map((type) => (

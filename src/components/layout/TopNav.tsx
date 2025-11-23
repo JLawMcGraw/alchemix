@@ -43,14 +43,13 @@ export const TopNav: React.FC = () => {
         {/* Logo */}
         <Link href="/dashboard" className={styles.logo}>
           <Image
-            src="/AlcheMix Logo.svg"
+            src="/AlcheMix Logo Crop.png"
             alt="AlcheMix Logo"
-            width={50}
-            height={50}
+            width={140}
+            height={42}
             className={styles.logoIcon}
             priority
           />
-          <span className={styles.logoText}>AlcheMix</span>
         </Link>
 
         {/* Navigation Links */}

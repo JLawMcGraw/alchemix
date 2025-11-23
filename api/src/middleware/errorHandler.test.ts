@@ -23,6 +23,10 @@ vi.mock('../utils/logger', () => ({
 // Import the mocked logger
 import { logger, logError } from '../utils/logger';
 
+const setNodeEnv = (value?: string) => {
+  (process.env as Record<string, string | undefined>).NODE_ENV = value;
+};
+
 describe('errorHandler', () => {
   let mockReq: Partial<Request>;
   let mockRes: Partial<Response>;
@@ -51,7 +55,7 @@ describe('errorHandler', () => {
     mockNext = vi.fn() as any;
 
     // Clear environment variable
-    delete process.env.NODE_ENV;
+    setNodeEnv(undefined);
   });
 
   describe('AppError handling', () => {
@@ -136,7 +140,7 @@ describe('errorHandler', () => {
     });
 
     it('should hide error message for non-operational errors in production', () => {
-      process.env.NODE_ENV = 'production';
+      setNodeEnv('production');
       const error = new Error('Database connection failed');
 
       errorHandler(error, mockReq as Request, mockRes as Response, mockNext);
@@ -155,7 +159,7 @@ describe('errorHandler', () => {
     });
 
     it('should show error message for non-operational errors in development', () => {
-      process.env.NODE_ENV = 'development';
+      setNodeEnv('development');
       const error = new Error('Database connection failed');
 
       errorHandler(error, mockReq as Request, mockRes as Response, mockNext);
@@ -172,7 +176,7 @@ describe('errorHandler', () => {
 
   describe('stack trace handling', () => {
     it('should include stack trace in development', () => {
-      process.env.NODE_ENV = 'development';
+      setNodeEnv('development');
       const error = new ValidationError('Test error');
 
       errorHandler(error, mockReq as Request, mockRes as Response, mockNext);
@@ -185,7 +189,7 @@ describe('errorHandler', () => {
     });
 
     it('should not include stack trace in production', () => {
-      process.env.NODE_ENV = 'production';
+      setNodeEnv('production');
       const error = new ValidationError('Test error');
 
       errorHandler(error, mockReq as Request, mockRes as Response, mockNext);
@@ -195,7 +199,7 @@ describe('errorHandler', () => {
     });
 
     it('should not include stack trace when NODE_ENV is not set', () => {
-      delete process.env.NODE_ENV;
+      setNodeEnv(undefined);
       const error = new ValidationError('Test error');
 
       errorHandler(error, mockReq as Request, mockRes as Response, mockNext);
@@ -219,7 +223,7 @@ describe('errorHandler', () => {
     });
 
     it('should treat AppError with isOperational=false as non-operational', () => {
-      process.env.NODE_ENV = 'production';
+      setNodeEnv('production');
       const error = new AppError('Programming error', 500, false);
 
       errorHandler(error, mockReq as Request, mockRes as Response, mockNext);
@@ -233,7 +237,7 @@ describe('errorHandler', () => {
     });
 
     it('should treat InternalError as non-operational', () => {
-      process.env.NODE_ENV = 'production';
+      setNodeEnv('production');
       const error = new InternalError('Critical failure');
 
       errorHandler(error, mockReq as Request, mockRes as Response, mockNext);

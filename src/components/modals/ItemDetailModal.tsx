@@ -22,7 +22,7 @@ export function ItemDetailModal({
   const contentRef = useRef<HTMLDivElement>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editedItem, setEditedItem] = useState<Partial<InventoryItem>>({});
-  const { updateItem, deleteItem, fetchItems } = useStore();
+  const { updateItem, deleteItem, fetchItems, fetchShoppingList } = useStore();
   const { showToast } = useToast();
 
   // Initialize edit form when item changes
@@ -60,6 +60,7 @@ export function ItemDetailModal({
     try {
       await updateItem(item.id, editedItem);
       await fetchItems();
+      await fetchShoppingList();
       setIsEditMode(false);
       showToast('success', 'Item updated successfully');
     } catch (error) {
@@ -274,13 +275,33 @@ export function ItemDetailModal({
                 {isEditMode ? (
                   <input
                     type="number"
-                    value={editedItem['Stock Number'] || ''}
-                    onChange={(e) => setEditedItem({ ...editedItem, 'Stock Number': parseInt(e.target.value) || undefined })}
+                    min="0"
+                    value={editedItem['Stock Number'] ?? ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const parsed = parseInt(val, 10);
+                      
+                      // Handle empty string as undefined
+                      if (val === '') {
+                        setEditedItem({ ...editedItem, 'Stock Number': undefined });
+                        return;
+                      }
+
+                      // Clamp negative numbers to 0
+                      const safeValue = Number.isNaN(parsed) ? undefined : (parsed < 0 ? 0 : parsed);
+                      
+                      setEditedItem({
+                        ...editedItem,
+                        'Stock Number': safeValue,
+                      });
+                    }}
                     className={styles.input}
                     placeholder="e.g., 123"
                   />
                 ) : (
-                  <p className={styles.value}>{item['Stock Number'] || '-'}</p>
+                  <p className={styles.value}>
+                    {item['Stock Number'] ?? '-'}
+                  </p>
                 )}
               </div>
 

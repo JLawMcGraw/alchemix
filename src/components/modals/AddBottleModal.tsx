@@ -143,7 +143,7 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
         category: formData.category,
         type: formData.type || undefined,
         abv: formData.abv || undefined,
-        'Stock Number': formData['Stock Number'] ? parseInt(formData['Stock Number']) : undefined,
+        'Stock Number': formData['Stock Number'] !== '' ? parseInt(formData['Stock Number']) : undefined,
         'Detailed Spirit Classification': formData['Detailed Spirit Classification'] || undefined,
         'Distillation Method': formData['Distillation Method'] || undefined,
         'Distillery Location': formData['Distillery Location'] || undefined,
@@ -233,6 +233,21 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
                   required
                   fullWidth
                   error={fieldErrors.name}
+                />
+                <Input
+                  label="Stock Number"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={formData['Stock Number']}
+                  onChange={(e) => {
+                    // Only allow digits
+                    const value = e.target.value.replace(/[^0-9]/g, '');
+                    handleChange('Stock Number', value);
+                  }}
+                  placeholder="e.g., 1"
+                  fullWidth
+                  error={fieldErrors['Stock Number']}
                 />
                 <div style={{ marginBottom: '16px' }}>
                   <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500 }}>

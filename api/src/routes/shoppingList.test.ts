@@ -433,5 +433,54 @@ describe('Shopping List Routes Integration Tests', () => {
         expect(orangeRec.unlocks).toBe(2);
       }
     });
+
+    it('should expose breakdowns for recipes missing 2-3 and 4+ ingredients', async () => {
+      // Inventory: only vodka
+      testDb.prepare(`
+        INSERT INTO inventory_items (user_id, name, category)
+        VALUES (?, ?, 'spirit')
+      `).run(userId, 'Vodka');
+
+      // Recipes:
+      // - Missing 2 ingredients
+      // - Missing 3 ingredients
+      // - Missing 4 ingredients
+      testDb.prepare(`
+        INSERT INTO recipes (user_id, name, ingredients)
+        VALUES
+        (?, ?, ?),
+        (?, ?, ?),
+        (?, ?, ?)
+      `).run(
+        userId, 'Two Away', JSON.stringify(['Vodka', 'Orange Juice', 'Triple Sec']), // missing 2
+        userId, 'Three Away', JSON.stringify(['Vodka', 'Cranberry Juice', 'Lime Juice', 'Cointreau']), // missing 3
+        userId, 'Four Away', JSON.stringify(['Gin', 'Tonic', 'Lime', 'Simple Syrup', 'Bitters']) // missing 5
+      );
+
+      const response = await request(server!)
+        .get('/api/shopping-list/smart')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+
+      // Stats include missing ingredient buckets
+      expect(response.body.stats).toMatchObject({
+        totalRecipes: 3,
+        craftable: 0,
+        nearMisses: 0,
+        missing2to3: 2,
+        missing4plus: 1,
+      });
+
+      // Buckets contain the correct recipes
+      expect(response.body.needFewRecipes).toHaveLength(2);
+      expect(response.body.needFewRecipes.map((r: any) => r.name)).toEqual(
+        expect.arrayContaining(['Two Away', 'Three Away'])
+      );
+
+      expect(response.body.majorGapsRecipes).toHaveLength(1);
+      expect(response.body.majorGapsRecipes[0].name).toBe('Four Away');
+    });
   });
 });

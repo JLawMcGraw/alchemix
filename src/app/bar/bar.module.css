@@ -279,6 +279,10 @@
   margin-top: var(--space-2);
   padding-top: var(--space-2);
   border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .cardHint {
@@ -286,6 +290,15 @@
   font-size: var(--text-xs);
   color: var(--color-text-muted);
   font-style: italic;
+  flex: 1;
+}
+
+.stockNumber {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--color-text-body);
+  white-space: nowrap;
 }
 
 /* Empty State */
@@ -360,4 +373,20 @@
   .spiritGrid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Pagination */
+.paginationContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  margin-top: var(--space-3);
+}
+
+.paginationInfo {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  padding: 0 var(--space-2);
 }

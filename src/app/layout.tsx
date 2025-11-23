@@ -20,7 +20,8 @@ export const metadata: Metadata = {
   title: 'AlcheMix - Your Cocktail Lab Assistant',
   description: 'Modern cocktail lab management system with AI-powered recommendations',
   icons: {
-    icon: '/AlcheMix Logo.svg',
+    icon: '/favicon-32x32.png',
+    apple: '/favicon-32x32.png',
   },
 };
 

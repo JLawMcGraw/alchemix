@@ -69,21 +69,44 @@ apiClient.interceptors.response.use(
   }
 );
 
+/**
+ * Generic API Request Wrapper
+ * Eliminates boilerplate by handling response unwrapping and error normalization
+ */
+async function request<T>(
+  method: 'get' | 'post' | 'put' | 'delete',
+  url: string,
+  data?: any,
+  config?: any
+): Promise<T> {
+  try {
+    let response;
+    if (method === 'get' || method === 'delete') {
+      response = await apiClient[method](url, config);
+    } else {
+      response = await apiClient[method](url, data, config);
+    }
+
+    // Unwrap nested data structure (response.data.data)
+    return response.data.data !== undefined ? response.data.data : response.data;
+  } catch (error) {
+    // Re-throw for handling by calling code
+    throw error;
+  }
+}
+
 // Auth API
 export const authApi = {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const { data } = await apiClient.post<{ success: boolean; data: AuthResponse }>('/auth/login', credentials);
-    return data.data;
+    return request<AuthResponse>('post', '/auth/login', credentials);
   },
 
   async signup(credentials: SignupCredentials): Promise<AuthResponse> {
-    const { data } = await apiClient.post<{ success: boolean; data: AuthResponse }>('/auth/signup', credentials);
-    return data.data;
+    return request<AuthResponse>('post', '/auth/signup', credentials);
   },
 
   async me(): Promise<User> {
-    const { data } = await apiClient.get<{ success: boolean; data: User }>('/auth/me');
-    return data.data;
+    return request<User>('get', '/auth/me');
   },
 
   async logout(): Promise<void> {
@@ -137,18 +160,24 @@ export const inventoryApi = {
     };
   },
 
-  async add(item: InventoryItem): Promise<InventoryItem> {
-    const { data } = await apiClient.post<{ success: boolean; data: InventoryItem }>('/api/inventory-items', item);
+  async getCategoryCounts(): Promise<Record<string, number>> {
+    const { data } = await apiClient.get<{
+      success: boolean;
+      data: Record<string, number>;
+    }>('/api/inventory-items/category-counts');
     return data.data;
+  },
+
+  async add(item: InventoryItem): Promise<InventoryItem> {
+    return request<InventoryItem>('post', '/api/inventory-items', item);
   },
 
   async update(id: number, item: Partial<InventoryItem>): Promise<InventoryItem> {
-    const { data } = await apiClient.put<{ success: boolean; data: InventoryItem }>(`/api/inventory-items/${id}`, item);
-    return data.data;
+    return request<InventoryItem>('put', `/api/inventory-items/${id}`, item);
   },
 
   async delete(id: number): Promise<void> {
-    await apiClient.delete(`/api/inventory-items/${id}`);
+    return request<void>('delete', `/api/inventory-items/${id}`);
   },
 
   async importCSV(file: File): Promise<{ success: boolean; imported: number; failed: number; errors?: Array<{ row: number; error: string }> }> {

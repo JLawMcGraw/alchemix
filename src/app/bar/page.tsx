@@ -6,10 +6,11 @@ import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { Button, useToast } from '@/components/ui';
 import { Card } from '@/components/ui/Card';
-import { Wine, Upload, Plus, Martini, X } from 'lucide-react';
+import { Wine, Upload, Plus, Martini, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { CSVUploadModal, AddBottleModal, ItemDetailModal } from '@/components/modals';
 import { inventoryApi } from '@/lib/api';
 import type { InventoryCategory, InventoryItem } from '@/types';
+import { categorizeSpirit, matchesSpiritCategory, SpiritCategory } from '@/lib/spirits';
 import styles from './bar.module.css';
 
 type CategoryTab = {
@@ -35,16 +36,18 @@ function BarPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isValidating, isAuthenticated } = useAuthGuard();
-  const { inventoryItems, fetchItems, addItem, deleteItem } = useStore();
+  const { inventoryItems, inventoryPagination, fetchItems, addItem, deleteItem } = useStore();
   const { showToast } = useToast();
   const [activeCategory, setActiveCategory] = useState<InventoryCategory | 'all'>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [spiritTypeFilter, setSpiritTypeFilter] = useState<SpiritCategory | null>(null);
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
 
   // Modal states
   const [csvModalOpen, setCsvModalOpen] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
-  const [spiritTypeFilter, setSpiritTypeFilter] = useState<string | null>(null);
 
   // Handle URL parameters
   useEffect(() => {
@@ -54,11 +57,26 @@ function BarPageContent() {
     }
   }, [searchParams]);
 
+  // Fetch category counts on mount
   useEffect(() => {
     if (isAuthenticated && !isValidating) {
-      fetchItems().catch(console.error);
+      inventoryApi.getCategoryCounts()
+        .then(counts => {
+          console.log('📊 Category counts received:', counts);
+          setCategoryCounts(counts);
+        })
+        .catch(err => {
+          console.error('❌ Failed to fetch category counts:', err);
+        });
     }
-  }, [isAuthenticated, isValidating, fetchItems]);
+  }, [isAuthenticated, isValidating]);
+
+  // Fetch items when category or page changes (server-side filtering + pagination)
+  useEffect(() => {
+    if (isAuthenticated && !isValidating) {
+      fetchItems(currentPage, 50, activeCategory).catch(console.error);
+    }
+  }, [isAuthenticated, isValidating, currentPage, activeCategory]);
 
   if (isValidating || !isAuthenticated) {
     return null;
@@ -67,42 +85,17 @@ function BarPageContent() {
   // Ensure inventoryItems is always an array
   const itemsArray = Array.isArray(inventoryItems) ? inventoryItems : [];
 
-  // Helper function to match spirit type with fuzzy categories
-  const matchesSpiritType = (itemType: string | undefined, targetCategory: string): boolean => {
-    if (!itemType) return false;
-
-    const normalized = itemType.toLowerCase().trim();
-    const spiritKeywords: Record<string, string[]> = {
-      'Whiskey': ['whiskey', 'whisky', 'bourbon', 'scotch', 'rye', 'irish whiskey', 'japanese whisky'],
-      'Rum': ['rum', 'rhum', 'ron', 'cachaça', 'cachaca'],
-      'Gin': ['gin', 'genever'],
-      'Vodka': ['vodka'],
-      'Tequila': ['tequila', 'mezcal'],
-      'Brandy': ['brandy', 'cognac', 'armagnac', 'pisco', 'calvados'],
-    };
-
-    const keywords = spiritKeywords[targetCategory];
-    if (!keywords) return false;
-
-    return keywords.some(keyword => normalized.includes(keyword));
-  };
-
-  // Filter items by category and optionally by spirit type
-  let filteredItems = activeCategory === 'all'
-    ? itemsArray
-    : itemsArray.filter((i) => i.category === activeCategory);
-
-  // Apply spirit type filter if active
+  // Apply client-side spirit type filter only (category filtering is server-side)
+  let filteredItems = itemsArray;
   if (spiritTypeFilter) {
     filteredItems = filteredItems.filter(item =>
-      matchesSpiritType(item.type, spiritTypeFilter)
+      matchesSpiritCategory(item.type, spiritTypeFilter)
     );
   }
 
-  // Get count for each category
+  // Get category count from fetched counts
   const getCategoryCount = (categoryId: InventoryCategory | 'all') => {
-    if (categoryId === 'all') return itemsArray.length;
-    return itemsArray.filter((i) => i.category === categoryId).length;
+    return categoryCounts[categoryId] || 0;
   };
 
   // Modal handlers
@@ -113,6 +106,9 @@ function BarPageContent() {
       console.log('✅ CSV import result:', result);
       console.log('🔄 Fetching items after import...');
       await fetchItems();
+      // Refresh category counts
+      const counts = await inventoryApi.getCategoryCounts();
+      setCategoryCounts(counts);
       console.log('✅ Items fetched successfully');
       if (result.imported > 0) {
         showToast('success', `Successfully imported ${result.imported} items from CSV`);
@@ -129,6 +125,9 @@ function BarPageContent() {
   const handleAddItem = async (item: Omit<InventoryItem, 'id'>) => {
     try {
       await addItem(item);
+      // Refresh category counts
+      const counts = await inventoryApi.getCategoryCounts();
+      setCategoryCounts(counts);
       showToast('success', 'Item added successfully');
     } catch (error) {
       showToast('error', 'Failed to add item');
@@ -193,6 +192,7 @@ function BarPageContent() {
                 className={`${styles.tab} ${activeCategory === category.id ? styles.tabActive : ''}`}
                 onClick={() => {
                   setActiveCategory(category.id);
+                  setCurrentPage(1); // Reset to page 1 when changing category
                   setSpiritTypeFilter(null); // Clear spirit filter when changing tabs
                 }}
               >
@@ -211,39 +211,12 @@ function BarPageContent() {
           if (spiritItems.length === 0) return null;
 
           // Base spirit categories for fuzzy matching
-          const spiritCategories: Record<string, string[]> = {
-            'Whiskey': ['whiskey', 'whisky', 'bourbon', 'scotch', 'rye', 'irish whiskey', 'japanese whisky'],
-            'Rum': ['rum', 'rhum', 'ron', 'cachaça', 'cachaca'],
-            'Gin': ['gin', 'genever'],
-            'Vodka': ['vodka'],
-            'Tequila': ['tequila', 'mezcal'],
-            'Brandy': ['brandy', 'cognac', 'armagnac', 'pisco', 'calvados'],
-            'Other Spirits': ['other', 'spirit', 'liquor']
-          };
-
-          // Function to categorize a spirit type
-          const categorizeSpirit = (spiritType: string): string => {
-            if (!spiritType) return 'Other Spirits';
-
-            const normalized = spiritType.toLowerCase().trim();
-
-            // Check each category for a match
-            for (const [category, keywords] of Object.entries(spiritCategories)) {
-              if (keywords.some(keyword => normalized.includes(keyword))) {
-                return category;
-              }
-            }
-
-            // If no match found, return the original type capitalized
-            return spiritType;
-          };
-
           // Count by categorized spirit type
           const spiritCounts = spiritItems.reduce((acc, item) => {
-            const category = categorizeSpirit(item.type || 'Other Spirits');
+            const category = categorizeSpirit(item.type);
             acc[category] = (acc[category] || 0) + 1;
             return acc;
-          }, {} as Record<string, number>);
+          }, {} as Record<SpiritCategory, number>);
 
           // Sort by count descending
           const sortedSpirits = Object.entries(spiritCounts)
@@ -253,7 +226,7 @@ function BarPageContent() {
           // Handler to filter by spirit type
           const handleSpiritClick = (spiritType: string) => {
             setActiveCategory('spirit'); // Switch to Spirits tab
-            setSpiritTypeFilter(spiritType); // Set the spirit type filter
+            setSpiritTypeFilter(spiritType as SpiritCategory); // Set the spirit type filter
           };
 
           return (
@@ -352,9 +325,42 @@ function BarPageContent() {
 
                 <div className={styles.cardFooter}>
                   <span className={styles.cardHint}>Click to view details</span>
+                  <span className={styles.stockNumber}>
+                    Stock: {item['Stock Number'] ?? 0}
+                  </span>
                 </div>
               </Card>
             ))}
+          </div>
+        )}
+
+        {/* Pagination Controls */}
+        {inventoryPagination && inventoryPagination.totalPages > 1 && (
+          <div className={styles.paginationContainer}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={!inventoryPagination.hasPreviousPage}
+            >
+              <ChevronLeft size={16} />
+              Previous
+            </Button>
+
+            <span className={styles.paginationInfo}>
+              Page {inventoryPagination.page} of {inventoryPagination.totalPages}
+              {' '}({inventoryPagination.total} items)
+            </span>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.min(inventoryPagination.totalPages, prev + 1))}
+              disabled={!inventoryPagination.hasNextPage}
+            >
+              Next
+              <ChevronRight size={16} />
+            </Button>
           </div>
         )}
 

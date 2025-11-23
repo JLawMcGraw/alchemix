@@ -169,10 +169,14 @@ function hasIngredient(bottles: BottleData[], ingredientName: string): boolean {
     const normalizedClassification = bottle.detailedClassification?.toLowerCase().trim() || '';
 
     // Strategy 1: Direct substring match against all bottle fields
+    // IMPORTANT: Only match if the ingredient is contained in the bottle name,
+    // NOT if a single word from the ingredient appears in the bottle name.
+    // This prevents "passion fruit syrup" from matching "Sugar Syrup"
     const fields = [normalizedName, normalizedLiquorType, normalizedClassification];
 
     for (const field of fields) {
-      if (field && (field.includes(normalizedIngredient) || normalizedIngredient.includes(field))) {
+      if (field && field.includes(normalizedIngredient)) {
+        // Only match if the full ingredient name is IN the bottle field
         return true;
       }
     }
@@ -333,20 +337,25 @@ router.get('/smart', (req: Request, res: Response) => {
       SELECT
         name,
         type as liquorType,
-        "Detailed Spirit Classification" as detailedClassification
+        "Detailed Spirit Classification" as detailedClassification,
+        "Stock Number" as stockNumber
       FROM inventory_items
       WHERE user_id = ?
+        AND ("Stock Number" IS NOT NULL AND "Stock Number" > 0)
     `).all(userId) as Array<{
       name: string;
       liquorType: string | null;
       detailedClassification: string | null;
+      stockNumber: number | null;
     }>;
+
 
     const bottles: BottleData[] = bottlesRaw.map(b => ({
       name: b.name,
       liquorType: b.liquorType,
       detailedClassification: b.detailedClassification
     }));
+
 
     /**
      * Step 3: Fetch User's Recipes
@@ -396,14 +405,6 @@ router.get('/smart', (req: Request, res: Response) => {
       isCraftable(recipe.ingredients, bottles)
     );
 
-    // DEBUG: Log craftable recipes
-    console.log('🔍 [Shopping List Debug]');
-    console.log('  Inventory items:', bottles.map(b => b.name));
-    console.log('  Total recipes:', parsedRecipes.length);
-    console.log('  Craftable recipes:', craftableRecipes.length);
-    if (craftableRecipes.length > 0) {
-      console.log('  Craftable recipe names:', craftableRecipes.map(r => r.name).slice(0, 5));
-    }
 
     /**
      * Step 6: Find "Near Miss" Recipes
@@ -418,31 +419,7 @@ router.get('/smart', (req: Request, res: Response) => {
         missingIngredients: findMissingIngredients(recipe.ingredients, bottles)
       }));
 
-    // DEBUG: Log missing ingredient counts
-    const missingCounts = new Map<number, number>();
-    allNonCraftable.forEach(recipe => {
-      const count = recipe.missingIngredients.length;
-      missingCounts.set(count, (missingCounts.get(count) || 0) + 1);
-    });
-    console.log('  Non-craftable recipes by missing count:');
-    Array.from(missingCounts.entries())
-      .sort((a, b) => a[0] - b[0])
-      .forEach(([missing, count]) => {
-        console.log(`    Missing ${missing} ingredient(s): ${count} recipes`);
-      });
-
-    // Show example of a recipe missing multiple ingredients
-    const exampleMultiMissing = allNonCraftable.find(r => r.missingIngredients.length > 1);
-    if (exampleMultiMissing) {
-      console.log('  Example recipe missing multiple:');
-      console.log(`    "${exampleMultiMissing.name}"`);
-      console.log('    Raw ingredients:', exampleMultiMissing.ingredients.slice(0, 5));
-      console.log('    Parsed ingredients:', exampleMultiMissing.ingredients.slice(0, 5).map(parseIngredientName));
-      console.log('    Missing:', exampleMultiMissing.missingIngredients.slice(0, 5));
-    }
-
     const nearMissRecipes = allNonCraftable.filter(recipe => recipe.missingIngredients.length === 1);
-    console.log('  Near-miss recipes (missing exactly 1):', nearMissRecipes.length);
 
     /**
      * Step 7: Count Ingredient Frequency

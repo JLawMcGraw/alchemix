@@ -135,13 +135,14 @@ router.get('/', (req: Request, res: Response) => {
     }
 
     /**
-     * Step 2: Parse and Validate Pagination Parameters
+     * Step 2: Parse and Validate Query Parameters
      *
-     * Extract page and limit from query string, with defaults.
-     * Validate they are positive numbers within acceptable range.
+     * Extract page, limit, and category from query string, with defaults.
+     * Validate they are within acceptable ranges.
      */
     const pageParam = req.query.page as string | undefined;
     const limitParam = req.query.limit as string | undefined;
+    const categoryParam = req.query.category as string | undefined;
 
     // Validate page parameter (default: 1, min: 1)
     const pageValidation = validateNumber(
@@ -189,44 +190,64 @@ router.get('/', (req: Request, res: Response) => {
     const offset = (page - 1) * limit;
 
     /**
-     * Step 4: Count Total Bottles (for pagination metadata)
+     * Step 4: Build Dynamic WHERE Clause
+     *
+     * Build SQL WHERE clause based on optional category filter.
+     * Always filters by user_id for security.
+     */
+    const whereConditions = ['user_id = ?'];
+    const queryParams: any[] = [userId];
+
+    if (categoryParam) {
+      // Validate category is one of the allowed types
+      const validCategories = ['spirit', 'liqueur', 'mixer', 'garnish', 'syrup', 'wine', 'beer', 'other'];
+      if (validCategories.includes(categoryParam)) {
+        whereConditions.push('category = ?');
+        queryParams.push(categoryParam);
+      }
+    }
+
+    const whereClause = whereConditions.join(' AND ');
+
+    /**
+     * Step 5: Count Total Items (for pagination metadata)
      *
      * COUNT(*) query to determine total pages.
-     * Separate query is necessary for pagination info.
+     * Includes category filter if specified.
      *
      * Performance Note:
      * - COUNT(*) on indexed user_id column is fast (<1ms)
      * - Result is small (single integer)
      */
     const countResult = db.prepare(
-      'SELECT COUNT(*) as total FROM inventory_items WHERE user_id = ?'
-    ).get(userId) as { total: number };
+      `SELECT COUNT(*) as total FROM inventory_items WHERE ${whereClause}`
+    ).get(...queryParams) as { total: number };
 
     const total = countResult.total;
 
     /**
-     * Step 5: Fetch Paginated Bottles
+     * Step 6: Fetch Paginated Items
      *
      * SQL Query Breakdown:
-     * - SELECT *: All bottle columns (12 fields + metadata)
-     * - WHERE user_id = ?: User isolation for security
-     * - ORDER BY created_at DESC: Newest bottles first
+     * - SELECT *: All item columns (12 fields + metadata)
+     * - WHERE: User isolation + optional category filter
+     * - ORDER BY created_at DESC: Newest items first
      * - LIMIT ?: Number of rows to return
      * - OFFSET ?: Number of rows to skip
      *
      * Example SQL:
-     * SELECT * FROM bottles WHERE user_id = 1
+     * SELECT * FROM inventory_items WHERE user_id = 1 AND category = 'spirit'
      * ORDER BY created_at DESC LIMIT 50 OFFSET 0
      */
-    const bottles = db.prepare(`
+    const items = db.prepare(`
       SELECT * FROM inventory_items
-      WHERE user_id = ?
+      WHERE ${whereClause}
       ORDER BY created_at DESC
       LIMIT ? OFFSET ?
-    `).all(userId, limit, offset) as Bottle[];
+    `).all(...queryParams, limit, offset) as Bottle[];
 
     /**
-     * Step 6: Calculate Pagination Metadata
+     * Step 7: Calculate Pagination Metadata
      *
      * Provide frontend with pagination context:
      * - Current page number
@@ -242,15 +263,15 @@ router.get('/', (req: Request, res: Response) => {
     const hasPreviousPage = page > 1;
 
     /**
-     * Step 7: Return Paginated Response
+     * Step 8: Return Paginated Response
      *
      * Standard pagination response format:
-     * - data: Array of bottles for current page
+     * - data: Array of items for current page (filtered by category if specified)
      * - pagination: Metadata for UI controls
      */
     res.json({
       success: true,
-      data: bottles,
+      data: items,
       pagination: {
         page,
         limit,
@@ -271,6 +292,85 @@ router.get('/', (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch bottles'
+    });
+  }
+});
+
+/**
+ * GET /api/inventory/category-counts - Get Item Counts by Category
+ *
+ * Returns count of items in each category for the authenticated user.
+ * Used to populate category tabs with accurate counts.
+ *
+ * Response (200 OK):
+ * {
+ *   "success": true,
+ *   "data": {
+ *     "all": 45,
+ *     "spirit": 28,
+ *     "liqueur": 12,
+ *     "mixer": 3,
+ *     "syrup": 2,
+ *     "garnish": 0,
+ *     "wine": 0,
+ *     "beer": 0,
+ *     "other": 0
+ *   }
+ * }
+ */
+router.get('/category-counts', (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    // Get total count
+    const totalResult = db.prepare(
+      'SELECT COUNT(*) as total FROM inventory_items WHERE user_id = ?'
+    ).get(userId) as { total: number };
+
+    // Get counts by category
+    const categoryResults = db.prepare(`
+      SELECT category, COUNT(*) as count
+      FROM inventory_items
+      WHERE user_id = ?
+      GROUP BY category
+    `).all(userId) as Array<{ category: string; count: number }>;
+
+    // Build response with all categories (including zero counts)
+    const counts: Record<string, number> = {
+      all: totalResult.total,
+      spirit: 0,
+      liqueur: 0,
+      mixer: 0,
+      syrup: 0,
+      garnish: 0,
+      wine: 0,
+      beer: 0,
+      other: 0
+    };
+
+    // Fill in actual counts
+    categoryResults.forEach(({ category, count }) => {
+      if (category in counts) {
+        counts[category] = count;
+      }
+    });
+
+    res.json({
+      success: true,
+      data: counts
+    });
+  } catch (error) {
+    console.error('Get category counts error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch category counts'
     });
   }
 });
@@ -358,7 +458,11 @@ router.post('/', (req: Request, res: Response) => {
       });
     }
 
-    const bottle = validation.sanitized;
+    const bottle = {
+      ...validation.sanitized,
+      // Stock Number is already sanitized (negatives clamped to 0)
+      'Stock Number': validation.sanitized['Stock Number'],
+    };
 
     /**
      * Step 3: Insert Bottle into Database
@@ -387,7 +491,7 @@ router.post('/', (req: Request, res: Response) => {
       bottle.category || 'other',
       bottle.type || null,
       bottle.abv || null,
-      bottle['Stock Number'] || null,
+      bottle['Stock Number'] ?? null,
       bottle['Detailed Spirit Classification'] || null,
       bottle['Distillation Method'] || null,
       bottle['Distillery Location'] || null,
@@ -543,6 +647,10 @@ router.put('/:id', (req: Request, res: Response) => {
 
     const bottle = validation.sanitized;
 
+    console.log('🔍 [Inventory Debug] PUT /:id - Updating bottle:', bottleId);
+    console.log('  Request Body Stock:', req.body['Stock Number']);
+    console.log('  Sanitized Stock:', bottle['Stock Number']);
+
     /**
      * Step 5: Update Bottle in Database
      *
@@ -574,7 +682,7 @@ router.put('/:id', (req: Request, res: Response) => {
       bottle.category || 'other',
       bottle.type || null,
       bottle.abv || null,
-      bottle['Stock Number'] || null,
+      bottle['Stock Number'] ?? null,
       bottle['Detailed Spirit Classification'] || null,
       bottle['Distillation Method'] || null,
       bottle['Distillery Location'] || null,
@@ -781,7 +889,8 @@ function validateBottleData(record: any): { isValid: boolean; errors: string[]; 
   const safeString = (val: any) => val ? String(val).trim() : null;
   const safeNumber = (val: any) => {
     const num = parseInt(String(val));
-    return isNaN(num) ? null : num;
+    // Clamp negative numbers to 0 (no negative inventory)
+    return isNaN(num) ? null : (num < 0 ? 0 : num);
   };
 
   // Sanitize the data - be very flexible with column names
@@ -961,11 +1070,12 @@ router.post('/import', upload.single('file'), async (req: Request, res: Response
  * Export Inventory Router
  *
  * Mounted at /api/inventory in server.ts:
- * - GET    /api/inventory          - List bottles (paginated)
- * - POST   /api/inventory          - Add bottle
- * - PUT    /api/inventory/:id      - Update bottle
- * - DELETE /api/inventory/:id      - Delete bottle
- * - POST   /api/inventory/import   - CSV import (future)
+ * - GET    /api/inventory                  - List bottles (paginated)
+ * - GET    /api/inventory/category-counts  - Get category counts
+ * - POST   /api/inventory                  - Add bottle
+ * - PUT    /api/inventory/:id              - Update bottle
+ * - DELETE /api/inventory/:id              - Delete bottle
+ * - POST   /api/inventory/import           - CSV import
  *
  * All routes require authentication (authMiddleware applied to router).
  */

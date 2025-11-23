@@ -183,9 +183,9 @@ function sanitizeHistoryEntries(
  * @returns System prompt for dashboard insights
  */
 async function buildDashboardInsightPrompt(userId: number): Promise<string> {
-  // Fetch user's inventory
+  // Fetch user's inventory (only items with stock > 0)
   const inventory = db.prepare(
-    'SELECT * FROM inventory_items WHERE user_id = ? ORDER BY name'
+    'SELECT * FROM inventory_items WHERE user_id = ? AND ("Stock Number" IS NOT NULL AND "Stock Number" > 0) ORDER BY name'
   ).all(userId) as any[];
 
   // Fetch user's recipes
@@ -307,9 +307,9 @@ Return ONLY the JSON object. No markdown, no code blocks, no explanations.`;
  * @returns System prompt with user context and security boundaries
  */
 async function buildContextAwarePrompt(userId: number, userMessage: string = ''): Promise<string> {
-  // Fetch user's inventory
+  // Fetch user's inventory (only items with stock > 0)
   const inventory = db.prepare(
-    'SELECT * FROM inventory_items WHERE user_id = ? ORDER BY name'
+    'SELECT * FROM inventory_items WHERE user_id = ? AND ("Stock Number" IS NOT NULL AND "Stock Number" > 0) ORDER BY name'
   ).all(userId) as any[];
 
   // Fetch user's recipes

@@ -156,6 +156,16 @@ export interface ShoppingListResponse {
   majorGapsRecipes: MajorGapsRecipe[];
 }
 
+// Pagination Types
+export interface PaginationMetadata {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
 // API Response Types
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -173,6 +183,7 @@ export interface AppState {
 
   // Data
   inventoryItems: InventoryItem[];
+  inventoryPagination: PaginationMetadata | null;
   recipes: Recipe[];
   collections: Collection[];
   favorites: Favorite[];
@@ -200,7 +211,7 @@ export interface AppState {
   setUser: (user: User, token: string) => void;
   validateToken: () => Promise<boolean>;
 
-  fetchItems: () => Promise<void>;
+  fetchItems: (page?: number, limit?: number, category?: InventoryCategory | 'all') => Promise<void>;
   addItem: (item: InventoryItem) => Promise<void>;
   updateItem: (id: number, item: Partial<InventoryItem>) => Promise<void>;
   deleteItem: (id: number) => Promise<void>;

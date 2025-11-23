@@ -6,6 +6,14 @@ const nextConfig = {
     // Disable webpack build worker to avoid file system issues on Windows/OneDrive
     webpackBuildWorker: false,
   },
+  // Strip console.log statements in production builds
+  // Note: This uses SWC compiler (Webpack). If using Turbopack (--turbo flag),
+  // this config is ignored in dev but still applies to production builds.
+  compiler: {
+    removeConsole: {
+      exclude: ['error'],  // Keep console.error for critical debugging
+    },
+  },
   // Windows/OneDrive optimization: Disable file system watching that causes hangs
   webpack: (config, { isServer }) => {
     // Disable watch options polling for OneDrive compatibility

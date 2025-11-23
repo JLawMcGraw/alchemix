@@ -103,8 +103,20 @@ export default function DashboardPage() {
   }, [isAuthenticated, isValidating, fetchItems, fetchRecipes, fetchFavorites, fetchCollections, fetchDashboardInsight, fetchShoppingList]);
 
   // Show loading state during validation
-  if (isValidating || !isAuthenticated) {
-    return null;
+  if (isValidating) {
+    return (
+      <div className={styles.dashboard}>
+        <div className={styles.container}>
+          <div style={{ padding: '2rem', textAlign: 'center' }}>
+            Loading...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null; // useAuthGuard will handle redirect
   }
 
   // Helper function to parse ingredients

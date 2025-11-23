@@ -106,13 +106,13 @@ export default function LoginPage() {
         <div className={styles.logoSection}>
           <div className={styles.logoContainer}>
             <Image
-              src="/AlcheMix Logo.svg"
+              src="/AlcheMix Logo Crop.png"
               alt="AlcheMix Logo"
-              width={160}
-              height={160}
+              width={350}
+              height={0}
+              style={{ height: 'auto' }}
               priority
             />
-            <h1 className={styles.logoTitle}>AlcheMix</h1>
           </div>
           <p className={styles.logoTagline}>Your cocktail lab assistant</p>
         </div>

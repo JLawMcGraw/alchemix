@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Edit2, X, AlertCircle } from 'lucide-react';
 import { Button, Input, Spinner, SuccessCheckmark } from '@/components/ui';
-import type { InventoryItem } from '@/types';
+import type { InventoryItem, InventoryCategory } from '@/types';
 import styles from './BottleFormModal.module.css';
 
 interface EditBottleModalProps {
@@ -13,8 +13,24 @@ interface EditBottleModalProps {
   onUpdate: (id: number, item: Partial<InventoryItem>) => Promise<void>;
 }
 
+type FormDataState = {
+  name: string;
+  category: InventoryCategory;
+  type: string;
+  abv: string;
+  'Stock Number': string;
+  'Detailed Spirit Classification': string;
+  'Distillation Method': string;
+  'Distillery Location': string;
+  'Age Statement or Barrel Finish': string;
+  'Additional Notes': string;
+  'Profile (Nose)': string;
+  Palate: string;
+  Finish: string;
+};
+
 export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottleModalProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormDataState>({
     name: '',
     category: 'spirit',
     type: '',
@@ -42,12 +58,16 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
 
   useEffect(() => {
     if (bottle) {
+      const stockValue = bottle['Stock Number'] !== null && bottle['Stock Number'] !== undefined
+        ? bottle['Stock Number'].toString()
+        : '0';
+
       setFormData({
         name: bottle.name || '',
         category: bottle.category || 'spirit',
         type: bottle.type || '',
         abv: bottle.abv?.toString() || '',
-        'Stock Number': bottle['Stock Number']?.toString() || '',
+        'Stock Number': stockValue,
         'Detailed Spirit Classification': bottle['Detailed Spirit Classification'] || '',
         'Distillation Method': bottle['Distillation Method'] || '',
         'Distillery Location': bottle['Distillery Location'] || '',
@@ -165,7 +185,7 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
         category: formData.category,
         type: formData.type || undefined,
         abv: formData.abv || undefined,
-        'Stock Number': formData['Stock Number'] ? parseInt(formData['Stock Number']) : undefined,
+        'Stock Number': formData['Stock Number'] !== '' ? parseInt(formData['Stock Number']) : undefined,
         'Detailed Spirit Classification': formData['Detailed Spirit Classification'] || undefined,
         'Distillation Method': formData['Distillation Method'] || undefined,
         'Distillery Location': formData['Distillery Location'] || undefined,
@@ -255,10 +275,16 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
                 />
                 <Input
                   label="Stock Number"
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={formData['Stock Number']}
-                  onChange={(e) => handleChange('Stock Number', e.target.value)}
-                  placeholder="e.g., 123"
+                  onChange={(e) => {
+                    // Only allow digits
+                    const value = e.target.value.replace(/[^0-9]/g, '');
+                    handleChange('Stock Number', value);
+                  }}
+                  placeholder="e.g., 0, 1, 2..."
                   fullWidth
                   error={fieldErrors['Stock Number']}
                 />

@@ -4,6 +4,343 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-11-23 - Logo Update & TopNav Layout Optimization
+
+**Context**: Updated application branding with new logo and optimized TopNav layout for better visual hierarchy and responsiveness.
+
+**Problem 1: Next.js .next Directory Corruption**
+
+On Windows with OneDrive, the `.next` directory can become corrupted during incomplete builds, causing EINVAL errors when trying to read symlinks.
+
+**Error**:
+```
+[Error: EINVAL: invalid argument, readlink 'C:\Users\Admin\OneDrive\Desktop\DEV Work\alchemix\.next\react-loadable-manifest.json']
+```
+
+**Solution**:
+```bash
+# Remove corrupted build artifacts
+rm -rf .next node_modules/.cache
+
+# Restart dev server
+npm run dev:all
+```
+
+**Prevention**: Consider adding `.next` to OneDrive exclusions to prevent sync-related corruption.
+
+**Problem 2: Next.js Image Component Aspect Ratio**
+
+When using Next.js `Image` component, if you specify both width and height, the image may appear squished if the aspect ratio doesn't match the source file.
+
+**Solution**: Use `height={0}` with `style={{ height: 'auto' }}` to let the browser calculate the correct height:
+
+```typescript
+// Login page logo with auto height
+<Image
+  src="/AlcheMix Logo Crop.png"
+  alt="AlcheMix Logo"
+  width={350}
+  height={0}
+  style={{ height: 'auto' }}
+  priority
+/>
+```
+
+Combined with CSS to enforce proper rendering:
+```css
+.logoContainer img {
+  width: 100%;
+  height: auto !important;
+  object-fit: contain;
+}
+```
+
+**Problem 3: TopNav Layout with Large Logo**
+
+Using CSS Grid with fixed column sizes caused layout issues when the logo was large - navigation items were squished and text was stacking.
+
+**Initial Approach (Grid)**:
+```css
+.container {
+  display: grid;
+  grid-template-columns: 300px 1fr auto;  /* Fixed logo column */
+  gap: var(--space-4);
+}
+```
+
+**Problem**: Large logos took up too much space, causing navigation items to wrap.
+
+**Solution**: Switch to Flexbox with proper flex properties:
+```css
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1400px;
+  gap: var(--space-3);
+}
+
+.logo {
+  flex-shrink: 0;  /* Logo doesn't shrink */
+}
+
+.navLinks {
+  flex: 1;  /* Takes remaining space */
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.navLink {
+  white-space: nowrap;  /* Prevent text wrapping */
+  font-size: var(--text-sm);  /* Smaller for more space */
+}
+
+.userMenu {
+  flex-shrink: 0;  /* User menu doesn't shrink */
+}
+```
+
+**Result**: Navigation items properly distributed with no text stacking, even with larger logo.
+
+**Decision 4: Logo Sizing Iterations**
+
+Finding the optimal logo size required multiple iterations:
+
+1. Started at 450x150px (3x original) - too large, squished everything
+2. Reduced to 200x60px - too small
+3. Increased to 300x100px - still causing layout issues
+4. Reduced to 100x30px - too small
+5. Increased to 125x37px (+25%) - better but still small
+6. Increased to 144x43px (+15%) - close
+7. Final: 140x42px - perfect balance
+
+**Lesson**: For navigation logos, aim for approximately 140-150px width on desktop for good visibility without overwhelming the layout.
+
+**Files Modified**:
+- `src/app/login/page.tsx` - Logo component with auto height
+- `src/app/login/login.module.css` - Logo container and responsive styles
+- `src/components/layout/TopNav.tsx` - Logo sizing and layout
+- `src/components/layout/TopNav.module.css` - Flexbox layout and navigation spacing
+- `public/AlcheMix Logo Crop.png` - New cropped logo asset
+
+**Future Considerations**:
+- Test logo responsiveness on various screen sizes (tablet, mobile)
+- Consider adding logo to account settings and other pages
+- May need to adjust logo size for mobile breakpoints
+- Monitor for OneDrive sync issues with `.next` directory
+
+---
+
+## 2025-11-22 - Stock-Based Inventory Filtering & Ingredient Matching Bug Fix
+
+**Context**: Fixed critical bugs in stock-based inventory filtering and ingredient matching. Shopping list was treating items with stock=0 or NULL as "in stock", and bidirectional substring matching was causing false positives like "passion fruit syrup" matching "Sugar Syrup".
+
+**Problem 1: HTML Number Input Cannot Accept 0**
+
+When users tried to set stock to 0 in the edit modal, the input field wouldn't accept the value. Typing 0 or using arrow keys (down from 1) would clear the field instead of setting it to 0.
+
+**Root Cause**: HTML `<input type="number">` has browser-specific behavior around minimum values. Even without an explicit `min` attribute, some browsers prevent entering 0.
+
+**Solution**: Change from `type="number"` to `type="text"` with `inputMode="numeric"` pattern:
+
+```typescript
+// EditBottleModal.tsx and AddBottleModal.tsx
+<Input
+  label="Stock Number"
+  type="text"              // ← Changed from "number"
+  inputMode="numeric"      // ← Shows numeric keyboard on mobile
+  pattern="[0-9]*"         // ← HTML5 validation pattern
+  value={formData['Stock Number']}
+  onChange={(e) => {
+    // Only allow digits
+    const value = e.target.value.replace(/[^0-9]/g, '');
+    handleChange('Stock Number', value);
+  }}
+  placeholder="e.g., 0, 1, 2..."
+  fullWidth
+/>
+```
+
+**Result**: Users can now type 0, and the value is accepted and saved correctly.
+
+**Problem 2: Stock Number 0 Not Saving to Database**
+
+Even after fixing the input field, stock number 0 wasn't being saved. The form would accept 0 but convert it to `undefined` during submission.
+
+**Root Cause**: Form submission used a truthy check that treats 0 as falsy:
+
+```typescript
+// ❌ BEFORE (broken):
+'Stock Number': formData['Stock Number'] ? parseInt(formData['Stock Number']) : undefined
+// Since 0 is falsy, this evaluates to undefined
+```
+
+**Solution**: Change to explicit empty string check:
+
+```typescript
+// ✅ AFTER (fixed):
+'Stock Number': formData['Stock Number'] !== '' ? parseInt(formData['Stock Number']) : undefined
+// Now 0 is converted correctly, only empty string becomes undefined
+```
+
+**Files Modified**:
+- `src/components/modals/EditBottleModal.tsx:188`
+- `src/components/modals/AddBottleModal.tsx:146`
+
+**Problem 3: Bidirectional Substring Matching Causing False Positives**
+
+The ingredient matching algorithm in the smart shopping list had a critical bug where "passion fruit syrup" was incorrectly matching "Sugar Syrup / Simple Syrup" because both contain the word "syrup".
+
+**Debug Output Showing the Bug**:
+```
+🔍 [hasIngredient] Checking for: "passion fruit syrup"
+  ✅ MATCHED via Strategy 1 (substring) against bottle: "Sugar Syrup / Simple Syrup"
+    Field that matched: "syrup"
+```
+
+**Root Cause**: Bidirectional substring matching in `hasIngredient` function:
+
+```typescript
+// ❌ BEFORE (broken):
+for (const field of fields) {
+  if (field && (field.includes(normalizedIngredient) || normalizedIngredient.includes(field))) {
+    // ↑ This second condition is the problem!
+    // "passion fruit syrup".includes("syrup") → true
+    return true;
+  }
+}
+```
+
+The condition `normalizedIngredient.includes(field)` checks if the ingredient name contains any word from the bottle fields. When comparing "passion fruit syrup" against "Sugar Syrup / Simple Syrup":
+- `field = "syrup"` (extracted from bottle name)
+- `"passion fruit syrup".includes("syrup")` → `true`
+- **Incorrect match!**
+
+**Solution**: Remove bidirectional check, keep only unidirectional:
+
+```typescript
+// ✅ AFTER (fixed):
+for (const field of fields) {
+  if (field && field.includes(normalizedIngredient)) {
+    // Now only matches if the FULL ingredient name is IN the bottle field
+    // "syrup".includes("passion fruit syrup") → false ✓
+    // "passion fruit syrup".includes("passion fruit syrup") → true ✓
+    return true;
+  }
+}
+```
+
+**Result**: "passion fruit syrup" no longer matches "Sugar Syrup / Simple Syrup". The algorithm now only matches if the complete ingredient name is found within a bottle's fields, not if a single word from the bottle is found in the ingredient.
+
+**File**: `api/src/routes/shoppingList.ts:186`
+
+**Problem 4: Default Null Stock to 0 in Edit Modal**
+
+When editing an item with `Stock Number = null`, the modal showed an empty field instead of defaulting to 0.
+
+**Solution**: Explicitly convert null/undefined to '0' during form initialization:
+
+```typescript
+// EditBottleModal.tsx:61-68
+const stockValue = bottle['Stock Number'] !== null && bottle['Stock Number'] !== undefined
+  ? bottle['Stock Number'].toString()
+  : '0';
+
+setFormData({
+  // ...
+  'Stock Number': stockValue,
+  // ...
+});
+```
+
+**Problem 5: Stock Display on Bar Item Cards**
+
+Users couldn't see stock numbers on the "My Bar" page item cards.
+
+**Solution**: Added stock number display in bottom right corner of each card:
+
+```typescript
+// src/app/bar/page.tsx:326-331
+<div className={styles.cardFooter}>
+  <span className={styles.cardHint}>Click to view details</span>
+  <span className={styles.stockNumber}>
+    Stock: {item['Stock Number'] ?? 0}
+  </span>
+</div>
+```
+
+Styled with orange color in CSS:
+
+```css
+/* src/app/bar/bar.module.css:296-302 */
+.stockNumber {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--color-semantic-warning);  /* Orange */
+  white-space: nowrap;
+}
+```
+
+**SQL Filtering Pattern for Stock-Based Queries**
+
+Added WHERE clause to filter inventory by stock in both shopping list and AI bartender:
+
+```typescript
+// api/src/routes/shoppingList.ts:332-347
+const bottlesRaw = db.prepare(`
+  SELECT
+    name,
+    type as liquorType,
+    "Detailed Spirit Classification" as detailedClassification,
+    "Stock Number" as stockNumber
+  FROM inventory_items
+  WHERE user_id = ?
+    AND ("Stock Number" IS NOT NULL AND "Stock Number" > 0)
+`).all(userId);
+
+// api/src/routes/messages.ts (similar WHERE clause)
+const inventory = db.prepare(
+  'SELECT * FROM inventory_items WHERE user_id = ? AND ("Stock Number" IS NOT NULL AND "Stock Number" > 0) ORDER BY name'
+).all(userId);
+```
+
+**Pattern**: `WHERE "Stock Number" IS NOT NULL AND "Stock Number" > 0`
+- Filters out items with NULL stock (not yet set)
+- Filters out items with 0 stock (explicitly out of stock)
+- Only items with stock ≥ 1 are considered "in stock"
+
+**Lessons Learned**:
+
+- **Type="number" inputs have quirks**: Browser implementations differ on how they handle 0 values. For stock numbers, `type="text"` with `inputMode="numeric"` and regex filtering is more reliable.
+
+- **Truthy checks can be dangerous with 0**: Always use explicit checks like `!== ''` or `!== null` when 0 is a valid value. The expression `value ? ... : ...` treats 0 as falsy.
+
+- **Bidirectional substring matching is usually wrong**: When matching "ingredient X should be found in bottle Y", only check if X is in Y's fields, not if Y's fields are in X. The latter creates false positives when common words overlap.
+
+- **Debugging substring matching**: Always log the actual field values and match conditions. The debug output showing `"passion fruit syrup".includes("syrup")` → true immediately revealed the bug.
+
+- **Default values for null**: When editing existing data, provide sensible defaults. For stock numbers, 0 is more useful than an empty field.
+
+**Future Considerations**:
+
+- Consider adding low stock warnings (e.g., stock < 3)
+- Add visual indicators for out-of-stock items on bar page (grayed out or badge)
+- Make stock-based filtering toggleable by users (some may want to see all items)
+- Test SQL query performance with 1000+ inventory items
+- Consider indexing `Stock Number` column for faster WHERE clause filtering
+
+**Files Modified**:
+- `src/components/modals/EditBottleModal.tsx` (input type, form submission, default value)
+- `src/components/modals/AddBottleModal.tsx` (input type, form submission)
+- `src/app/bar/page.tsx` (stock display on cards)
+- `src/app/bar/bar.module.css` (stock number styling)
+- `api/src/routes/shoppingList.ts` (SQL filter, ingredient matching fix)
+- `api/src/routes/messages.ts` (SQL filter)
+
+---
+
 ## 2025-11-22 - Browser Cache Busting + Seasonal Dashboard Insights
 
 **Context**: Fixed critical bug where recipe mastery filters (craftable, near miss, need 2-3, major gaps) were showing (0) recipes despite backend returning correct data. Enhanced dashboard "Lab Assistant's Notebook" with seasonal awareness and MemMachine personalization.
