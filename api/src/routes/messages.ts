@@ -233,8 +233,7 @@ async function buildDashboardInsightPrompt(userId: number): Promise<Array<{ type
 
     // Add user's preferences and conversation history for personalized suggestions
     if (userContext) {
-      memoryContext += memoryService.formatContextForPrompt(userContext, 5); // Show recent conversations
-      memoryContext += memoryService.formatUserProfileForPrompt(userContext);
+      memoryContext += memoryService.formatContextForPrompt(userContext, 5); // Show recent conversations and preferences
     }
   } catch (error) {
     // MemMachine is optional - continue without it if unavailable
@@ -417,9 +416,8 @@ async function buildContextAwarePrompt(userId: number, userMessage: string = '')
 
       // Add user's own recipes and preferences
       if (userContext) {
-        console.log(`✅ MemMachine: Retrieved context - Profile entries: ${userContext.profile?.length || 0}, Context episodes: ${userContext.context?.length || 0}`);
+        console.log(`✅ MemMachine: Retrieved context - Episodic entries: ${userContext.episodic?.length || 0}, Profile entries: ${userContext.profile?.length || 0}`);
         memoryContext += memoryService.formatContextForPrompt(userContext, 10); // Show more user recipes
-        memoryContext += memoryService.formatUserProfileForPrompt(userContext);
         console.log(`📝 MemMachine: Added ${memoryContext.split('\n').length} lines of context to prompt`);
       } else {
         console.log(`⚠️ MemMachine: No context returned for user ${userId}`);
@@ -501,17 +499,44 @@ User: "Give me a rum drink"
   // This block changes every request (semantic search results vary by query)
   const dynamicContent = `${memoryContext}
 
-## RESPONSE FORMAT
-End responses with:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ MANDATORY RESPONSE FORMAT - READ THIS FIRST ⚠️
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+YOU MUST END EVERY RESPONSE WITH THIS EXACT FORMAT:
+
 RECOMMENDATIONS: Recipe Name 1, Recipe Name 2, Recipe Name 3
 
-(Use exact recipe names from their collection)
+HOW THIS WORKS:
+1. Write your conversational response naturally
+2. Mention recipe names in your text (e.g., "The **Mai Tai (Trader Vic)** is elegant...")
+3. At the VERY END, add the RECOMMENDATIONS: line with those exact same recipe names
+4. The UI will make those recipe names clickable in your conversational text
+
+EXAMPLE OF COMPLETE RESPONSE:
+---
+Ah, excellent choice! The **Mai Tai (Trader Vic)** is the classic version - it uses your amber Martinique rum paired with dark Jamaican. The **Mai Tai (Royal Hawaiian)** goes bigger with multiple juices.
+
+Which direction calls to you tonight?
+
+RECOMMENDATIONS: Mai Tai (Trader Vic), Mai Tai (Royal Hawaiian), Mai Tai Swizzle (Don The Beachcomber)
+---
+
+CRITICAL RULES:
+✅ Use exact recipe names from the "AVAILABLE RECIPES" list
+✅ Include 2-4 recipes in the RECOMMENDATIONS: line
+✅ This line is MANDATORY - never skip it
+✅ Recipe names in RECOMMENDATIONS: must match names you mentioned in your response
+✅ User will NOT see the RECOMMENDATIONS: line - it's parsed by the UI to create clickable links
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ## FINAL REMINDER BEFORE RESPONDING
 1. ✅ Use the Lab Assistant personality (scientific metaphors, informed enthusiasm)
 2. ✅ Only recommend recipes that EXACTLY match the user's request (check ingredients!)
 3. ✅ Reference their specific bottles by name with tasting notes
-4. ✅ Make it conversational and engaging, not robotic`;
+4. ✅ Make it conversational and engaging, not robotic
+5. ✅ **END WITH: RECOMMENDATIONS: Recipe Name 1, Recipe Name 2, Recipe Name 3**`;
 
   // Return structured blocks with cache control breakpoint
   return [

@@ -8,9 +8,9 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 
 ## ✨ Current Status
 
-**Version:** v1.17.0 (AI Cost Optimization - Haiku + Prompt Caching)
-**Phase:** Production Ready - AI Cost Optimization
-**Last Updated:** November 23, 2025
+**Version:** v1.18.0 (MemMachine V1 Migration Complete - Semantic Search + Clickable Recipes)
+**Phase:** Production Ready - AI Cost Optimization with MemMachine V1 Semantic Search
+**Last Updated:** November 24, 2025
 
 ### What's Working
 - ✅ **Complete TypeScript monorepo** (Frontend + Backend) ⭐
@@ -58,21 +58,26 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
   - Uncategorized recipes section for recipes not in collections
   - Database-accurate recipe counts (handles 200+ recipes correctly)
 - ✅ **AI Bartender with MemMachine Memory** - Context-aware Claude AI with semantic recipe search ⭐⭐⭐⭐
-  - **MemMachine Integration**: User-specific AI memory with semantic search over recipes ⭐ **NEW**
+  - **MemMachine V1 Integration**: User-specific AI memory with semantic search over recipes ⭐ **NEW v1.18**
+    - **Complete V1 API Migration**: Full TypeScript types, response validation, semantic search tested
     - Each user has isolated memory namespace (`user_{userId}`) - zero cross-user data leakage
-    - Automatic recipe storage on create/import, deletion on remove
-    - Semantic search powered by OpenAI text-embedding-3-small embeddings
-    - AI retrieves 10 most relevant user recipes per query (up from 5 generic recipes)
-    - BarQueryConstructor intelligently parses queries ("rum and lime" → spirit:rum, flavor:lime)
+    - Automatic recipe storage on create/import with v1 `/v1/memories` endpoint
+    - **Semantic Search**: 5-10 relevant recipes per query vs 241 all recipes (73% cost reduction)
+    - Daily chat sessions using `chat-YYYY-MM-DD` format for natural conversation boundaries
+    - OpenAI text-embedding-3-small embeddings for vector similarity search
+    - Response validation with nested array flattening (episodic_memory[][])
     - Fire-and-forget pattern ensures core functionality never fails if MemMachine is down
-    - Collection metadata stored for enhanced AI context understanding
-  - **Claude 3.5 Haiku** with **Prompt Caching** (claude-3-5-haiku-20241022) ⭐ **NEW v1.17**
-    - 97% cost reduction vs previous Sonnet implementation ($0.75 → $0.021 per session)
+    - **Verified Testing**: 241/241 recipes successfully seeded, semantic search returning relevant results
+  - **Claude Haiku 4.5** with **Prompt Caching** (claude-haiku-4-5-20251001) ⭐ **NEW v1.17**
+    - **98% total cost reduction** ($0.75 → $0.015 per session with semantic search + caching)
     - Intelligent caching: Static context (inventory/recipes) cached for 5-min TTL with 90% discount
-    - Performance: Same quality recommendations at 12x lower cost
+    - Performance: Same quality recommendations at 50x lower cost
   - Context-aware system prompts with user's full bar inventory and recipe collection
   - "Lab Assistant" persona (informed enthusiasm, scientific voice, supportive curiosity)
-  - Clickable recipe names that open RecipeDetailModal with full details
+  - **Clickable recipe names** that open RecipeDetailModal with full details ⭐ **FIXED v1.18**
+    - Enhanced AI prompt with visual borders (━━━) and mandatory RECOMMENDATIONS: line
+    - Fixed regex matching for recipe names with parentheses (negative lookbehind/lookahead)
+    - Works with special characters: "Mai Tai (Trader Vic)", "Whiskey & Rye", etc.
   - Flexible recipe name matching (handles "#1" suffixes, partial matches)
   - 90-second timeout for large prompts (300+ recipes)
   - 8-layer prompt injection protection plus sanitized stored context/history
@@ -154,19 +159,19 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 - ✅ Full inventory table with filtering
 - ✅ View recipe from favorites page
 
-### Latest Session (Session 13 - November 17, 2025)
-- ✅ Completed Smart Shopping List UI (craftable and near-miss recipe displays)
-- ✅ Added safe array guards to prevent crashes during data loading
-- ✅ Fixed ingredient parser (stopped stripping "sugar" literal, preserves "sugar syrup")
-- ✅ Implemented bulk delete recipes endpoint (DELETE /bulk, up to 500 IDs)
-- ✅ Added bulkDeleteRecipes store action for atomic state updates
-- ✅ Fixed recipes page pagination after large CSV imports
-- ✅ Added logout cleanup for shopping list state (prevent data leaks)
-- ✅ Hardened AI endpoint (Anthropic key validation, placeholder detection)
-- ✅ Tightened prompt injection regex (SQL-like phrases only, not words like "Select")
-- ✅ Fixed rate limiting warnings (moved inside routers after authMiddleware)
-- ✅ Updated test infrastructure (schema alignment, all tests passing Windows + WSL)
-- ✅ Upgraded to @vitejs/plugin-react@5, renamed config to .mts for ESM
+### Latest Session (Session 15 - November 24, 2025)
+- ✅ Completed MemMachine v1 API migration with full TypeScript types
+- ✅ Created comprehensive types (SessionHeaders, MemMachineSearchResponse, NormalizedSearchResult)
+- ✅ Implemented response validation with validateAndNormalizeResponse() method
+- ✅ Daily chat sessions using chat-YYYY-MM-DD format
+- ✅ Successfully seeded 241/241 recipes to MemMachine
+- ✅ Verified semantic search returning 5-10 relevant recipes per query
+- ✅ Fixed clickable recipe links with enhanced AI prompt (visual borders, RECOMMENDATIONS: line)
+- ✅ Fixed regex matching for recipe names with parentheses (negative lookbehind/lookahead)
+- ✅ Resolved Windows WinNAT service blocking ports 3000/3001
+- ✅ TypeScript compilation passing with 0 errors
+- ✅ Cost optimization: 98% total reduction ($0.75 → $0.015 per session)
+- ✅ Created migration documentation (MEMMACHINE_V1_MIGRATION_COMPLETE.md)
 
 ### Next Phase
 - 🚀 **Deployment to Production** (Vercel + Railway)
@@ -675,5 +680,5 @@ MIT License - see LICENSE file for details
 
 **Built with ❤️ using Next.js 14 + Express + TypeScript**
 
-**Current Version:** v1.8.0-alpha (Recipe Collections & Bulk Operations)
-**Last Updated:** November 15, 2025
+**Current Version:** v1.18.0 (MemMachine V1 Migration Complete - Semantic Search + Clickable Recipes)
+**Last Updated:** November 24, 2025

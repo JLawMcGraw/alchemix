@@ -4,6 +4,204 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-11-24 - MemMachine V1 API Migration Complete - Semantic Search + Clickable Recipes
+
+**Context**: Completed full migration to MemMachine v1 API with TypeScript types, response validation, semantic search testing, and frontend clickable recipe link fixes. All 241 recipes successfully seeded to MemMachine with semantic search returning 5-10 relevant recipes per query (vs all 241).
+
+**Decision 1: MemMachine V1 API Response Structure Normalization**
+
+Discovered actual MemMachine v1 API returns nested array structure different from documentation/plan assumptions.
+
+**API Response Structure**:
+```typescript
+// Actual MemMachine v1 Response
+{
+  status: 0,
+  content: {
+    episodic_memory: EpisodicEpisode[][],  // Array of episode groups (nested)
+    profile_memory: ProfileMemory[]
+  }
+}
+
+// What we needed (flat structure)
+{
+  episodic: EpisodicEpisode[],  // Flat array
+  profile: ProfileMemory[]
+}
+```
+
+**Solution**: Implemented validateAndNormalizeResponse() method to flatten and validate:
+
+```typescript
+// api/src/services/MemoryService.ts
+private validateAndNormalizeResponse(response: MemMachineSearchResponse): NormalizedSearchResult {
+  // Validate response structure
+  if (!response || typeof response !== 'object') {
+    throw new Error('Invalid response structure from MemMachine: response is not an object');
+  }
+
+  if (!response.content || typeof response.content !== 'object') {
+    throw new Error('Invalid response structure from MemMachine: missing content field');
+  }
+
+  const { episodic_memory, profile_memory } = response.content;
+
+  // Flatten episodic_memory (array of episode groups) and filter nulls
+  const flattenedEpisodic: EpisodicEpisode[] = [];
+  if (Array.isArray(episodic_memory)) {
+    for (const group of episodic_memory) {
+      if (Array.isArray(group)) {
+        for (const episode of group) {
+          if (episode && typeof episode === 'object' && episode.content) {
+            flattenedEpisodic.push(episode as EpisodicEpisode);
+          }
+        }
+      }
+    }
+  }
+
+  const validatedProfile: ProfileMemory[] = Array.isArray(profile_memory) ? profile_memory : [];
+
+  return {
+    episodic: flattenedEpisodic,
+    profile: validatedProfile,
+  };
+}
+```
+
+**Result**: All MemMachine responses properly transformed to flat structure, null/empty values filtered out.
+
+**Decision 2: Windows WinNAT Port Blocking Resolution**
+
+Backend and frontend both failed to bind to ports 3000/3001 with EACCES permission denied errors, even when running as Administrator.
+
+**Error**:
+```
+Error: listen EACCES: permission denied 0.0.0.0:3000
+Error: listen EACCES: permission denied 0.0.0.0:3001
+```
+
+**Initial Attempts (Failed)**:
+1. Changed backend to bind to 127.0.0.1 instead of 0.0.0.0
+2. Tried running as Administrator with UAC elevation
+3. Created alternative port scripts (5000/5001) as workaround
+
+**Root Cause**: Windows Network Address Translation (WinNAT) service was blocking ports.
+
+**Solution** (User-provided):
+```bash
+net stop winnat
+net start winnat
+```
+
+**Result**: Ports 3000/3001 immediately available, npm run dev:all worked normally.
+
+**Lesson Learned**: On Windows, WinNAT service can block ports even with Administrator privileges. Restarting the service clears port reservations without requiring system reboot.
+
+**Decision 3: Frontend Regex Fix for Recipe Names with Parentheses**
+
+Clickable recipe links weren't working for recipe names containing parentheses like "Mai Tai (Trader Vic)".
+
+**Root Cause**: Word boundary anchor `\b` doesn't work correctly with special characters like parentheses.
+
+**Before (Broken)**:
+```typescript
+// src/app/ai/page.tsx (line 193 - BEFORE)
+const escapedFullName = recipeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const fullNameRegex = new RegExp(`\\b${escapedFullName}\\b`, 'gi');
+displayText = displayText.replace(fullNameRegex, `__RECIPE__${recipeName}__RECIPE__`);
+```
+
+**Issue**: `\b` (word boundary) matches position between word character and non-word character. Parentheses are non-word characters, so `\b` fails to match properly.
+
+**After (Fixed)**:
+```typescript
+// src/app/ai/page.tsx (lines 193-196 - AFTER)
+const escapedFullName = recipeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// Use negative lookbehind/lookahead instead of \b for better parentheses handling
+const fullNameRegex = new RegExp(`(?<!\\w)${escapedFullName}(?!\\w)`, 'gi');
+displayText = displayText.replace(fullNameRegex, `__RECIPE__${recipeName}__RECIPE__`);
+```
+
+**Explanation**:
+- `(?<!\\w)` - Negative lookbehind: Assert no word character before match
+- `(?!\\w)` - Negative lookahead: Assert no word character after match
+- Works with parentheses, hyphens, and other special characters
+
+**Also Fixed Base Name Matching** (line 203):
+```typescript
+const baseNameRegex = new RegExp(`(?<!\\w)${escapedBaseName}(?!\\w|\\s*#)`, 'gi');
+```
+- Added `|\\s*#` to prevent matching "DAIQUIRI" when "#1" suffix follows
+
+**Result**: All recipe names now clickable regardless of special characters (parentheses, hyphens, ampersands, etc.)
+
+**Decision 4: AI Prompt Format Enforcement for RECOMMENDATIONS: Line**
+
+AI responses weren't including the `RECOMMENDATIONS:` line needed for frontend clickable link parsing, even though it was in the prompt.
+
+**Initial Attempt (Failed)**:
+```typescript
+const dynamicContent = `${memoryContext}
+
+## RESPONSE FORMAT
+End responses with:
+RECOMMENDATIONS: Recipe Name 1, Recipe Name 2, Recipe Name 3
+`;
+```
+
+**Problem**: AI ignored the requirement, provided conversational response without RECOMMENDATIONS: line.
+
+**Solution**: Made requirement EXTREMELY prominent with visual separators and warnings:
+
+```typescript
+// api/src/routes/messages.ts (lines 502-539)
+const dynamicContent = `${memoryContext}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ MANDATORY RESPONSE FORMAT - READ THIS FIRST ⚠️
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+YOU MUST END EVERY RESPONSE WITH THIS EXACT FORMAT:
+
+RECOMMENDATIONS: Recipe Name 1, Recipe Name 2, Recipe Name 3
+
+HOW THIS WORKS:
+1. Write your conversational response naturally
+2. Mention recipe names in your text (e.g., "The **Mai Tai (Trader Vic)** is elegant...")
+3. At the VERY END, add the RECOMMENDATIONS: line with those exact same recipe names
+4. The UI will make those recipe names clickable in your conversational text
+
+EXAMPLE OF COMPLETE RESPONSE:
+---
+Ah, excellent choice! The **Mai Tai (Trader Vic)** is the classic version...
+
+RECOMMENDATIONS: Mai Tai (Trader Vic), Mai Tai (Royal Hawaiian), Mai Tai Swizzle (Don The Beachcomber)
+---
+
+CRITICAL RULES:
+✅ Use exact recipe names from the "AVAILABLE RECIPES" list
+✅ Include 2-4 recipes in the RECOMMENDATIONS: line
+✅ This line is MANDATORY - never skip it
+✅ Recipe names in RECOMMENDATIONS: must match names you mentioned in your response
+✅ User will NOT see the RECOMMENDATIONS: line - it's parsed by the UI to create clickable links
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+```
+
+**Key Enhancements**:
+1. Visual borders (━━━) make section impossible to miss
+2. Warning emoji (⚠️) draws attention
+3. Explicit example showing complete desired output
+4. Clarified user won't see the line (reduces AI hesitation)
+5. Placed in dynamic content (uncached) so changes take effect immediately
+
+**Result**: After server restart to clear cache, AI consistently includes RECOMMENDATIONS: line in every response.
+
+**Lesson Learned**: AI models respond better to visual formatting, explicit examples, and clear explanations of why the requirement exists (UI parsing, not shown to user).
+
+---
+
 ## 2025-11-23 - AI Cost Optimization + Prompt Caching + MemMachine V1 Migration Planning
 
 **Context**: Implemented comprehensive AI cost optimization achieving 94-97% cost reduction through Claude Haiku migration and Anthropic Prompt Caching. Discovered MemMachine v1 API incompatibility and created detailed migration plan.

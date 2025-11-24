@@ -189,16 +189,18 @@ export default function AIPage() {
         // This handles cases where AI says "DAIQUIRI" in text but "DAIQUIRI #1" in recommendations
 
         // Try exact match first
+        // Escape special regex characters (including parentheses)
         const escapedFullName = recipeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const fullNameRegex = new RegExp(`\\b${escapedFullName}\\b`, 'gi');
+        // Don't use \b with parentheses - use negative lookbehind/lookahead for word boundaries
+        const fullNameRegex = new RegExp(`(?<!\\w)${escapedFullName}(?!\\w)`, 'gi');
         displayText = displayText.replace(fullNameRegex, `__RECIPE__${recipeName}__RECIPE__`);
 
         // Also try base name without suffix (e.g., "DAIQUIRI" from "DAIQUIRI #1")
         const baseName = recipeName.replace(/\s*#\d+\s*$/i, '').trim();
         if (baseName !== recipeName) {
           const escapedBaseName = baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          // Use negative lookahead to avoid matching if followed by #
-          const baseNameRegex = new RegExp(`\\b${escapedBaseName}\\b(?!\\s*#)`, 'gi');
+          // Use negative lookbehind/lookahead instead of \b for better parentheses handling
+          const baseNameRegex = new RegExp(`(?<!\\w)${escapedBaseName}(?!\\w|\\s*#)`, 'gi');
           displayText = displayText.replace(baseNameRegex, `__RECIPE__${recipeName}__RECIPE__`);
         }
       } else {

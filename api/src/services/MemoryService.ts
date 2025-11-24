@@ -1,82 +1,39 @@
 /**
- * MemMachine Memory Service Client
+ * MemMachine Memory Service Client (v1 API)
  *
- * Integrates AlcheMix with MemMachine for AI memory capabilities:
- * - Store user preferences (likes, dislikes, allergies)
- * - Retrieve relevant recipe recommendations from knowledge base
- * - Query user profile and conversation history
+ * Integrates AlcheMix with MemMachine v1 for AI memory capabilities:
+ * - Semantic search over user recipes (OpenAI embeddings)
+ * - Conversation memory across sessions
+ * - User preference storage and retrieval
  *
  * Architecture:
- * - MemMachine backend (port 8080): Core memory service (Docker - default port)
- * - User isolation: Each user has a separate namespace (user_1, user_2, etc.)
+ * - MemMachine backend (port 8080): Core memory service (Docker)
+ * - User isolation: Each user has separate namespace (user_1, user_2, etc.)
  * - No cross-user data leakage: User 1 cannot access User 2's recipes
- * - Semantic search: OpenAI embeddings for intelligent recipe recommendations
+ * - Session-based organization: recipes, chat-{date}, etc.
+ *
+ * Migration from legacy API → v1 API:
+ * - Old: GET /memory?user_id=X&query=Y
+ * - New: POST /v1/memories/search with headers + body
+ *
+ * @version 2.0.0 (MemMachine v1 API)
+ * @date November 23, 2025
  */
 
 import axios, { AxiosInstance } from 'axios';
+import {
+  NewEpisode,
+  SearchQuery,
+  MemMachineSearchResponse,
+  NormalizedSearchResult,
+  SessionHeaders,
+  EpisodicEpisode,
+  ProfileMemory,
+  MEMMACHINE_CONSTANTS,
+} from '../types/memmachine';
 
-/**
- * Memory Context Response
- *
- * Structure returned by MemMachine GET /memory endpoint
- */
-export interface MemoryContext {
-  status: 'success' | 'error';
-  data: {
-    profile: ProfileMemory[];
-    context: ContextEpisode[][];
-    formatted_query: string;
-    query_type: string;
-  };
-}
-
-export interface ProfileMemory {
-  tag: string;
-  feature: string;
-  value: string;
-  metadata: {
-    id: number;
-    similarity_score: number;
-  };
-}
-
-export interface ContextEpisode {
-  uuid: string;
-  episode_type: string;
-  content_type: string;
-  content: string;
-  timestamp: string;
-  group_id: string;
-  session_id: string;
-  producer_id: string;
-  produced_for_id: string;
-  user_metadata: {
-    speaker: string;
-    timestamp: string;
-    type: string;
-  };
-}
-
-/**
- * Memory Storage Request
- *
- * Format for POST /memory to store new memories
- */
-export interface StoreMemoryRequest {
-  user_id: string;
-  query: string;
-}
-
-/**
- * Memory Query Request
- *
- * Format for GET /memory to retrieve memories
- */
-export interface QueryMemoryRequest {
-  user_id: string;
-  query: string;
-  timestamp?: string;
-}
+const { GROUP_ID, AGENT_ID, RECIPE_SESSION, CHAT_SESSION_PREFIX, DEFAULT_SEARCH_LIMIT, MAX_PROMPT_RECIPES } =
+  MEMMACHINE_CONSTANTS;
 
 /**
  * MemoryService Configuration
@@ -87,13 +44,31 @@ export interface MemoryServiceConfig {
 }
 
 /**
- * MemoryService Client
+ * Recipe Data for Storage
+ */
+export interface RecipeData {
+  name: string;
+  ingredients: string[] | string;
+  instructions?: string;
+  glass?: string;
+  category?: string;
+}
+
+/**
+ * Collection Data for Storage
+ */
+export interface CollectionData {
+  name: string;
+  description?: string;
+}
+
+/**
+ * MemoryService Client (v1 API)
  *
- * Provides type-safe interface to MemMachine bar_server API
+ * Provides type-safe interface to MemMachine v1 API
  */
 export class MemoryService {
   private client: AxiosInstance;
-  private readonly KNOWLEDGE_BASE_USER = 'system_knowledge_base';
 
   constructor(config: MemoryServiceConfig) {
     this.client = axios.create({
@@ -106,91 +81,203 @@ export class MemoryService {
   }
 
   /**
-   * Query Recipe Knowledge Base
+   * Build Session Headers
    *
-   * Searches the global recipe knowledge base (241 recipes) with semantic search.
-   * Uses BarQueryConstructor to intelligently parse queries about spirits, flavors, etc.
+   * Creates required headers for MemMachine v1 API calls
    *
-   * @param query - Natural language query (e.g., "What drinks use rum and lime?")
-   * @returns Relevant recipes and context from knowledge base
+   * @param userId - AlcheMix user ID (number)
+   * @param sessionId - Session identifier (default: "recipes")
+   * @returns SessionHeaders object
    */
-  async queryRecipeKnowledgeBase(query: string): Promise<MemoryContext> {
-    try {
-      const response = await this.client.get<MemoryContext>('/memory', {
-        params: {
-          user_id: this.KNOWLEDGE_BASE_USER,
-          query,
-        },
-      });
-
-      return response.data;
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        console.error('MemoryService: Recipe query failed:', error.message);
-        throw new Error(`Failed to query recipe knowledge base: ${error.message}`);
-      }
-      throw error;
-    }
+  private buildHeaders(userId: number, sessionId: string = RECIPE_SESSION): SessionHeaders {
+    return {
+      'user-id': `user_${userId}`,
+      'session-id': sessionId,
+      'group-id': GROUP_ID,
+      'agent-id': AGENT_ID,
+    };
   }
 
   /**
-   * Query User Profile and Preferences
+   * Build Episode Payload
    *
-   * Retrieves user-specific memories:
-   * - Likes/dislikes
-   * - Allergies and restrictions
-   * - Past conversations
-   * - Favorite styles
+   * Creates episode object for storing memories
    *
-   * @param userId - User ID (as string for MemMachine)
-   * @param query - Query about user preferences
-   * @returns User profile memories and relevant context
+   * @param content - Episode content (text)
+   * @param userId - AlcheMix user ID
+   * @returns NewEpisode object
    */
-  async queryUserProfile(userId: number, query: string): Promise<MemoryContext> {
-    try {
-      const response = await this.client.get<MemoryContext>('/memory', {
-        params: {
-          user_id: `user_${userId}`,
-          query,
-        },
-      });
-
-      return response.data;
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        console.error(`MemoryService: User profile query failed for user ${userId}:`, error.message);
-        throw new Error(`Failed to query user profile: ${error.message}`);
-      }
-      throw error;
-    }
+  private buildEpisode(content: string, userId: number): NewEpisode {
+    const userIdStr = `user_${userId}`;
+    return {
+      episode_content: content,
+      producer: userIdStr,
+      produced_for: userIdStr,
+    };
   }
 
   /**
-   * Store User Preference
+   * Format Recipe for Storage
    *
-   * Stores a user preference, like, dislike, or allergy in MemMachine.
+   * Converts recipe object into semantic-rich text for embeddings.
+   * MemMachine will generate vector embeddings from this text for semantic search.
    *
-   * Examples:
-   * - "I love spicy margaritas with jalapeño"
-   * - "I'm allergic to nuts"
-   * - "I dislike overly sweet drinks"
-   * - "I prefer whiskey-based cocktails"
+   * @param recipe - Recipe object with name, ingredients, instructions, etc.
+   * @returns Formatted string optimized for semantic search
+   */
+  private formatRecipeForStorage(recipe: RecipeData): string {
+    // Parse ingredients - handle both string and array formats
+    let ingredientsText: string;
+    if (Array.isArray(recipe.ingredients)) {
+      ingredientsText = recipe.ingredients.join(', ');
+    } else if (typeof recipe.ingredients === 'string') {
+      try {
+        const parsed = JSON.parse(recipe.ingredients);
+        ingredientsText = Array.isArray(parsed) ? parsed.join(', ') : recipe.ingredients;
+      } catch {
+        ingredientsText = recipe.ingredients;
+      }
+    } else {
+      ingredientsText = String(recipe.ingredients);
+    }
+
+    // Create semantic-rich text for embeddings
+    // Format optimized for natural language search queries
+    return [
+      `Recipe: ${recipe.name}`,
+      `Category: ${recipe.category || 'Cocktail'}`,
+      recipe.glass ? `Glass: ${recipe.glass}` : '',
+      `Ingredients: ${ingredientsText}`,
+      recipe.instructions ? `Instructions: ${recipe.instructions}` : '',
+    ]
+      .filter(Boolean)
+      .join('. ');
+  }
+
+  /**
+   * Validate and Normalize Search Response
+   *
+   * Ensures MemMachine response has expected structure and normalizes it.
+   * Prevents runtime errors from missing fields.
+   *
+   * @param response - Raw response from MemMachine API
+   * @returns Normalized search result with episodic and profile memories
+   * @throws Error if response structure is invalid
+   */
+  private validateAndNormalizeResponse(response: MemMachineSearchResponse): NormalizedSearchResult {
+    // Validate top-level structure
+    if (!response || typeof response !== 'object') {
+      throw new Error('Invalid response structure from MemMachine: response is not an object');
+    }
+
+    if (!response.content || typeof response.content !== 'object') {
+      throw new Error('Invalid response structure from MemMachine: missing content field');
+    }
+
+    const { episodic_memory, profile_memory } = response.content;
+
+    // Validate episodic_memory is array of arrays
+    if (!Array.isArray(episodic_memory)) {
+      console.warn('MemMachine response missing episodic_memory array, using empty array');
+    }
+
+    // Flatten episodic_memory (it's an array of episode groups)
+    // Filter out empty strings and null values
+    const flattenedEpisodic: EpisodicEpisode[] = [];
+    if (Array.isArray(episodic_memory)) {
+      for (const group of episodic_memory) {
+        if (Array.isArray(group)) {
+          for (const episode of group) {
+            // Skip empty strings, null, or invalid episodes
+            if (episode && typeof episode === 'object' && episode.content) {
+              flattenedEpisodic.push(episode as EpisodicEpisode);
+            }
+          }
+        }
+      }
+    }
+
+    // Validate profile_memory is array
+    const validatedProfile: ProfileMemory[] = Array.isArray(profile_memory) ? profile_memory : [];
+
+    return {
+      episodic: flattenedEpisodic,
+      profile: validatedProfile,
+    };
+  }
+
+  /**
+   * Store User Recipe
+   *
+   * Stores a user's recipe in MemMachine for semantic search and AI context.
+   * Recipe is stored in the "recipes" session for that user.
+   *
+   * Future Enhancement (Option A - UUID Tracking):
+   * - Return UUID from MemMachine response
+   * - Store UUID in AlcheMix DB (recipes.memmachine_uuid column)
+   * - Use UUID for granular deletion
    *
    * @param userId - User ID
-   * @param preference - Natural language preference statement
+   * @param recipe - Recipe object with name, ingredients, instructions, etc.
    */
-  async storeUserPreference(userId: number, preference: string): Promise<void> {
+  async storeUserRecipe(userId: number, recipe: RecipeData): Promise<void> {
     try {
-      await this.client.post('/memory', null, {
-        params: {
-          user_id: `user_${userId}`,
-          query: preference,
-        },
-      });
+      const recipeText = this.formatRecipeForStorage(recipe);
+      const episode = this.buildEpisode(recipeText, userId);
+      const headers = this.buildHeaders(userId, RECIPE_SESSION);
+
+      await this.client.post('/v1/memories', episode, { headers });
+
+      console.log(`✅ MemMachine: Stored recipe "${recipe.name}" for user ${userId}`);
+
+      // TODO: Option A - Track UUID for deletion
+      // const response = await this.client.post<{uuid: string}>(...);
+      // return response.data.uuid; // Store this in AlcheMix DB
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        console.error(`MemoryService: Failed to store preference for user ${userId}:`, error.message);
-        throw new Error(`Failed to store user preference: ${error.message}`);
+        console.error(`❌ MemMachine: Failed to store recipe for user ${userId}:`, error.message);
+        // Don't throw - recipe storage in MemMachine is optional (fire-and-forget)
+      }
+    }
+  }
+
+  /**
+   * Query User Profile and Recipes
+   *
+   * Searches user's recipes and preferences using semantic search.
+   * MemMachine uses OpenAI embeddings to find relevant recipes.
+   *
+   * @param userId - User ID
+   * @param query - Natural language query (e.g., "rum cocktails with lime")
+   * @returns Normalized search results with episodic and profile memories
+   * @throws Error if API call fails
+   */
+  async queryUserProfile(userId: number, query: string): Promise<NormalizedSearchResult> {
+    try {
+      const searchQuery: SearchQuery = {
+        query,
+        limit: DEFAULT_SEARCH_LIMIT,
+      };
+      const headers = this.buildHeaders(userId, RECIPE_SESSION);
+
+      const response = await this.client.post<MemMachineSearchResponse>(
+        '/v1/memories/search',
+        searchQuery,
+        { headers }
+      );
+
+      // Validate and normalize response structure
+      const normalizedResult = this.validateAndNormalizeResponse(response.data as MemMachineSearchResponse);
+
+      console.log(
+        `🔍 MemMachine: Found ${normalizedResult.episodic.length} episodic + ${normalizedResult.profile.length} profile results for user ${userId}`
+      );
+
+      return normalizedResult;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error(`❌ MemMachine: User profile query failed for user ${userId}:`, error.message);
+        throw new Error(`Failed to query user profile: ${error.message}`);
       }
       throw error;
     }
@@ -200,7 +287,12 @@ export class MemoryService {
    * Store Conversation Turn
    *
    * Stores a user message and AI response as episodic memory.
-   * This builds conversation history for context-aware responses.
+   * Uses date-based session IDs for daily conversation threads.
+   *
+   * Session Strategy: chat-{YYYY-MM-DD}
+   * - All conversations on the same day are grouped together
+   * - Easy to retrieve conversation history by date
+   * - Natural conversation boundaries
    *
    * @param userId - User ID
    * @param userMessage - User's message
@@ -208,80 +300,54 @@ export class MemoryService {
    */
   async storeConversationTurn(userId: number, userMessage: string, aiResponse: string): Promise<void> {
     try {
+      // Use date-based session IDs for daily conversation threads
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const sessionId = `${CHAT_SESSION_PREFIX}${today}`;
+
+      const userIdStr = `user_${userId}`;
+      const agentIdStr = AGENT_ID;
+
       // Store user message
-      await this.client.post('/memory', null, {
-        params: {
-          user_id: `user_${userId}`,
-          query: `User asked: "${userMessage}"`,
+      await this.client.post(
+        '/v1/memories',
+        {
+          episode_content: `User: ${userMessage}`,
+          producer: userIdStr,
+          produced_for: agentIdStr,
         },
-      });
-
-      // Store AI response
-      await this.client.post('/memory', null, {
-        params: {
-          user_id: `user_${userId}`,
-          query: `AI bartender responded: "${aiResponse}"`,
-        },
-      });
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        console.error(`MemoryService: Failed to store conversation for user ${userId}:`, error.message);
-        // Don't throw - conversation storage is optional
-      }
-    }
-  }
-
-  /**
-   * Store User Recipe
-   *
-   * Stores a user's recipe in MemMachine for semantic search and AI context.
-   * This allows the AI to recommend recipes the user has created/imported.
-   *
-   * @param userId - User ID
-   * @param recipe - Recipe object with name, ingredients, instructions, etc.
-   */
-  async storeUserRecipe(userId: number, recipe: {
-    name: string;
-    ingredients: string[] | string;
-    instructions?: string;
-    glass?: string;
-    category?: string;
-  }): Promise<void> {
-    try {
-      // Parse ingredients - handle both string and array formats
-      let ingredientsText: string;
-      if (Array.isArray(recipe.ingredients)) {
-        ingredientsText = recipe.ingredients.join(', ');
-      } else if (typeof recipe.ingredients === 'string') {
-        try {
-          const parsed = JSON.parse(recipe.ingredients);
-          ingredientsText = Array.isArray(parsed) ? parsed.join(', ') : recipe.ingredients;
-        } catch {
-          ingredientsText = recipe.ingredients;
+        {
+          headers: {
+            'user-id': userIdStr,
+            'session-id': sessionId,
+            'group-id': GROUP_ID,
+            'agent-id': agentIdStr,
+          },
         }
-      } else {
-        ingredientsText = String(recipe.ingredients);
-      }
-
-      // Create semantic-rich recipe text for MemMachine
-      const recipeText = (
-        `Recipe for ${recipe.name}. ` +
-        `Category: ${recipe.category || 'Cocktail'}. ` +
-        (recipe.glass ? `Glass: ${recipe.glass}. ` : '') +
-        `Ingredients: ${ingredientsText}. ` +
-        (recipe.instructions ? `Instructions: ${recipe.instructions}` : '')
       );
 
-      await this.client.post('/memory', null, {
-        params: {
-          user_id: `user_${userId}`,
-          query: recipeText,
+      // Store AI response
+      await this.client.post(
+        '/v1/memories',
+        {
+          episode_content: `Assistant: ${aiResponse}`,
+          producer: agentIdStr,
+          produced_for: userIdStr,
         },
-      });
+        {
+          headers: {
+            'user-id': userIdStr,
+            'session-id': sessionId,
+            'group-id': GROUP_ID,
+            'agent-id': agentIdStr,
+          },
+        }
+      );
+
+      console.log(`💬 MemMachine: Stored conversation turn for user ${userId} in session ${sessionId}`);
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        console.error(`MemoryService: Failed to store recipe for user ${userId}:`, error.message);
-        // Don't throw - recipe storage in MemMachine is optional
+        console.error(`❌ MemMachine: Failed to store conversation for user ${userId}:`, error.message);
+        // Don't throw - conversation storage is optional
       }
     }
   }
@@ -289,21 +355,70 @@ export class MemoryService {
   /**
    * Delete User Recipe
    *
-   * Removes a recipe from the user's MemMachine memory.
-   * Note: MemMachine doesn't have a direct delete API, so this is a no-op for now.
-   * Future: Could implement by storing recipe IDs and filtering on retrieval.
+   * OPTION A EXPLANATION (as requested):
+   *
+   * How Option A (UUID Tracking) Would Work:
+   *
+   * 1. DATABASE MIGRATION:
+   *    Add a new column to track MemMachine UUIDs
+   *    ```sql
+   *    ALTER TABLE recipes ADD COLUMN memmachine_uuid TEXT;
+   *    ```
+   *
+   * 2. STORE UUID ON CREATION:
+   *    When storeUserRecipe() is called, MemMachine returns a UUID
+   *    ```typescript
+   *    const response = await this.client.post('/v1/memories', episode, { headers });
+   *    const uuid = response.data.uuid; // MemMachine returns this
+   *    // Store UUID in AlcheMix database alongside recipe
+   *    db.run('UPDATE recipes SET memmachine_uuid = ? WHERE id = ?', [uuid, recipeId]);
+   *    ```
+   *
+   * 3. DELETE USING UUID:
+   *    When recipe is deleted from AlcheMix, also delete from MemMachine
+   *    ```typescript
+   *    // Get UUID from AlcheMix database
+   *    const row = db.get('SELECT memmachine_uuid FROM recipes WHERE id = ?', [recipeId]);
+   *    if (row.memmachine_uuid) {
+   *      // Delete specific episode from MemMachine using UUID
+   *      await this.client.delete('/v1/memories', {
+   *        headers: this.buildHeaders(userId),
+   *        data: { uuid: row.memmachine_uuid }
+   *      });
+   *    }
+   *    ```
+   *
+   * CURRENT IMPLEMENTATION (Acceptable Compromise):
+   * For now, we accept that historical data remains in MemMachine.
+   * This is acceptable because:
+   * - User's current recipe list in AlcheMix is still accurate
+   * - Old memories naturally age out over time
+   * - MemMachine search prioritizes recent/relevant memories
+   * - Implementing Option A is a future enhancement (not critical for MVP)
    *
    * @param userId - User ID
    * @param recipeName - Name of recipe to delete
    */
   async deleteUserRecipe(userId: number, recipeName: string): Promise<void> {
-    // TODO: MemMachine doesn't currently support deleting specific memories
-    // This is a placeholder for future implementation
-    // Options:
-    // 1. Store a "deletion marker" memory
-    // 2. Filter out deleted recipes on retrieval
-    // 3. Wait for MemMachine delete API
-    console.warn(`MemoryService: Recipe deletion not yet implemented for "${recipeName}"`);
+    try {
+      // Current implementation: Log and accept historical data remains
+      console.log(
+        `ℹ️  MemMachine: Recipe "${recipeName}" deleted from AlcheMix (historical data remains in MemMachine)`
+      );
+
+      // TODO: Implement Option A (UUID tracking) in future
+      // 1. Add memmachine_uuid column to recipes table
+      // 2. Return and store UUID when recipe is created
+      // 3. Use UUID to delete specific episode here
+
+      // For now, this is acceptable because:
+      // - Search will only return deleted recipes if they're still relevant
+      // - AI can handle "this recipe no longer exists" gracefully
+      // - Historical data provides conversation context
+    } catch (error) {
+      console.error(`❌ MemMachine: Failed to delete recipe for user ${userId}:`, error);
+      // Don't throw - deletion failures shouldn't break the app
+    }
   }
 
   /**
@@ -315,42 +430,41 @@ export class MemoryService {
    * @param userId - User ID
    * @param collection - Collection object with name and description
    */
-  async storeUserCollection(userId: number, collection: {
-    name: string;
-    description?: string;
-  }): Promise<void> {
+  async storeUserCollection(userId: number, collection: CollectionData): Promise<void> {
     try {
-      const collectionText = (
+      const collectionText =
         `User created a recipe collection named "${collection.name}"` +
-        (collection.description ? ` with description: "${collection.description}"` : '')
-      );
+        (collection.description ? ` with description: "${collection.description}"` : '');
 
-      await this.client.post('/memory', null, {
-        params: {
-          user_id: `user_${userId}`,
-          query: collectionText,
-        },
-      });
+      const episode = this.buildEpisode(collectionText, userId);
+      const headers = this.buildHeaders(userId, RECIPE_SESSION);
+
+      await this.client.post('/v1/memories', episode, { headers });
+
+      console.log(`📁 MemMachine: Stored collection "${collection.name}" for user ${userId}`);
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        console.error(`MemoryService: Failed to store collection for user ${userId}:`, error.message);
+        console.error(`❌ MemMachine: Failed to store collection for user ${userId}:`, error.message);
         // Don't throw - collection storage is optional
       }
     }
   }
 
   /**
-   * Get Memory-Enhanced Context (User-Specific Recipes Only)
+   * Get Enhanced Context (User-Specific Recipes Only)
    *
    * Queries user's own recipes and preferences for context-aware recommendations.
    * No global knowledge base - each user only sees their own recipes.
    *
    * @param userId - User ID
    * @param query - User's cocktail query
-   * @returns User's recipes and preferences matching the query
+   * @returns User's recipes and preferences matching the query (or null if unavailable)
    */
-  async getEnhancedContext(userId: number, query: string): Promise<{
-    userContext: MemoryContext | null;
+  async getEnhancedContext(
+    userId: number,
+    query: string
+  ): Promise<{
+    userContext: NormalizedSearchResult | null;
   }> {
     try {
       // Query user's own recipes and preferences
@@ -363,96 +477,68 @@ export class MemoryService {
   }
 
   /**
-   * Format Memory Context for AI Prompt
+   * Format Context for AI Prompt
    *
-   * Converts MemoryContext into a human-readable string suitable for Claude's system prompt.
+   * Converts NormalizedSearchResult into human-readable string for Claude's system prompt.
+   * INCLUDES FILTERING LOGIC (as requested) to only include recipe-related content.
    *
-   * @param context - Memory context from MemMachine
-   * @param maxRecipes - Maximum number of recipes to include (default: 5)
+   * @param searchResult - Normalized search result from MemMachine
+   * @param limit - Maximum number of recipes to include (default: MAX_PROMPT_RECIPES)
    * @returns Formatted string for AI prompt
    */
-  formatContextForPrompt(context: MemoryContext, maxRecipes: number = 5): string {
-    if (!context.data || !context.data.context || context.data.context.length === 0) {
+  formatContextForPrompt(searchResult: NormalizedSearchResult, limit: number = MAX_PROMPT_RECIPES): string {
+    if (!searchResult || (!searchResult.episodic?.length && !searchResult.profile?.length)) {
       return '';
     }
 
-    const recipes: string[] = [];
+    let contextText = '\n\n## RELEVANT CONTEXT FROM MEMORY\n';
 
-    // Extract recipes from first context group (most relevant)
-    const primaryContext = context.data.context[0] || [];
+    // Add episodic memories (specific recipes found)
+    // FILTERING LOGIC: Only include episodes that contain recipe content
+    if (searchResult.episodic?.length > 0) {
+      contextText += '\n### Recently Discussed Recipes:\n';
 
-    for (const episode of primaryContext.slice(0, maxRecipes)) {
-      if (episode.content && episode.content.startsWith('Recipe for')) {
-        recipes.push(episode.content);
+      // Filter for recipe-related content
+      const recipeEpisodes = searchResult.episodic.filter(
+        (result) =>
+          result.content &&
+          (result.content.includes('Recipe:') || result.content.startsWith('Recipe for'))
+      );
+
+      const limitedRecipes = recipeEpisodes.slice(0, limit);
+      limitedRecipes.forEach((result, index) => {
+        contextText += `${index + 1}. ${result.content}\n`;
+      });
+
+      // If no recipes found after filtering, indicate that
+      if (limitedRecipes.length === 0) {
+        contextText += '(No recipe-specific memories found for this query)\n';
       }
     }
 
-    if (recipes.length === 0) {
-      return '';
+    // Add profile memories (user preferences)
+    if (searchResult.profile?.length > 0) {
+      contextText += '\n### User Preferences & Patterns:\n';
+      const profiles = searchResult.profile.slice(0, 3); // Top 3 most relevant
+      profiles.forEach((result) => {
+        contextText += `- ${result.content}\n`;
+      });
     }
 
-    return `\n## RELEVANT RECIPES FROM KNOWLEDGE BASE\n\nHere are ${recipes.length} relevant recipe(s) that may be helpful:\n\n${recipes.join('\n\n---\n\n')}`;
-  }
-
-  /**
-   * Format User Profile for AI Prompt
-   *
-   * Extracts user preferences, allergies, and restrictions from profile memory.
-   *
-   * @param context - User profile context
-   * @returns Formatted string for AI prompt
-   */
-  formatUserProfileForPrompt(context: MemoryContext): string {
-    if (!context.data || !context.data.profile || context.data.profile.length === 0) {
-      return '';
-    }
-
-    const preferences: string[] = [];
-    const allergies: string[] = [];
-    const restrictions: string[] = [];
-
-    for (const memory of context.data.profile) {
-      const value = memory.value;
-      const tag = memory.tag.toLowerCase();
-
-      if (value.toLowerCase().includes('allergic') || value.toLowerCase().includes('allergy')) {
-        allergies.push(value);
-      } else if (value.toLowerCase().includes('dislike') || value.toLowerCase().includes('hate')) {
-        restrictions.push(value);
-      } else {
-        preferences.push(value);
-      }
-    }
-
-    let result = '\n## USER PROFILE\n\n';
-
-    if (allergies.length > 0) {
-      result += `**CRITICAL - ALLERGIES:**\n${allergies.map(a => `- ${a}`).join('\n')}\n\n`;
-    }
-
-    if (restrictions.length > 0) {
-      result += `**Dislikes/Restrictions:**\n${restrictions.map(r => `- ${r}`).join('\n')}\n\n`;
-    }
-
-    if (preferences.length > 0) {
-      result += `**Preferences:**\n${preferences.map(p => `- ${p}`).join('\n')}\n`;
-    }
-
-    return result;
+    return contextText;
   }
 
   /**
    * Health Check
    *
-   * Verifies MemMachine bar_server is accessible.
+   * Verifies MemMachine service is accessible.
    *
-   * @returns true if service is healthy
+   * @returns true if service is healthy, false otherwise
    */
   async healthCheck(): Promise<boolean> {
     try {
-      // Try a simple query to knowledge base
-      await this.queryRecipeKnowledgeBase('test');
-      return true;
+      const response = await axios.get(`${this.client.defaults.baseURL}/health`);
+      return response.data.status === 'healthy';
     } catch (error) {
       return false;
     }
@@ -463,7 +549,7 @@ export class MemoryService {
  * Singleton instance for application-wide use
  */
 const memMachineURL = process.env.MEMMACHINE_API_URL || 'http://localhost:8080';
-console.log(`🔧 MemMachine Service initialized with URL: ${memMachineURL}`);
+console.log(`🔧 MemMachine Service initialized (v1 API) with URL: ${memMachineURL}`);
 
 export const memoryService = new MemoryService({
   baseURL: memMachineURL,

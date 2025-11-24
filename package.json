@@ -6,6 +6,7 @@
     "dev": "next dev -p 3001",
     "dev:api": "cd api && npm run dev",
     "dev:all": "concurrently \"npm run dev:api\" \"npm run dev\" --names \"API,WEB\" --prefix-colors \"cyan,magenta\"",
+    "dev:all:nonadmin": "concurrently \"cd api && set PORT=5000 && npm run dev\" \"npm run dev -- -p 5001\" --names \"API,WEB\" --prefix-colors \"cyan,magenta\"",
     "dev:clean": "kill-ports.bat && npm run dev:all",
     "build": "next build && cd api && npm run build",
     "build:api": "cd api && npm run build",
