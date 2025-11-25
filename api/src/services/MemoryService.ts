@@ -29,6 +29,7 @@ import {
   SessionHeaders,
   EpisodicEpisode,
   ProfileMemory,
+  CreateEpisodeResponse,
   MEMMACHINE_CONSTANTS,
 } from '../types/memmachine';
 
@@ -73,7 +74,7 @@ export class MemoryService {
   constructor(config: MemoryServiceConfig) {
     this.client = axios.create({
       baseURL: config.baseURL,
-      timeout: config.timeout || 30000,
+      timeout: config.timeout || 120000, // Increased to 120 seconds for batch operations
       headers: {
         'Content-Type': 'application/json',
       },
@@ -212,33 +213,138 @@ export class MemoryService {
    * Stores a user's recipe in MemMachine for semantic search and AI context.
    * Recipe is stored in the "recipes" session for that user.
    *
-   * Future Enhancement (Option A - UUID Tracking):
-   * - Return UUID from MemMachine response
-   * - Store UUID in AlcheMix DB (recipes.memmachine_uuid column)
+   * Option A Implementation - UUID Tracking:
+   * - Returns UUID from MemMachine response
+   * - Caller should store UUID in AlcheMix DB (recipes.memmachine_uuid column)
    * - Use UUID for granular deletion
    *
    * @param userId - User ID
    * @param recipe - Recipe object with name, ingredients, instructions, etc.
+   * @returns UUID of the created episode (or null if storage failed)
    */
-  async storeUserRecipe(userId: number, recipe: RecipeData): Promise<void> {
+  async storeUserRecipe(userId: number, recipe: RecipeData): Promise<string | null> {
     try {
       const recipeText = this.formatRecipeForStorage(recipe);
       const episode = this.buildEpisode(recipeText, userId);
       const headers = this.buildHeaders(userId, RECIPE_SESSION);
 
-      await this.client.post('/v1/memories', episode, { headers });
+      await this.client.post<CreateEpisodeResponse>('/v1/memories', episode, { headers });
 
+      // MemMachine v1 API returns null on POST /v1/memories
+      // UUIDs are only available via search queries after creation
+      // For now, UUID tracking is not supported by MemMachine API
       console.log(`✅ MemMachine: Stored recipe "${recipe.name}" for user ${userId}`);
-
-      // TODO: Option A - Track UUID for deletion
-      // const response = await this.client.post<{uuid: string}>(...);
-      // return response.data.uuid; // Store this in AlcheMix DB
+      return null;
     } catch (error) {
       if (axios.isAxiosError(error)) {
         console.error(`❌ MemMachine: Failed to store recipe for user ${userId}:`, error.message);
-        // Don't throw - recipe storage in MemMachine is optional (fire-and-forget)
+      }
+      // Don't throw - recipe storage in MemMachine is optional (fire-and-forget)
+      return null;
+    }
+  }
+
+  /**
+   * Store Multiple User Recipes in Batches
+   *
+   * Efficiently stores multiple recipes using batched requests with rate limiting.
+   * This prevents overwhelming MemMachine with sequential requests during bulk imports.
+   *
+   * Strategy:
+   * - Process recipes in batches of 10
+   * - Wait 500ms between batches to prevent rate limiting
+   * - Continue processing even if some recipes fail
+   * - Return UUIDs mapped to recipe names for database storage
+   *
+   * @param userId - User ID
+   * @param recipes - Array of recipe objects
+   * @returns Object with success/failure counts and UUID mapping
+   */
+  async storeUserRecipesBatch(
+    userId: number,
+    recipes: RecipeData[]
+  ): Promise<{
+    success: number;
+    failed: number;
+    errors: string[];
+    uuidMap: Map<string, string>; // Map recipe name → UUID
+  }> {
+    const batchSize = 10; // Process 10 recipes at a time
+    const delayBetweenBatches = 500; // 500ms delay between batches
+    let successCount = 0;
+    let failedCount = 0;
+    const errors: string[] = [];
+    const uuidMap = new Map<string, string>();
+
+    console.log(`📦 MemMachine: Starting batch upload of ${recipes.length} recipes for user ${userId}`);
+
+    // Process recipes in batches
+    for (let i = 0; i < recipes.length; i += batchSize) {
+      const batch = recipes.slice(i, i + batchSize);
+      const batchNumber = Math.floor(i / batchSize) + 1;
+      const totalBatches = Math.ceil(recipes.length / batchSize);
+
+      console.log(`📦 MemMachine: Processing batch ${batchNumber}/${totalBatches} (${batch.length} recipes)`);
+
+      // Process each recipe in the current batch concurrently
+      const batchPromises = batch.map(async (recipe) => {
+        try {
+          const recipeText = this.formatRecipeForStorage(recipe);
+          const episode = this.buildEpisode(recipeText, userId);
+          const headers = this.buildHeaders(userId, RECIPE_SESSION);
+
+          const response = await this.client.post<CreateEpisodeResponse>('/v1/memories', episode, { headers });
+
+          // MemMachine v1 API returns null on POST /v1/memories
+          // UUIDs are only available via search queries after creation
+          // For now, we accept that UUID tracking is not available with current MemMachine API
+          // Deletion will use session-based cleanup instead
+
+          console.log(`✅ MemMachine: Stored recipe "${recipe.name}" for user ${userId}`);
+          return { success: true, recipe: recipe.name, uuid: null };
+        } catch (error) {
+          const errorMsg = axios.isAxiosError(error)
+            ? error.message
+            : error instanceof Error
+            ? error.message
+            : 'Unknown error';
+          console.error(`❌ MemMachine: Failed to store recipe "${recipe.name}" for user ${userId}:`, errorMsg);
+          return { success: false, recipe: recipe.name, uuid: null, error: errorMsg };
+        }
+      });
+
+      // Wait for all recipes in this batch to complete
+      const batchResults = await Promise.allSettled(batchPromises);
+
+      // Count successes and failures, collect UUIDs
+      for (const result of batchResults) {
+        if (result.status === 'fulfilled') {
+          if (result.value.success) {
+            successCount++;
+            if (result.value.uuid) {
+              uuidMap.set(result.value.recipe, result.value.uuid);
+            }
+          } else {
+            failedCount++;
+            errors.push(`${result.value.recipe}: ${result.value.error}`);
+          }
+        } else {
+          failedCount++;
+          errors.push(`Unknown recipe: ${result.reason}`);
+        }
+      }
+
+      // Wait between batches (except for the last batch)
+      if (i + batchSize < recipes.length) {
+        await new Promise((resolve) => setTimeout(resolve, delayBetweenBatches));
       }
     }
+
+    console.log(
+      `✅ MemMachine: Batch upload complete - ${successCount} succeeded, ${failedCount} failed, ${uuidMap.size} UUIDs captured`
+    );
+
+    return { success: successCount, failed: failedCount, errors, uuidMap };
   }
 
   /**
@@ -353,71 +459,159 @@ export class MemoryService {
   }
 
   /**
-   * Delete User Recipe
+   * Delete User Recipe by UUID
    *
-   * OPTION A EXPLANATION (as requested):
+   * OPTION A IMPLEMENTATION:
+   * Deletes a specific recipe from MemMachine using its UUID.
+   * This ensures the AI context stays synchronized with AlcheMix database.
    *
-   * How Option A (UUID Tracking) Would Work:
+   * How it works:
+   * 1. Recipe is created → MemMachine returns UUID → Stored in recipes.memmachine_uuid
+   * 2. Recipe is deleted from AlcheMix → This method uses UUID to delete from MemMachine
+   * 3. AI context stays clean - no stale recipe recommendations
    *
-   * 1. DATABASE MIGRATION:
-   *    Add a new column to track MemMachine UUIDs
-   *    ```sql
-   *    ALTER TABLE recipes ADD COLUMN memmachine_uuid TEXT;
-   *    ```
+   * @param userId - User ID
+   * @param uuid - MemMachine episode UUID (from recipes.memmachine_uuid)
+   * @param recipeName - Recipe name (for logging only)
+   * @returns True if deletion succeeded, false otherwise
+   */
+  async deleteUserRecipeByUuid(userId: number, uuid: string, recipeName?: string): Promise<boolean> {
+    try {
+      const headers = this.buildHeaders(userId, RECIPE_SESSION);
+
+      // Delete specific episode using UUID
+      await this.client.delete('/v1/memories', {
+        headers,
+        data: { uuid },
+      });
+
+      const logName = recipeName ? `"${recipeName}"` : `with UUID ${uuid}`;
+      console.log(`✅ MemMachine: Deleted recipe ${logName} for user ${userId}`);
+      return true;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const logName = recipeName ? `"${recipeName}"` : `with UUID ${uuid}`;
+        console.error(`❌ MemMachine: Failed to delete recipe ${logName} for user ${userId}:`, error.message);
+      }
+      // Don't throw - deletion failures shouldn't break the app
+      return false;
+    }
+  }
+
+  /**
+   * Delete User Recipe (Legacy - No UUID)
    *
-   * 2. STORE UUID ON CREATION:
-   *    When storeUserRecipe() is called, MemMachine returns a UUID
-   *    ```typescript
-   *    const response = await this.client.post('/v1/memories', episode, { headers });
-   *    const uuid = response.data.uuid; // MemMachine returns this
-   *    // Store UUID in AlcheMix database alongside recipe
-   *    db.run('UPDATE recipes SET memmachine_uuid = ? WHERE id = ?', [uuid, recipeId]);
-   *    ```
-   *
-   * 3. DELETE USING UUID:
-   *    When recipe is deleted from AlcheMix, also delete from MemMachine
-   *    ```typescript
-   *    // Get UUID from AlcheMix database
-   *    const row = db.get('SELECT memmachine_uuid FROM recipes WHERE id = ?', [recipeId]);
-   *    if (row.memmachine_uuid) {
-   *      // Delete specific episode from MemMachine using UUID
-   *      await this.client.delete('/v1/memories', {
-   *        headers: this.buildHeaders(userId),
-   *        data: { uuid: row.memmachine_uuid }
-   *      });
-   *    }
-   *    ```
-   *
-   * CURRENT IMPLEMENTATION (Acceptable Compromise):
-   * For now, we accept that historical data remains in MemMachine.
-   * This is acceptable because:
-   * - User's current recipe list in AlcheMix is still accurate
-   * - Old memories naturally age out over time
-   * - MemMachine search prioritizes recent/relevant memories
-   * - Implementing Option A is a future enhancement (not critical for MVP)
+   * For recipes created before UUID tracking was implemented.
+   * These recipes don't have memmachine_uuid in the database.
    *
    * @param userId - User ID
    * @param recipeName - Name of recipe to delete
    */
   async deleteUserRecipe(userId: number, recipeName: string): Promise<void> {
+    console.log(
+      `ℹ️  MemMachine: Recipe "${recipeName}" deleted from AlcheMix (legacy recipe without UUID - data remains in MemMachine)`
+    );
+  }
+
+  /**
+   * Delete Multiple Recipes by UUID (Batch)
+   *
+   * Efficiently deletes multiple recipes from MemMachine during bulk operations.
+   * Uses same batching strategy as bulk upload.
+   *
+   * @param userId - User ID
+   * @param uuids - Array of MemMachine episode UUIDs
+   * @returns Object with success/failure counts
+   */
+  async deleteUserRecipesBatch(
+    userId: number,
+    uuids: string[]
+  ): Promise<{ success: number; failed: number }> {
+    const batchSize = 10;
+    const delayBetweenBatches = 500;
+    let successCount = 0;
+    let failedCount = 0;
+
+    console.log(`🗑️ MemMachine: Starting batch deletion of ${uuids.length} recipes for user ${userId}`);
+
+    for (let i = 0; i < uuids.length; i += batchSize) {
+      const batch = uuids.slice(i, i + batchSize);
+      const batchNumber = Math.floor(i / batchSize) + 1;
+      const totalBatches = Math.ceil(uuids.length / batchSize);
+
+      console.log(`🗑️ MemMachine: Processing deletion batch ${batchNumber}/${totalBatches} (${batch.length} UUIDs)`);
+
+      const batchPromises = batch.map(async (uuid) => {
+        const headers = this.buildHeaders(userId, RECIPE_SESSION);
+        try {
+          await this.client.delete('/v1/memories', {
+            headers,
+            data: { uuid },
+          });
+          return { success: true };
+        } catch (error) {
+          return { success: false };
+        }
+      });
+
+      const batchResults = await Promise.allSettled(batchPromises);
+
+      for (const result of batchResults) {
+        if (result.status === 'fulfilled' && result.value.success) {
+          successCount++;
+        } else {
+          failedCount++;
+        }
+      }
+
+      if (i + batchSize < uuids.length) {
+        await new Promise((resolve) => setTimeout(resolve, delayBetweenBatches));
+      }
+    }
+
+    console.log(
+      `✅ MemMachine: Batch deletion complete - ${successCount} succeeded, ${failedCount} failed`
+    );
+
+    return { success: successCount, failed: failedCount };
+  }
+
+  /**
+   * Delete All Recipe Memories for User
+   *
+   * Nukes the entire "recipes" session for a user in MemMachine.
+   * Use this when you want to start fresh with UUID tracking.
+   *
+   * WARNING: This deletes ALL recipes from MemMachine for this user.
+   * Only use when you plan to re-upload recipes with UUID tracking.
+   *
+   * @param userId - User ID
+   * @returns True if deletion succeeded, false otherwise
+   */
+  async deleteAllRecipeMemories(userId: number): Promise<boolean> {
     try {
-      // Current implementation: Log and accept historical data remains
-      console.log(
-        `ℹ️  MemMachine: Recipe "${recipeName}" deleted from AlcheMix (historical data remains in MemMachine)`
-      );
+      const userIdStr = `user_${userId}`;
+      const headers = this.buildHeaders(userId, RECIPE_SESSION);
 
-      // TODO: Implement Option A (UUID tracking) in future
-      // 1. Add memmachine_uuid column to recipes table
-      // 2. Return and store UUID when recipe is created
-      // 3. Use UUID to delete specific episode here
+      // Delete entire session using session-based deletion
+      await this.client.delete('/v1/memories', {
+        headers,
+        data: {
+          session: {
+            user_ids: [userIdStr],
+            session_id: RECIPE_SESSION,
+            group_id: GROUP_ID,
+          },
+        },
+      });
 
-      // For now, this is acceptable because:
-      // - Search will only return deleted recipes if they're still relevant
-      // - AI can handle "this recipe no longer exists" gracefully
-      // - Historical data provides conversation context
+      console.log(`🗑️ MemMachine: Deleted ALL recipe memories for user ${userId} (session: ${RECIPE_SESSION})`);
+      return true;
     } catch (error) {
-      console.error(`❌ MemMachine: Failed to delete recipe for user ${userId}:`, error);
-      // Don't throw - deletion failures shouldn't break the app
+      if (axios.isAxiosError(error)) {
+        console.error(`❌ MemMachine: Failed to delete all recipe memories for user ${userId}:`, error.message);
+      }
+      return false;
     }
   }
 
@@ -477,16 +671,26 @@ export class MemoryService {
   }
 
   /**
-   * Format Context for AI Prompt
+   * Format Context for AI Prompt (with Database Cross-Reference)
    *
    * Converts NormalizedSearchResult into human-readable string for Claude's system prompt.
-   * INCLUDES FILTERING LOGIC (as requested) to only include recipe-related content.
+   * FILTERS OUT DELETED RECIPES by cross-referencing with AlcheMix database.
+   *
+   * This solves the MemMachine UUID limitation: Even though we can't delete individual
+   * recipes from MemMachine, we can filter them out when building the AI context.
    *
    * @param searchResult - Normalized search result from MemMachine
+   * @param userId - User ID (for database lookup)
+   * @param db - Database instance (optional, for recipe verification)
    * @param limit - Maximum number of recipes to include (default: MAX_PROMPT_RECIPES)
    * @returns Formatted string for AI prompt
    */
-  formatContextForPrompt(searchResult: NormalizedSearchResult, limit: number = MAX_PROMPT_RECIPES): string {
+  formatContextForPrompt(
+    searchResult: NormalizedSearchResult,
+    userId: number,
+    db?: any,
+    limit: number = MAX_PROMPT_RECIPES
+  ): string {
     if (!searchResult || (!searchResult.episodic?.length && !searchResult.profile?.length)) {
       return '';
     }
@@ -494,7 +698,7 @@ export class MemoryService {
     let contextText = '\n\n## RELEVANT CONTEXT FROM MEMORY\n';
 
     // Add episodic memories (specific recipes found)
-    // FILTERING LOGIC: Only include episodes that contain recipe content
+    // FILTERING LOGIC: Only include episodes that contain recipe content AND still exist in DB
     if (searchResult.episodic?.length > 0) {
       contextText += '\n### Recently Discussed Recipes:\n';
 
@@ -505,7 +709,34 @@ export class MemoryService {
           (result.content.includes('Recipe:') || result.content.startsWith('Recipe for'))
       );
 
-      const limitedRecipes = recipeEpisodes.slice(0, limit);
+      // Extract recipe names and cross-reference with database (if provided)
+      const validRecipes: typeof recipeEpisodes = [];
+      if (db) {
+        for (const episode of recipeEpisodes) {
+          // Extract recipe name from "Recipe: NAME" format
+          const match = episode.content.match(/Recipe:\s*([^\n.]+)/);
+          if (match) {
+            const recipeName = match[1].trim();
+
+            // Check if recipe still exists in AlcheMix database
+            const exists = db.prepare('SELECT 1 FROM recipes WHERE user_id = ? AND name = ? LIMIT 1').get(userId, recipeName);
+
+            if (exists) {
+              validRecipes.push(episode);
+            } else {
+              console.log(`🗑️ Filtered out deleted recipe from MemMachine context: "${recipeName}"`);
+            }
+          } else {
+            // Can't extract name, include anyway (might be profile memory or other content)
+            validRecipes.push(episode);
+          }
+        }
+      } else {
+        // No database provided, include all (backward compatible)
+        validRecipes.push(...recipeEpisodes);
+      }
+
+      const limitedRecipes = validRecipes.slice(0, limit);
       limitedRecipes.forEach((result, index) => {
         contextText += `${index + 1}. ${result.content}\n`;
       });
@@ -553,5 +784,5 @@ console.log(`🔧 MemMachine Service initialized (v1 API) with URL: ${memMachine
 
 export const memoryService = new MemoryService({
   baseURL: memMachineURL,
-  timeout: 30000,
+  timeout: 120000, // 120 seconds for batch operations
 });

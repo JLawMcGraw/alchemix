@@ -8,7 +8,7 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 
 ## ✨ Current Status
 
-**Version:** v1.18.0 (MemMachine V1 Migration Complete - Semantic Search + Clickable Recipes)
+**Version:** v1.18.2 (Smart Shopping List Ingredient Matching Improvements)
 **Phase:** Production Ready - AI Cost Optimization with MemMachine V1 Semantic Search
 **Last Updated:** November 24, 2025
 
@@ -29,7 +29,13 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
   - Responsive design (mobile-friendly single column)
 - ✅ **Smart Shopping List Complete** - Intelligent ingredient recommendations ⭐⭐⭐
   - "Near miss" algorithm analyzes recipes missing exactly 1 ingredient
-  - Fuzzy matching (35% threshold) with multi-field checks (name, liquor type, classification)
+  - **Comprehensive Ingredient Matching Improvements** ⭐ **NEW v1.18.2**:
+    - **Unicode normalization (NFKD)**: Properly handles fractions (½, ¾) and accents (Curaçao)
+    - **Syrup variant normalization**: "Mai Tai Rich Simple Syrup" matches "Simple Syrup"
+    - **Brand name stripping**: "Pierre Ferrand Dry Curaçao" matches generic "Curaçao"
+    - **Spirit synonyms**: Light rum = white rum = silver rum (15+ synonym mappings)
+    - **Relaxed single-token matching**: "Rye" matches "Rye Whiskey"
+    - **Curated ALWAYS_AVAILABLE**: Only true pantry staples (water, ice, sugar, salt, eggs, milk/cream, coffee)
   - Smart recommendations ranked by number of recipes each ingredient unlocks
   - Pagination (top 10 per page) with Previous/Next navigation
   - Clickable stats for 4 view modes: recommendations, craftable, near misses, inventory
@@ -39,7 +45,6 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
   - Safe array guards prevent crashes during data loading
   - Logout cleanup prevents data leaks between users
   - **Stock-Based Filtering**: Only items with stock > 0 are considered "in stock" ⭐ **NEW v1.15**
-  - **Critical Bug Fix**: Ingredient matching no longer uses bidirectional substring matching (eliminates false positives) ⭐ **NEW v1.15**
   - **Fixed**: Favorites integration (proper recipe_id/name matching, safe ingredient parsing)
 - ✅ **Recipe Mastery Filters** - Navigate recipes by craftability level ⭐⭐ **NEW v1.14**
   - 4 mastery levels: Craftable (0 missing), Near Misses (1 missing), Need 2-3 (2-3 missing), Major Gaps (4+ missing)
@@ -171,6 +176,13 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 - ✅ Resolved Windows WinNAT service blocking ports 3000/3001
 - ✅ TypeScript compilation passing with 0 errors
 - ✅ Cost optimization: 98% total reduction ($0.75 → $0.015 per session)
+- ✅ Implemented three-tier MemMachine deletion strategy (UUID tracking + smart filtering + auto-sync)
+- ✅ Created database migration for memmachine_uuid column (Option A ready)
+- ✅ Implemented smart filtering (cross-references DB, filters deleted recipes from AI context)
+- ✅ Auto-sync triggers on bulk delete (10+) with fire-and-forget pattern
+- ✅ Created manual sync/clear endpoints and npm script (npm run clear-memmachine)
+- ✅ Fixed recipe page stats update (Total Recipes, Craftable, Near Misses now auto-refresh)
+- ✅ Tested deletion strategy end-to-end (single delete, bulk delete, manual clear, re-upload)
 - ✅ Created migration documentation (MEMMACHINE_V1_MIGRATION_COMPLETE.md)
 
 ### Next Phase
@@ -680,5 +692,5 @@ MIT License - see LICENSE file for details
 
 **Built with ❤️ using Next.js 14 + Express + TypeScript**
 
-**Current Version:** v1.18.0 (MemMachine V1 Migration Complete - Semantic Search + Clickable Recipes)
+**Current Version:** v1.18.1 (MemMachine Deletion Strategy + Stats Update Fix)
 **Last Updated:** November 24, 2025

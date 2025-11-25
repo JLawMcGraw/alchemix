@@ -34,6 +34,21 @@ export interface SearchQuery {
 }
 
 /**
+ * Create Episode Response
+ *
+ * Response from POST /v1/memories when creating a new episode
+ */
+export interface CreateEpisodeResponse {
+  /** Status code (0 = success) */
+  status: number;
+  /** Response content with UUID */
+  content: {
+    /** UUID of the created episode */
+    uuid: string;
+  };
+}
+
+/**
  * Episodic Memory Episode
  *
  * Individual memory episode from episodic memory store

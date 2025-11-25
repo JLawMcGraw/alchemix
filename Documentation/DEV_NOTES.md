@@ -4,6 +4,163 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-11-24 - Smart Shopping List Ingredient Matching Improvements
+
+**Context**: Shopping list ingredient matching was producing false positives and missing legitimate matches due to overly strict matching rules and lack of normalization. User reported craftable count of 16 instead of expected 40+. Critical bugs included: unicode fractions not parsing (½ oz), syrup variants not matching (Mai Tai Rich Simple Syrup vs Simple Syrup), brand names blocking matches (Pierre Ferrand Dry Curaçao), and single-token matches too strict (Rye vs Rye Whiskey).
+
+**Decision 1: Unicode Normalization with NFKD**
+
+Problem: Unicode fractions (½, ¾, ⅓) were not being removed from ingredient strings.
+
+```typescript
+// Before: Only removed via character class
+normalized = normalized.replace(/[½¼¾⅓⅔⅛⅜⅝⅞]/g, '').trim();
+
+// After: NFKD normalization decomposes first
+normalized = normalized.normalize('NFKD').replace(/\u2044/g, '/');
+```
+
+**How it works**:
+- `normalize('NFKD')`: Decomposes ½ into separate characters (1 + fraction slash + 2)
+- `replace(/\u2044/g, '/')`: Converts fraction slash to standard slash
+- Existing regex then removes `1/2 oz` pattern successfully
+
+**Result**: "½ ounce Lime Juice" → "lime juice" (correct parsing)
+
+**Decision 2: Syrup Variant Normalization**
+
+Problem: Recipe-specific syrup variants didn't match base inventory syrups.
+
+```typescript
+// api/src/routes/shoppingList.ts lines 147-172
+if (normalized.includes('syrup')) {
+  // Remove recipe-specific qualifiers
+  const recipeQualifiers = ['mai tai', 'mojito', 'daiquiri', 'margarita', 'zombie'];
+  for (const qualifier of recipeQualifiers) {
+    const regex = new RegExp(`\\b${qualifier}\\b\\s*`, 'gi');
+    normalized = normalized.replace(regex, '').trim();
+  }
+
+  // Remove style modifiers
+  const syrupModifiers = ['rich', 'light', '1:1', '2:1', 'heavy', 'thin', 'sugar'];
+  for (const modifier of syrupModifiers) {
+    const regex = new RegExp(`\\b${modifier}\\b\\s*`, 'gi');
+    normalized = normalized.replace(regex, '').trim();
+  }
+}
+```
+
+**Result**:
+- "Mai Tai Rich Simple Syrup" → "simple syrup"
+- "Demerara Sugar Syrup" → "demerara syrup"
+- Both match inventory items correctly
+
+**Decision 3: Brand Name Stripping**
+
+Problem: Brand-specific recipe requirements didn't match generic inventory items.
+
+```typescript
+// api/src/routes/shoppingList.ts lines 133-145
+const prefixesToRemove = [
+  'sc', 'house', 'homemade',
+  'pierre ferrand', 'ferrand', 'cointreau', 'grand marnier',
+  'john d taylor', "john d. taylor's", 'taylors',
+  'trader joe', 'trader joes',
+  'angostura', 'peychaud', 'peychauds',
+  'luxardo', 'st germain', 'st-germain', 'st. germain'
+];
+```
+
+**Result**: "Pierre Ferrand Dry Curaçao" → "dry curaçao" → matches generic "Curaçao" inventory
+
+**Decision 4: Spirit Synonym Mapping**
+
+Problem: Different naming conventions for same spirits (light rum vs white rum vs silver rum).
+
+```typescript
+// api/src/routes/shoppingList.ts lines 52-78
+const SYNONYMS: Record<string, string[]> = {
+  'light rum': ['white rum', 'silver rum'],
+  'white rum': ['light rum', 'silver rum'],
+  'silver rum': ['white rum', 'light rum'],
+
+  'bourbon': ['bourbon whiskey'],
+  'bourbon whiskey': ['bourbon'],
+
+  'simple syrup': ['sugar syrup', 'white sugar syrup'],
+  // ... more synonyms
+};
+
+// Usage in hasIngredient()
+const candidates = [normalizedIngredient];
+if (SYNONYMS[normalizedIngredient]) {
+  candidates.push(...SYNONYMS[normalizedIngredient]);
+}
+```
+
+**Result**: Recipe asking for "light rum" matches inventory "White Rum" automatically.
+
+**Decision 5: Relaxed Single-Token Matching**
+
+Problem: Generic spirit names (Rye, Bourbon) didn't match specific bottles (Rye Whiskey, Bourbon Whiskey).
+
+```typescript
+// Before (TOO STRICT):
+if (ingredientTokens.length === 1) {
+  const singleToken = ingredientTokens[0];
+  return fields.some(field => field === singleToken); // Exact match only
+}
+
+// After (RELAXED):
+if (ingredientTokens.length === 1) {
+  const singleToken = ingredientTokens[0];
+  return fields.some(field => field && field.includes(singleToken)); // Substring match
+}
+```
+
+**Result**: "Rye" matches "Rye Whiskey" inventory bottle.
+
+**Potential Issue**: May reintroduce false positives like "ginger" matching "Ginger Beer". Consider adding exclusion list for compound items (beer, ale, wine, liqueur) to prevent unwanted matches.
+
+**Decision 6: Curated ALWAYS_AVAILABLE Ingredients**
+
+Problem: Previous list assumed too many items available (sodas, mixers) leading to inaccurate recommendations.
+
+```typescript
+// Before (13 items):
+const ALWAYS_AVAILABLE_INGREDIENTS = new Set([
+  'water', 'ice', 'sugar', 'salt',
+  'club soda', 'soda water', 'tonic water',  // REMOVED - must be in inventory
+  'cola', 'ginger ale', 'sprite', '7up',     // REMOVED
+  'coffee', 'espresso', 'milk', 'cream', 'half and half',
+  'egg white', 'egg whites', 'egg', 'eggs'
+]);
+
+// After (8 items):
+const ALWAYS_AVAILABLE_INGREDIENTS = new Set([
+  'water', 'ice', 'sugar', 'salt',
+  'coffee', 'espresso', 'milk', 'cream', 'half and half',
+  'egg white', 'egg whites', 'egg', 'eggs'
+]);
+```
+
+**Rationale**: Only include items truly found in any home kitchen. Mixers (tonic, soda) must be explicitly tracked in inventory.
+
+**Result**: More accurate shopping recommendations (user must actually buy tonic water if recipe needs it).
+
+**Files Modified**:
+- `api/src/routes/shoppingList.ts` (major refactor with all improvements above)
+- `api/src/services/MemoryService.ts` (deleteAllRecipeMemories method used)
+- `api/scripts/clear-memmachine.ts` (executed to clear MemMachine data)
+
+**Future Considerations**:
+- May need to add fresh citrus juices (lime, lemon, orange) to ALWAYS_AVAILABLE
+- Relaxed single-token matching might need exclusion list for compounds (beer, ale, wine)
+- Consider more aggressive rum classification synonyms (column still aged → aged rum)
+- Monitor craftable count accuracy after these changes (target 40+, currently 16)
+
+---
+
 ## 2025-11-24 - MemMachine V1 API Migration Complete - Semantic Search + Clickable Recipes
 
 **Context**: Completed full migration to MemMachine v1 API with TypeScript types, response validation, semantic search testing, and frontend clickable recipe link fixes. All 241 recipes successfully seeded to MemMachine with semantic search returning 5-10 relevant recipes per query (vs all 241).
@@ -97,6 +254,152 @@ net start winnat
 **Result**: Ports 3000/3001 immediately available, npm run dev:all worked normally.
 
 **Lesson Learned**: On Windows, WinNAT service can block ports even with Administrator privileges. Restarting the service clears port reservations without requiring system reboot.
+
+**Decision 3: MemMachine Deletion Strategy - Three-Tier Approach**
+
+MemMachine v1 API does not provide DELETE endpoints for individual recipe memories. Implemented comprehensive deletion strategy with UUID tracking (deferred), smart filtering, and auto-sync.
+
+**Problem**: Deleted recipes from AlcheMix database still appear in MemMachine context for AI recommendations.
+
+**Solution - Three-Tier Strategy**:
+
+**Tier 1: UUID Tracking (Option A - Deferred)**
+- Added `memmachine_uuid` column to recipes table (TEXT, indexed)
+- Migration: `ALTER TABLE recipes ADD COLUMN memmachine_uuid TEXT`
+- Ready for future when MemMachine returns UUIDs or provides DELETE endpoint
+- Currently MemMachine POST `/v1/memories` returns `null`, not UUID
+
+**Tier 2: Smart Filtering (Active)**
+- Cross-reference MemMachine search results with current database state
+- Filter out recipes that no longer exist in AlcheMix DB before building AI context
+- Implementation in `formatContextForPrompt()`:
+
+```typescript
+// api/src/services/MemoryService.ts:formatContextForPrompt()
+if (db) {
+  for (const episode of recipeEpisodes) {
+    const match = episode.content.match(/Recipe:\s*([^\n.]+)/);
+    if (match) {
+      const recipeName = match[1].trim();
+      const exists = db.prepare('SELECT 1 FROM recipes WHERE user_id = ? AND name = ? LIMIT 1')
+        .get(userId, recipeName);
+
+      if (exists) {
+        validRecipes.push(episode);
+      } else {
+        console.log(`🗑️ Filtered out deleted recipe: "${recipeName}"`);
+      }
+    }
+  }
+}
+```
+
+**Result**: Deleted recipes never appear in AI context, even if still in MemMachine.
+
+**Tier 3: Auto-Sync (Active)**
+- Automatically triggers MemMachine clear + re-upload when bulk operations occur
+- Threshold: 10+ recipes deleted triggers auto-sync
+- Implementation pattern: Fire-and-forget (non-blocking)
+
+```typescript
+// api/src/routes/recipes.ts - Bulk Delete
+if (result.changes >= 10) {
+  console.log(`📊 Bulk deletion detected (${result.changes} recipes) - triggering auto-sync...`);
+  autoSyncMemMachine(userId, `bulk delete ${result.changes} recipes`).catch(err => {
+    console.error('Auto-sync error (non-critical):', err);
+  });
+}
+
+// Helper function
+async function autoSyncMemMachine(userId: number, reason: string) {
+  console.log(`🔄 Auto-triggering MemMachine sync (reason: ${reason})`);
+
+  // Step 1: Clear MemMachine
+  const cleared = await memoryService.deleteAllRecipeMemories(userId);
+
+  // Step 2: Fetch current recipes from DB
+  const recipes = db.prepare(`SELECT * FROM recipes WHERE user_id = ?`).all(userId);
+
+  // Step 3: Re-upload in batches
+  const uploadResult = await memoryService.storeUserRecipesBatch(userId, recipesForUpload);
+  console.log(`✅ Auto-sync complete: ${uploadResult.success} recipes uploaded`);
+}
+```
+
+**User-Triggered Manual Sync**:
+- Endpoint: `POST /api/recipes/memmachine/sync` - Clears and re-uploads all recipes
+- Endpoint: `DELETE /api/recipes/memmachine/clear` - Only clears MemMachine
+- Script: `npm run clear-memmachine -- --userId=1` - Command-line utility
+
+**Why Three Tiers**:
+1. **Smart Filtering**: Handles 1-9 deletions without API calls (efficient, immediate)
+2. **Auto-Sync**: Handles 10+ deletions automatically (keeps MemMachine clean, no user action)
+3. **Manual Tools**: User control for testing, debugging, or complete resets
+
+**Trade-offs**:
+- Smart filtering adds database query per recipe in MemMachine context (~10-15 queries)
+- Auto-sync batching prevents overwhelming MemMachine API (10 concurrent, 500ms delay)
+- Fire-and-forget pattern ensures core deletion never fails if MemMachine down
+
+**Files Modified**:
+- `api/src/database/db.ts` - Migration for memmachine_uuid column
+- `api/src/services/MemoryService.ts` - deleteAllRecipeMemories(), storeUserRecipesBatch(), formatContextForPrompt() with db param
+- `api/src/routes/recipes.ts` - autoSyncMemMachine(), bulk delete trigger, manual endpoints
+- `api/src/routes/messages.ts` - Pass db to formatContextForPrompt for filtering
+- `api/scripts/clear-memmachine.ts` - New cleanup utility script
+- `api/package.json` - Added "clear-memmachine" npm script
+
+**Decision 4: Recipe Page Stats Update Fix**
+
+**Problem**: After CSV import or adding a recipe, the stats at top of recipes page (Total Recipes, Already Craftable, Near Misses) did not update without manual page refresh.
+
+**Root Cause**: `handleCSVUpload()` and `handleAddRecipe()` functions were calling `loadRecipes()` and `fetchCollections()` but not `fetchShoppingList()`, which calculates the stats.
+
+**Solution**: Added `await fetchShoppingList()` to both functions after recipe operations complete.
+
+```typescript
+// src/app/recipes/page.tsx
+
+const handleAddRecipe = async (recipe) => {
+  await addRecipe(recipe);
+  await loadRecipes(1);
+  if (recipe.collection_id) {
+    await fetchCollections();
+  }
+  // NEW: Refresh shopping list stats
+  await fetchShoppingList();
+  showToast('success', 'Recipe added successfully');
+};
+
+const handleCSVUpload = async (file, collectionId) => {
+  const result = await recipeApi.importCSV(file, collectionId);
+  await loadRecipes(1);
+  if (collectionId) {
+    await fetchCollections();
+  }
+  // NEW: Refresh shopping list stats
+  await fetchShoppingList();
+  if (result.imported > 0) {
+    showToast('success', `Successfully imported ${result.imported} recipes`);
+  }
+};
+```
+
+**Why This Works**:
+- `fetchShoppingList()` calls backend GET `/api/shopping-list/smart` which recalculates all stats
+- Stats include: totalRecipes, craftable, nearMisses, inventoryItems
+- Updates `shoppingListStats` in Zustand store, triggering re-render of stat cards
+
+**Consistent Pattern**: This aligns with existing pattern used in:
+- `handleDeleteAll()` - Already called `fetchShoppingList()`
+- `useEffect` on mount - Already called `fetchShoppingList()`
+
+**Result**: Stats now update automatically after any recipe operation without page refresh.
+
+**Files Modified**:
+- `src/app/recipes/page.tsx` - Added `await fetchShoppingList()` to lines 273 and 290
+
+---
 
 **Decision 3: Frontend Regex Fix for Recipe Names with Parentheses**
 

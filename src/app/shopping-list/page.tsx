@@ -40,12 +40,24 @@ export default function ShoppingListPage() {
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
   const [isManualRefresh, setIsManualRefresh] = useState(false);
+  const [selectedIngredient, setSelectedIngredient] = useState<string | null>(null);
+  const [ingredientRecipes, setIngredientRecipes] = useState<any[]>([]);
   const itemsPerPage = 10;
 
   const safeCraftableRecipes = Array.isArray(craftableRecipes) ? craftableRecipes : [];
   const safeNearMissRecipes = Array.isArray(nearMissRecipes) ? nearMissRecipes : [];
   const safeFavorites = Array.isArray(favorites) ? favorites : [];
   const safeInventoryItems = Array.isArray(inventoryItems) ? inventoryItems : [];
+
+  // Merge partial recipe data from shopping-list API with full recipe details from the store
+  const enrichRecipe = (recipe: any): Recipe => {
+    const fromStore = Array.isArray(recipes)
+      ? recipes.find((r) => r.id === recipe.id) || recipes.find((r) => r.name === recipe.name)
+      : null;
+    return fromStore ? { ...fromStore, ...recipe } : recipe;
+  };
+
+  const enrichRecipes = (list: any[]) => list.map(enrichRecipe);
 
   useEffect(() => {
     if (isAuthenticated && !isValidating) {
@@ -100,7 +112,7 @@ export default function ShoppingListPage() {
   };
 
   const handleRecipeClick = (recipe: any) => {
-    setSelectedRecipe(recipe);
+    setSelectedRecipe(enrichRecipe(recipe));
     setIsModalOpen(true);
   };
 
@@ -180,6 +192,16 @@ export default function ShoppingListPage() {
   const handleCloseItemModal = () => {
     setIsItemModalOpen(false);
     setSelectedItem(null);
+  };
+
+  const handleIngredientClick = (ingredient: string) => {
+    // Find all near-miss recipes that need this ingredient
+    const recipesForIngredient = safeNearMissRecipes.filter(
+      (recipe) => recipe.missingIngredient === ingredient
+    );
+    setSelectedIngredient(ingredient);
+    setIngredientRecipes(enrichRecipes(recipesForIngredient));
+    setViewMode('nearMisses'); // Switch to near-miss view to show the recipes
   };
 
   return (
@@ -322,6 +344,7 @@ export default function ShoppingListPage() {
                         padding="md"
                         hover
                         className={styles.suggestionCard}
+                        onClick={() => handleIngredientClick(suggestion.ingredient)}
                       >
                         <div className={styles.suggestionRank}>#{globalIndex + 1}</div>
                         <div className={styles.suggestionContent}>
@@ -341,6 +364,14 @@ export default function ShoppingListPage() {
                             <span className={styles.unlocksLabel}>
                               {suggestion.unlocks === 1 ? 'recipe' : 'recipes'} unlocked
                             </span>
+                          </div>
+                          <div className={styles.clickHint} style={{
+                            fontSize: 'var(--text-xs)',
+                            color: 'var(--color-primary)',
+                            marginTop: 'var(--space-1)',
+                            fontWeight: 500
+                          }}>
+                            Click to view recipes →
                           </div>
                         </div>
                         <div className={styles.suggestionBadge}>
@@ -427,14 +458,33 @@ export default function ShoppingListPage() {
               <div className={styles.recommendations}>
                 <h2 className={styles.sectionTitle}>
                   <AlertCircle size={24} />
-                  Near Miss Recipes ({shoppingListStats?.nearMisses || 0})
+                  {selectedIngredient && ingredientRecipes.length > 0
+                    ? `Recipes Unlocked by "${selectedIngredient.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}" (${ingredientRecipes.length})`
+                    : `Near Miss Recipes (${shoppingListStats?.nearMisses || 0})`
+                  }
                 </h2>
+                {selectedIngredient && ingredientRecipes.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedIngredient(null);
+                      setIngredientRecipes([]);
+                    }}
+                    style={{ marginBottom: 'var(--space-3)' }}
+                  >
+                    ← Back to All Near Misses
+                  </Button>
+                )}
                 <p className={styles.sectionSubtitle}>
-                  Recipes you're missing just ONE ingredient from making
+                  {selectedIngredient && ingredientRecipes.length > 0
+                    ? `Add this ingredient to make these ${ingredientRecipes.length} cocktail${ingredientRecipes.length === 1 ? '' : 's'}`
+                    : "Recipes you're missing just ONE ingredient from making"
+                  }
                 </p>
-                {safeNearMissRecipes.length > 0 ? (
+                {(selectedIngredient && ingredientRecipes.length > 0 ? ingredientRecipes : enrichRecipes(safeNearMissRecipes)).length > 0 ? (
                   <div className={styles.suggestionsList}>
-                    {safeNearMissRecipes.map((recipe) => (
+                    {(selectedIngredient && ingredientRecipes.length > 0 ? ingredientRecipes : enrichRecipes(safeNearMissRecipes)).map((recipe) => (
                       <Card
                         key={recipe.id}
                         padding="md"

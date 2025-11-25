@@ -17,6 +17,116 @@ Last updated: 2025-11-19 (Session 15)
 
 **IMPORTANT: Always ADD a NEW entry - NEVER edit existing entries - these are historical records!**
 
+### 2025-11-24 - end-of-session (Session 22 - Smart Shopping List Ingredient Matching Improvements)
+
+- **Session Focus**: Fixed critical ingredient matching bugs in Smart Shopping List to eliminate false positives and improve accuracy. Implemented comprehensive parsing improvements: unicode fraction handling (NFKD normalization), brand name stripping, syrup variant normalization, spirit synonym mapping, relaxed single-token matching. Curated ALWAYS_AVAILABLE ingredients to only true pantry staples. Cleared MemMachine data for fresh upload. Added collection navigation improvements (URL routing, pagination, modal enrichment).
+- **Documentation Updated**: PROJECT_PROGRESS.md (comprehensive session entry with all shopping list improvements + MemMachine clearing), DEV_NOTES.md (detailed technical decisions with code examples for each improvement), README.md (v1.18.2, updated Smart Shopping List feature details), prompt-effectiveness.md
+- **Completion**: ⚠️ Partial (Ingredient matching significantly improved with 6 major enhancements, MemMachine successfully cleared, collection navigation enhanced, but craftable count still at 16 instead of target 40+ - needs further investigation)
+- **Time Saved**: ~90 minutes (unicode normalization research and implementation, syrup variant normalization logic design, brand name prefix list curation, synonym map creation with 15+ mappings, ALWAYS_AVAILABLE ingredients curation, relaxed matching implementation, MemMachine data clearing, collection navigation routing, pagination system updates, comprehensive testing of all matching scenarios, session documentation)
+- **Quality**: 4/5 (Comprehensive improvements to ingredient matching with proper unicode handling, brand normalization, and synonym support. MemMachine successfully cleared. Collection navigation enhanced. However, craftable count accuracy goal not yet achieved - still showing 16 instead of 40+, indicating more work needed on matching logic or ALWAYS_AVAILABLE ingredients)
+- **Issues Resolved**:
+  - **Unicode Fractions Not Parsing**: "½ ounce Lime Juice" kept unicode character in string
+    - **Solution**: Added .normalize('NFKD') to decompose fractions before regex cleanup
+  - **Syrup Variants Not Matching**: "Mai Tai Rich Simple Syrup" didn't match "Simple Syrup" inventory
+    - **Solution**: Two-tier normalization removes recipe qualifiers then style modifiers
+  - **Brand Names Blocking Matches**: "Pierre Ferrand Dry Curaçao" didn't match generic inventory
+    - **Solution**: Added 12+ brand prefixes to removal list
+  - **Single-Token Too Strict**: "Rye" didn't match "Rye Whiskey"
+    - **Solution**: Changed from exact match to substring matching (field.includes)
+  - **ALWAYS_AVAILABLE Too Broad**: Sodas/mixers assumed available causing inaccurate recommendations
+    - **Solution**: Reduced from 13 items to 8 true pantry staples
+- **Remaining Issues**:
+  - **Craftable Count Low**: Still showing 16 craftable instead of expected 40+
+  - **Potential False Positives**: Relaxed single-token matching may reintroduce "ginger" → "ginger beer" issue
+  - **Missing Synonyms**: May need more rum classification synonyms (column still aged → aged rum)
+  - **Fresh Ingredients**: May need to add citrus juices to ALWAYS_AVAILABLE
+- **Architecture Decisions**:
+  - **Unicode NFKD Normalization**: Decomposes unicode fractions into standard characters before processing
+  - **Two-Tier Syrup Normalization**: Recipe qualifiers removed first, then style modifiers
+  - **Synonym Mapping Strategy**: Bidirectional mappings (light rum → white rum AND white rum → light rum)
+  - **Relaxed Single-Token Matching**: Trade-off between precision (avoiding false positives) and recall (finding legitimate matches) - chose recall
+  - **Curated Pantry List**: Conservative approach - only items truly universal in home kitchens
+- **Technical Achievements**:
+  - Implemented NFKD unicode normalization in parseIngredientName()
+  - Created comprehensive SYNONYMS map with 15+ spirit/syrup variations
+  - Implemented brand name removal for 12+ common cocktail brands
+  - Designed two-tier syrup normalization (qualifiers + modifiers)
+  - Integrated synonym checking into hasIngredient() function
+  - Relaxed Tier 3a matching from exact to substring
+  - Reduced ALWAYS_AVAILABLE from 13 to 8 core items
+  - Executed clear-memmachine script successfully
+  - Added collection navigation with URL query parameters
+  - Implemented collection-specific pagination (24/page)
+  - Enriched shopping list modals with full recipe details
+- **Satisfaction**: 4/5 (Significant progress on ingredient matching with comprehensive improvements across 6 different areas. MemMachine successfully cleared for fresh start. Collection navigation enhanced. Good documentation of all changes. However, primary goal of reaching 40+ craftable recipes not achieved - still needs investigation and refinement. User feedback indicates accuracy is critical for this feature.)
+- **Notes**: This session made major improvements to ingredient parsing and matching logic, but the craftable count goal highlights that more work is needed. Potential next steps: (1) investigate specific recipes that should be craftable but aren't, (2) consider adding citrus juices to ALWAYS_AVAILABLE, (3) review relaxed single-token matching for false positives, (4) add more aggressive rum/spirit synonyms, (5) test with actual user data to identify remaining gaps. The shopping list is a critical feature for product success, so continued refinement is warranted.
+
+---
+
+### 2025-11-24 - end-of-session (Session 21 - MemMachine Deletion Strategy + Stats Update Fix)
+
+- **Session Focus**: Implemented comprehensive three-tier MemMachine deletion strategy (UUID tracking deferred + smart filtering active + auto-sync) to handle deleted recipes without native DELETE API. Fixed recipe page stats update bug. Tested entire deletion workflow end-to-end including single deletion, bulk deletion, auto-sync triggers, and manual cleanup tools.
+- **Documentation Updated**: PROJECT_PROGRESS.md (comprehensive session entry with all MemMachine deletion work + stats fix), DEV_NOTES.md (three-tier deletion strategy, auto-sync implementation, stats update fix), README.md (v1.18.1, latest session updates), prompt-effectiveness.md
+- **Completion**: ✅ Successful (Complete deletion strategy implemented, tested, and documented. Stats update bug fixed. All features working as designed.)
+- **Time Saved**: ~120 minutes (database migration design, UUID tracking infrastructure, smart filtering cross-reference implementation, auto-sync helper function with batching, fire-and-forget pattern, manual sync/clear endpoints, cleanup script creation, npm script configuration, comprehensive testing of all deletion scenarios, stats bug diagnosis and fix, complete documentation of multi-tier architecture)
+- **Quality**: 5/5 (Production-ready deletion strategy with three complementary tiers, fire-and-forget ensures core operations never fail, comprehensive testing validates all scenarios, stats update aligns with existing patterns, thorough documentation for future maintenance)
+- **Issues Resolved**:
+  - **MemMachine No DELETE API**: v1 API provides no way to delete individual recipe memories
+  - **Solution**: Three-tier strategy - UUID column (future), smart filtering (active), auto-sync (active)
+  - **Deleted Recipes in AI Context**: Even after AlcheMix deletion, recipes appeared in AI recommendations
+  - **Solution**: Smart filtering cross-references MemMachine results with current database state
+  - **Manual Cleanup Difficult**: User needed programmatic way to clear MemMachine for testing
+  - **Solution**: Created clear-memmachine.ts script with userId parameter, npm script for easy access
+  - **Recipe Page Stats Not Updating**: CSV import and recipe addition didn't refresh stats cards
+  - **Solution**: Added fetchShoppingList() calls to handleCSVUpload and handleAddRecipe functions
+- **Architecture Decisions**:
+  - **Three-Tier Deletion Strategy**: (1) UUID tracking infrastructure ready for future API support, (2) Smart filtering handles 1-9 deletions efficiently without API calls, (3) Auto-sync handles 10+ deletions with clear+re-upload
+  - **10-Recipe Threshold**: Balances API call efficiency (smart filtering for small deletions) with MemMachine accuracy (auto-sync for bulk operations)
+  - **Fire-and-Forget Pattern**: Auto-sync runs in background with error catching, ensures core deletion never fails if MemMachine down
+  - **Batching Strategy**: 10 concurrent uploads per batch with 500ms delay prevents overwhelming MemMachine API
+  - **Database Migration Now**: Added memmachine_uuid column even though currently unused - ready when API supports it
+  - **Stats Update Pattern**: fetchShoppingList() after recipe operations aligns with existing handleDeleteAll() pattern
+- **Cost Impact**: No change to AI costs (deletion strategy is backend-only, doesn't affect AI usage patterns)
+- **Technical Achievements**:
+  - Database migration for memmachine_uuid column (ALTER TABLE, CREATE INDEX)
+  - Implemented deleteAllRecipeMemories() using DELETE /v1/memories with session header
+  - Implemented storeUserRecipesBatch() with concurrent batching (10 per batch, 500ms delay)
+  - Created autoSyncMemMachine() helper with 3-step process (clear, fetch, re-upload)
+  - Added auto-sync trigger in bulk delete route (10+ threshold)
+  - Created manual sync endpoint POST /api/recipes/memmachine/sync
+  - Created manual clear endpoint DELETE /api/recipes/memmachine/clear
+  - Updated formatContextForPrompt() to accept database parameter for cross-reference
+  - Updated messages.ts to pass db instance for smart filtering
+  - Created clear-memmachine.ts script with userId arg parsing and error handling
+  - Added npm script "clear-memmachine" to package.json
+  - Tested single deletion (1 recipe) - smart filtering confirmed
+  - Tested bulk deletion (10+ recipes) - auto-sync triggered and completed
+  - Tested manual clear - cleared all 241 recipes, re-uploaded 130 successfully
+  - Fixed stats update in handleCSVUpload() and handleAddRecipe() (lines 273, 290)
+- **Documentation Created**: All work documented in existing session entry (avoiding duplicate session for small stats fix)
+- **Session Challenges**:
+  - Balancing three different deletion approaches without over-engineering
+  - Ensuring auto-sync threshold (10) makes sense for user workflows
+  - Testing fire-and-forget pattern failure scenarios (MemMachine down)
+  - Deciding between separate session entries vs. comprehensive single entry (chose single)
+- **Next Session Recommendations**:
+  - Monitor auto-sync performance with large collections (500+ recipes)
+  - Evaluate 10-recipe threshold based on production usage patterns
+  - Consider implementing batch size adjustment based on collection size
+  - Monitor smart filtering query performance (~10-15 DB queries per AI request)
+  - Test stats update performance after very large CSV imports (500+ recipes)
+  - Implement Option A UUID tracking when MemMachine API provides UUIDs
+- **Errors Prevented**:
+  - Core recipe deletion failing if MemMachine down (fire-and-forget pattern)
+  - Deleted recipes appearing in AI recommendations (smart filtering)
+  - MemMachine filling with stale data after bulk deletions (auto-sync)
+  - User confusion about stats not updating (automatic refresh)
+  - Future migration pain by adding UUID infrastructure now
+- **Satisfaction**: 5/5 (Comprehensive multi-tier solution addresses both immediate needs and future extensibility. Smart filtering provides instant filtering for small deletions. Auto-sync keeps MemMachine clean during bulk operations. Manual tools provide user control for testing. Stats fix was straightforward and follows existing patterns. All solutions tested and working.)
+- **Notes**: This session demonstrates effective architectural design by implementing multiple complementary solutions rather than forcing a single approach. The three-tier strategy recognizes that different deletion scenarios have different optimal solutions: (1) Single/small deletions don't warrant API calls - smart filtering is instant and efficient. (2) Bulk deletions (10+) need MemMachine cleanup - auto-sync handles automatically without user action. (3) Manual tools provide control for edge cases and testing. The 10-recipe threshold balances efficiency (avoid unnecessary clears for small deletions) with accuracy (keep MemMachine reasonably clean). Fire-and-forget pattern is critical - core CRUD operations must never fail due to ancillary systems like MemMachine. Database migration now (memmachine_uuid column) even though unused prepares for future when API may return UUIDs or provide DELETE endpoint - avoids painful schema migration later. Stats update fix demonstrates value of pattern consistency - fetchShoppingList() was already called in handleDeleteAll() and useEffect, extending to handleCSVUpload/handleAddRecipe creates predictable behavior. Key lesson: Complex problems often benefit from multi-tier solutions where each tier handles specific scenarios optimally, rather than forcing one-size-fits-all approach. User feedback throughout session ("what should happen", "does auto-sync clear and re-upload", "can we clear again") shaped the final implementation - collaborative design produces better UX. Decision to combine all work in single comprehensive session entry (rather than separate sessions for MemMachine deletion + stats fix) creates cohesive historical record of related work completed on same day.
+
+---
+
 ### 2025-11-24 - end-of-session (Session 20 - MemMachine V1 API Migration - Complete Implementation)
 
 - **Session Focus**: Completed full MemMachine v1 API migration with TypeScript types, response validation, semantic search testing, and clickable recipe link fixes. All 241 recipes successfully seeded to MemMachine with semantic search returning 5-10 relevant recipes per query (vs 241 all recipes).

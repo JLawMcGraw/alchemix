@@ -62,6 +62,7 @@ function RecipesPageContent() {
   const [showBulkMoveModal, setShowBulkMoveModal] = useState(false);
   const [bulkMoveCollectionId, setBulkMoveCollectionId] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [collectionPage, setCollectionPage] = useState(1);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 50,
@@ -148,10 +149,6 @@ function RecipesPageContent() {
       fetchItems().catch(console.error);
     }
   }, [isAuthenticated, isValidating, fetchFavorites, fetchCollections, fetchShoppingList, fetchItems]);
-
-  if (isValidating || !isAuthenticated) {
-    return null;
-  }
 
   // Ensure arrays
   const recipesArray = Array.isArray(recipes) ? recipes : [];
@@ -246,6 +243,37 @@ function RecipesPageContent() {
     return matchesSearch && matchesSpirit && matchesCollection;
   });
 
+  // Pagination for collection view (client-side so we can show all but paginate display)
+  const COLLECTION_PAGE_SIZE = 24;
+  const collectionTotalPages = activeCollection
+    ? Math.max(1, Math.ceil(filteredRecipes.length / COLLECTION_PAGE_SIZE))
+    : 1;
+  const paginatedRecipes = activeCollection
+    ? filteredRecipes.slice((collectionPage - 1) * COLLECTION_PAGE_SIZE, collectionPage * COLLECTION_PAGE_SIZE)
+    : filteredRecipes;
+  const displayedRecipes = paginatedRecipes;
+
+  useEffect(() => {
+    if (!activeCollection) {
+      setCollectionPage(1);
+      return;
+    }
+    if (collectionPage > collectionTotalPages) {
+      setCollectionPage(collectionTotalPages);
+    }
+  }, [activeCollection, filteredRecipes.length, collectionPage, collectionTotalPages]);
+
+  // Reset to first collection page when changing filters/search within a collection
+  useEffect(() => {
+    if (activeCollection) {
+      setCollectionPage(1);
+    }
+  }, [searchQuery, filterSpirit, activeCollection]);
+
+  if (isValidating || !isAuthenticated) {
+    return null;
+  }
+
   // Count uncategorized recipes
   const uncategorizedRecipesOnPage = recipesArray.filter((r) => !r.collection_id).length;
   const categorizedRecipeCount = collectionsArray.reduce(
@@ -269,6 +297,8 @@ function RecipesPageContent() {
       if (recipe.collection_id) {
         await fetchCollections();
       }
+      // Refresh shopping list stats to update Total Recipes, Craftable, Near Misses
+      await fetchShoppingList();
       showToast('success', 'Recipe added successfully');
     } catch (error) {
       showToast('error', 'Failed to add recipe');
@@ -284,6 +314,8 @@ function RecipesPageContent() {
       if (collectionId) {
         await fetchCollections();
       }
+      // Refresh shopping list stats to update Total Recipes, Craftable, Near Misses
+      await fetchShoppingList();
       if (result.imported > 0) {
         if (result.failed > 0) {
           showToast('success', `Imported ${result.imported} recipes. ${result.failed} failed.`);
@@ -382,10 +414,10 @@ function RecipesPageContent() {
   };
 
   const selectAllRecipes = () => {
-    if (selectedRecipes.size === filteredRecipes.length) {
+    if (selectedRecipes.size === displayedRecipes.length) {
       setSelectedRecipes(new Set());
     } else {
-      setSelectedRecipes(new Set(filteredRecipes.map((r) => r.id!)));
+      setSelectedRecipes(new Set(displayedRecipes.map((r) => r.id!)));
     }
   };
 
@@ -449,7 +481,11 @@ function RecipesPageContent() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setActiveCollection(null)}
+                    onClick={() => {
+                      setActiveCollection(null);
+                      setCollectionPage(1);
+                      router.push('/recipes');
+                    }}
                     style={{ marginRight: '8px', padding: '4px' }}
                   >
                     <ChevronLeft size={24} />
@@ -579,11 +615,15 @@ function RecipesPageContent() {
                 </h2>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px', marginBottom: '32px' }}>
                   {collectionsArray.map((collection) => (
-                    <Card
+                  <Card
                       key={collection.id}
                       padding="md"
                       style={{ cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s' }}
-                      onClick={() => setActiveCollection(collection)}
+                      onClick={() => {
+                        setActiveCollection(collection);
+                        setCollectionPage(1);
+                        router.push(`/recipes?collection=${collection.id}`);
+                      }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div style={{ flex: 1 }}>
@@ -664,7 +704,7 @@ function RecipesPageContent() {
                     onClick={selectAllRecipes}
                     style={{ padding: '8px', minWidth: 'auto' }}
                   >
-                    {selectedRecipes.size === filteredRecipes.length && filteredRecipes.length > 0 ? (
+                    {selectedRecipes.size === displayedRecipes.length && displayedRecipes.length > 0 ? (
                       <CheckSquare size={20} />
                     ) : (
                       <Square size={20} />
@@ -844,7 +884,7 @@ function RecipesPageContent() {
                 onClick={selectAllRecipes}
                 style={{ padding: '8px', minWidth: 'auto' }}
               >
-                {selectedRecipes.size === filteredRecipes.length && filteredRecipes.length > 0 ? (
+                {selectedRecipes.size === displayedRecipes.length && displayedRecipes.length > 0 ? (
                   <CheckSquare size={20} />
                 ) : (
                   <Square size={20} />
@@ -936,7 +976,7 @@ function RecipesPageContent() {
           </Card>
         ) : (
           <div className={styles.recipesGrid}>
-            {filteredRecipes.map((recipe) => (
+            {displayedRecipes.map((recipe) => (
               <Card
                 key={recipe.id}
                 padding="none"
@@ -1013,11 +1053,38 @@ function RecipesPageContent() {
           </div>
         )}
 
+          {/* Collection pagination controls */}
+          {activeCollection && collectionTotalPages > 1 && (
+            <div className={styles.pagination}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCollectionPage((p) => Math.max(1, p - 1))}
+                disabled={collectionPage === 1}
+              >
+                <ChevronLeft size={18} />
+                Previous
+              </Button>
+              <span className={styles.pageInfo}>
+                Page {collectionPage} of {collectionTotalPages} ({filteredRecipes.length} total in this collection)
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCollectionPage((p) => Math.min(collectionTotalPages, p + 1))}
+                disabled={collectionPage === collectionTotalPages}
+              >
+                Next
+                <ChevronRight size={18} />
+              </Button>
+            </div>
+          )}
+
           </>
         )}
 
-        {/* Pagination Controls */}
-        {pagination.totalPages > 1 && (
+        {/* Pagination Controls (list view) */}
+        {!activeCollection && pagination.totalPages > 1 && filteredRecipes.length > 0 && (
           <div className={styles.pagination}>
             <Button
               variant="outline"

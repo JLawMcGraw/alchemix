@@ -44,6 +44,40 @@ router.use(authMiddleware);
 // No rate limiting on shopping list - users should be able to view their shopping list freely
 
 /**
+ * Synonym Map
+ * 
+ * Maps ingredient names to their equivalents to improve matching accuracy.
+ * This handles common variations in spirit naming conventions.
+ */
+const SYNONYMS: Record<string, string[]> = {
+  'light rum': ['white rum', 'silver rum'],
+  'white rum': ['light rum', 'silver rum'],
+  'silver rum': ['white rum', 'light rum'],
+  
+  'gold rum': ['amber rum', 'aged rum'],
+  'amber rum': ['gold rum', 'aged rum'],
+  
+  'silver tequila': ['blanco tequila', 'white tequila', 'plata tequila'],
+  'blanco tequila': ['silver tequila', 'white tequila', 'plata tequila'],
+  'white tequila': ['silver tequila', 'blanco tequila', 'plata tequila'],
+  
+  'bourbon': ['bourbon whiskey'],
+  'bourbon whiskey': ['bourbon'],
+  
+  'rye': ['rye whiskey'],
+  'rye whiskey': ['rye'],
+  
+  'scotch': ['scotch whisky', 'blended scotch'],
+  'scotch whisky': ['scotch', 'blended scotch'],
+  
+  'cognac': ['brandy'], // Cognac is a specific brandy
+  'armagnac': ['brandy'],
+  
+  'simple syrup': ['sugar syrup', 'white sugar syrup'],
+  'sugar syrup': ['simple syrup', 'white sugar syrup']
+};
+
+/**
  * Helper: Parse Ingredient Name from Full String
  *
  * Extracts the ingredient name from strings like:
@@ -69,6 +103,28 @@ function parseIngredientName(ingredientStr: string): string {
   // Convert to lowercase for case-insensitive matching
   let normalized = ingredientStr.toLowerCase().trim();
 
+  // Step 0: Normalize Unicode to decompose fractions (e.g., ½ -> 1⁄2)
+  // and replace fraction slash with standard slash
+  normalized = normalized.normalize('NFKD').replace(/\u2044/g, '/');
+
+  // Step 1: Remove leading numbers, fractions, and measurements
+  // Handles: "2 oz", "1.5 oz", "1/2 oz", "3/4oz", "2 1/2 oz", "½", "¾", "1½", "8 ounces (1 cup)"
+
+  // Remove complex patterns: "8 ounces (1 cup)" → remove everything up to and including ")"
+  normalized = normalized.replace(/^\d+\s*(ounces?|oz|ml|cl|l|tsp|tbsp|cups?)?\s*\([^)]+\)\s*/i, '').trim();
+
+  // Remove mixed fractions: "2 1/2 oz" → remove entire pattern
+  normalized = normalized.replace(/^\d+\s+\d+\s*\/\s*\d+\s*(ounces?|oz|ml|cl|l|tsp|tbsp|cups?)?/i, '').trim();
+
+  // Then remove simple ASCII fractions: "1/2 oz"
+  normalized = normalized.replace(/^\d+\s*\/\s*\d+\s*(ounces?|oz|ml|cl|l|tsp|tbsp|cups?)?/i, '').trim();
+
+  // Remove decimal numbers with optional units: "1.5 oz", "1 ounces", "2 ounces"
+  normalized = normalized.replace(/^\d+\.?\d*\s*(ounces?|oz|ml|cl|l|tsp|tbsp|cups?)?/i, '').trim();
+
+  // Remove any remaining leading numbers and spaces
+  normalized = normalized.replace(/^[\d\s]+/, '').trim();
+
   // List of common units and measurements to remove
   const unitsToRemove = [
     // Volume
@@ -92,24 +148,57 @@ function parseIngredientName(ingredientStr: string): string {
     'pinch',
     // Proportions
     'part', 'parts',
-    // Qualifiers (removed 'syrup' and 'cream' to preserve ingredient names like "Demerara Syrup")
-    'fresh', 'freshly', 'squeezed', 'juice', 'juices'
+    // Qualifiers
+    'fresh', 'freshly', 'squeezed'
+    // IMPORTANT: Do NOT remove 'juice', 'syrup', 'cream' - these are part of ingredient names
   ];
 
-  // Remove numbers and fractions at the beginning
-  // Matches: "2", "1.5", "1/2", "2 1/2", "1 1/2"
-  normalized = normalized.replace(/^[\d\s\/.]+/, '').trim();
-
-  // Remove units (do this multiple times to handle compound measurements)
+  // Step 2: Remove units (do this multiple times to handle compound measurements)
   for (let i = 0; i < 3; i++) {
     for (const unit of unitsToRemove) {
       // Remove unit with word boundaries to avoid partial matches
-      const regex = new RegExp(`\\b${unit}\\b`, 'gi');
+      // DOUBLE BACKSLASHED for safety in string constructor logic, though here it's fine
+      const regex = new RegExp(`\b${unit}\b`, 'gi');
       normalized = normalized.replace(regex, '').trim();
     }
   }
 
-  // Clean up extra whitespace
+  // Step 3: Remove common prefixes and brand names
+  const prefixesToRemove = [
+    'sc', 'house', 'homemade',
+    // Common spirit brands that appear in recipes
+    'pierre ferrand', 'ferrand', 'cointreau', 'grand marnier',
+    'john d taylor', "john d. taylor's", 'taylors',
+    'trader joe', 'trader joes',
+    'angostura', 'peychaud', 'peychauds',
+    'luxardo', 'st germain', 'st-germain', 'st. germain'
+  ];
+  for (const prefix of prefixesToRemove) {
+    const regex = new RegExp(`^${prefix}\b\s*`, 'i');
+    normalized = normalized.replace(regex, '').trim();
+  }
+
+  // Step 4: Normalize syrup variants to base forms
+  if (normalized.includes('syrup')) {
+    // First, remove recipe-specific qualifiers
+    const recipeQualifiers = ['mai tai', 'mojito', 'daiquiri', 'margarita', 'zombie'];
+    for (const qualifier of recipeQualifiers) {
+      const regex = new RegExp(`\b${qualifier}\b\s*`, 'gi');
+      normalized = normalized.replace(regex, '').trim();
+    }
+
+    // Then remove syrup style modifiers
+    const syrupModifiers = ['rich', 'light', '1:1', '2:1', 'heavy', 'thin', 'sugar'];
+    for (const modifier of syrupModifiers) {
+      const regex = new RegExp(`\b${modifier}\b\s*`, 'gi');
+      normalized = normalized.replace(regex, '').trim();
+    }
+
+    // Clean up resulting patterns
+    normalized = normalized.replace(/\s+/g, ' ').trim();
+  }
+
+  // Step 5: Clean up extra whitespace
   normalized = normalized.replace(/\s+/g, ' ').trim();
 
   return normalized;
@@ -129,23 +218,49 @@ interface BottleData {
 }
 
 /**
- * Helper: Check if Inventory Contains Ingredient
+ * Helper: Normalize String for Matching
  *
- * Performs fuzzy matching between inventory bottles and ingredient.
- * Uses bottle name, liquor type, and detailed classification for matching.
+ * Normalizes strings by:
+ * 1. Converting to lowercase
+ * 2. Removing accents/diacritics (ç → c, é → e, etc.)
+ * 3. Trimming whitespace
  *
  * Examples:
- * - Bottle: {name: "Maker's Mark", liquorType: "Whiskey", detailedClassification: "Bourbon"}
- *   matches ingredient: "bourbon" ✓
- * - Bottle: {name: "Hamilton Jamaican Pot Still Black", liquorType: "Rum", detailedClassification: "Dark Jamaican Rum"}
- *   matches ingredient: "dark jamaican rum" ✓
- * - Bottle: {name: "Pierre Ferrand Dry Curaçao", detailedClassification: "Orange Curaçao"}
- *   matches ingredient: "orange curacao" ✓
+ * - "Curaçao" → "curacao"
+ * - "Crème de Menthe" → "creme de menthe"
+ * - "Angostura" → "angostura" (unchanged)
  *
- * Algorithm:
- * 1. Check direct matches against bottle name, liquor type, and detailed classification
- * 2. Token-based fuzzy matching across all fields
- * 3. Return true if sufficient match found
+ * @param str - String to normalize
+ * @returns Normalized string for matching
+ */
+function normalizeForMatching(str: string): string {
+  if (!str) return '';
+
+  return str
+    .toLowerCase()
+    .normalize('NFD') // Decompose accented characters (ç → c + ̧)
+    .replace(/[̀-ͯ]/g, '') // Remove diacritical marks
+    .trim();
+}
+
+/**
+ * Common Pantry Items
+ *
+ * Ingredients that are always assumed to be available in any home bar/kitchen.
+ * These items are automatically considered "in stock" without needing explicit inventory.
+ */
+const ALWAYS_AVAILABLE_INGREDIENTS = new Set([
+  'water', 'ice', 'sugar', 'salt',
+  'coffee', 'espresso', 'milk', 'cream', 'half and half',
+  'egg white', 'egg whites', 'egg', 'eggs'
+]);
+
+/**
+ * Helper: Check if Inventory Contains Ingredient
+ *
+ * Performs multi-tier matching between inventory bottles and ingredient.
+ * Uses bottle name, liquor type, and detailed classification for matching.
+ * Supports synonyms and relaxed matching for better accuracy.
  *
  * @param bottles - Array of bottle data from user's bar
  * @param ingredientName - Parsed ingredient name from recipe
@@ -156,53 +271,90 @@ function hasIngredient(bottles: BottleData[], ingredientName: string): boolean {
     return false;
   }
 
-  const normalizedIngredient = ingredientName.toLowerCase().trim();
+  const normalizedIngredient = normalizeForMatching(ingredientName);
 
-  // Split ingredient into tokens (words)
-  const ingredientTokens = normalizedIngredient
-    .split(/[\s\/\-,]+/)
-    .filter(t => t.length > 2); // Ignore very short words like "or", "de"
+  // Check if this is a common pantry item that's always available
+  if (ALWAYS_AVAILABLE_INGREDIENTS.has(normalizedIngredient)) {
+    return true;
+  }
 
-  return bottles.some(bottle => {
-    const normalizedName = bottle.name.toLowerCase().trim();
-    const normalizedLiquorType = bottle.liquorType?.toLowerCase().trim() || '';
-    const normalizedClassification = bottle.detailedClassification?.toLowerCase().trim() || '';
+  // Build list of candidate ingredient names (original + synonyms)
+  const candidates = [normalizedIngredient];
+  if (SYNONYMS[normalizedIngredient]) {
+    candidates.push(...SYNONYMS[normalizedIngredient]);
+  }
 
-    // Strategy 1: Direct substring match against all bottle fields
-    // IMPORTANT: Only match if the ingredient is contained in the bottle name,
-    // NOT if a single word from the ingredient appears in the bottle name.
-    // This prevents "passion fruit syrup" from matching "Sugar Syrup"
-    const fields = [normalizedName, normalizedLiquorType, normalizedClassification];
-
-    for (const field of fields) {
-      if (field && field.includes(normalizedIngredient)) {
-        // Only match if the full ingredient name is IN the bottle field
-        return true;
-      }
-    }
-
-    // Strategy 2: Token-based matching across all fields
-    // Combine all bottle info into tokens
-    const allBottleTokens = [normalizedName, normalizedLiquorType, normalizedClassification]
-      .join(' ')
+  return candidates.some(candidate => {
+    // Split ingredient into tokens (words)
+    const ingredientTokens = candidate
       .split(/[\s\/\-,]+/)
-      .filter(t => t.length > 2);
+      .filter(t => t.length > 2); // Ignore very short words
 
-    if (ingredientTokens.length > 0) {
+    return bottles.some(bottle => {
+      const normalizedName = normalizeForMatching(bottle.name);
+      const normalizedLiquorType = normalizeForMatching(bottle.liquorType || '');
+      const normalizedClassification = normalizeForMatching(bottle.detailedClassification || '');
+
+      const fields = [normalizedName, normalizedLiquorType, normalizedClassification];
+
+      // Tier 1: Exact match (case-insensitive)
+      // Check if any candidate exactly matches a bottle field
+      for (const field of fields) {
+        if (field === candidate) {
+          return true;
+        }
+      }
+
+      // Tier 2: Substring match for multi-word ingredient phrases
+      // Ingredient appears as complete phrase within bottle field
+      const hasSpaces = candidate.includes(' ');
+      if (hasSpaces) {
+        for (const field of fields) {
+          if (field && field.includes(candidate)) {
+            return true;
+          }
+        }
+      }
+
+      // Tier 3: Token-based matching
+      if (ingredientTokens.length === 0) {
+        return false;
+      }
+
+      // Combine all bottle info into tokens
+      const allBottleTokens = [normalizedName, normalizedLiquorType, normalizedClassification]
+        .join(' ')
+        .split(/[\s\/\-,]+/)
+        .filter(t => t.length > 2);
+
       const matchingTokens = ingredientTokens.filter(ingToken =>
         allBottleTokens.some(bottleToken =>
           bottleToken.includes(ingToken) || ingToken.includes(bottleToken)
         )
       );
 
-      // 35% threshold for partial matches
+      // Tier 3a: Single-token ingredients
+      if (ingredientTokens.length === 1) {
+        const singleToken = ingredientTokens[0];
+        // RELAXED: Check if the token appears in any bottle field (substring check)
+        // This allows "Rye" to match "Rye Whiskey" or "Bourbon" to match "Bourbon Whiskey"
+        return fields.some(field => field && field.includes(singleToken));
+      }
+
+      // Tier 3b: Two-token ingredients
+      if (ingredientTokens.length === 2) {
+        // Require both tokens to be present
+        return matchingTokens.length === ingredientTokens.length;
+      }
+
+      // Tier 3c: Complex ingredients (3+ tokens)
       const matchPercentage = matchingTokens.length / ingredientTokens.length;
-      if (matchPercentage >= 0.35) {
+      if (matchPercentage > 0.5 && matchingTokens.length >= 2) {
         return true;
       }
-    }
 
-    return false;
+      return false;
+    });
   });
 }
 
