@@ -1,14 +1,54 @@
 # Project Development Progress
 
-Last updated: 2025-11-24
+Last updated: 2025-11-25
 
 ---
 
 ## Current Status
 
-**Version**: v1.18.1 (Stats Update Bug Fix)
-**Phase**: Production Ready - AI Cost Optimization with MemMachine V1 Semantic Search
-**Blockers**: None - All planned features complete and tested
+**Version**: v1.18.2
+**Phase**: Shopping List Ingredient Matching Improvements
+**Blockers**:
+- 🔴 **CRITICAL BUG**: Shopping list ingredient parsing/matching not working despite correct code
+  - Code changes verified in TypeScript source, compiled JavaScript, and tests all pass (301/301)
+  - TSX cache cleared, server restarted multiple times, browser cache cleared
+  - Parsing logic works perfectly in isolation tests but NOT in running server
+  - Suspected issue: Module caching or code path issue in tsx/Node.js runtime
+  - **Impact**: Near-miss recipes showing unparsed ingredient names like "Drops Pernod" instead of matching with user's Pernod inventory
+
+---
+
+## Recent Session (2025-11-25): Shopping List Ingredient Matching
+
+### Work Completed
+- ✅ Added comprehensive ingredient parsing improvements
+- ✅ Fixed fraction parsing order (3/4 ounce now parses correctly)
+- ✅ Added word boundary to prevent "2 l" matching "2 lime"
+- ✅ Added aged rum detection (Bacardi 8 → dark rum)
+- ✅ Added Jamaican rum synonyms
+- ✅ Added Chambord/black raspberry liqueur synonyms
+- ✅ Added number range removal (4 to 6 mint leaves)
+- ✅ All 301 tests passing
+- ❌ Changes not taking effect in running application despite multiple restart attempts
+
+### Code Changes Made
+**File**: `api/src/routes/shoppingList.ts`
+- Lines 63-69: Added Jamaican rum synonyms to SYNONYMS map
+- Lines 115-118: Added Chambord/raspberry liqueur synonyms
+- Lines 168-186: Reordered measurement removal (fractions before decimals, ranges before decimals)
+- Line 186: Added `\b` word boundary to decimal regex
+- Line 289: Updated aged rum detection to allow optional " rum" suffix: `/^(añejo|anejo|reserva|\d+)(\s+rum)?$/`
+
+### Next Session Priority
+1. **DEBUG MODULE CACHING ISSUE**: Investigate why code changes aren't loading
+   - Try running from compiled dist instead of tsx watch
+   - Check for multiple parseIngredientName functions
+   - Add console.log statements to verify code path
+   - Consider restarting entire development environment
+2. Once bug fixed, verify all ingredient matching works:
+   - "Drops Pernod" → matches Pernod
+   - "Handful Of Crushed Ice" → matches ice (ALWAYS_AVAILABLE)
+   - "Bacardi 8 Rum" → matches dark rums
 
 ---
 

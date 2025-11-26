@@ -4,6 +4,57 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-11-25 - Shopping List Parsing Bug Investigation
+
+**Context**: After implementing comprehensive ingredient parsing fixes, tests pass (301/301) and code is verified correct, but changes don't take effect in running application.
+
+**CRITICAL BUG - Module Caching Issue**
+
+**Symptoms**:
+- Frontend still shows unparsed ingredient names ("Drops Pernod" instead of "pernod")
+- TypeScript source has correct code (verified lines 63-69, 115-118, 168-186, 289)
+- Compiled dist/routes/shoppingList.js has correct code (verified with grep)
+- All unit tests pass with correct parsing behavior
+- TSX cache cleared (`node_modules/.tsx`, `node_modules/.cache`)
+- Server restarted multiple times
+- Browser cache cleared (hard refresh Ctrl+Shift+R)
+- Changes still not active in running server
+
+**Investigation Steps Taken**:
+1. Verified source code changes in `api/src/routes/shoppingList.ts`
+2. Ran `npm run build` - TypeScript compiled successfully with no errors
+3. Verified compiled JavaScript in `api/dist/routes/shoppingList.js` contains new regex patterns
+4. Cleared TSX cache directories
+5. Killed Node processes and restarted server
+6. Created isolation tests - parsing works perfectly in standalone scripts
+7. Checked for multiple dist folders - only one exists
+8. Verified server uses `tsx watch src/server.ts` (not dist)
+
+**Code Changes That Should Be Active** (but aren't):
+```typescript
+// Line 186: Word boundary to prevent "2 l" matching "2 lime"
+normalized = normalized.replace(/^\d+\.?\d*\s*(ounces?|oz|ml|cl|liters?|l|tsp|tbsp|cups?|dashes|dash)\b/i, '').trim();
+
+// Line 289: Aged rum detection with optional "rum" suffix
+if (/^(añejo|anejo|reserva|\d+)(\s+rum)?$/.test(normalized)) {
+  normalized = 'dark rum';
+}
+```
+
+**Hypothesis**:
+- TSX watch mode may be caching compiled modules in a location we haven't cleared
+- Possible Node.js module resolution caching issue
+- Alternative code path being executed (duplicate function?)
+
+**Next Debugging Steps**:
+1. Add console.log statements to parseIngredientName function to confirm it's being called
+2. Check if there are multiple definitions of parseIngredientName
+3. Try running from compiled dist: `node dist/server.js` instead of tsx
+4. Check if environment variables affect module resolution
+5. Nuclear option: Delete entire node_modules and reinstall
+
+---
+
 ## 2025-11-24 - Smart Shopping List Ingredient Matching Improvements
 
 **Context**: Shopping list ingredient matching was producing false positives and missing legitimate matches due to overly strict matching rules and lack of normalization. User reported craftable count of 16 instead of expected 40+. Critical bugs included: unicode fractions not parsing (½ oz), syrup variants not matching (Mai Tai Rich Simple Syrup vs Simple Syrup), brand names blocking matches (Pierre Ferrand Dry Curaçao), and single-token matches too strict (Rye vs Rye Whiskey).

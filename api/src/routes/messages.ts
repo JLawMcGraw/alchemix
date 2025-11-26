@@ -231,9 +231,9 @@ async function buildDashboardInsightPrompt(userId: number): Promise<Array<{ type
   try {
     const { userContext } = await memoryService.getEnhancedContext(userId, `seasonal cocktail suggestions for ${season}`);
 
-    // Add user's preferences and conversation history for personalized suggestions
+    // Add user's preferences and conversation history for personalized suggestions (with database filtering)
     if (userContext) {
-      memoryContext += memoryService.formatContextForPrompt(userContext, 5); // Show recent conversations and preferences
+      memoryContext += memoryService.formatContextForPrompt(userContext, userId, db, 5); // Show recent conversations, filter deleted recipes
     }
   } catch (error) {
     // MemMachine is optional - continue without it if unavailable
@@ -414,11 +414,11 @@ async function buildContextAwarePrompt(userId: number, userMessage: string = '')
       console.log(`🧠 MemMachine: Querying enhanced context for user ${userId} with query: "${userMessage}"`);
       const { userContext } = await memoryService.getEnhancedContext(userId, userMessage);
 
-      // Add user's own recipes and preferences
+      // Add user's own recipes and preferences (with database filtering)
       if (userContext) {
         console.log(`✅ MemMachine: Retrieved context - Episodic entries: ${userContext.episodic?.length || 0}, Profile entries: ${userContext.profile?.length || 0}`);
-        memoryContext += memoryService.formatContextForPrompt(userContext, 10); // Show more user recipes
-        console.log(`📝 MemMachine: Added ${memoryContext.split('\n').length} lines of context to prompt`);
+        memoryContext += memoryService.formatContextForPrompt(userContext, userId, db, 10); // Show more user recipes, filter deleted
+        console.log(`📝 MemMachine: Added ${memoryContext.split('\n').length} lines of context to prompt (deleted recipes filtered out)`);
       } else {
         console.log(`⚠️ MemMachine: No context returned for user ${userId}`);
       }

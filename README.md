@@ -8,9 +8,10 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 
 ## ✨ Current Status
 
-**Version:** v1.18.2 (Smart Shopping List Ingredient Matching Improvements)
+**Version:** v1.18.2 (Shopping List Ingredient Matching - IN PROGRESS)
 **Phase:** Production Ready - AI Cost Optimization with MemMachine V1 Semantic Search
-**Last Updated:** November 24, 2025
+**Last Updated:** November 25, 2025
+**Known Issues:** 🔴 Module caching bug preventing ingredient parsing updates from loading (code correct, tests pass, but not active in running server)
 
 ### What's Working
 - ✅ **Complete TypeScript monorepo** (Frontend + Backend) ⭐
@@ -29,13 +30,16 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
   - Responsive design (mobile-friendly single column)
 - ✅ **Smart Shopping List Complete** - Intelligent ingredient recommendations ⭐⭐⭐
   - "Near miss" algorithm analyzes recipes missing exactly 1 ingredient
-  - **Comprehensive Ingredient Matching Improvements** ⭐ **NEW v1.18.2**:
+  - **Comprehensive Ingredient Matching Improvements** ⭐ **v1.18.2 (IN PROGRESS - BUG)**:
     - **Unicode normalization (NFKD)**: Properly handles fractions (½, ¾) and accents (Curaçao)
     - **Syrup variant normalization**: "Mai Tai Rich Simple Syrup" matches "Simple Syrup"
     - **Brand name stripping**: "Pierre Ferrand Dry Curaçao" matches generic "Curaçao"
-    - **Spirit synonyms**: Light rum = white rum = silver rum (15+ synonym mappings)
+    - **Spirit synonyms**: Light rum = white rum = silver rum, Jamaican rum variants, Pernod/Pastis/Absinthe
     - **Relaxed single-token matching**: "Rye" matches "Rye Whiskey"
-    - **Curated ALWAYS_AVAILABLE**: Only true pantry staples (water, ice, sugar, salt, eggs, milk/cream, coffee)
+    - **Curated ALWAYS_AVAILABLE**: Pantry staples (water, ice, sugar, salt, eggs, milk/cream, coffee, mint, cinnamon)
+    - **Aged rum detection**: "Bacardi 8" → dark rum, "Havana Club 7" → dark rum
+    - **Chambord synonyms**: Chambord ↔ Black Raspberry Liqueur
+    - 🔴 **BLOCKED**: Code changes not loading despite correct implementation and passing tests
   - Smart recommendations ranked by number of recipes each ingredient unlocks
   - Pagination (top 10 per page) with Previous/Next navigation
   - Clickable stats for 4 view modes: recommendations, craftable, near misses, inventory

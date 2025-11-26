@@ -549,6 +549,7 @@ router.post('/', (req: Request, res: Response) => {
      * Step 7.5: Store Recipe in MemMachine (Non-Blocking)
      *
      * Store recipe in user's MemMachine memory for AI semantic search.
+     * Capture UUID and store in database for future deletion.
      * This is fire-and-forget - errors won't block the response.
      */
     memoryService.storeUserRecipe(userId, {
@@ -557,6 +558,12 @@ router.post('/', (req: Request, res: Response) => {
       instructions: sanitizedInstructions || undefined,
       glass: sanitizedGlass || undefined,
       category: sanitizedCategory || undefined,
+    }).then(uuid => {
+      if (uuid) {
+        // Store UUID in database for future deletion
+        db.prepare('UPDATE recipes SET memmachine_uuid = ? WHERE id = ?').run(uuid, recipeId);
+        console.log(`💾 Stored MemMachine UUID for recipe ${recipeId}: ${uuid}`);
+      }
     }).catch(err => {
       console.error('Failed to store recipe in MemMachine (non-critical):', err);
     });
@@ -804,6 +811,7 @@ router.post('/import', upload.single('file'), async (req: Request, res: Response
     // Process each row
     let imported = 0;
     const errors: { row: number; error: string }[] = [];
+    const recipesForMemMachine: any[] = []; // Collect recipes for batch upload
 
     for (let i = 0; i < records.length; i++) {
       const record = records[i];
@@ -841,15 +849,13 @@ router.post('/import', upload.single('file'), async (req: Request, res: Response
           recipe.category
         );
 
-        // Store in MemMachine (fire-and-forget)
-        memoryService.storeUserRecipe(userId, {
+        // Collect recipe for batch upload to MemMachine
+        recipesForMemMachine.push({
           name: recipe.name,
           ingredients: recipe.ingredients,
           instructions: recipe.instructions,
           glass: recipe.glass,
           category: recipe.category,
-        }).catch(err => {
-          console.error('Failed to store imported recipe in MemMachine:', err);
         });
 
         imported++;
@@ -859,6 +865,33 @@ router.post('/import', upload.single('file'), async (req: Request, res: Response
           error: error.message || 'Failed to import row'
         });
       }
+    }
+
+    // Batch upload all recipes to MemMachine (non-blocking)
+    if (recipesForMemMachine.length > 0) {
+      memoryService.storeUserRecipesBatch(userId, recipesForMemMachine).then(result => {
+        // Store UUIDs in database for future deletion
+        if (result.uuidMap.size > 0) {
+          console.log(`💾 Storing ${result.uuidMap.size} MemMachine UUIDs in database...`);
+
+          // Build batch UPDATE query for efficiency
+          const updateStmt = db.prepare('UPDATE recipes SET memmachine_uuid = ? WHERE user_id = ? AND name = ?');
+          const updateMany = db.transaction((entries: Array<[string, string]>) => {
+            for (const [recipeName, uuid] of entries) {
+              updateStmt.run(uuid, userId, recipeName);
+            }
+          });
+
+          try {
+            updateMany(Array.from(result.uuidMap.entries()));
+            console.log(`✅ Stored all MemMachine UUIDs in database`);
+          } catch (err) {
+            console.error('Failed to store MemMachine UUIDs in database:', err);
+          }
+        }
+      }).catch(err => {
+        console.error('Failed to batch upload recipes to MemMachine:', err);
+      });
     }
 
     // Return summary
@@ -1118,10 +1151,259 @@ router.put('/:id', (req: Request, res: Response) => {
 });
 
 /**
+ * POST /api/recipes/memmachine/sync - Sync MemMachine with AlcheMix Database
+ *
+ * Performs a complete synchronization of MemMachine with the current recipe database:
+ * 1. Clears all recipe memories from MemMachine
+ * 2. Fetches all current recipes from AlcheMix database
+ * 3. Re-uploads all recipes in batches (with timeout prevention)
+ * 4. Returns sync statistics
+ *
+ * Use Cases:
+ * - After bulk deletions (clean up orphaned memories)
+ * - Monthly maintenance (keep MemMachine clean)
+ * - Before major imports (start fresh)
+ * - Recover from sync issues
+ *
+ * IMPORTANT: This route must come BEFORE other routes to avoid conflicts.
+ *
+ * Response (200 OK):
+ * {
+ *   "success": true,
+ *   "message": "MemMachine synced successfully",
+ *   "stats": {
+ *     "cleared": true,
+ *     "recipesInDB": 150,
+ *     "uploaded": 150,
+ *     "failed": 0
+ *   }
+ * }
+ */
+router.post('/memmachine/sync', async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    console.log(`🔄 User ${userId} requested MemMachine sync - starting cleanup...`);
+
+    // Step 1: Clear all existing recipe memories from MemMachine
+    const cleared = await memoryService.deleteAllRecipeMemories(userId);
+
+    if (!cleared) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to clear MemMachine memories'
+      });
+    }
+
+    console.log(`✅ Step 1/3: Cleared MemMachine for user ${userId}`);
+
+    // Step 2: Fetch all current recipes from AlcheMix database
+    const recipes = db.prepare(`
+      SELECT name, ingredients, instructions, glass, category
+      FROM recipes
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+    `).all(userId) as Array<{
+      name: string;
+      ingredients: string;
+      instructions: string | null;
+      glass: string | null;
+      category: string | null;
+    }>;
+
+    console.log(`✅ Step 2/3: Fetched ${recipes.length} recipes from database`);
+
+    if (recipes.length === 0) {
+      return res.json({
+        success: true,
+        message: 'MemMachine synced (no recipes to upload)',
+        stats: {
+          cleared: true,
+          recipesInDB: 0,
+          uploaded: 0,
+          failed: 0
+        }
+      });
+    }
+
+    // Step 3: Re-upload all recipes to MemMachine in batches
+    const recipesForUpload = recipes.map(recipe => {
+      // Parse ingredients from JSON string
+      let ingredientsParsed;
+      try {
+        ingredientsParsed = JSON.parse(recipe.ingredients);
+      } catch {
+        ingredientsParsed = recipe.ingredients;
+      }
+
+      return {
+        name: recipe.name,
+        ingredients: ingredientsParsed,
+        instructions: recipe.instructions || undefined,
+        glass: recipe.glass || undefined,
+        category: recipe.category || undefined,
+      };
+    });
+
+    console.log(`🔄 Step 3/3: Uploading ${recipesForUpload.length} recipes to MemMachine...`);
+
+    const uploadResult = await memoryService.storeUserRecipesBatch(userId, recipesForUpload);
+
+    console.log(`✅ MemMachine sync complete for user ${userId}: ${uploadResult.success} succeeded, ${uploadResult.failed} failed`);
+
+    res.json({
+      success: true,
+      message: `MemMachine synced successfully - ${uploadResult.success} recipes uploaded`,
+      stats: {
+        cleared: true,
+        recipesInDB: recipes.length,
+        uploaded: uploadResult.success,
+        failed: uploadResult.failed
+      }
+    });
+
+  } catch (error) {
+    console.error('MemMachine sync error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to sync MemMachine'
+    });
+  }
+});
+
+/**
+ * DELETE /api/recipes/memmachine/clear - Clear All MemMachine Recipe Memories
+ *
+ * Deletes ALL recipe memories from MemMachine for the authenticated user.
+ * This does NOT delete recipes from AlcheMix database - only MemMachine.
+ *
+ * Use Case: Clean slate before re-uploading with UUID tracking
+ *
+ * IMPORTANT: This route must come BEFORE other routes to avoid conflicts.
+ *
+ * Response (200 OK):
+ * {
+ *   "success": true,
+ *   "message": "Cleared all recipe memories from MemMachine"
+ * }
+ */
+router.delete('/memmachine/clear', async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    console.log(`🧹 User ${userId} requested MemMachine recipe memory cleanup`);
+
+    // Delete all recipe memories from MemMachine
+    const success = await memoryService.deleteAllRecipeMemories(userId);
+
+    if (success) {
+      res.json({
+        success: true,
+        message: 'Cleared all recipe memories from MemMachine'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to clear MemMachine memories'
+      });
+    }
+  } catch (error) {
+    console.error('Clear MemMachine memories error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to clear MemMachine memories'
+    });
+  }
+});
+
+/**
+ * Helper: Auto-Sync MemMachine (Background)
+ *
+ * Triggers a background sync of MemMachine when significant changes occur.
+ * Fire-and-forget pattern - doesn't block the response.
+ *
+ * Triggers:
+ * - After bulk deletions (10+ recipes)
+ * - After "delete all" operation
+ * - After large CSV imports (100+ recipes)
+ */
+async function autoSyncMemMachine(userId: number, reason: string) {
+  console.log(`🔄 Auto-triggering MemMachine sync for user ${userId} (reason: ${reason})`);
+
+  try {
+    // Step 1: Clear MemMachine
+    const cleared = await memoryService.deleteAllRecipeMemories(userId);
+    if (!cleared) {
+      console.error(`❌ Auto-sync failed: Could not clear MemMachine for user ${userId}`);
+      return;
+    }
+
+    // Step 2: Fetch current recipes
+    const recipes = db.prepare(`
+      SELECT name, ingredients, instructions, glass, category
+      FROM recipes
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+    `).all(userId) as Array<{
+      name: string;
+      ingredients: string;
+      instructions: string | null;
+      glass: string | null;
+      category: string | null;
+    }>;
+
+    if (recipes.length === 0) {
+      console.log(`✅ Auto-sync complete: No recipes to upload for user ${userId}`);
+      return;
+    }
+
+    // Step 3: Re-upload in batches
+    const recipesForUpload = recipes.map(recipe => {
+      let ingredientsParsed;
+      try {
+        ingredientsParsed = JSON.parse(recipe.ingredients);
+      } catch {
+        ingredientsParsed = recipe.ingredients;
+      }
+
+      return {
+        name: recipe.name,
+        ingredients: ingredientsParsed,
+        instructions: recipe.instructions || undefined,
+        glass: recipe.glass || undefined,
+        category: recipe.category || undefined,
+      };
+    });
+
+    const uploadResult = await memoryService.storeUserRecipesBatch(userId, recipesForUpload);
+
+    console.log(`✅ Auto-sync complete for user ${userId}: ${uploadResult.success} recipes uploaded, ${uploadResult.failed} failed`);
+  } catch (error) {
+    console.error(`❌ Auto-sync error for user ${userId}:`, error);
+  }
+}
+
+/**
  * DELETE /api/recipes/all - Delete All User Recipes
  *
  * Deletes all recipes for the authenticated user.
  * Useful for clearing duplicates before re-importing CSV.
+ *
+ * AUTO-SYNC: Triggers background MemMachine sync after deletion.
  *
  * IMPORTANT: This route must come BEFORE /:id route to avoid
  * Express matching "all" as an ID parameter.
@@ -1146,6 +1428,11 @@ router.delete('/all', async (req: Request, res: Response) => {
 
     // Delete all recipes for this user (CASCADE will handle favorites)
     const result = db.prepare('DELETE FROM recipes WHERE user_id = ?').run(userId);
+
+    // Auto-sync MemMachine in background (fire-and-forget)
+    autoSyncMemMachine(userId, 'delete all recipes').catch(err => {
+      console.error('Auto-sync error (non-critical):', err);
+    });
 
     res.json({
       success: true,
@@ -1208,14 +1495,45 @@ router.delete('/bulk', (req: Request, res: Response) => {
       });
     }
 
+    // Get MemMachine UUIDs for recipes before deletion
     const placeholders = sanitizedIds.map(() => '?').join(', ');
-    const statement = db.prepare(`
+    const selectStatement = db.prepare(`
+      SELECT memmachine_uuid FROM recipes
+      WHERE user_id = ?
+      AND id IN (${placeholders})
+      AND memmachine_uuid IS NOT NULL
+    `);
+
+    const recipesToDelete = selectStatement.all(userId, ...sanitizedIds) as Array<{ memmachine_uuid: string }>;
+    const uuidsToDelete = recipesToDelete.map(r => r.memmachine_uuid).filter(Boolean);
+
+    console.log(`🗑️ Bulk delete: Deleting ${sanitizedIds.length} recipes (${uuidsToDelete.length} have MemMachine UUIDs)`);
+
+    // Delete from database
+    const deleteStatement = db.prepare(`
       DELETE FROM recipes
       WHERE user_id = ?
       AND id IN (${placeholders})
     `);
 
-    const result = statement.run(userId, ...sanitizedIds);
+    const result = deleteStatement.run(userId, ...sanitizedIds);
+    console.log(`✅ Deleted ${result.changes} recipes from database`);
+
+    // Auto-sync MemMachine if bulk deletion (10+ recipes)
+    if (result.changes >= 10) {
+      console.log(`📊 Bulk deletion detected (${result.changes} recipes) - triggering auto-sync...`);
+      autoSyncMemMachine(userId, `bulk delete ${result.changes} recipes`).catch(err => {
+        console.error('Auto-sync error (non-critical):', err);
+      });
+    } else if (uuidsToDelete.length > 0) {
+      // For smaller deletions, just try to delete from MemMachine (though UUIDs are always null)
+      console.log(`🔄 Starting MemMachine batch deletion for ${uuidsToDelete.length} UUIDs...`);
+      memoryService.deleteUserRecipesBatch(userId, uuidsToDelete).catch(err => {
+        console.error('Failed to batch delete recipes from MemMachine:', err);
+      });
+    } else {
+      console.log(`ℹ️ No MemMachine UUIDs found - recipes were created before UUID tracking`);
+    }
 
     res.json({
       success: true,
@@ -1275,10 +1593,10 @@ router.delete('/:id', (req: Request, res: Response) => {
       });
     }
 
-    // Check if recipe exists and belongs to user (get name for MemMachine deletion)
+    // Check if recipe exists and belongs to user (get name and UUID for MemMachine deletion)
     const existingRecipe = db.prepare(
-      'SELECT id, name FROM recipes WHERE id = ? AND user_id = ?'
-    ).get(recipeId, userId) as { id: number; name: string } | undefined;
+      'SELECT id, name, memmachine_uuid FROM recipes WHERE id = ? AND user_id = ?'
+    ).get(recipeId, userId) as { id: number; name: string; memmachine_uuid: string | null } | undefined;
 
     if (!existingRecipe) {
       return res.status(404).json({
@@ -1287,13 +1605,23 @@ router.delete('/:id', (req: Request, res: Response) => {
       });
     }
 
+    console.log(`🗑️ Deleting recipe "${existingRecipe.name}" (UUID: ${existingRecipe.memmachine_uuid || 'none'})`);
+
     // Delete recipe (CASCADE will handle favorites)
     db.prepare('DELETE FROM recipes WHERE id = ?').run(recipeId);
+    console.log(`✅ Deleted recipe from database`);
 
-    // Delete from MemMachine (fire-and-forget, currently no-op)
-    memoryService.deleteUserRecipe(userId, existingRecipe.name).catch(err => {
-      console.error('Failed to delete recipe from MemMachine:', err);
-    });
+    // Delete from MemMachine using UUID (if available)
+    if (existingRecipe.memmachine_uuid) {
+      console.log(`🔄 Deleting recipe from MemMachine with UUID: ${existingRecipe.memmachine_uuid}`);
+      memoryService.deleteUserRecipeByUuid(userId, existingRecipe.memmachine_uuid, existingRecipe.name).catch(err => {
+        console.error('Failed to delete recipe from MemMachine:', err);
+      });
+    } else {
+      // Legacy recipe without UUID
+      console.log(`ℹ️ Recipe has no UUID - created before UUID tracking (data remains in MemMachine)`);
+      memoryService.deleteUserRecipe(userId, existingRecipe.name);
+    }
 
     res.json({
       success: true,

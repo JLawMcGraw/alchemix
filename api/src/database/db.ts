@@ -631,12 +631,42 @@ export function initializeDatabase() {
     }
   }
 
+  /**
+   * Schema Migration: Add memmachine_uuid to recipes
+   *
+   * Tracks MemMachine episode UUIDs for recipe deletion (Option A).
+   * Enables granular deletion of recipes from MemMachine memory system.
+   *
+   * Why Option A (UUID Tracking)?
+   * - Precise deletion: Remove exact recipe from MemMachine when deleted from AlcheMix
+   * - No stale data: User's AI context stays synchronized with their actual recipe library
+   * - Better UX: AI won't recommend deleted recipes
+   * - Data integrity: Historical memory doesn't pollute current recommendations
+   *
+   * How it works:
+   * 1. Recipe created → MemMachine returns UUID → Store in this column
+   * 2. Recipe deleted → Use UUID to delete from MemMachine → CASCADE cleanup
+   * 3. Batch import → Store UUIDs during bulk upload → Enable mass deletion
+   *
+   * Safe to run multiple times (will fail silently if column exists).
+   */
+  try {
+    db.exec(`ALTER TABLE recipes ADD COLUMN memmachine_uuid TEXT`);
+    console.log('✅ Added memmachine_uuid column to recipes table');
+  } catch (error: any) {
+    // Column already exists, ignore error
+    if (!error.message?.includes('duplicate column name')) {
+      console.error('Migration warning:', error.message);
+    }
+  }
+
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_inventory_items_user_id ON inventory_items(user_id);
     CREATE INDEX IF NOT EXISTS idx_inventory_items_category ON inventory_items(category);
     CREATE INDEX IF NOT EXISTS idx_collections_user_id ON collections(user_id);
     CREATE INDEX IF NOT EXISTS idx_recipes_user_id ON recipes(user_id);
     CREATE INDEX IF NOT EXISTS idx_recipes_collection_id ON recipes(collection_id);
+    CREATE INDEX IF NOT EXISTS idx_recipes_memmachine_uuid ON recipes(memmachine_uuid);
     CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites(user_id);
   `);
 

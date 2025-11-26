@@ -103,6 +103,7 @@ export function createTestDatabase(): Database.Database {
       instructions TEXT,
       glass TEXT,
       category TEXT,
+      memmachine_uuid TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
       FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE SET NULL

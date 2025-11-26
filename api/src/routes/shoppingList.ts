@@ -45,36 +45,84 @@ router.use(authMiddleware);
 
 /**
  * Synonym Map
- * 
+ *
  * Maps ingredient names to their equivalents to improve matching accuracy.
  * This handles common variations in spirit naming conventions.
  */
 const SYNONYMS: Record<string, string[]> = {
-  'light rum': ['white rum', 'silver rum'],
-  'white rum': ['light rum', 'silver rum'],
-  'silver rum': ['white rum', 'light rum'],
-  
-  'gold rum': ['amber rum', 'aged rum'],
-  'amber rum': ['gold rum', 'aged rum'],
-  
+  // Light rum variants - expanded coverage
+  'light rum': ['white rum', 'silver rum', 'light puerto rican rum', 'puerto rican rum', 'light virgin islands rum', 'virgin islands rum'],
+  'white rum': ['light rum', 'silver rum', 'light puerto rican rum', 'puerto rican rum', 'light virgin islands rum', 'virgin islands rum'],
+  'silver rum': ['white rum', 'light rum', 'light puerto rican rum', 'puerto rican rum', 'light virgin islands rum', 'virgin islands rum'],
+  'light puerto rican rum': ['light rum', 'white rum', 'silver rum', 'puerto rican rum'],
+  'puerto rican rum': ['light rum', 'white rum', 'silver rum', 'light puerto rican rum'],
+  'light virgin islands rum': ['light rum', 'white rum', 'silver rum', 'virgin islands rum'],
+  'virgin islands rum': ['light rum', 'white rum', 'silver rum', 'light virgin islands rum'],
+
+  // Dark/Gold/Aged rum variants
+  'gold rum': ['amber rum', 'aged rum', 'dark rum', 'gold puerto rican rum', 'gold jamaican rum'],
+  'amber rum': ['gold rum', 'aged rum', 'dark rum'],
+  'aged rum': ['gold rum', 'amber rum', 'dark rum'],
+  'dark rum': ['gold rum', 'amber rum', 'aged rum', 'gold puerto rican rum', 'gold jamaican rum', 'jamaican rum'],
+  'gold puerto rican rum': ['gold rum', 'dark rum', 'aged rum', 'amber rum'],
+  'gold jamaican rum': ['gold rum', 'dark rum', 'aged rum', 'amber rum', 'jamaican rum'],
+  'jamaican rum': ['dark rum', 'gold rum', 'gold jamaican rum'],
+
+  // High-proof rum variants
+  '151 rum': ['151-proof rum', 'overproof rum'],
+  '151-proof rum': ['151 rum', 'overproof rum'],
+  'overproof rum': ['151 rum', '151-proof rum'],
+
+  // Demerara rum variants - specific high-proof type
+  'demerara 151': ['demerara overproof', 'demerara 151-proof rum', '151-proof demerara rum', 'demerara overproof rum', 'overproof demerara rum'],
+  'demerara overproof': ['demerara 151', 'demerara 151-proof rum', '151-proof demerara rum', 'demerara overproof rum', 'overproof demerara rum'],
+  'demerara 151-proof rum': ['demerara 151', 'demerara overproof', '151-proof demerara rum', 'demerara overproof rum', 'overproof demerara rum'],
+  '151-proof demerara rum': ['demerara 151', 'demerara overproof', 'demerara 151-proof rum', 'demerara overproof rum', 'overproof demerara rum'],
+  'demerara overproof rum': ['demerara 151', 'demerara overproof', 'demerara 151-proof rum', '151-proof demerara rum', 'overproof demerara rum'],
+  'overproof demerara rum': ['demerara 151', 'demerara overproof', 'demerara 151-proof rum', '151-proof demerara rum', 'demerara overproof rum'],
+
+  // Regional rum variants
+  'martinique rum': ['rhum agricole', 'agricole', 'amber martinique rum'],
+  'amber martinique rum': ['rhum agricole', 'agricole', 'martinique rum'],
+  'rhum agricole': ['martinique rum', 'agricole', 'amber martinique rum'],
+  'agricole': ['martinique rum', 'rhum agricole', 'amber martinique rum'],
+
+  // Tequila variants
   'silver tequila': ['blanco tequila', 'white tequila', 'plata tequila'],
   'blanco tequila': ['silver tequila', 'white tequila', 'plata tequila'],
   'white tequila': ['silver tequila', 'blanco tequila', 'plata tequila'],
-  
+
+  // Whiskey/Bourbon/Rye - now handles "bourbon or rye" properly
   'bourbon': ['bourbon whiskey'],
   'bourbon whiskey': ['bourbon'],
-  
+
   'rye': ['rye whiskey'],
   'rye whiskey': ['rye'],
-  
+
   'scotch': ['scotch whisky', 'blended scotch'],
   'scotch whisky': ['scotch', 'blended scotch'],
-  
+
+  // Brandy variants
   'cognac': ['brandy'], // Cognac is a specific brandy
   'armagnac': ['brandy'],
-  
+  'brandy': ['cognac', 'armagnac'], // Brandy can match specific types
+
+  // Syrup equivalencies - CRITICAL for matching
+  'grenadine': ['pomegranate syrup'],
+  'pomegranate syrup': ['grenadine'],
+
   'simple syrup': ['sugar syrup', 'white sugar syrup'],
-  'sugar syrup': ['simple syrup', 'white sugar syrup']
+  'sugar syrup': ['simple syrup', 'white sugar syrup'],
+
+  // Liqueur equivalencies
+  'chambord': ['black raspberry liqueur', 'raspberry liqueur'],
+  'black raspberry liqueur': ['chambord', 'raspberry liqueur'],
+  'raspberry liqueur': ['chambord', 'black raspberry liqueur'],
+
+  // Anise spirits - Pernod/Pastis/Absinthe
+  'pernod': ['pastis', 'absinthe'],
+  'pastis': ['pernod', 'absinthe'],
+  'absinthe': ['pernod', 'pastis']
 };
 
 /**
@@ -84,18 +132,21 @@ const SYNONYMS: Record<string, string[]> = {
  * - "2 oz Bourbon" → "bourbon"
  * - "1 sugar cube" → "sugar cube"
  * - "2 dashes Angostura Bitters" → "angostura bitters"
+ * - "Light Puerto Rican Rum (see page 230)" → "light puerto rican rum"
+ * - "Bourbon or Rye" → returns array ["bourbon", "rye"]
  *
  * Algorithm:
  * 1. Convert to lowercase for case-insensitive matching
- * 2. Remove leading numbers (e.g., "2", "1.5")
- * 3. Remove common units and measurements
- * 4. Trim whitespace
- * 5. Return normalized ingredient name
+ * 2. Strip parenthetical references like (see page 230)
+ * 3. Remove leading numbers (e.g., "2", "1.5")
+ * 4. Remove common units and measurements
+ * 5. Trim whitespace
+ * 6. Return normalized ingredient name
  *
  * @param ingredientStr - Raw ingredient string from recipe
- * @returns Normalized ingredient name
+ * @returns Normalized ingredient name or array of alternatives
  */
-function parseIngredientName(ingredientStr: string): string {
+function parseIngredientName(ingredientStr: string): string | string[] {
   if (!ingredientStr || typeof ingredientStr !== 'string') {
     return '';
   }
@@ -103,24 +154,36 @@ function parseIngredientName(ingredientStr: string): string {
   // Convert to lowercase for case-insensitive matching
   let normalized = ingredientStr.toLowerCase().trim();
 
-  // Step 0: Normalize Unicode to decompose fractions (e.g., ½ -> 1⁄2)
+  // Step 0a: Strip parenthetical references FIRST (e.g., "(see page 230)")
+  // This handles patterns like "Light Rum (see page 230)" → "Light Rum"
+  normalized = normalized.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
+
+  // Step 0b: Normalize Unicode to decompose fractions (e.g., ½ -> 1⁄2)
   // and replace fraction slash with standard slash
   normalized = normalized.normalize('NFKD').replace(/\u2044/g, '/');
 
   // Step 1: Remove leading numbers, fractions, and measurements
   // Handles: "2 oz", "1.5 oz", "1/2 oz", "3/4oz", "2 1/2 oz", "½", "¾", "1½", "8 ounces (1 cup)"
 
-  // Remove complex patterns: "8 ounces (1 cup)" → remove everything up to and including ")"
-  normalized = normalized.replace(/^\d+\s*(ounces?|oz|ml|cl|l|tsp|tbsp|cups?)?\s*\([^)]+\)\s*/i, '').trim();
+  // IMPORTANT: Order matters! Match fractions BEFORE simple numbers
 
   // Remove mixed fractions: "2 1/2 oz" → remove entire pattern
   normalized = normalized.replace(/^\d+\s+\d+\s*\/\s*\d+\s*(ounces?|oz|ml|cl|l|tsp|tbsp|cups?)?/i, '').trim();
 
-  // Then remove simple ASCII fractions: "1/2 oz"
+  // Then remove simple ASCII fractions: "1/2 oz", "3/4 ounce"
   normalized = normalized.replace(/^\d+\s*\/\s*\d+\s*(ounces?|oz|ml|cl|l|tsp|tbsp|cups?)?/i, '').trim();
 
-  // Remove decimal numbers with optional units: "1.5 oz", "1 ounces", "2 ounces"
-  normalized = normalized.replace(/^\d+\.?\d*\s*(ounces?|oz|ml|cl|l|tsp|tbsp|cups?)?/i, '').trim();
+  // Remove complex patterns: "8 ounces (1 cup)" → remove everything up to and including ")"
+  normalized = normalized.replace(/^\d+\s*(ounces?|oz|ml|cl|l|tsp|tbsp|cups?)\s*\([^)]+\)\s*/i, '').trim();
+
+  // Remove number ranges: "4 to 6 mint leaves" -> "mint leaves"
+  // IMPORTANT: Must come BEFORE decimal number removal
+  normalized = normalized.replace(/^\d+\s+to\s+\d+\s*/i, '').trim();
+
+  // Remove decimal numbers with optional units: "1.5 oz", "1 ounces", "2 ounces", "2 dashes"
+  // IMPORTANT: Put "dashes" before "dash" so it matches the longer form first
+  // IMPORTANT: Use word boundary \b after unit to prevent "2 l" from matching "2 lime"
+  normalized = normalized.replace(/^\d+\.?\d*\s*(ounces?|oz|ml|cl|liters?|l|tsp|tbsp|cups?|dashes|dash)\b/i, '').trim();
 
   // Remove any remaining leading numbers and spaces
   normalized = normalized.replace(/^[\d\s]+/, '').trim();
@@ -141,6 +204,7 @@ function parseIngredientName(ingredientStr: string): string {
     'pint', 'pints',
     'quart', 'quarts',
     'gallon', 'gallons',
+    'handful', 'handfuls',
     // Small amounts
     'dash', 'dashes',
     'drop', 'drops',
@@ -149,7 +213,9 @@ function parseIngredientName(ingredientStr: string): string {
     // Proportions
     'part', 'parts',
     // Qualifiers
-    'fresh', 'freshly', 'squeezed'
+    'fresh', 'freshly', 'squeezed', 'crushed',
+    // Proof indicators (remove the word, number stays)
+    'proof', '-proof'
     // IMPORTANT: Do NOT remove 'juice', 'syrup', 'cream' - these are part of ingredient names
   ];
 
@@ -171,7 +237,11 @@ function parseIngredientName(ingredientStr: string): string {
     'john d taylor', "john d. taylor's", 'taylors',
     'trader joe', 'trader joes',
     'angostura', 'peychaud', 'peychauds',
-    'luxardo', 'st germain', 'st-germain', 'st. germain'
+    'luxardo', 'st germain', 'st-germain', 'st. germain',
+    // Rum brands
+    'lemon hart', 'hamilton', 'cruzan', 'appleton', 'plantation',
+    'wray & nephew', 'wray and nephew', 'myers', "myers's",
+    'bacardi', 'havana club', 'captain morgan'
   ];
   for (const prefix of prefixesToRemove) {
     const regex = new RegExp(`^${prefix}\b\s*`, 'i');
@@ -198,8 +268,42 @@ function parseIngredientName(ingredientStr: string): string {
     normalized = normalized.replace(/\s+/g, ' ').trim();
   }
 
-  // Step 5: Clean up extra whitespace
+  // Step 5: Clean up extra whitespace and dangling punctuation
   normalized = normalized.replace(/\s+/g, ' ').trim();
+
+  // Remove dangling hyphens (e.g., "151- rum" -> "151 rum")
+  normalized = normalized.replace(/(\d+)-\s+/g, '$1 ').trim();
+
+  // Remove leading articles and prepositions (loop to handle multiple)
+  // e.g., "a of ice" -> "of ice" -> "ice"
+  let prevNormalized;
+  do {
+    prevNormalized = normalized;
+    normalized = normalized.replace(/^(a|an|the|of)\s+/gi, '').trim();
+  } while (normalized !== prevNormalized && normalized.length > 0);
+
+  // Special handling: Detect aged rum indicators after brand removal
+  // "Bacardi 8" -> "8 rum" should become "dark rum"
+  // "Havana Club 7" -> "7" should become "dark rum"
+  // Pattern: standalone number or Spanish age terms, optionally followed by "rum"
+  if (/^(añejo|anejo|reserva|\d+)(\s+rum)?$/.test(normalized)) {
+    normalized = 'dark rum';
+  }
+
+  // Step 6: Handle boolean operators (e.g., "bourbon or rye")
+  // If ingredient contains " or ", split into alternatives and return array
+  // This allows recipes to match if user has ANY of the alternatives
+  if (normalized.includes(' or ')) {
+    const alternatives = normalized
+      .split(/\s+or\s+/)
+      .map(alt => alt.trim())
+      .filter(alt => alt.length > 0);
+
+    // Return array of alternatives if we found multiple valid options
+    if (alternatives.length > 1) {
+      return alternatives;
+    }
+  }
 
   return normalized;
 }
@@ -251,8 +355,11 @@ function normalizeForMatching(str: string): string {
  */
 const ALWAYS_AVAILABLE_INGREDIENTS = new Set([
   'water', 'ice', 'sugar', 'salt',
+  'crushed ice', // Ice variants
   'coffee', 'espresso', 'milk', 'cream', 'half and half',
-  'egg white', 'egg whites', 'egg', 'eggs'
+  'egg white', 'egg whites', 'egg', 'eggs',
+  'mint', 'mint leaves', 'fresh mint', // Mint variants
+  'cinnamon', 'cinnamon stick', 'cinnamon sticks' // Cinnamon variants
 ]);
 
 /**
@@ -362,6 +469,7 @@ function hasIngredient(bottles: BottleData[], ingredientName: string): boolean {
  * Helper: Check if Recipe is Craftable
  *
  * Determines if all recipe ingredients are available in inventory.
+ * Handles boolean operators (e.g., "bourbon or rye") - passes if user has ANY alternative.
  *
  * @param ingredients - Array of ingredient strings from recipe
  * @param bottles - Array of bottle data from user's bar
@@ -374,10 +482,23 @@ function isCraftable(ingredients: string[], bottles: BottleData[]): boolean {
 
   return ingredients.every(ingredient => {
     const ingredientName = parseIngredientName(ingredient);
-    // Skip empty ingredient names (parsing failures or bad data)
-    if (!ingredientName || ingredientName.trim() === '') {
+
+    // Handle empty ingredient names (parsing failures or bad data)
+    if (!ingredientName) {
       return true; // Don't let empty ingredients block craftability
     }
+
+    // Handle string arrays (e.g., "bourbon or rye" → ["bourbon", "rye"])
+    if (Array.isArray(ingredientName)) {
+      // User has ingredient if they have ANY of the alternatives
+      return ingredientName.some(alt => hasIngredient(bottles, alt));
+    }
+
+    // Handle single string
+    if (typeof ingredientName === 'string' && ingredientName.trim() === '') {
+      return true; // Don't let empty ingredients block craftability
+    }
+
     return hasIngredient(bottles, ingredientName);
   });
 }
@@ -386,10 +507,11 @@ function isCraftable(ingredients: string[], bottles: BottleData[]): boolean {
  * Helper: Find Missing Ingredients
  *
  * Identifies which ingredients are missing from inventory.
+ * For boolean operators (e.g., "bourbon or rye"), only counts as missing if user has NONE of the alternatives.
  *
  * @param ingredients - Array of ingredient strings from recipe
  * @param bottles - Array of bottle data from user's bar
- * @returns Array of missing ingredient names (parsed)
+ * @returns Array of missing ingredient names (parsed, includes readable form for "or" ingredients)
  */
 function findMissingIngredients(ingredients: string[], bottles: BottleData[]): string[] {
   if (!ingredients || ingredients.length === 0) {
@@ -400,10 +522,28 @@ function findMissingIngredients(ingredients: string[], bottles: BottleData[]): s
 
   for (const ingredient of ingredients) {
     const ingredientName = parseIngredientName(ingredient);
+
     // Skip empty ingredient names (parsing failures or bad data)
-    if (!ingredientName || ingredientName.trim() === '') {
+    if (!ingredientName) {
       continue;
     }
+
+    // Handle string arrays (e.g., "bourbon or rye" → ["bourbon", "rye"])
+    if (Array.isArray(ingredientName)) {
+      // Only mark as missing if user has NONE of the alternatives
+      const hasAny = ingredientName.some(alt => hasIngredient(bottles, alt));
+      if (!hasAny) {
+        // Return readable form: "bourbon or rye"
+        missing.push(ingredientName.join(' or '));
+      }
+      continue;
+    }
+
+    // Handle single string
+    if (typeof ingredientName === 'string' && ingredientName.trim() === '') {
+      continue;
+    }
+
     if (!hasIngredient(bottles, ingredientName)) {
       missing.push(ingredientName);
     }
