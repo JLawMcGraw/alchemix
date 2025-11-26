@@ -6,13 +6,98 @@ Last updated: 2025-11-26
 
 ## Current Status
 
-**Version**: v1.18.3
-**Phase**: Docker Development Environment - Mac Setup Complete
-**Blockers**: None - Full Docker environment operational on Mac
+**Version**: v1.18.4
+**Phase**: Production Ready - MemMachine Integration Complete
+**Blockers**: None - Full Docker environment operational, recipe management UX improved
 
 ---
 
-## Recent Session (2025-11-26): Docker Desktop Mac Setup & Troubleshooting
+## Recent Session (2025-11-26): MemMachine Integration Fixes & Recipe Modal UX Improvements
+
+### Work Completed
+- ✅ Fixed MemMachine batch recipe upload (404 errors - wrong port configuration)
+- ✅ Fixed MemMachine API 500 errors (missing reranker configuration)
+- ✅ Added auto-refresh of shopping list stats after recipe deletions
+- ✅ Fixed AddRecipeModal positioning (modal appearing at bottom instead of centered)
+- ✅ Improved ingredients input UX in AddRecipeModal (dynamic array of inputs with Enter key support)
+- ✅ Improved ingredients editing in RecipeDetailModal (same dynamic input UX)
+- ✅ Rebuilt MemMachine container with fixed configuration
+
+### Components Modified
+- `api/.env` - Fixed MEMMACHINE_API_URL from port 8001 to 8080
+- `docker/memmachine/config.yaml.template` - Added missing reranker configuration
+- `src/app/recipes/page.tsx` - Added fetchShoppingList() to delete handlers
+- `src/components/modals/RecipeDetailModal.tsx` - Added fetchShoppingList() to delete, improved ingredients UX
+- `src/components/modals/AddRecipeModal.tsx` - Fixed modal positioning, improved ingredients UX
+
+### Key Issues Resolved
+
+**1. MemMachine 404 Errors on Recipe Upload**
+- **Problem**: All 130 recipes failing with 404 on batch upload
+- **Root Cause**: `api/.env` pointing to wrong port (8001 = Bar Server, not MemMachine)
+- **Solution**: Updated `MEMMACHINE_API_URL=http://localhost:8080` (MemMachine port)
+- **Details**: Port 8080 has `/v1/memories` endpoints, port 8001 (Bar Server) doesn't
+
+**2. MemMachine 500 Internal Server Errors**
+- **Problem**: All MemMachine operations failing with KeyError: 'reranker'
+- **Root Cause**: MemMachine config missing required `reranker` field in `long_term_memory` section
+- **Solution**: Added identity reranker configuration to config.yaml.template
+- **Code**:
+  ```yaml
+  long_term_memory:
+    embedder: bar_embedder
+    reranker: bar_reranker  # Added
+    vector_graph_store: bar_storage
+
+  reranker:  # Added section
+    bar_reranker:
+      provider: "identity"
+  ```
+
+**3. Shopping List Stats Not Updating After Deletions**
+- **Problem**: "Already Craftable" and "Near Misses" stats only updated after uploads, not deletions
+- **Root Cause**: Delete handlers missing `fetchShoppingList()` call
+- **Solution**: Added `await fetchShoppingList()` to:
+  - `handleDeleteAll()` in recipes/page.tsx
+  - `handleBulkDelete()` in recipes/page.tsx
+  - `handleDelete()` in RecipeDetailModal.tsx
+
+**4. AddRecipeModal Positioning Bug**
+- **Problem**: Modal appearing at bottom of page instead of centered, screen darkening
+- **Root Cause**: Modal `<div>` was sibling of backdrop, not child (backdrop had centering styles)
+- **Solution**: Nested modal inside backdrop div with `onClick={(e) => e.stopPropagation())`
+
+**5. Ingredients Input UX Issues**
+- **Problem**: Ingredients were plain textarea, hard to edit individual ingredients
+- **Solution**: Implemented dynamic array of input fields with:
+  - Individual input for each ingredient
+  - Press Enter to add new ingredient
+  - "Add Ingredient" button
+  - Trash icon to remove ingredients (keeps minimum of 1)
+  - Applied to both AddRecipeModal and RecipeDetailModal
+
+### Architecture Insights
+
+**MemMachine Service Architecture:**
+- **Port 8080**: MemMachine service with full `/v1/memories` API
+- **Port 8001**: Bar Server (specialized query constructor only, doesn't proxy all endpoints)
+- Docker services require correct port mapping in application configs
+- Identity reranker = pass-through (no reranking), simplest configuration
+
+**React Modal Best Practices:**
+- Modal must be child of backdrop for centering via flexbox
+- Use `stopPropagation()` to prevent backdrop clicks from closing modal on content clicks
+- Fixed positioning requires proper DOM nesting
+
+### Next Session Priority
+1. Test complete recipe upload workflow with MemMachine
+2. Verify semantic search working with uploaded recipes
+3. Test AI Bartender with full recipe memory context
+4. Consider BM25 or cross-encoder reranker for better search results
+
+---
+
+## Previous Session (2025-11-26): Docker Desktop Mac Setup & Troubleshooting
 
 ### Work Completed
 - ✅ Fixed Docker Desktop installation on Mac (symlinks pointing to wrong location)

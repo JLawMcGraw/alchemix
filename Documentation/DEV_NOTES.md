@@ -4,6 +4,234 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-11-26 - MemMachine Integration & Recipe Modal UX Fixes
+
+**Context**: After completing Docker setup, tested recipe CSV upload. MemMachine batch storage completely failed (130/130 recipes with 404 errors). Fixed port configuration and missing reranker config. Also improved recipe modal UX based on user feedback.
+
+### Issue 1: MemMachine 404 Errors on All Recipe Operations
+
+**Problem**: Recipe CSV upload failing with 404 on all batch storage operations to MemMachine.
+
+```
+[API] ❌ MemMachine: Failed to store recipe "SC Molasses Syrup" for user 1: Request failed with status code 404
+[API] ✅ MemMachine: Batch upload complete - 0 succeeded, 130 failed, 0 UUIDs captured
+```
+
+**Root Cause**: `api/.env` had wrong MemMachine URL. Pointing to port 8001 (Bar Server) instead of port 8080 (MemMachine).
+
+**Diagnosis**:
+```bash
+# Check what's running on each port
+curl http://localhost:8001/health  # Bar Server (no /v1/memories endpoints)
+curl http://localhost:8080/health  # MemMachine (has /v1/memories endpoints)
+
+# Test MemMachine endpoints
+curl -X POST http://localhost:8080/v1/memories -H "Content-Type: application/json" \
+  -H "user-id: user_1" -H "session-id: recipes" \
+  -d '{"episode_content": "Test"}'
+```
+
+**Solution**: Update `api/.env`:
+```bash
+# Before (WRONG - Bar Server doesn't have /v1/memories)
+MEMMACHINE_API_URL=http://localhost:8001
+
+# After (CORRECT - MemMachine has full v1 API)
+MEMMACHINE_API_URL=http://localhost:8080
+```
+
+**Service Architecture**:
+- **Port 8080**: MemMachine service (has `/v1/memories`, `/v1/memories/search`, etc.)
+- **Port 8001**: Bar Server (specialized query constructor only, not a full proxy)
+
+### Issue 2: MemMachine 500 Errors - Missing Reranker Configuration
+
+**Problem**: After fixing port, all MemMachine operations failing with 500 Internal Server Error.
+
+**Error in logs**:
+```python
+KeyError: 'reranker'
+File "/app/.venv/lib/python3.12/site-packages/memmachine/episodic_memory/episodic_memory.py", line 119, in __init__
+    reranker_id = long_term_config["reranker"]
+```
+
+**Root Cause**: MemMachine's config.yaml.template missing required `reranker` field in `long_term_memory` section.
+
+**Solution**: Update `docker/memmachine/config.yaml.template`:
+
+```yaml
+# Long-term memory configuration
+long_term_memory:
+  embedder: bar_embedder
+  reranker: bar_reranker  # REQUIRED - was missing
+  vector_graph_store: bar_storage
+
+# ... (other config)
+
+# Reranker configuration (identity reranker - no reranking, pass-through)
+reranker:
+  bar_reranker:
+    provider: "identity"
+```
+
+**Reranker Options**:
+- `identity`: Pass-through, no reranking (simplest, fastest)
+- `bm25`: Keyword-based reranking
+- `cross-encoder`: ML-based semantic reranking (most accurate, slowest)
+- `rrf-hybrid`: Combines multiple rerankers
+
+**Rebuild Container**:
+```bash
+docker compose build memmachine
+docker compose up -d memmachine
+```
+
+### Issue 3: Shopping List Stats Not Auto-Refreshing After Deletions
+
+**Problem**: "Already Craftable" and "Near Misses" stats update after CSV upload but NOT after deleting recipes.
+
+**Root Cause**: Upload handlers call `fetchShoppingList()` but delete handlers don't.
+
+**Files Fixed**:
+
+1. **src/app/recipes/page.tsx** - Added to both delete handlers:
+```typescript
+const handleDeleteAll = async () => {
+  // ... existing code
+  await loadRecipes(1);
+  await fetchCollections();
+  await fetchShoppingList();  // ADDED
+  // ...
+};
+
+const handleBulkDelete = async () => {
+  // ... existing code
+  await loadRecipes(currentPage);
+  await fetchCollections();
+  await fetchShoppingList();  // ADDED
+  // ...
+};
+```
+
+2. **src/components/modals/RecipeDetailModal.tsx** - Added to delete handler:
+```typescript
+const handleDelete = async () => {
+  // ... existing code
+  await deleteRecipe(recipe.id);
+  await fetchRecipes();
+  await fetchShoppingList();  // ADDED
+  // ...
+};
+```
+
+**Pattern**: Always call `fetchShoppingList()` after ANY recipe operation (add, update, delete) to keep stats in sync.
+
+### Issue 4: AddRecipeModal Positioning Bug
+
+**Problem**: Modal appearing at bottom of page instead of centered. Backdrop overlay working (screen darkens) but modal not centered.
+
+**Root Cause**: Modal was **sibling** of backdrop instead of **child**. Backdrop had `display: flex; align-items: center; justify-content: center` but modal was outside it.
+
+**Bad Structure**:
+```tsx
+<>
+  <div className={styles.backdrop} onClick={handleClose} />
+  <div className={styles.modal}>...</div>  {/* Sibling, not child */}
+</>
+```
+
+**Fixed Structure**:
+```tsx
+<div className={styles.backdrop} onClick={handleClose}>
+  <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+    ...
+  </div>
+</div>
+```
+
+**Key Points**:
+- Modal must be child of backdrop for flexbox centering to work
+- Use `stopPropagation()` to prevent content clicks from closing modal
+- Backdrop uses `position: fixed; display: flex; align-items: center; justify-content: center`
+
+### Issue 5: Ingredients Input UX Improvements
+
+**Problem**: Ingredients in both AddRecipeModal and RecipeDetailModal were plain textareas. Hard to add/edit individual ingredients.
+
+**Solution**: Implemented dynamic array of input fields with add/remove functionality.
+
+**Features**:
+- Individual `<input>` for each ingredient
+- Press **Enter** in any field to add new ingredient
+- "Add Ingredient" button
+- Trash icon to remove (keeps minimum of 1)
+- Help text: "Press Enter to quickly add another ingredient"
+
+**Implementation Pattern**:
+```typescript
+// Change state from string to string[]
+type FormState = {
+  ingredients: string[];  // Was: string
+}
+
+// Ingredient management functions
+const handleIngredientChange = (index: number, value: string) => {
+  const newIngredients = [...formData.ingredients];
+  newIngredients[index] = value;
+  setFormData({ ...formData, ingredients: newIngredients });
+};
+
+const handleIngredientKeyDown = (index: number, e: React.KeyboardEvent) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    addIngredient();
+  }
+};
+
+const addIngredient = () => {
+  setFormData({
+    ...formData,
+    ingredients: [...formData.ingredients, '']
+  });
+};
+
+const removeIngredient = (index: number) => {
+  if (formData.ingredients.length === 1) return;
+  setFormData({
+    ...formData,
+    ingredients: formData.ingredients.filter((_, i) => i !== index)
+  });
+};
+```
+
+**UI**:
+```tsx
+{formData.ingredients.map((ingredient, index) => (
+  <div key={index} style={{ display: 'flex', gap: '8px' }}>
+    <input
+      value={ingredient}
+      onChange={(e) => handleIngredientChange(index, e.target.value)}
+      onKeyDown={(e) => handleIngredientKeyDown(index, e)}
+      placeholder={index === 0 ? 'e.g., 2 oz Tequila' : `Ingredient ${index + 1}`}
+    />
+    {formData.ingredients.length > 1 && (
+      <Button onClick={() => removeIngredient(index)}>
+        <Trash2 size={18} />
+      </Button>
+    )}
+  </div>
+))}
+<Button onClick={addIngredient}>
+  <Plus size={16} /> Add Ingredient
+</Button>
+```
+
+**Files Updated**:
+- `src/components/modals/AddRecipeModal.tsx`
+- `src/components/modals/RecipeDetailModal.tsx`
+
+---
+
 ## 2025-11-26 - Docker Desktop Setup on Mac (Troubleshooting Guide)
 
 **Context**: Setting up Docker environment on Mac. User had Docker Desktop installed but `docker` command not working. Multiple issues encountered related to Mac-specific Docker installation.

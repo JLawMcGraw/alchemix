@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { X, Star, Martini, Edit2, Save, Trash2, FolderOpen } from 'lucide-react';
+import { X, Star, Martini, Edit2, Save, Trash2, FolderOpen, Plus } from 'lucide-react';
 import { Button, useToast } from '@/components/ui';
 import { useStore } from '@/lib/store';
 import type { Recipe, Collection } from '@/types';
@@ -27,7 +27,7 @@ export function RecipeDetailModal({
   const [editedRecipe, setEditedRecipe] = useState<Partial<Recipe>>({});
   const [showCollectionSelect, setShowCollectionSelect] = useState(false);
   const [selectedCollectionId, setSelectedCollectionId] = useState<number | null>(null);
-  const { updateRecipe, deleteRecipe, fetchRecipes, collections, fetchCollections } = useStore();
+  const { updateRecipe, deleteRecipe, fetchRecipes, collections, fetchCollections, fetchShoppingList } = useStore();
   const { showToast } = useToast();
 
   // Helper function to parse ingredients
@@ -45,9 +45,10 @@ export function RecipeDetailModal({
   // Initialize edit form when recipe changes
   useEffect(() => {
     if (recipe && isOpen) {
+      const parsedIngredients = parseIngredients(recipe.ingredients);
       setEditedRecipe({
         name: recipe.name,
-        ingredients: recipe.ingredients,
+        ingredients: parsedIngredients.length > 0 ? parsedIngredients : [''],
         instructions: recipe.instructions,
         glass: recipe.glass,
         category: recipe.category,
@@ -65,7 +66,15 @@ export function RecipeDetailModal({
     if (!recipe?.id) return;
 
     try {
-      await updateRecipe(recipe.id, editedRecipe);
+      // Filter out empty ingredients before saving
+      const filteredIngredients = Array.isArray(editedRecipe.ingredients)
+        ? editedRecipe.ingredients.filter(ing => ing.trim())
+        : [];
+
+      await updateRecipe(recipe.id, {
+        ...editedRecipe,
+        ingredients: filteredIngredients
+      });
       await fetchRecipes();
       setIsEditMode(false);
       showToast('success', 'Recipe updated successfully');
@@ -86,6 +95,8 @@ export function RecipeDetailModal({
     try {
       await deleteRecipe(recipe.id);
       await fetchRecipes();
+      // Refresh shopping list stats to update Total Recipes, Craftable, Near Misses
+      await fetchShoppingList();
       showToast('success', 'Recipe deleted successfully');
       onClose();
     } catch (error) {
@@ -116,9 +127,10 @@ export function RecipeDetailModal({
   // Handle cancel edit
   const handleCancel = () => {
     if (recipe) {
+      const parsedIngredients = parseIngredients(recipe.ingredients);
       setEditedRecipe({
         name: recipe.name,
-        ingredients: recipe.ingredients,
+        ingredients: parsedIngredients.length > 0 ? parsedIngredients : [''],
         instructions: recipe.instructions,
         glass: recipe.glass,
         category: recipe.category,
@@ -127,11 +139,36 @@ export function RecipeDetailModal({
     setIsEditMode(false);
   };
 
-  // Handle ingredient changes (convert between string and array)
-  const handleIngredientsChange = (value: string) => {
-    // Split by newlines for easy editing
-    const ingredientsArray = value.split('\n').filter(line => line.trim());
-    setEditedRecipe({ ...editedRecipe, ingredients: ingredientsArray });
+  // Ingredient management functions
+  const handleIngredientChange = (index: number, value: string) => {
+    if (!Array.isArray(editedRecipe.ingredients)) return;
+    const newIngredients = [...editedRecipe.ingredients];
+    newIngredients[index] = value;
+    setEditedRecipe({ ...editedRecipe, ingredients: newIngredients });
+  };
+
+  const handleIngredientKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addIngredient();
+    }
+  };
+
+  const addIngredient = () => {
+    const currentIngredients = Array.isArray(editedRecipe.ingredients) ? editedRecipe.ingredients : [''];
+    setEditedRecipe({
+      ...editedRecipe,
+      ingredients: [...currentIngredients, '']
+    });
+  };
+
+  const removeIngredient = (index: number) => {
+    if (!Array.isArray(editedRecipe.ingredients)) return;
+    if (editedRecipe.ingredients.length === 1) return; // Keep at least one
+    setEditedRecipe({
+      ...editedRecipe,
+      ingredients: editedRecipe.ingredients.filter((_, i) => i !== index)
+    });
   };
 
   // Focus management and keyboard shortcuts
@@ -175,7 +212,10 @@ export function RecipeDetailModal({
 
   if (!isOpen || !recipe) return null;
 
-  const ingredientsArray = parseIngredients(isEditMode ? editedRecipe.ingredients : recipe.ingredients);
+  // In edit mode, ingredients are already an array; in view mode, parse from recipe
+  const ingredientsArray = isEditMode
+    ? (Array.isArray(editedRecipe.ingredients) ? editedRecipe.ingredients : [])
+    : parseIngredients(recipe.ingredients);
 
   return (
     <div className={styles.overlay} onClick={onClose}>
@@ -256,13 +296,44 @@ export function RecipeDetailModal({
           <section className={styles.section}>
             <h3 className={styles.sectionTitle}>Ingredients</h3>
             {isEditMode ? (
-              <textarea
-                value={ingredientsArray.join('\n')}
-                onChange={(e) => handleIngredientsChange(e.target.value)}
-                className={styles.textarea}
-                placeholder="Enter each ingredient on a new line&#10;e.g., 2 oz Bourbon&#10;1 sugar cube&#10;2 dashes bitters"
-                rows={6}
-              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {Array.isArray(editedRecipe.ingredients) && editedRecipe.ingredients.map((ingredient, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      value={ingredient}
+                      onChange={(e) => handleIngredientChange(index, e.target.value)}
+                      onKeyDown={(e) => handleIngredientKeyDown(index, e)}
+                      className={styles.textInput}
+                      placeholder={index === 0 ? 'e.g., 2 oz Bourbon' : `Ingredient ${index + 1}`}
+                      style={{ flex: 1 }}
+                    />
+                    {editedRecipe.ingredients.length > 1 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeIngredient(index)}
+                        style={{ padding: '8px', minWidth: 'auto', color: 'var(--color-semantic-error)' }}
+                        aria-label="Remove ingredient"
+                      >
+                        <Trash2 size={18} />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={addIngredient}
+                  style={{ alignSelf: 'flex-start' }}
+                >
+                  <Plus size={16} />
+                  Add Ingredient
+                </Button>
+                <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
+                  Press Enter to quickly add another ingredient
+                </span>
+              </div>
             ) : (
               <>
                 {ingredientsArray.length > 0 ? (

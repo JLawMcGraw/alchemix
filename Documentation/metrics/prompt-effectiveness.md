@@ -9,13 +9,49 @@
 | Tasks Completed | 17 per session |
 | Overall Satisfaction | 4.9/5 |
 
-Last updated: 2025-11-19 (Session 15)
+Last updated: 2025-11-26 (Session 25)
 
 ---
 
 ## Detailed Records
 
 **IMPORTANT: Always ADD a NEW entry - NEVER edit existing entries - these are historical records!**
+
+### 2025-11-26 - end-of-session (Session 25 - MemMachine Integration Fixes & Recipe Modal UX)
+
+- **Session Focus**: Fixed MemMachine integration after Docker setup completion. All recipe uploads failing with 404/500 errors. Debugged port configuration (8001 vs 8080), added missing reranker config, fixed auto-refresh of shopping list stats after deletions, improved recipe modal positioning, implemented dynamic ingredient inputs with keyboard shortcuts.
+- **Documentation Updated**: PROJECT_PROGRESS.md (new session entry with 5 issues resolved), DEV_NOTES.md (comprehensive MemMachine troubleshooting, modal positioning patterns, ingredient UX implementation), README.md (version v1.18.4, feature updates), prompt-effectiveness.md
+- **Completion**: ✅ Successful (MemMachine batch upload working, stats auto-refreshing, modals improved, all 5 issues resolved)
+- **Time Saved**: ~75 minutes (MemMachine service architecture debugging, port configuration diagnosis, reranker config research, container rebuilding, modal positioning CSS debugging, dynamic ingredient UX implementation with add/remove/keyboard shortcuts)
+- **Quality**: 5/5 (Complete end-to-end MemMachine integration working, comprehensive troubleshooting documented, UX significantly improved with keyboard shortcuts and dynamic inputs, clear architectural understanding of service ports)
+- **Issues Resolved**:
+  - **MemMachine 404 Errors**: Wrong port in api/.env (8001 = Bar Server, not MemMachine)
+    - **Solution**: Changed MEMMACHINE_API_URL to http://localhost:8080 (MemMachine service)
+    - **Documentation**: Service architecture (port 8080 = MemMachine full API, 8001 = Bar Server query constructor)
+  - **MemMachine 500 Errors**: Missing reranker configuration in config.yaml.template
+    - **Solution**: Added `reranker: bar_reranker` to long_term_memory and created reranker section
+    - **Options Documented**: identity (pass-through), bm25 (keyword), cross-encoder (ML), rrf-hybrid (combined)
+  - **Stats Not Auto-Refreshing**: Shopping list stats only updating after uploads, not deletions
+    - **Solution**: Added `fetchShoppingList()` to all 3 delete handlers
+    - **Pattern**: Always refresh stats after ANY recipe operation (add/update/delete)
+  - **AddRecipeModal Positioning**: Modal appearing at bottom instead of centered
+    - **Solution**: Nested modal div inside backdrop (child not sibling) with stopPropagation
+    - **Pattern**: Modal must be child of backdrop for flexbox centering
+  - **Ingredients Input UX**: Plain textarea hard to edit individual ingredients
+    - **Solution**: Dynamic array of inputs with Enter key, Add button, Trash icon, minimum 1 ingredient
+    - **Files**: AddRecipeModal.tsx and RecipeDetailModal.tsx both updated
+- **Technical Achievements**:
+  - Debugged MemMachine service architecture (2 services, different ports)
+  - Fixed Docker configuration and rebuilt container successfully
+  - Implemented keyboard shortcuts (Enter to add ingredient)
+  - Created reusable ingredient management pattern for modals
+  - Ensured consistent data sync across all recipe operations
+- **Files Modified** (5 files):
+  - `api/.env` - Port configuration fix
+  - `docker/memmachine/config.yaml.template` - Reranker config
+  - `src/app/recipes/page.tsx` - Stats refresh in delete handlers
+  - `src/components/modals/AddRecipeModal.tsx` - Positioning + ingredients UX
+  - `src/components/modals/RecipeDetailModal.tsx` - Delete stats + ingredients UX
 
 ### 2025-11-26 - end-of-session (Session 24 - Docker Desktop Mac Setup & Troubleshooting)
 

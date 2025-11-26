@@ -354,6 +354,8 @@ function RecipesPageContent() {
       const result = await recipeApi.deleteAll();
       await loadRecipes(1);
       await fetchCollections();
+      // Refresh shopping list stats to update Total Recipes, Craftable, Near Misses
+      await fetchShoppingList();
       setSelectedRecipes(new Set());
       showToast('success', result.message);
       setShowDeleteConfirm(false);
@@ -437,6 +439,8 @@ function RecipesPageContent() {
       const deleted = await bulkDeleteRecipes(ids);
       await loadRecipes(currentPage);
       await fetchCollections();
+      // Refresh shopping list stats to update Total Recipes, Craftable, Near Misses
+      await fetchShoppingList();
       setSelectedRecipes(new Set());
       showToast('success', `Deleted ${deleted} ${deleted === 1 ? 'recipe' : 'recipes'}`);
     } catch (error) {

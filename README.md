@@ -8,10 +8,10 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 
 ## ✨ Current Status
 
-**Version:** v1.18.3 (Docker Mac Setup Complete)
-**Phase:** Production Ready - Full Docker Environment Operational
+**Version:** v1.18.4 (MemMachine Integration Complete)
+**Phase:** Production Ready - Full Stack Operational
 **Last Updated:** November 26, 2025
-**Known Issues:** None - Docker setup complete on Mac, hybrid development environment operational
+**Known Issues:** None - MemMachine fully operational, recipe modals improved
 
 ### What's Working
 - ✅ **Complete TypeScript monorepo** (Frontend + Backend) ⭐
@@ -66,8 +66,10 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
   - Bulk delete endpoint (up to 500 recipes) with atomic state updates
   - Uncategorized recipes section for recipes not in collections
   - Database-accurate recipe counts (handles 200+ recipes correctly)
+  - **Auto-refresh stats** after any recipe operation (add/delete/update) ⭐ **v1.18.4**
+  - **Improved recipe modals** with dynamic ingredient inputs (Enter to add) ⭐ **v1.18.4**
 - ✅ **AI Bartender with MemMachine Memory** - Context-aware Claude AI with semantic recipe search ⭐⭐⭐⭐
-  - **MemMachine V1 Integration**: User-specific AI memory with semantic search over recipes ⭐ **NEW v1.18**
+  - **MemMachine V1 Integration**: User-specific AI memory with semantic search over recipes ⭐ **v1.18**
     - **Complete V1 API Migration**: Full TypeScript types, response validation, semantic search tested
     - Each user has isolated memory namespace (`user_{userId}`) - zero cross-user data leakage
     - Automatic recipe storage on create/import with v1 `/v1/memories` endpoint
@@ -77,6 +79,7 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
     - Response validation with nested array flattening (episodic_memory[][])
     - Fire-and-forget pattern ensures core functionality never fails if MemMachine is down
     - **Verified Testing**: 241/241 recipes successfully seeded, semantic search returning relevant results
+    - **Fixed Configuration** (v1.18.4): Correct port (8080), reranker config, batch upload working ⭐
   - **Claude Haiku 4.5** with **Prompt Caching** (claude-haiku-4-5-20251001) ⭐ **NEW v1.17**
     - **98% total cost reduction** ($0.75 → $0.015 per session with semantic search + caching)
     - Intelligent caching: Static context (inventory/recipes) cached for 5-min TTL with 90% discount

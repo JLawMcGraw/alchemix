@@ -7,6 +7,7 @@ logging:
 # Long-term memory configuration
 long_term_memory:
   embedder: bar_embedder
+  reranker: bar_reranker
   vector_graph_store: bar_storage
 
 # Session database (SQLite for simplicity)
@@ -66,3 +67,8 @@ embedder:
 # Prompt configuration
 prompt:
   profile: profile_prompt
+
+# Reranker configuration (identity reranker - no reranking, pass-through)
+reranker:
+  bar_reranker:
+    provider: "identity"

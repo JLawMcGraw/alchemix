@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Plus, X, AlertCircle } from 'lucide-react';
+import { Plus, X, AlertCircle, Trash2 } from 'lucide-react';
 import { Button, Input, Spinner, SuccessCheckmark } from '@/components/ui';
 import type { Recipe, Collection } from '@/types';
 import styles from './BottleFormModal.module.css';
@@ -15,7 +15,7 @@ interface AddRecipeModalProps {
 
 type FormState = {
   name: string;
-  ingredients: string;
+  ingredients: string[];
   instructions: string;
   glass: string;
   category: string;
@@ -25,7 +25,7 @@ type FormState = {
 
 const createInitialFormState = (): FormState => ({
   name: '',
-  ingredients: '',
+  ingredients: [''],
   instructions: '',
   glass: '',
   category: '',
@@ -90,9 +90,6 @@ export function AddRecipeModal({ isOpen, onClose, onAdd, collections = [] }: Add
     if (name === 'name' && !value.trim()) {
       return 'Recipe name is required';
     }
-    if (name === 'ingredients' && !value.trim()) {
-      return 'Ingredients are required';
-    }
     return null;
   };
 
@@ -117,14 +114,54 @@ export function AddRecipeModal({ isOpen, onClose, onAdd, collections = [] }: Add
     }
   };
 
+  const handleIngredientChange = (index: number, value: string) => {
+    const newIngredients = [...formData.ingredients];
+    newIngredients[index] = value;
+    setFormData((prev) => ({ ...prev, ingredients: newIngredients }));
+    setIsDirty(true);
+
+    // Clear ingredients error if at least one ingredient has content
+    if (fieldErrors.ingredients && newIngredients.some(ing => ing.trim())) {
+      setFieldErrors((prev) => {
+        const next = { ...prev };
+        delete next.ingredients;
+        return next;
+      });
+    }
+  };
+
+  const handleIngredientKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addIngredient();
+    }
+  };
+
+  const addIngredient = () => {
+    setFormData((prev) => ({
+      ...prev,
+      ingredients: [...prev.ingredients, '']
+    }));
+  };
+
+  const removeIngredient = (index: number) => {
+    if (formData.ingredients.length === 1) return; // Keep at least one
+    setFormData((prev) => ({
+      ...prev,
+      ingredients: prev.ingredients.filter((_, i) => i !== index)
+    }));
+  };
+
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
 
     if (!formData.name.trim()) {
       errors.name = 'Recipe name is required';
     }
-    if (!formData.ingredients.trim()) {
-      errors.ingredients = 'Ingredients are required';
+
+    const hasIngredients = formData.ingredients.some(ing => ing.trim());
+    if (!hasIngredients) {
+      errors.ingredients = 'At least one ingredient is required';
     }
 
     setFieldErrors(errors);
@@ -142,9 +179,8 @@ export function AddRecipeModal({ isOpen, onClose, onAdd, collections = [] }: Add
     setLoading(true);
 
     try {
-      // Parse ingredients into array (split by newline or comma)
+      // Filter out empty ingredients
       const ingredientsArray = formData.ingredients
-        .split(/[\n,]/)
         .map(i => i.trim())
         .filter(i => i.length > 0);
 
@@ -196,14 +232,11 @@ export function AddRecipeModal({ isOpen, onClose, onAdd, collections = [] }: Add
   if (!isOpen) return null;
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className={styles.backdrop}
-        onClick={handleClose}
-        aria-hidden="true"
-      />
-
+    <div
+      className={styles.backdrop}
+      onClick={handleClose}
+      aria-hidden="true"
+    >
       {/* Modal */}
       <div
         ref={modalRef}
@@ -211,6 +244,7 @@ export function AddRecipeModal({ isOpen, onClose, onAdd, collections = [] }: Add
         role="dialog"
         aria-labelledby="add-recipe-title"
         aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className={styles.modalHeader}>
@@ -263,22 +297,58 @@ export function AddRecipeModal({ isOpen, onClose, onAdd, collections = [] }: Add
             />
 
             <div className={styles.formGroup}>
-              <label htmlFor="ingredients" className={styles.label}>
+              <label className={styles.label}>
                 Ingredients <span className={styles.required}>*</span>
               </label>
-              <textarea
-                id="ingredients"
-                name="ingredients"
-                value={formData.ingredients}
-                onChange={handleChange}
-                className={`${styles.textarea} ${fieldErrors.ingredients ? styles.inputError : ''}`}
-                placeholder="Enter ingredients, one per line or comma-separated&#10;e.g.,&#10;2 oz Tequila&#10;1 oz Lime juice&#10;0.5 oz Triple Sec"
-                rows={6}
-                required
-              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {formData.ingredients.map((ingredient, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      value={ingredient}
+                      onChange={(e) => handleIngredientChange(index, e.target.value)}
+                      onKeyDown={(e) => handleIngredientKeyDown(index, e)}
+                      className={`${styles.textarea} ${fieldErrors.ingredients ? styles.inputError : ''}`}
+                      placeholder={index === 0 ? 'e.g., 2 oz Tequila' : `Ingredient ${index + 1}`}
+                      style={{
+                        flex: 1,
+                        minHeight: 'auto',
+                        padding: '10px 12px',
+                        fontFamily: 'var(--font-body)',
+                        fontSize: 'var(--text-base)',
+                      }}
+                    />
+                    {formData.ingredients.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeIngredient(index)}
+                        style={{ padding: '8px', minWidth: 'auto', color: 'var(--color-semantic-error)' }}
+                        aria-label="Remove ingredient"
+                      >
+                        <Trash2 size={18} />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addIngredient}
+                  style={{ alignSelf: 'flex-start' }}
+                >
+                  <Plus size={16} />
+                  Add Ingredient
+                </Button>
+              </div>
               {fieldErrors.ingredients && (
                 <span className={styles.errorText}>{fieldErrors.ingredients}</span>
               )}
+              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', marginTop: '4px' }}>
+                Press Enter to quickly add another ingredient
+              </span>
             </div>
 
             <div className={styles.formGroup}>
@@ -375,6 +445,6 @@ export function AddRecipeModal({ isOpen, onClose, onAdd, collections = [] }: Add
           </div>
         </form>
       </div>
-    </>
+    </div>
   );
 }
