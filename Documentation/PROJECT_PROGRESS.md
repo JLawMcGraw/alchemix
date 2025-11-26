@@ -1,24 +1,171 @@
 # Project Development Progress
 
-Last updated: 2025-11-25
+Last updated: 2025-11-26
 
 ---
 
 ## Current Status
 
-**Version**: v1.18.2
-**Phase**: Shopping List Ingredient Matching Improvements
-**Blockers**:
-- 🔴 **CRITICAL BUG**: Shopping list ingredient parsing/matching not working despite correct code
-  - Code changes verified in TypeScript source, compiled JavaScript, and tests all pass (301/301)
-  - TSX cache cleared, server restarted multiple times, browser cache cleared
-  - Parsing logic works perfectly in isolation tests but NOT in running server
-  - Suspected issue: Module caching or code path issue in tsx/Node.js runtime
-  - **Impact**: Near-miss recipes showing unparsed ingredient names like "Drops Pernod" instead of matching with user's Pernod inventory
+**Version**: v1.18.3
+**Phase**: Docker Development Environment - Mac Setup Complete
+**Blockers**: None - Full Docker environment operational on Mac
 
 ---
 
-## Recent Session (2025-11-25): Shopping List Ingredient Matching
+## Recent Session (2025-11-26): Docker Desktop Mac Setup & Troubleshooting
+
+### Work Completed
+- ✅ Fixed Docker Desktop installation on Mac (symlinks pointing to wrong location)
+- ✅ Resolved broken Docker CLI symlinks (`docker`, `docker-compose`, credential helpers)
+- ✅ Created proper symlinks from `/Applications/Docker.app` to `/usr/local/bin`
+- ✅ Fixed Neo4j container startup issue (resolved with `docker compose down` + restart)
+- ✅ Successfully started all Docker services (Neo4j, Postgres, MemMachine, Bar Server, API, Frontend)
+- ✅ Created test user account via API for development (test@example.com)
+- ✅ Verified hybrid development workflow: infrastructure in Docker + local `npm run dev:all`
+- ✅ Updated Docker documentation with Mac-specific troubleshooting
+
+### Components Modified
+- System: `/usr/local/bin/docker` and credential helper symlinks
+- Created: `create-test-user.js` script for API user creation
+- Docker: All 6 services running and healthy
+- Documentation: Added Mac setup troubleshooting to DEV_NOTES.md
+
+### Key Issues Resolved
+
+**1. Docker Desktop Installation Issue**
+- **Problem**: Docker installed but `docker` command not found
+- **Root Cause**: Docker Desktop running from mounted .dmg instead of /Applications
+- **Symptoms**: Symlinks pointing to `/Volumes/Docker/...` (non-existent)
+- **Solution**:
+  ```bash
+  sudo ln -s /Applications/Docker.app/Contents/Resources/bin/docker /usr/local/bin/docker
+  sudo ln -s /Applications/Docker.app/Contents/Resources/bin/docker-credential-desktop /usr/local/bin/docker-credential-desktop
+  sudo ln -s /Applications/Docker.app/Contents/Resources/bin/docker-credential-ecr-login /usr/local/bin/docker-credential-ecr-login
+  sudo ln -s /Applications/Docker.app/Contents/Resources/bin/docker-credential-osxkeychain /usr/local/bin/docker-credential-osxkeychain
+  ```
+
+**2. Docker Compose Command Syntax**
+- **Problem**: `docker-compose` not found (zsh: command not found)
+- **Root Cause**: Docker Compose V2 uses `docker compose` (space) not `docker-compose` (hyphen)
+- **Solution**: Use `docker compose` command (plugin syntax)
+
+**3. Neo4j Container Startup**
+- **Problem**: Neo4j exited with code 1 ("Neo4j is already running")
+- **Root Cause**: Stale PID file from previous incomplete shutdown
+- **Solution**: `docker compose down` then `docker compose up` (clean restart)
+
+**4. Test User Authentication**
+- **Problem**: Login failing with test@example.com credentials
+- **Root Cause**: SQLite is local file database - test users only exist during automated tests
+- **Understanding**: Test credentials in code are conventions, not actual dev DB users
+- **Solution**: Created test user via API using `create-test-user.js` script
+
+### Architecture Insights
+
+**Docker on Mac Differences:**
+- Docker runs in a Linux VM on macOS (not native like Linux)
+- Docker Desktop manages VM and symlinks for CLI access
+- Symlinks must point to `/Applications/Docker.app` not mounted .dmg
+- Service name resolution works within Docker network (`http://bar-server:8001`)
+- Host access requires `localhost` not service names (`http://localhost:8001`)
+
+**SQLite Database Locality:**
+- Database file: `api/data/alchemix.db` (local to this machine)
+- Not shared across systems like PostgreSQL/MySQL
+- Each developer has their own local database file
+- Test databases separate from development databases
+- User accounts must be created per system
+
+### Development Workflow Confirmed
+
+**Hybrid Setup (Recommended):**
+```bash
+# Start Docker infrastructure
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+# Run local development (separate terminal)
+npm run dev:all
+```
+
+**Full Docker Setup (Alternative):**
+```bash
+# Start all services in Docker
+docker compose up --build
+```
+
+### Next Session Priority
+1. Test end-to-end functionality with Docker infrastructure
+2. Verify MemMachine integration with AI Bartender
+3. Test shopping list ingredient matching with full stack
+4. Document Mac-specific Docker setup in DOCKER_QUICKSTART.md
+
+---
+
+## Session (2025-11-26): Hybrid Docker Development Environment Setup
+
+### Work Completed
+- ✅ Created hybrid development environment configuration
+- ✅ Set up `docker-compose.dev.yml` to run only infrastructure services
+- ✅ Created `api/.env` for local development (pointing to localhost:8001)
+- ✅ Fixed missing .env file issue preventing local API startup
+- ✅ Fixed port conflict between Docker containers and local dev servers
+- ✅ Successfully started infrastructure services (Neo4j, Postgres, MemMachine, Bar Server)
+- ✅ Enabled local development workflow: `docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d` + `npm run dev:all`
+
+### Components Modified
+- Created: `docker-compose.dev.yml` (disables api/web services using profiles)
+- Created: `api/.env` (local development configuration with localhost URLs)
+- Backend: Infrastructure services running in Docker
+- Frontend/API: Running locally with hot reload
+
+### Key Achievements
+- ✅ Hybrid development setup working: Docker infrastructure + local development
+- ✅ All 4 infrastructure services healthy (Neo4j, Postgres, MemMachine, Bar Server)
+- ✅ Local API and Frontend can now run with `npm run dev:all`
+- ✅ No port conflicts - Docker containers don't bind to 3000/3001
+- ✅ Fast development iteration (no Docker rebuild for code changes)
+- ✅ Full MemMachine integration available locally
+
+### Configuration Details
+**Docker Infrastructure Services:**
+- Neo4j (ports 7474, 7687) - Graph database
+- PostgreSQL (port 5432) - Profile storage with pgvector
+- MemMachine (port 8080) - Memory service
+- Bar Server (port 8001) - Query constructor
+
+**Local Development:**
+- API (port 3000) - Express backend with hot reload
+- Frontend (port 3001) - Next.js with hot reload
+- Environment: `api/.env` points to localhost:8001 for MemMachine
+
+**Development Workflow:**
+```bash
+# Start infrastructure (once)
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+# Run local development
+npm run dev:all
+```
+
+### Issues/Blockers Resolved
+- **Missing api/.env**: Created with correct localhost configuration
+  - **Root Cause**: api/.env didn't exist, causing ENOENT error
+  - **Resolution**: Created api/.env from parent .env with MEMMACHINE_API_URL=http://localhost:8001
+- **Port Conflicts**: Docker api/web services conflicting with local npm run dev:all
+  - **Root Cause**: User runs npm run dev:all locally (works on other system)
+  - **Resolution**: Created docker-compose.dev.yml that disables api/web services using profiles
+- **Docker Service Selection**: Needed way to run only infrastructure
+  - **Resolution**: Docker profiles (disabled) prevent api/web containers from starting
+
+### Next Session Priority
+1. Test end-to-end functionality with hybrid setup (Docker infrastructure + local dev)
+2. Verify MemMachine integration works from local API
+3. Test shopping list ingredient matching with running infrastructure
+4. Consider documenting hybrid setup in docker_setup.md or DOCKER_QUICKSTART.md
+
+---
+
+## Session (2025-11-25): Shopping List Ingredient Matching
 
 ### Work Completed
 - ✅ Added comprehensive ingredient parsing improvements

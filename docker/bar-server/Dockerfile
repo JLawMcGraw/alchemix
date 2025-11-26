@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -12,13 +12,21 @@ RUN apt-get update && apt-get install -y \
 # Install uv (fast Python package installer)
 RUN pip install uv
 
-# Copy bar_assistant files from mounted MemMachine volume
-# The volume is mounted at /memmachine during build
-ARG MEMMACHINE_PATH=/memmachine
-COPY ${MEMMACHINE_PATH}/examples/bar_assistant /app/
+# Copy bar_assistant files from build context
+COPY MemMachine/examples/bar_assistant /app/
 
-# Install MemMachine package from mounted volume
-RUN uv pip install --system -e ${MEMMACHINE_PATH}
+# Copy additional required modules from examples
+COPY MemMachine/examples/base_query_constructor.py /app/
+COPY MemMachine/examples/default_query_constructor.py /app/
+COPY MemMachine/examples/example_server.py /app/
+
+# Copy health endpoint helper and wrapper script
+COPY alchemix/docker/bar-server/health_endpoint.py /app/
+COPY alchemix/docker/bar-server/bar_server_wrapper.py /app/
+
+# Install MemMachine package
+COPY MemMachine /tmp/memmachine
+RUN uv pip install --system -e /tmp/memmachine
 
 # Install bar_assistant dependencies if they exist
 RUN if [ -f requirements.txt ]; then uv pip install --system -r requirements.txt; fi
@@ -31,5 +39,5 @@ EXPOSE 8001
 HEALTHCHECK --interval=15s --timeout=10s --retries=3 \
     CMD curl -f http://localhost:8001/health || exit 1
 
-# Run bar server
-CMD ["python", "bar_server.py"]
+# Run bar server wrapper (includes health endpoint)
+CMD ["python", "bar_server_wrapper.py"]

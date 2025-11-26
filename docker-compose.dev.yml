@@ -1,0 +1,18 @@
+# Docker Compose override for local development
+# This file runs only infrastructure services (Neo4j, Postgres, MemMachine, Bar Server)
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Then run your API and Frontend locally with: npm run dev:all
+
+version: '3.8'
+
+services:
+  # Disable api service (run locally instead)
+  api:
+    profiles:
+      - disabled
+
+  # Disable web service (run locally instead)
+  web:
+    profiles:
+      - disabled

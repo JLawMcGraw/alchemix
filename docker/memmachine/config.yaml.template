@@ -1,0 +1,68 @@
+# Alchemix Bar Assistant - MemMachine Configuration (Docker)
+
+logging:
+  path: /tmp/memory_log
+  level: info
+
+# Long-term memory configuration
+long_term_memory:
+  embedder: bar_embedder
+  vector_graph_store: bar_storage
+
+# Session database (SQLite for simplicity)
+SessionDB:
+  uri: sqlite:///bar_assistant.db
+
+# LLM Model configuration
+Model:
+  openai_model:
+    model_vendor: openai
+    model: "gpt-4o-mini"
+    api_key: ${OPENAI_API_KEY}
+
+# Profile memory configuration
+profile_memory:
+  llm_model: openai_model
+  embedding_model: bar_embedder
+  database: profile_storage
+  prompt: profile_prompt
+
+# Session memory configuration
+sessionMemory:
+  model_name: openai_model
+  message_capacity: 500
+  max_message_length: 16000
+  max_token_num: 8000
+
+# Storage configuration
+storage:
+  profile_storage:
+    vendor_name: postgres
+    host: ${POSTGRES_HOST}
+    port: ${POSTGRES_PORT}
+    user: ${POSTGRES_USER}
+    database: ${POSTGRES_DB}
+    password: ${POSTGRES_PASSWORD}
+
+# Vector store configuration (using Neo4j)
+vector_graph_store:
+  bar_storage:
+    provider: neo4j
+    config:
+      uri: '${NEO4J_URI}'
+      username: ${NEO4J_USER}
+      password: ${NEO4J_PASSWORD}
+      force_exact_similarity_search: false
+
+# Embedder configuration (OpenAI)
+embedder:
+  bar_embedder:
+    provider: "openai"
+    config:
+      api_key: ${OPENAI_API_KEY}
+      model: "text-embedding-3-small"
+      dimensions: 1536
+
+# Prompt configuration
+prompt:
+  profile: profile_prompt

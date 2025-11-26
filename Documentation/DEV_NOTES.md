@@ -4,6 +4,306 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-11-26 - Docker Desktop Setup on Mac (Troubleshooting Guide)
+
+**Context**: Setting up Docker environment on Mac. User had Docker Desktop installed but `docker` command not working. Multiple issues encountered related to Mac-specific Docker installation.
+
+### Issue 1: Docker Command Not Found
+
+**Problem**: `docker` command returns "command not found" even though Docker Desktop is installed and running.
+
+**Root Cause**: Docker Desktop was running from mounted .dmg file (`/Volumes/Docker/`) instead of being installed to `/Applications/`. Symlinks in `/usr/local/bin/` were pointing to non-existent paths.
+
+**Diagnosis Steps**:
+```bash
+# Check if Docker Desktop is in Applications
+ls -la /Applications/Docker.app
+
+# Check existing symlink (if any)
+ls -la /usr/local/bin/docker
+# Output showed: lrwxr-xr-x ... /usr/local/bin/docker -> /Volumes/Docker/Docker.app/...
+
+# Check actual binary location
+ls -la /Applications/Docker.app/Contents/Resources/bin/docker
+```
+
+**Solution**: Create correct symlinks after moving Docker to /Applications:
+
+```bash
+# Remove broken symlinks
+sudo rm /usr/local/bin/docker
+sudo rm /usr/local/bin/docker-credential-desktop
+sudo rm /usr/local/bin/docker-credential-ecr-login
+sudo rm /usr/local/bin/docker-credential-osxkeychain
+
+# Create correct symlinks
+sudo ln -s /Applications/Docker.app/Contents/Resources/bin/docker /usr/local/bin/docker
+sudo ln -s /Applications/Docker.app/Contents/Resources/bin/docker-credential-desktop /usr/local/bin/docker-credential-desktop
+sudo ln -s /Applications/Docker.app/Contents/Resources/bin/docker-credential-ecr-login /usr/local/bin/docker-credential-ecr-login
+sudo ln -s /Applications/Docker.app/Contents/Resources/bin/docker-credential-osxkeychain /usr/local/bin/docker-credential-osxkeychain
+```
+
+**Prevention**: Always install Docker Desktop to /Applications by dragging from .dmg, then unmount the .dmg. Don't run directly from the mounted disk image.
+
+### Issue 2: Docker Compose V2 Syntax
+
+**Problem**: `docker-compose` command returns "command not found".
+
+**Root Cause**: Docker Compose V2 is a plugin, not a standalone binary. The command syntax changed from `docker-compose` (hyphen) to `docker compose` (space).
+
+**Solution**: Use `docker compose` instead of `docker-compose`:
+
+```bash
+# Old syntax (V1) - won't work
+docker-compose up
+
+# New syntax (V2) - correct
+docker compose up
+```
+
+**Why**: Docker Desktop bundles Compose V2 as a CLI plugin. The old standalone `docker-compose` binary is deprecated.
+
+### Issue 3: Credential Helper Error
+
+**Problem**: `docker compose up` fails with "error getting credentials - exec: docker-credential-desktop: executable file not found in $PATH".
+
+**Root Cause**: Docker needs credential helper binaries to access container registries. These weren't symlinked from Docker.app.
+
+**Solution**: Create symlinks for all credential helpers (shown in Issue 1 solution above). Without these, Docker cannot authenticate to pull images from registries.
+
+### Issue 4: Neo4j Container "Already Running"
+
+**Problem**: Neo4j container exits immediately with "Neo4j is already running (pid:7)" error.
+
+**Root Cause**: Stale PID file left from previous incomplete container shutdown. Neo4j checks for running process and finds old PID.
+
+**Solution**:
+```bash
+# Stop all containers
+docker compose down
+
+# Restart (will recreate containers and clear stale state)
+docker compose up
+```
+
+**Alternative** (if problem persists):
+```bash
+# Remove volumes to completely reset
+docker compose down -v
+docker compose up --build
+```
+
+### Issue 5: Test User Login Failing
+
+**Problem**: Can't log in with `test@example.com` credentials that exist in test files.
+
+**Root Cause**: SQLite database is a local file (`api/data/alchemix.db`). Test users are created during automated tests in a separate test database, not in the development database.
+
+**Understanding**:
+- SQLite is not a database server - it's a file on disk
+- Each system has its own database file
+- Test credentials in code are conventions, not actual users
+- Tests create temporary test databases, dev uses persistent dev database
+
+**Solution**: Create test user via API:
+```javascript
+// create-test-user.js
+const http = require('http');
+const postData = JSON.stringify({
+  email: 'test@example.com',
+  password: 'Cocktail2025!'
+});
+
+const options = {
+  hostname: 'localhost',
+  port: 3000,
+  path: '/auth/signup',
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Content-Length': Buffer.byteLength(postData)
+  }
+};
+
+// ... (execute request)
+```
+
+Run with: `node create-test-user.js`
+
+### Mac-Specific Docker Gotchas
+
+**1. Docker runs in a VM on Mac**
+- Docker Engine runs in a lightweight Linux VM (HyperKit/Virtualization.framework)
+- Not native like on Linux
+- Adds slight performance overhead but negligible for development
+
+**2. Service name resolution**
+- Inside Docker network: Use service names (`http://bar-server:8001`)
+- From host Mac: Use `localhost` (`http://localhost:8001`)
+- Don't mix - containers can't reach `localhost` (it refers to container itself)
+
+**3. File system sharing**
+- Mac file system mounted into Docker VM
+- Volume mounts can be slow compared to native Linux
+- Use named volumes for better performance when possible
+
+**4. Docker Desktop must be running**
+- Unlike Linux, Docker daemon doesn't start automatically
+- Must launch Docker Desktop app before using `docker` commands
+- Check menu bar for Docker whale icon
+
+**5. Symlink requirements**
+- Docker Desktop creates symlinks in `/usr/local/bin`
+- If broken, must manually recreate (see Issue 1 solution)
+- Requires `sudo` for symlink creation
+
+### Verification Checklist
+
+After fixing Docker setup, verify everything works:
+
+```bash
+# 1. Check Docker CLI
+docker --version
+docker compose version
+
+# 2. Start services
+docker compose up
+
+# 3. Check all services healthy
+docker compose ps
+# Should show (healthy) for all services
+
+# 4. Test endpoints
+curl http://localhost:3000/health  # API
+curl http://localhost:8001/health  # Bar Server
+curl http://localhost:8080/health  # MemMachine
+open http://localhost:7474         # Neo4j Browser
+open http://localhost:3001         # Frontend
+```
+
+### Commands Reference
+
+```bash
+# Check Docker Desktop location
+ls -la /Applications/Docker.app
+
+# Check existing symlinks
+ls -la /usr/local/bin/docker*
+
+# View Docker logs
+docker compose logs -f
+
+# Restart specific service
+docker compose restart neo4j
+
+# Clean restart (removes stale state)
+docker compose down
+docker compose up
+
+# Nuclear option (removes all data)
+docker compose down -v
+docker compose up --build
+```
+
+---
+
+## 2025-11-26 - Hybrid Docker Development Environment
+
+**Context**: User runs `npm run dev:all` on their other system successfully while Docker infrastructure (MemMachine) runs separately. Needed to enable same workflow on this Mac.
+
+**Decision 1: Docker Compose Profiles for Service Selection**
+
+Problem: Running full `docker-compose up` starts API and Frontend containers, which conflict with local `npm run dev:all`.
+
+Solution: Created `docker-compose.dev.yml` using Docker profiles to disable specific services:
+
+```yaml
+# docker-compose.dev.yml
+services:
+  api:
+    profiles:
+      - disabled
+  web:
+    profiles:
+      - disabled
+```
+
+**How it works**:
+- Services with `profiles: [disabled]` won't start unless explicitly activated
+- Run with: `docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d`
+- Only infrastructure services start (Neo4j, Postgres, MemMachine, Bar Server)
+- No port conflicts with local development on 3000/3001
+
+**Alternative approaches considered**:
+1. ❌ `docker-compose up neo4j postgres memmachine bar-server` - Verbose, error-prone
+2. ❌ Separate `docker-compose.infra.yml` - Duplicates service definitions
+3. ✅ Override file with profiles - Clean, maintainable, standard Docker pattern
+
+**Decision 2: Separate api/.env for Local Development**
+
+Problem: Docker environment uses service names (`http://bar-server:8001`), local development uses `localhost`.
+
+Solution: Created separate `api/.env` for local development:
+
+```bash
+# api/.env (local development)
+MEMMACHINE_API_URL=http://localhost:8001
+
+# vs .env (Docker)
+MEMMACHINE_API_URL=http://bar-server:8001
+```
+
+**Why not shared .env?**:
+- Docker service discovery uses container names
+- Local development uses localhost ports
+- Different environments need different URLs
+- Prevents accidental misconfigurations
+
+**Decision 3: Infrastructure Services Remain in Docker**
+
+**Why run infrastructure in Docker (not locally)?**:
+1. **Complexity**: MemMachine requires Neo4j + Postgres + Python environment
+2. **Consistency**: Docker ensures identical environment across all developers
+3. **Ease of Use**: `docker-compose up -d` vs manual Neo4j/Postgres/MemMachine setup
+4. **Isolation**: Services don't pollute local environment
+5. **Fast Reset**: `docker-compose down -v` for clean slate
+
+**Why run API/Frontend locally (not in Docker)?**:
+1. **Hot Reload**: tsx/Next.js watch mode faster than Docker volume mounts
+2. **Debugging**: Direct Node.js debugging, no container overhead
+3. **IDE Integration**: Better TypeScript IntelliSense, imports work natively
+4. **Iteration Speed**: No rebuild wait times for code changes
+
+**Result**: Best of both worlds - Docker infrastructure stability + local development speed.
+
+**Commands Reference**:
+
+```bash
+# Start infrastructure (once per dev session)
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+# Check infrastructure status
+docker-compose ps
+
+# Run local development (separate terminal)
+npm run dev:all
+
+# Stop infrastructure when done
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml down
+```
+
+**Files Created**:
+- `docker-compose.dev.yml` - Service override with profiles
+- `api/.env` - Local development environment variables
+
+**Gotchas**:
+- Must use `-f` flag twice when starting Docker: `-f docker-compose.yml -f docker-compose.dev.yml`
+- `api/.env` must point to `localhost:8001`, not `bar-server:8001`
+- Infrastructure must be started BEFORE running `npm run dev:all`
+- Port 3000/3001 conflicts if Docker api/web services accidentally start
+
+---
+
 ## 2025-11-25 - Shopping List Parsing Bug Investigation
 
 **Context**: After implementing comprehensive ingredient parsing fixes, tests pass (301/301) and code is verified correct, but changes don't take effect in running application.

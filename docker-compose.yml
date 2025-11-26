@@ -27,7 +27,7 @@ services:
 
   # Postgres - Profile storage for MemMachine
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: alchemix-postgres
     ports:
       - "5432:5432"
@@ -48,8 +48,8 @@ services:
   # MemMachine Backend - Core memory service
   memmachine:
     build:
-      context: ../MemMachine
-      dockerfile: Dockerfile
+      context: ..  # Use parent directory
+      dockerfile: MemMachine/Dockerfile
     container_name: alchemix-memmachine
     ports:
       - "8080:8080"
@@ -65,6 +65,7 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - PORT=8080
       - HOST=0.0.0.0
+      - MEMORY_CONFIG=/app/config.yaml
     depends_on:
       neo4j:
         condition: service_healthy
@@ -81,8 +82,8 @@ services:
   # Bar Server - FastAPI middleware with BarQueryConstructor
   bar-server:
     build:
-      context: ./docker/bar-server
-      dockerfile: Dockerfile
+      context: ..  # Use parent directory to access both alchemix and MemMachine
+      dockerfile: alchemix/docker/bar-server/Dockerfile
     volumes:
       - ../MemMachine:/memmachine:ro  # Mount MemMachine as read-only
     container_name: alchemix-bar-server
@@ -136,7 +137,7 @@ services:
       bar-server:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 5

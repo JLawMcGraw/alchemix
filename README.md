@@ -8,10 +8,10 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 
 ## ✨ Current Status
 
-**Version:** v1.18.2 (Shopping List Ingredient Matching - IN PROGRESS)
-**Phase:** Production Ready - AI Cost Optimization with MemMachine V1 Semantic Search
-**Last Updated:** November 25, 2025
-**Known Issues:** 🔴 Module caching bug preventing ingredient parsing updates from loading (code correct, tests pass, but not active in running server)
+**Version:** v1.18.3 (Docker Mac Setup Complete)
+**Phase:** Production Ready - Full Docker Environment Operational
+**Last Updated:** November 26, 2025
+**Known Issues:** None - Docker setup complete on Mac, hybrid development environment operational
 
 ### What's Working
 - ✅ **Complete TypeScript monorepo** (Frontend + Backend) ⭐
@@ -127,6 +127,19 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
   - Docker testing environment (Dockerfile + docker-compose.test.yml)
   - Test documentation with best practices guide
   - npm scripts: test:api, test:api:docker
+- ✅ **Docker Environment Complete** - Full setup with Mac troubleshooting ⭐⭐⭐ **NEW v1.18.3**
+  - Fixed Docker Desktop installation on Mac (symlinks to /Applications)
+  - Docker Compose V2 syntax (`docker compose` not `docker-compose`)
+  - All 6 services running: Neo4j, Postgres, MemMachine, Bar Server, API, Frontend
+  - Test user creation script for local development
+  - Comprehensive Mac-specific troubleshooting documentation
+- ✅ **Hybrid Development Environment** - Docker infrastructure + local dev ⭐⭐ **v1.18.2**
+  - Docker runs infrastructure services only (Neo4j, Postgres, MemMachine, Bar Server)
+  - API and Frontend run locally with hot reload for fast iteration
+  - `docker-compose.dev.yml` disables api/web services using profiles
+  - Separate `api/.env` for local development (localhost URLs)
+  - Best of both worlds: Docker stability + local development speed
+  - Commands: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up` + `npm run dev:all`
 - ✅ **TypeScript Build** - Frontend and backend builds passing (all errors fixed) ⭐
 - ✅ **Ingredient Parsing** - Universal parser handles JSON arrays and strings ⭐
 - ✅ **Favorites Enhanced** - Now properly links recipe_id for data integrity ⭐

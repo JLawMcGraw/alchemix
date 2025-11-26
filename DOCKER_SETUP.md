@@ -33,10 +33,17 @@ git clone https://github.com/JLawMcGraw/MemMachine.git MemMachine
 
 **Directory structure should look like:**
 ```
-DEV Work/
+DEV/                   ← Parent directory
 ├── alchemix/          ← You are here
 │   ├── docker-compose.yml
-│   ├── docker/bar-server/Dockerfile
+│   ├── docker/
+│   │   ├── bar-server/
+│   │   │   ├── Dockerfile
+│   │   │   ├── health_endpoint.py
+│   │   │   └── bar_server_wrapper.py
+│   │   └── memmachine/
+│   │       ├── config.yaml.template
+│   │       └── entrypoint.sh
 │   ├── api/
 │   ├── src/
 │   └── ...
@@ -63,13 +70,17 @@ ANTHROPIC_API_KEY=sk-ant-...your-anthropic-key...
 JWT_SECRET=your-secure-jwt-secret-minimum-32-characters
 ```
 
+**⚠️ Important:** The `.env` file must contain valid API keys. Environment variables in the MemMachine config are automatically substituted at runtime.
+
 ### 3. Start All Services
 
 ```bash
-docker-compose up
+docker-compose up --build
 ```
 
 **First run will take 5-10 minutes** (downloads images, builds containers, initializes databases).
+
+**Note:** The `--build` flag is important for first-time setup to ensure all custom images are built correctly.
 
 ### 4. Verify Services
 
@@ -222,6 +233,12 @@ docker-compose up
 
 ## Troubleshooting
 
+### Build Context Errors
+
+**Error:** Files not found during build (e.g., `MemMachine/examples/bar_assistant`)
+
+**Solution:** Ensure you're in the `alchemix` directory and both `alchemix` and `MemMachine` are sibling directories. The build context is set to the parent directory (`..`) to access both repositories.
+
 ### Port Conflicts
 
 **Error:** `bind: address already in use`
@@ -229,12 +246,12 @@ docker-compose up
 **Solution:** Stop conflicting services or change ports in `docker-compose.yml`:
 ```bash
 # Find process using port
-netstat -ano | findstr :3000  # Windows
 lsof -i :3000                 # Mac/Linux
+netstat -ano | findstr :3000  # Windows
 
 # Kill process
-taskkill /PID <PID> /F        # Windows
 kill -9 <PID>                 # Mac/Linux
+taskkill /PID <PID> /F        # Windows
 ```
 
 ### Neo4j Connection Errors
@@ -264,6 +281,17 @@ docker-compose logs postgres
 # Restart databases
 docker-compose restart neo4j postgres
 ```
+
+**Error:** `extension "vector" is not available`
+
+**Solution:** This means PostgreSQL doesn't have the pgvector extension. The `docker-compose.yml` should use `pgvector/pgvector:pg16` instead of `postgres:16-alpine`. This is already configured correctly.
+
+**Error:** `Config file cfg.yml not found` or environment variable issues
+
+**Solution:** The MemMachine service uses environment variable substitution via the entrypoint script. Check:
+1. `.env` file exists with all required variables
+2. `MEMORY_CONFIG=/app/config.yaml` is set in docker-compose.yml
+3. `config.yaml.template` and `entrypoint.sh` are copied correctly in the Dockerfile
 
 ### Out of Memory Errors
 
@@ -441,5 +469,59 @@ For issues:
 
 ---
 
-**Last Updated:** 2025-11-21
-**Version:** v1.13.0 (MemMachine Integration)
+## Technical Details
+
+### Build Context Configuration
+
+Both MemMachine and Bar Server use the **parent directory** as the build context to access both repositories:
+
+```yaml
+# docker-compose.yml
+memmachine:
+  build:
+    context: ..  # Parent directory (DEV/)
+    dockerfile: MemMachine/Dockerfile
+
+bar-server:
+  build:
+    context: ..  # Parent directory (DEV/)
+    dockerfile: alchemix/docker/bar-server/Dockerfile
+```
+
+This requires:
+1. `alchemix` and `MemMachine` to be sibling directories
+2. Docker Compose to be run from the `alchemix/` directory
+3. Dockerfiles to reference paths relative to parent directory
+
+### Environment Variable Substitution
+
+MemMachine config uses a template system:
+1. `config.yaml.template` contains placeholders: `${VARIABLE_NAME}`
+2. `entrypoint.sh` runs `envsubst` to substitute values from environment
+3. Final `config.yaml` is generated at container startup
+4. All values come from `docker-compose.yml` environment section or `.env` file
+
+### Database Configuration
+
+- **PostgreSQL**: Uses `pgvector/pgvector:pg16` (not standard postgres)
+  - Required for vector embedding storage
+  - Includes pgvector extension by default
+
+- **Neo4j**: Uses `neo4j:5.15.0`
+  - Configured with APOC plugins
+  - Stores graph-based memory relationships
+
+### Health Checks
+
+All services implement health checks for proper startup order:
+
+- **Neo4j**: HTTP check on port 7474
+- **PostgreSQL**: `pg_isready` command
+- **MemMachine**: HTTP `/health` endpoint (built-in)
+- **Bar Server**: HTTP `/health` endpoint (custom added)
+- **API**: HTTP `/health` endpoint using `wget` (curl not available in node:alpine)
+
+---
+
+**Last Updated:** 2025-11-26
+**Version:** v1.18.2 (MemMachine Integration - Docker Complete)

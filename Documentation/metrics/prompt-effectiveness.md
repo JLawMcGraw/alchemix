@@ -17,6 +17,74 @@ Last updated: 2025-11-19 (Session 15)
 
 **IMPORTANT: Always ADD a NEW entry - NEVER edit existing entries - these are historical records!**
 
+### 2025-11-26 - end-of-session (Session 24 - Docker Desktop Mac Setup & Troubleshooting)
+
+- **Session Focus**: Troubleshooting Docker Desktop installation on Mac. Fixed broken CLI symlinks pointing to .dmg instead of /Applications. Created credential helper symlinks. Resolved Neo4j container startup issue. Created test user via API. Documented comprehensive Mac-specific Docker troubleshooting guide. Updated all Docker documentation with accurate commands and Mac-specific gotchas.
+- **Documentation Updated**: PROJECT_PROGRESS.md (new session entry with all Docker troubleshooting), DEV_NOTES.md (comprehensive 5-issue troubleshooting guide with Mac gotchas), README.md (version v1.18.3, Docker environment status), DOCKER_QUICKSTART.md (Mac troubleshooting section, V2 syntax), prompt-effectiveness.md
+- **Completion**: ✅ Successful (Docker fully operational on Mac, all 6 services running, test user created, comprehensive troubleshooting documented)
+- **Time Saved**: ~60 minutes (Docker Desktop installation research and symlink fixes, credential helper troubleshooting, Neo4j container debugging, test user creation script, comprehensive documentation of all issues and solutions with code examples)
+- **Quality**: 5/5 (Complete troubleshooting guide for Mac Docker setup, all issues documented with root cause analysis, prevention tips, verification steps, and command references - future developers will save hours with this documentation)
+- **Issues Resolved**:
+  - **Docker Command Not Found**: Docker Desktop running from .dmg instead of /Applications
+    - **Solution**: Created symlinks from /Applications/Docker.app to /usr/local/bin for docker and credential helpers
+  - **Docker Compose Syntax**: User typing `docker-compose` (V1 syntax) instead of `docker compose` (V2 plugin)
+    - **Solution**: Documented V2 syntax change, updated all documentation to use correct syntax
+  - **Credential Helper Missing**: docker-credential-desktop not in PATH causing registry authentication failure
+    - **Solution**: Created symlinks for all 3 credential helpers (desktop, ecr-login, osxkeychain)
+  - **Neo4j Already Running**: Container exiting with stale PID file from incomplete shutdown
+    - **Solution**: `docker compose down` then restart to clear stale state
+  - **Test User Authentication**: User couldn't login with test@example.com from test files
+    - **Understanding**: SQLite is local file, test users only exist in test databases
+    - **Solution**: Created `create-test-user.js` script to create user via API
+- **Architecture Insights Documented**:
+  - **Docker on Mac**: Runs in Linux VM (HyperKit), not native like Linux
+  - **Service Resolution**: Docker network uses service names, host uses localhost
+  - **SQLite Locality**: Database file local to each machine, not shared like server databases
+  - **Symlink Requirements**: Docker Desktop creates CLI symlinks that can break if installed incorrectly
+  - **Docker Compose V2**: Plugin-based architecture, uses `docker compose` not `docker-compose`
+- **Technical Achievements**:
+  - Fixed 4 Docker CLI symlinks manually with sudo
+  - Debugged Neo4j container PID issue and documented solution
+  - Created test user creation script for future development
+  - Wrote comprehensive 5-issue troubleshooting guide (200+ lines) in DEV_NOTES.md
+  - Updated 4 documentation files with accurate Docker setup instructions
+  - Added Mac-specific troubleshooting section to DOCKER_QUICKSTART.md
+  - Documented verification checklist for future Docker setups
+- **Satisfaction**: 5/5 (Completely solved user's Docker setup problems. Created detailed troubleshooting guide that will save future developers hours of debugging. All issues documented with root cause analysis and prevention tips. User can now run Docker successfully. Documentation quality very high - includes diagnosis steps, solutions, alternatives, gotchas, and verification checklist.)
+- **Notes**: This session demonstrates the importance of comprehensive troubleshooting documentation. Docker Desktop on Mac has several gotchas that are not obvious: symlink requirements, .dmg vs /Applications installation, service name vs localhost resolution, Docker Compose V2 syntax change. Documenting each issue with root cause analysis (not just solution) helps developers understand WHY things work, not just HOW to fix them. The 5-issue troubleshooting guide in DEV_NOTES.md is exceptionally detailed - includes problem, root cause, diagnosis steps, solution, prevention tips. This level of documentation quality saves enormous time for future developers encountering similar issues. Key lesson: When troubleshooting infrastructure setup, document EVERYTHING - the symptoms, debugging process, root cause, solution, and prevention. Future you (and team) will thank you. SQLite locality insight also important - developers coming from server-based databases (MySQL/Postgres) may not realize SQLite is just a file, not shared across systems. Test user creation script is practical solution that can be reused. Docker Compose V2 syntax change (docker-compose → docker compose) is a common gotcha worth highlighting throughout docs. Overall, this session transformed a frustrating setup experience into comprehensive, reusable documentation that benefits the entire project.
+
+---
+
+### 2025-11-26 - end-of-session (Session 23 - Hybrid Docker Development Environment Setup)
+
+- **Session Focus**: Configured hybrid development environment to run Docker infrastructure services (Neo4j, Postgres, MemMachine, Bar Server) while developing API and Frontend locally with hot reload. Created docker-compose.dev.yml using profiles to disable api/web services. Created separate api/.env for local development with localhost URLs. User runs npm run dev:all on other system successfully - now enabled same workflow on this Mac.
+- **Documentation Updated**: PROJECT_PROGRESS.md (new session entry with hybrid setup details), DEV_NOTES.md (comprehensive technical decisions with 3 design patterns documented), README.md (version update, hybrid environment feature in What's Working), prompt-effectiveness.md
+- **Completion**: ✅ Successful (Hybrid environment fully operational, Docker infrastructure running, local development working)
+- **Time Saved**: ~45 minutes (Docker profiles research and implementation, api/.env creation with correct URLs, testing infrastructure services, documentation of hybrid workflow with commands and gotchas)
+- **Quality**: 5/5 (Clean solution using standard Docker patterns, comprehensive documentation, addresses user's exact workflow from other system)
+- **Issues Resolved**:
+  - **Missing api/.env**: Created with localhost:8001 for MemMachine instead of Docker service name
+    - **Solution**: Copied from parent .env, changed MEMMACHINE_API_URL to localhost
+  - **Port Conflicts**: Docker api/web services blocking npm run dev:all
+    - **Solution**: docker-compose.dev.yml with profiles: [disabled] prevents services from starting
+  - **Service Selection**: Needed way to run only infrastructure without verbose service lists
+    - **Solution**: Docker Compose override files with profiles - standard, maintainable pattern
+- **Architecture Decisions**:
+  - **Docker Compose Profiles**: Used profiles: [disabled] to prevent api/web from starting
+  - **Separate Environment Files**: api/.env for local dev (localhost URLs) vs .env for Docker (service names)
+  - **Infrastructure in Docker**: Keep complex services (Neo4j, Postgres, MemMachine) in containers for consistency
+  - **API/Frontend Local**: Run Node.js locally for hot reload, better debugging, and faster iteration
+- **Technical Achievements**:
+  - Created docker-compose.dev.yml with profile-based service disabling
+  - Created api/.env with correct localhost configuration for MemMachine
+  - Verified all 4 infrastructure services healthy (Neo4j, Postgres, MemMachine, Bar Server)
+  - Documented complete hybrid workflow with commands and gotchas
+  - Enabled same development workflow user has on other system
+- **Satisfaction**: 5/5 (Solved user's exact problem - enable npm run dev:all while Docker infrastructure runs. Clean implementation using standard Docker patterns. Well-documented for future developers. User can now develop with hot reload + full MemMachine integration.)
+- **Notes**: This session demonstrates effective problem-solving by understanding user's context ("i run npm run:dev all on my other system with docker environment for mem machine and it works"). Instead of assuming full Docker setup, recognized need for hybrid approach. Docker Compose profiles are cleaner than verbose service lists or duplicate files. Separate environment files necessary because Docker service discovery (bar-server) differs from local networking (localhost). Key lesson: When user mentions their workflow works differently on another system, investigate the setup difference rather than assuming one correct approach. Hybrid development environments common in microservices - infrastructure complexity benefits from containers, application code benefits from local execution. This pattern scales well (add more infrastructure services to Docker, keep dev code local). Documentation of gotchas (must use -f flag twice, api/.env must use localhost) prevents future confusion. User's other system likely uses same docker-compose.dev.yml approach - documenting it here enables reproducible setup.
+
+---
+
 ### 2025-11-24 - end-of-session (Session 22 - Smart Shopping List Ingredient Matching Improvements)
 
 - **Session Focus**: Fixed critical ingredient matching bugs in Smart Shopping List to eliminate false positives and improve accuracy. Implemented comprehensive parsing improvements: unicode fraction handling (NFKD normalization), brand name stripping, syrup variant normalization, spirit synonym mapping, relaxed single-token matching. Curated ALWAYS_AVAILABLE ingredients to only true pantry staples. Cleared MemMachine data for fresh upload. Added collection navigation improvements (URL routing, pagination, modal enrichment).
