@@ -63,7 +63,9 @@ const SYNONYMS: Record<string, string[]> = {
   'gold rum': ['amber rum', 'aged rum', 'dark rum', 'gold puerto rican rum', 'gold jamaican rum'],
   'amber rum': ['gold rum', 'aged rum', 'dark rum'],
   'aged rum': ['gold rum', 'amber rum', 'dark rum'],
-  'dark rum': ['gold rum', 'amber rum', 'aged rum', 'gold puerto rican rum', 'gold jamaican rum', 'jamaican rum'],
+  'dark rum': ['gold rum', 'amber rum', 'aged rum', 'gold puerto rican rum', 'gold jamaican rum', 'jamaican rum', 'black rum', 'black blended rum'],
+  'black rum': ['dark rum', 'black blended rum', 'goslings black seal'],
+  'black blended rum': ['dark rum', 'black rum', 'goslings black seal'],
   'gold puerto rican rum': ['gold rum', 'dark rum', 'aged rum', 'amber rum'],
   'gold jamaican rum': ['gold rum', 'dark rum', 'aged rum', 'amber rum', 'jamaican rum'],
   'jamaican rum': ['dark rum', 'gold rum', 'gold jamaican rum'],
@@ -82,10 +84,11 @@ const SYNONYMS: Record<string, string[]> = {
   'overproof demerara rum': ['demerara 151', 'demerara overproof', 'demerara 151-proof rum', '151-proof demerara rum', 'demerara overproof rum'],
 
   // Regional rum variants
-  'martinique rum': ['rhum agricole', 'agricole', 'amber martinique rum'],
-  'amber martinique rum': ['rhum agricole', 'agricole', 'martinique rum'],
-  'rhum agricole': ['martinique rum', 'agricole', 'amber martinique rum'],
-  'agricole': ['martinique rum', 'rhum agricole', 'amber martinique rum'],
+  'martinique rum': ['rhum agricole', 'agricole', 'amber martinique rum', 'martinique rhum agricole'],
+  'amber martinique rum': ['rhum agricole', 'agricole', 'martinique rum', 'martinique rhum agricole'],
+  'rhum agricole': ['martinique rum', 'agricole', 'amber martinique rum', 'martinique rhum agricole'],
+  'agricole': ['martinique rum', 'rhum agricole', 'amber martinique rum', 'martinique rhum agricole'],
+  'martinique rhum agricole': ['rhum agricole', 'martinique rum', 'agricole'],
 
   // Tequila variants
   'silver tequila': ['blanco tequila', 'white tequila', 'plata tequila'],
@@ -122,7 +125,14 @@ const SYNONYMS: Record<string, string[]> = {
   // Anise spirits - Pernod/Pastis/Absinthe
   'pernod': ['pastis', 'absinthe'],
   'pastis': ['pernod', 'absinthe'],
-  'absinthe': ['pernod', 'pastis']
+  'absinthe': ['pernod', 'pastis'],
+
+  // Carbonated water variants
+  'seltzer': ['sparkling water', 'club soda', 'carbonated water', 'soda water'],
+  'sparkling water': ['seltzer', 'club soda', 'carbonated water', 'soda water'],
+  'club soda': ['seltzer', 'sparkling water', 'carbonated water', 'soda water'],
+  'carbonated water': ['seltzer', 'sparkling water', 'club soda', 'soda water'],
+  'soda water': ['seltzer', 'sparkling water', 'club soda', 'carbonated water']
 };
 
 /**
@@ -147,6 +157,7 @@ const SYNONYMS: Record<string, string[]> = {
  * @returns Normalized ingredient name or array of alternatives
  */
 function parseIngredientName(ingredientStr: string): string | string[] {
+  console.log(`[TRACE-v2] ==> ENTER: "${ingredientStr}"`);
   if (!ingredientStr || typeof ingredientStr !== 'string') {
     return '';
   }
@@ -156,7 +167,8 @@ function parseIngredientName(ingredientStr: string): string | string[] {
 
   // Step 0a: Strip parenthetical references FIRST (e.g., "(see page 230)")
   // This handles patterns like "Light Rum (see page 230)" → "Light Rum"
-  normalized = normalized.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
+  // Updated to handle unclosed parentheses at end of string
+  normalized = normalized.replace(/\s*\([^)]*(\)|$)\s*/g, ' ').trim();
 
   // Step 0b: Normalize Unicode to decompose fractions (e.g., ½ -> 1⁄2)
   // and replace fraction slash with standard slash
@@ -176,9 +188,9 @@ function parseIngredientName(ingredientStr: string): string | string[] {
   // Remove complex patterns: "8 ounces (1 cup)" → remove everything up to and including ")"
   normalized = normalized.replace(/^\d+\s*(ounces?|oz|ml|cl|l|tsp|tbsp|cups?)\s*\([^)]+\)\s*/i, '').trim();
 
-  // Remove number ranges: "4 to 6 mint leaves" -> "mint leaves"
+  // Remove number ranges: "4 to 6 mint leaves", "3 or 4 chunks" -> "mint leaves", "chunks"
   // IMPORTANT: Must come BEFORE decimal number removal
-  normalized = normalized.replace(/^\d+\s+to\s+\d+\s*/i, '').trim();
+  normalized = normalized.replace(/^\d+\s+(to|or|-)\s+\d+\s*/i, '').trim();
 
   // Remove decimal numbers with optional units: "1.5 oz", "1 ounces", "2 ounces", "2 dashes"
   // IMPORTANT: Put "dashes" before "dash" so it matches the longer form first
@@ -213,10 +225,20 @@ function parseIngredientName(ingredientStr: string): string | string[] {
     // Proportions
     'part', 'parts',
     // Qualifiers
-    'fresh', 'freshly', 'squeezed', 'crushed',
+    'fresh', 'freshly', 'squeezed', 'crushed', 'blended',
     // Proof indicators (remove the word, number stays)
     'proof', '-proof'
     // IMPORTANT: Do NOT remove 'juice', 'syrup', 'cream' - these are part of ingredient names
+  ];
+
+  // Modifiers to remove that are often not part of the core ingredient for matching
+  const MODIFIERS_TO_REMOVE = [
+    'blended', 'pot still', 'column still', 'unaged', 'lightly aged', 'aged', 'vieux', 'aoc', 'cane', 'overproof'
+  ];
+
+  // Non-ingredient phrases that should be filtered out
+  const NON_INGREDIENT_PHRASES_TO_FILTER = [
+    'garnish', 'secret ingredients', 'secret ingredient', 'see resources', 'note following'
   ];
 
   // Step 2: Remove units (do this multiple times to handle compound measurements)
@@ -224,27 +246,36 @@ function parseIngredientName(ingredientStr: string): string | string[] {
     for (const unit of unitsToRemove) {
       // Remove unit with word boundaries to avoid partial matches
       // DOUBLE BACKSLASHED for safety in string constructor logic, though here it's fine
-      const regex = new RegExp(`\b${unit}\b`, 'gi');
+      const regex = new RegExp(`\\b${unit}\\b`, 'gi');
       normalized = normalized.replace(regex, '').trim();
     }
   }
+
+  // Step 2b: Remove modifiers (do this multiple times)
+  for (let i = 0; i < 3; i++) {
+    for (const modifier of MODIFIERS_TO_REMOVE) {
+      const regex = new RegExp(`\\b${modifier}\\b`, 'gi');
+      normalized = normalized.replace(regex, '').trim();
+    }
+  }
+
 
   // Step 3: Remove common prefixes and brand names
   const prefixesToRemove = [
     'sc', 'house', 'homemade',
     // Common spirit brands that appear in recipes
     'pierre ferrand', 'ferrand', 'cointreau', 'grand marnier',
-    'john d taylor', "john d. taylor's", 'taylors',
+    'john d taylor', "john d. taylor['’]s?", 'taylors',
     'trader joe', 'trader joes',
     'angostura', 'peychaud', 'peychauds',
     'luxardo', 'st germain', 'st-germain', 'st. germain',
     // Rum brands
     'lemon hart', 'hamilton', 'cruzan', 'appleton', 'plantation',
-    'wray & nephew', 'wray and nephew', 'myers', "myers's",
+    'wray & nephew', 'wray and nephew', 'myers', "myers['’]s",
     'bacardi', 'havana club', 'captain morgan'
   ];
   for (const prefix of prefixesToRemove) {
-    const regex = new RegExp(`^${prefix}\b\s*`, 'i');
+    const regex = new RegExp(`^${prefix}\\b\\s*`, 'i');
     normalized = normalized.replace(regex, '').trim();
   }
 
@@ -253,14 +284,14 @@ function parseIngredientName(ingredientStr: string): string | string[] {
     // First, remove recipe-specific qualifiers
     const recipeQualifiers = ['mai tai', 'mojito', 'daiquiri', 'margarita', 'zombie'];
     for (const qualifier of recipeQualifiers) {
-      const regex = new RegExp(`\b${qualifier}\b\s*`, 'gi');
+      const regex = new RegExp(`\\b${qualifier}\\b\\s*`, 'gi');
       normalized = normalized.replace(regex, '').trim();
     }
 
     // Then remove syrup style modifiers
     const syrupModifiers = ['rich', 'light', '1:1', '2:1', 'heavy', 'thin', 'sugar'];
     for (const modifier of syrupModifiers) {
-      const regex = new RegExp(`\b${modifier}\b\s*`, 'gi');
+      const regex = new RegExp(`\\b${modifier}\\b\\s*`, 'gi');
       normalized = normalized.replace(regex, '').trim();
     }
 
@@ -301,10 +332,18 @@ function parseIngredientName(ingredientStr: string): string | string[] {
 
     // Return array of alternatives if we found multiple valid options
     if (alternatives.length > 1) {
+      console.log(`[TRACE-v2] <== EXIT array: [${alternatives.join(', ')}]`);
       return alternatives;
     }
   }
+  
+  // Step 7: Filter out non-ingredient phrases
+  if (NON_INGREDIENT_PHRASES_TO_FILTER.some(phrase => normalized.includes(phrase))) {
+    console.log(`[TRACE-v2] <== EXIT: "" (filtered phrase)`);
+    return '';
+  }
 
+  console.log(`[TRACE-v2] <== EXIT: "${normalized}"`);
   return normalized;
 }
 
@@ -363,6 +402,16 @@ const ALWAYS_AVAILABLE_INGREDIENTS = new Set([
 ]);
 
 /**
+ * Generic Tokens
+ *
+ * Words that are too common to allow substring matching.
+ * e.g. "fruit" should not match "grapefruit" via substring.
+ */
+const GENERIC_TOKENS = new Set([
+  'fruit', 'juice', 'liquor', 'liqueur', 'soda', 'syrup', 'bitters', 'cream', 'water', 'sugar', 'milk', 'wine', 'beer'
+]);
+
+/**
  * Helper: Check if Inventory Contains Ingredient
  *
  * Performs multi-tier matching between inventory bottles and ingredient.
@@ -408,6 +457,7 @@ function hasIngredient(bottles: BottleData[], ingredientName: string): boolean {
       // Check if any candidate exactly matches a bottle field
       for (const field of fields) {
         if (field === candidate) {
+          console.log(`[MATCH-TRACE] SUCCESS (Exact): "${candidate}" matches Bottle "${bottle.name}"`);
           return true;
         }
       }
@@ -418,6 +468,7 @@ function hasIngredient(bottles: BottleData[], ingredientName: string): boolean {
       if (hasSpaces) {
         for (const field of fields) {
           if (field && field.includes(candidate)) {
+            console.log(`[MATCH-TRACE] SUCCESS (Substring): "${candidate}" matches Bottle "${bottle.name}"`);
             return true;
           }
         }
@@ -435,9 +486,14 @@ function hasIngredient(bottles: BottleData[], ingredientName: string): boolean {
         .filter(t => t.length > 2);
 
       const matchingTokens = ingredientTokens.filter(ingToken =>
-        allBottleTokens.some(bottleToken =>
-          bottleToken.includes(ingToken) || ingToken.includes(bottleToken)
-        )
+        allBottleTokens.some(bottleToken => {
+          // Prevent generic words from matching substrings (e.g. "fruit" matching "grapefruit")
+          const isGeneric = GENERIC_TOKENS.has(ingToken) || GENERIC_TOKENS.has(bottleToken);
+          if (isGeneric) {
+            return bottleToken === ingToken;
+          }
+          return bottleToken.includes(ingToken) || ingToken.includes(bottleToken);
+        })
       );
 
       // Tier 3a: Single-token ingredients
@@ -445,18 +501,27 @@ function hasIngredient(bottles: BottleData[], ingredientName: string): boolean {
         const singleToken = ingredientTokens[0];
         // RELAXED: Check if the token appears in any bottle field (substring check)
         // This allows "Rye" to match "Rye Whiskey" or "Bourbon" to match "Bourbon Whiskey"
-        return fields.some(field => field && field.includes(singleToken));
+        const match = fields.some(field => field && field.includes(singleToken));
+        if (match) {
+             console.log(`[MATCH-TRACE] SUCCESS (Token-1): "${candidate}" matches Bottle "${bottle.name}"`);
+        }
+        return match;
       }
 
       // Tier 3b: Two-token ingredients
       if (ingredientTokens.length === 2) {
         // Require both tokens to be present
-        return matchingTokens.length === ingredientTokens.length;
+        const match = matchingTokens.length === ingredientTokens.length;
+        if (match) {
+             console.log(`[MATCH-TRACE] SUCCESS (Token-2): "${candidate}" matches Bottle "${bottle.name}"`);
+        }
+        return match;
       }
 
       // Tier 3c: Complex ingredients (3+ tokens)
       const matchPercentage = matchingTokens.length / ingredientTokens.length;
       if (matchPercentage > 0.5 && matchingTokens.length >= 2) {
+        console.log(`[MATCH-TRACE] SUCCESS (Token-3+): "${candidate}" matches Bottle "${bottle.name}"`);
         return true;
       }
 
@@ -600,6 +665,7 @@ function findMissingIngredients(ingredients: string[], bottles: BottleData[]): s
  * - No external API calls
  */
 router.get('/smart', (req: Request, res: Response) => {
+  console.log('[DEBUG-VERIFY-v2] Smart Shopping List Request Received');
   try {
     const userId = req.user?.userId;
 
@@ -618,6 +684,9 @@ router.get('/smart', (req: Request, res: Response) => {
      *
      * Get full bottle data including spirit type classifications.
      * This allows matching by name, liquor type, AND detailed classification.
+     *
+     * Only include items with stock > 0 (items that are actually available).
+     * Items with stock 0 or NULL are not considered available for recipes.
      *
      * Example:
      * - name: "Maker's Mark"

@@ -375,6 +375,65 @@
   }
 }
 
+/* Bulk Selection Controls */
+.bulkControls {
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--color-ui-bg-surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+}
+
+.selectAllLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-body);
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+.deleteButton {
+  color: #dc2626;
+  border-color: #dc2626;
+}
+
+.deleteButton:hover {
+  background-color: #dc2626;
+  color: white;
+}
+
+.cardHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+}
+
+.cardHeaderLeft .itemName {
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.cardHeaderLeft .itemName:hover {
+  color: var(--color-primary);
+}
+
+.itemCardSelected {
+  border: 2px solid var(--color-primary);
+  background-color: rgba(61, 214, 193, 0.05);
+}
+
 /* Pagination */
 .paginationContainer {
   display: flex;

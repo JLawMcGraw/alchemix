@@ -6,7 +6,7 @@ import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { Button, useToast } from '@/components/ui';
 import { Card } from '@/components/ui/Card';
-import { Wine, Upload, Plus, Martini, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Wine, Upload, Plus, Martini, X, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { CSVUploadModal, AddBottleModal, ItemDetailModal } from '@/components/modals';
 import { inventoryApi } from '@/lib/api';
 import type { InventoryCategory, InventoryItem } from '@/types';
@@ -43,6 +43,10 @@ function BarPageContent() {
   const [spiritTypeFilter, setSpiritTypeFilter] = useState<SpiritCategory | null>(null);
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
 
+  // Selection state for bulk operations
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Modal states
   const [csvModalOpen, setCsvModalOpen] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -75,6 +79,8 @@ function BarPageContent() {
   useEffect(() => {
     if (isAuthenticated && !isValidating) {
       fetchItems(currentPage, 50, activeCategory).catch(console.error);
+      // Clear selections when page/category changes
+      setSelectedIds(new Set());
     }
   }, [isAuthenticated, isValidating, currentPage, activeCategory]);
 
@@ -140,6 +146,58 @@ function BarPageContent() {
     setDetailModalOpen(true);
   };
 
+  // Selection handlers
+  const toggleSelection = (id: number) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredItems.length) {
+      // Deselect all
+      setSelectedIds(new Set());
+    } else {
+      // Select all visible items
+      setSelectedIds(new Set(filteredItems.map(item => item.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${selectedIds.size} item${selectedIds.size === 1 ? '' : 's'}? This cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    try {
+      const idsArray = Array.from(selectedIds);
+      await inventoryApi.deleteBulk(idsArray);
+
+      // Refresh items and counts
+      await fetchItems(currentPage, 50, activeCategory);
+      const counts = await inventoryApi.getCategoryCounts();
+      setCategoryCounts(counts);
+
+      showToast('success', `Successfully deleted ${selectedIds.size} item${selectedIds.size === 1 ? '' : 's'}`);
+      setSelectedIds(new Set());
+    } catch (error) {
+      console.error('Bulk delete error:', error);
+      showToast('error', 'Failed to delete items');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className={styles.barPage}>
       <div className={styles.container}>
@@ -171,16 +229,60 @@ function BarPageContent() {
             </div>
           </div>
           <div className={styles.actions}>
-            <Button variant="outline" size="md" onClick={() => setCsvModalOpen(true)}>
-              <Upload size={18} />
-              Import CSV
-            </Button>
-            <Button variant="primary" size="md" onClick={() => setAddModalOpen(true)}>
-              <Plus size={18} />
-              Add Item
-            </Button>
+            {selectedIds.size > 0 && (
+              <>
+                <Button
+                  variant="outline"
+                  size="md"
+                  onClick={handleBulkDelete}
+                  disabled={isDeleting}
+                  className={styles.deleteButton}
+                >
+                  <Trash2 size={18} />
+                  Delete Selected ({selectedIds.size})
+                </Button>
+                <Button
+                  variant="text"
+                  size="sm"
+                  onClick={() => setSelectedIds(new Set())}
+                >
+                  Cancel
+                </Button>
+              </>
+            )}
+            {selectedIds.size === 0 && (
+              <>
+                <Button variant="outline" size="md" onClick={() => setCsvModalOpen(true)}>
+                  <Upload size={18} />
+                  Import CSV
+                </Button>
+                <Button variant="primary" size="md" onClick={() => setAddModalOpen(true)}>
+                  <Plus size={18} />
+                  Add Item
+                </Button>
+              </>
+            )}
           </div>
         </div>
+
+        {/* Bulk Selection Controls */}
+        {filteredItems.length > 0 && (
+          <div className={styles.bulkControls}>
+            <label className={styles.selectAllLabel}>
+              <input
+                type="checkbox"
+                checked={selectedIds.size === filteredItems.length && filteredItems.length > 0}
+                onChange={toggleSelectAll}
+                className={styles.checkbox}
+              />
+              <span>
+                {selectedIds.size === filteredItems.length && filteredItems.length > 0
+                  ? `All ${filteredItems.length} items selected`
+                  : 'Select all'}
+              </span>
+            </label>
+          </div>
+        )}
 
         {/* Category Tabs */}
         <div className={styles.tabs}>
@@ -281,11 +383,27 @@ function BarPageContent() {
                 key={item.id}
                 padding="md"
                 hover
-                className={styles.itemCard}
-                onClick={() => handleCardClick(item)}
+                className={`${styles.itemCard} ${selectedIds.has(item.id) ? styles.itemCardSelected : ''}`}
               >
                 <div className={styles.cardHeader}>
-                  <h3 className={styles.itemName}>{item.name}</h3>
+                  <div className={styles.cardHeaderLeft}>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(item.id)}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        toggleSelection(item.id);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className={styles.checkbox}
+                    />
+                    <h3
+                      className={styles.itemName}
+                      onClick={() => handleCardClick(item)}
+                    >
+                      {item.name}
+                    </h3>
+                  </div>
                   <span className={styles.categoryBadge}>
                     {item.category}
                   </span>

@@ -789,6 +789,101 @@ router.put('/:id', (req: Request, res: Response) => {
 });
 
 /**
+ * DELETE /api/inventory-items/bulk - Bulk Delete Inventory Items
+ *
+ * Deletes multiple inventory items by their IDs in a single request.
+ *
+ * Request Body:
+ * {
+ *   "ids": [1, 2, 3, 4, 5]  // Array of item IDs to delete (max 500)
+ * }
+ *
+ * Response (200 OK):
+ * {
+ *   "success": true,
+ *   "deleted": 5,
+ *   "message": "Successfully deleted 5 items"
+ * }
+ *
+ * Error Responses:
+ * - 400: Invalid request (no ids, not array, too many ids)
+ * - 401: Unauthorized
+ * - 500: Database error
+ *
+ * Security:
+ * - User ownership: Only deletes items belonging to authenticated user
+ * - Limit: Maximum 500 items per request (prevents DoS)
+ * - SQL injection: Parameterized queries
+ */
+router.delete('/bulk', (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    // Validate request body
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid request: ids must be an array'
+      });
+    }
+
+    if (ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No items specified for deletion'
+      });
+    }
+
+    // Limit to 500 items to prevent DoS
+    if (ids.length > 500) {
+      return res.status(400).json({
+        success: false,
+        error: 'Too many items (max 500 per request)'
+      });
+    }
+
+    // Validate all IDs are numbers
+    const validIds = ids.every((id: any) => typeof id === 'number' || !isNaN(parseInt(id)));
+    if (!validIds) {
+      return res.status(400).json({
+        success: false,
+        error: 'All IDs must be valid numbers'
+      });
+    }
+
+    // Create placeholders for SQL IN clause
+    const placeholders = ids.map(() => '?').join(',');
+
+    // Delete items (only those owned by user)
+    const result = db.prepare(`
+      DELETE FROM inventory_items
+      WHERE id IN (${placeholders}) AND user_id = ?
+    `).run(...ids, userId);
+
+    res.json({
+      success: true,
+      deleted: result.changes,
+      message: `Successfully deleted ${result.changes} item${result.changes === 1 ? '' : 's'}`
+    });
+  } catch (error) {
+    console.error('Bulk delete items error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete items'
+    });
+  }
+});
+
+/**
  * DELETE /api/inventory/:id - Delete InventoryItem
  *
  * Removes a bottle from user's inventory permanently.
@@ -919,6 +1014,129 @@ function findField(record: any, possibleNames: string[]): any {
 }
 
 /**
+ * Helper function to auto-categorize items based on liquor type, classification, or name
+ * Returns one of: 'spirit', 'liqueur', 'mixer', 'syrup', 'garnish', 'wine', 'beer', 'other'
+ */
+function autoCategorize(type: string | null, classification: string | null, name: string | null = null): string {
+  const typeStr = (type || '').toLowerCase().trim();
+  const classStr = (classification || '').toLowerCase().trim();
+  const nameStr = (name || '').toLowerCase().trim();
+  // Combine all fields for matching - name is important for items like "Lemon Juice" or "Sparkling Water"
+  const combined = `${nameStr} ${typeStr} ${classStr}`.toLowerCase();
+
+  // Check liqueurs FIRST (before spirits) since many liqueurs are spirit-based
+  // This prevents "falernum liqueur" from matching "rum" in spirits
+  const liqueurKeywords = [
+    'liqueur', 'amaro', 'amaretto', 'aperitif', 'aperitivo',
+    'creme de', 'crème de', 'curacao', 'curaçao',
+    'triple sec', 'cointreau', 'grand marnier',
+    'chambord', 'chartreuse', 'drambuie', 'frangelico',
+    'kahlua', 'baileys', 'irish cream',
+    'limoncello', 'sambuca', 'schnapps',
+    'st germain', 'st-germain', 'elderflower',
+    'campari', 'aperol', 'cynar', 'fernet',
+    'allspice dram', 'dram', 'falernum liqueur'
+  ];
+
+  for (const keyword of liqueurKeywords) {
+    if (combined.includes(keyword)) {
+      return 'liqueur';
+    }
+  }
+
+  // Check spirits (after liqueurs to avoid false matches)
+  const spiritKeywords = [
+    'whiskey', 'whisky', 'bourbon', 'rye', 'scotch', 'irish whiskey',
+    'rum', 'rhum', 'rhum agricole', 'agricole', 'cachaca', 'cachaça',
+    'vodka', 'gin', 'tequila', 'mezcal',
+    'brandy', 'cognac', 'armagnac', 'pisco',
+    'absinthe', 'aquavit', 'jenever',
+    'baijiu', 'shochu', 'soju'
+  ];
+
+  for (const keyword of spiritKeywords) {
+    if (combined.includes(keyword)) {
+      return 'spirit';
+    }
+  }
+
+  // Check wine
+  const wineKeywords = [
+    'wine', 'vermouth', 'sherry', 'port', 'madeira',
+    'marsala', 'champagne', 'prosecco', 'sparkling wine'
+  ];
+
+  for (const keyword of wineKeywords) {
+    if (combined.includes(keyword)) {
+      return 'wine';
+    }
+  }
+
+  // Check beer
+  const beerKeywords = ['beer', 'ale', 'lager', 'stout', 'ipa'];
+
+  for (const keyword of beerKeywords) {
+    if (combined.includes(keyword)) {
+      return 'beer';
+    }
+  }
+
+  // Check syrups (but NOT if it already said "liqueur")
+  const syrupKeywords = [
+    'syrup', 'grenadine', 'orgeat',
+    'honey', 'agave', 'simple syrup', 'rich syrup'
+  ];
+
+  // Only check for plain "falernum" (not "falernum liqueur" which was caught above)
+  if (!combined.includes('liqueur') && combined.includes('falernum')) {
+    return 'syrup';
+  }
+
+  for (const keyword of syrupKeywords) {
+    if (combined.includes(keyword)) {
+      return 'syrup';
+    }
+  }
+
+  // Check mixers
+  const mixerKeywords = [
+    // Juices - general and specific
+    'juice', 'lemon juice', 'lime juice', 'orange juice', 'grapefruit juice',
+    'pineapple juice', 'cranberry juice', 'tomato juice',
+    // Citrus fruits (often used for juice)
+    'lemon', 'lime', 'orange', 'grapefruit',
+    // Carbonated
+    'tonic', 'tonic water', 'soda', 'cola', 'ginger beer', 'ginger ale',
+    'club soda', 'seltzer', 'sparkling water', 'soda water',
+    // Bitters
+    'bitter', 'bitters', 'angostura', 'peychaud',
+    // Dairy
+    'cream', 'milk', 'coconut cream', 'coconut milk'
+  ];
+
+  for (const keyword of mixerKeywords) {
+    if (combined.includes(keyword)) {
+      return 'mixer';
+    }
+  }
+
+  // Check garnishes
+  const garnishKeywords = [
+    'garnish', 'cherry', 'olive', 'onion',
+    'salt', 'sugar', 'rim', 'mint', 'herb'
+  ];
+
+  for (const keyword of garnishKeywords) {
+    if (combined.includes(keyword)) {
+      return 'garnish';
+    }
+  }
+
+  // Default to 'other' if no matches found
+  return 'other';
+}
+
+/**
  * Helper function to validate and sanitize inventory item data
  * Handles both API requests and CSV imports with flexible column names
  */
@@ -939,18 +1157,6 @@ function validateInventoryItemData(record: any): { isValid: boolean; errors: str
     errors.push(`Missing name field. Available columns: ${Object.keys(record).join(', ')}`);
   }
 
-  // Try to find category field (required for new items)
-  const categoryField = findField(record, ['category', 'Category', 'CATEGORY']);
-  const validCategories = ['spirit', 'liqueur', 'mixer', 'garnish', 'syrup', 'wine', 'beer', 'other'];
-
-  // Category is required - if missing, default to 'other' for backwards compatibility
-  let category = categoryField ? String(categoryField).trim().toLowerCase() : 'other';
-
-  // Validate category is one of the allowed values
-  if (!validCategories.includes(category)) {
-    errors.push(`Invalid category: "${category}". Must be one of: ${validCategories.join(', ')}`);
-  }
-
   // If validation failed, return early
   if (errors.length > 0) {
     return { isValid: false, errors };
@@ -963,14 +1169,32 @@ function validateInventoryItemData(record: any): { isValid: boolean; errors: str
     return isNaN(num) ? null : num;
   };
 
+  // Extract type and classification fields first for auto-categorization
+  const type = safeString(findField(record, ['type', 'Type', 'TYPE', 'Liquor Type', 'liquor type']));
+  const classification = safeString(findField(record, ['Detailed Spirit Classification', 'Classification', 'classification', 'Spirit Type', 'spirit type']));
+  const name = safeString(nameField);
+
+  // Try to find explicit category, otherwise auto-categorize based on type/classification/name
+  const explicitCategory = findField(record, ['category', 'Category', 'CATEGORY']);
+  const category = explicitCategory
+    ? String(explicitCategory).trim().toLowerCase()
+    : autoCategorize(type, classification, name);
+
+  // Validate category is one of the allowed values
+  const validCategories = ['spirit', 'liqueur', 'mixer', 'garnish', 'syrup', 'wine', 'beer', 'other'];
+  if (!validCategories.includes(category)) {
+    errors.push(`Invalid category: "${category}". Must be one of: ${validCategories.join(', ')}`);
+    return { isValid: false, errors };
+  }
+
   // Sanitize the data - be very flexible with column names
   const sanitized = {
     name: safeString(nameField),
-    category: category,
-    type: safeString(findField(record, ['type', 'Type', 'TYPE', 'Liquor Type', 'liquor type'])),
+    category,
+    type,
     abv: safeString(findField(record, ['abv', 'ABV', 'ABV (%)', 'Alcohol', 'alcohol', 'Proof', 'proof'])),
     'Stock Number': safeNumber(findField(record, ['Stock Number', 'stock number', 'Stock', 'stock', 'Number', '#'])),
-    'Detailed Spirit Classification': safeString(findField(record, ['Detailed Spirit Classification', 'Classification', 'classification', 'Spirit Type', 'spirit type'])),
+    'Detailed Spirit Classification': classification,
     'Distillation Method': safeString(findField(record, ['Distillation Method', 'distillation method', 'Method', 'method'])),
     'Distillery Location': safeString(findField(record, ['Distillery Location', 'distillery location', 'Location', 'location', 'Origin', 'origin', 'Country', 'country'])),
     'Age Statement or Barrel Finish': safeString(findField(record, ['Age Statement or Barrel Finish', 'Age Statement', 'age statement', 'Age', 'age', 'Barrel Finish', 'barrel finish'])),

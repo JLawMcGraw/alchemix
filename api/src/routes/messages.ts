@@ -255,7 +255,7 @@ You are **"The Lab Assistant,"** the AI bartender for **"AlcheMix."** You are a 
 
 ## CURRENT CONTEXT
 - **Season:** ${season}
-- **User's Inventory:** ${inventoryCount} bottles
+- **User's Inventory:** ${inventoryCount} items
 - **User's Recipes:** ${recipeCount} cocktails
 
 ## USER'S COMPLETE RECIPE COLLECTION
@@ -279,7 +279,7 @@ Generate a **Seasonal Suggestions** insight for the dashboard. Provide TWO thing
 1. **Greeting** (1-2 sentences):
    - Be welcoming and reference their bar's state
    - **CRITICAL:** Wrap numbers and units in <strong> tags
-   - Example: "Your laboratory holds <strong>${inventoryCount} bottles</strong> and <strong>${recipeCount} recipes</strong>—quite the arsenal for ${season.toLowerCase()} experimentation."
+   - Example: "Your laboratory holds <strong>${inventoryCount} items</strong> and <strong>${recipeCount} recipes</strong>—quite the arsenal for ${season.toLowerCase()} experimentation."
 
 2. **Seasonal Suggestion** (2-4 sentences):
    - **CONTEXT-AWARE:** Reference the current season (${season})
@@ -296,10 +296,10 @@ Format:
 {"greeting":"Your greeting here","insight":"Your seasonal suggestion here"}
 
 Example for Summer:
-{"greeting":"Your laboratory holds <strong>45 bottles</strong> and <strong>241 recipes</strong>—an impressive collection primed for summer exploration.","insight":"Perfect for summer heat: You can craft <strong>18 Tiki drinks</strong> with your current rum selection, including classics like the Zombie and Mai Tai. Your citrus spirits also unlock <strong>12 refreshing Sours</strong>—the Daiquiri and Whiskey Sour are calling your name."}
+{"greeting":"Your laboratory holds <strong>45 items</strong> and <strong>241 recipes</strong>—an impressive collection primed for summer exploration.","insight":"Perfect for summer heat: You can craft <strong>18 Tiki drinks</strong> with your current rum selection, including classics like the Zombie and Mai Tai. Your citrus spirits also unlock <strong>12 refreshing Sours</strong>—the Daiquiri and Whiskey Sour are calling your name."}
 
 Example for Winter:
-{"greeting":"The laboratory is well-stocked with <strong>32 bottles</strong> and <strong>156 recipes</strong> for the winter season.","insight":"Perfect for winter nights: Your bourbon and rye collection unlocks <strong>15 spirit-forward stirred cocktails</strong> including the Manhattan and Old Fashioned. You can also craft <strong>8 warming whiskey drinks</strong>—the Irish Coffee and Hot Toddy will keep the cold at bay."}
+{"greeting":"The laboratory is well-stocked with <strong>32 items</strong> and <strong>156 recipes</strong> for the winter season.","insight":"Perfect for winter nights: Your bourbon and rye collection unlocks <strong>15 spirit-forward stirred cocktails</strong> including the Manhattan and Old Fashioned. You can also craft <strong>8 warming whiskey drinks</strong>—the Irish Coffee and Hot Toddy will keep the cold at bay."}
 
 Return ONLY the JSON object. No markdown, no code blocks, no explanations.`;
 
@@ -455,8 +455,8 @@ You are **"The Lab Assistant,"** the AI bartender for **"AlcheMix."** You are NO
 - Instead of: "This cocktail uses bourbon"
 - Say: "Your Maker's Mark would be perfect here - those wheated grains will create a smooth, slightly sweet foundation..."
 
-## USER'S CURRENT BAR STOCK (${inventory.length} bottles):
-${inventoryEntries || 'No bottles in inventory yet.'}
+## USER'S CURRENT BAR STOCK (${inventory.length} items):
+${inventoryEntries || 'No items in inventory yet.'}
 
 ## AVAILABLE RECIPES (${recipes.length} cocktails in their collection):
 ${recipeEntries || 'No recipes uploaded yet.'}
@@ -925,10 +925,10 @@ router.get('/dashboard-insight', async (req: Request, res: Response) => {
       }
     );
 
-    const aiResponse = response.data.content[0]?.text || '{}';
+    const aiResponse = response?.data?.content?.[0]?.text || '{}';
 
     // Log cache performance for dashboard insights
-    const usage = response.data.usage;
+    const usage = response?.data?.usage;
     if (usage) {
       const cacheCreation = usage.cache_creation_input_tokens || 0;
       const cacheRead = usage.cache_read_input_tokens || 0;

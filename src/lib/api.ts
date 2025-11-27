@@ -180,6 +180,14 @@ export const inventoryApi = {
     return request<void>('delete', `/api/inventory-items/${id}`);
   },
 
+  async deleteBulk(ids: number[]): Promise<{ deleted: number }> {
+    const { data } = await apiClient.delete<{ success: boolean; deleted: number; message: string }>(
+      '/api/inventory-items/bulk',
+      { data: { ids } }
+    );
+    return { deleted: data.deleted };
+  },
+
   async importCSV(file: File): Promise<{ success: boolean; imported: number; failed: number; errors?: Array<{ row: number; error: string }> }> {
     const formData = new FormData();
     formData.append('file', file);
