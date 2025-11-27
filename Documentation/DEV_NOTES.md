@@ -4,6 +4,319 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-11-27 - Security Hardening & Login/Signup UX Improvements
+
+**Context**: Security review identified vulnerabilities in token versioning and environment logging. Also implemented password visibility toggles and simplified password requirements with real-time validation feedback.
+
+### Security Fix 1: Token Versioning Persistence (HIGH Severity)
+
+**Problem**: Token versions stored in-memory Map, lost on server restart. After password change + restart, old tokens become valid again.
+
+**Attack Scenario**:
+```
+1. User changes password → token version increments in-memory (Map) → old tokens invalid
+2. Attacker still has old token
+3. Server restarts/deploys → Map cleared → version resets to 0
+4. Old token becomes valid again until natural expiry (7 days)
+5. ✅ Attacker regains access with stolen token
+```
+
+**Root Cause**: `api/src/middleware/auth.ts` used in-memory storage only:
+```typescript
+// OLD (VULNERABLE)
+const userTokenVersions = new Map<number, number>();
+
+export function getTokenVersion(userId: number): number {
+  return userTokenVersions.get(userId) || 0; // Lost on restart!
+}
+
+export function incrementTokenVersion(userId: number): number {
+  const currentVersion = userTokenVersions.get(userId) || 0;
+  const newVersion = currentVersion + 1;
+  userTokenVersions.set(userId, newVersion); // Not persisted!
+  return newVersion;
+}
+```
+
+**Solution**: Add `token_version` column to users table and persist to database:
+
+```typescript
+// NEW (SECURE)
+import { db } from '../database/db';
+
+export function getTokenVersion(userId: number): number {
+  try {
+    const result = db.prepare('SELECT token_version FROM users WHERE id = ?')
+      .get(userId) as { token_version: number } | undefined;
+    return result?.token_version ?? 0; // ✅ Reads from DB
+  } catch (error) {
+    console.error(`Error fetching token version:`, error);
+    return 0;
+  }
+}
+
+export function incrementTokenVersion(userId: number): number {
+  try {
+    const currentVersion = getTokenVersion(userId);
+    const newVersion = currentVersion + 1;
+
+    // ✅ Persist to database (survives restarts)
+    db.prepare('UPDATE users SET token_version = ? WHERE id = ?')
+      .run(newVersion, userId);
+
+    return newVersion;
+  } catch (error) {
+    throw new Error('Failed to invalidate user sessions');
+  }
+}
+```
+
+**Database Migration** (`api/src/database/db.ts`):
+```typescript
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0`);
+  console.log('✅ Added token_version column to users table (security fix)');
+} catch (error: any) {
+  if (!error.message?.includes('duplicate column name')) {
+    console.error('Migration warning:', error.message);
+  }
+}
+```
+
+**Test Coverage**: Added 17 comprehensive security tests in `api/src/middleware/auth.tokenVersioning.test.ts`:
+- Database schema validation
+- Version persistence across "simulated" restarts
+- Attack scenario prevention
+- Multi-instance consistency
+- Error handling
+
+**Impact**: Password changes and "logout all devices" now permanently invalidate tokens (survives server restarts).
+
+---
+
+### Security Fix 2: JWT_SECRET Metadata Logging (LOW Severity)
+
+**Problem**: Environment loader logs JWT_SECRET length in production logs, leaking entropy information.
+
+**Before** (`api/src/config/env.ts`):
+```typescript
+console.log('✅ Environment variables loaded');
+console.log('   JWT_SECRET:', process.env.JWT_SECRET ?
+  `present (${process.env.JWT_SECRET.length} chars)` : 'MISSING'); // ❌ Leaks length
+```
+
+**After** (gated by NODE_ENV):
+```typescript
+console.log('✅ Environment variables loaded');
+
+// SECURITY FIX: Only log JWT_SECRET metadata in development
+if (process.env.NODE_ENV === 'development') {
+  console.log('   JWT_SECRET:', process.env.JWT_SECRET ?
+    `present (${process.env.JWT_SECRET.length} chars)` : 'MISSING');
+} else {
+  // Production: Only log if MISSING (critical error), not if present
+  if (!process.env.JWT_SECRET) {
+    console.error('   JWT_SECRET: MISSING (critical error)');
+  }
+  // ✅ If present, log nothing (zero metadata leakage)
+}
+```
+
+**Impact**: Production logs now contain zero secret metadata.
+
+---
+
+### Password Requirements Simplification
+
+**Old Requirements** (Too complex, poor UX):
+- ❌ Minimum 12 characters
+- ❌ Uppercase letter
+- ❌ Lowercase letter
+- ❌ Number
+- ❌ Special character
+- ❌ Not a common password
+
+**New Requirements** (Simpler, better UX, still secure):
+- ✅ Minimum 8 characters (down from 12)
+- ✅ Contains uppercase letter
+- ✅ Contains number OR symbol (not both required)
+
+**Security Calculation**:
+```
+Possible chars: 26 (lowercase) + 26 (uppercase) + 10 (numbers) + 33 (special) = 95
+8-char password: 95^8 = 6,634,204,312,890,625 combinations
+At 1 billion guesses/sec: ~77 days to crack (reasonable security)
+```
+
+**Implementation**:
+
+Frontend (`src/lib/passwordPolicy.ts`):
+```typescript
+export interface PasswordRequirementCheck {
+  minLength: boolean;
+  hasUppercase: boolean;
+  hasNumberOrSymbol: boolean;
+}
+
+export function checkPasswordRequirements(password: string): PasswordRequirementCheck {
+  return {
+    minLength: password.length >= 8,
+    hasUppercase: /[A-Z]/.test(password),
+    hasNumberOrSymbol: /[0-9!@#$%^&*()_+\-=[\]{}|;:,.<>?]/.test(password),
+  };
+}
+```
+
+Backend (`api/src/utils/passwordValidator.ts`):
+```typescript
+export function validatePassword(password: string): PasswordValidationResult {
+  const errors: string[] = [];
+
+  if (password.length < 8) {
+    errors.push('Password must be at least 8 characters long');
+  }
+
+  if (!/[A-Z]/.test(password)) {
+    errors.push('Password must contain at least one uppercase letter');
+  }
+
+  if (!/[0-9!@#$%^&*()_+\-=[\]{}|;:,.<>?]/.test(password)) {
+    errors.push('Password must contain at least one number or symbol');
+  }
+
+  return { isValid: errors.length === 0, errors };
+}
+```
+
+---
+
+### Password Visibility Toggle Implementation
+
+**Component**: `src/app/login/page.tsx`
+
+```typescript
+import { Eye, EyeOff } from 'lucide-react';
+
+const [showPassword, setShowPassword] = useState(false);
+
+<div className={styles.passwordInputWrapper}>
+  <Input
+    type={showPassword ? "text" : "password"}
+    value={password}
+    onChange={(e) => setPassword(e.target.value)}
+  />
+  <button
+    type="button"
+    className={styles.passwordToggle}
+    onClick={() => setShowPassword(!showPassword)}
+    aria-label={showPassword ? "Hide password" : "Show password"}
+  >
+    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+  </button>
+</div>
+```
+
+**Styling** (`src/app/login/login.module.css`):
+```css
+.passwordInputWrapper {
+  position: relative;
+  width: 100%;
+}
+
+.passwordInputWrapper input {
+  padding-right: 48px; /* Prevent text overlap */
+}
+
+.passwordToggle {
+  position: absolute;
+  right: 12px;
+  top: 48px; /* Label (~20px) + gap (6px) + half input (~22px) */
+  transform: translateY(-50%);
+  z-index: 1;
+  /* ... hover/focus styles */
+}
+```
+
+**Key Decision**: Use `top: 48px` with `transform: translateY(-50%)` to center icon in input field (accounting for label height).
+
+---
+
+### Real-Time Password Validation UX
+
+**Behavior**:
+- Requirements appear below password field when focused or typing
+- Each requirement turns teal with checkmark (✓) when met
+- Auto-hide when field is empty and not focused
+
+**Implementation**:
+```typescript
+const [passwordFocused, setPasswordFocused] = useState(false);
+const passwordChecks = checkPasswordRequirements(password);
+const showPasswordRequirements = isSignupMode && (passwordFocused || password.length > 0);
+
+<Input
+  onFocus={() => setPasswordFocused(true)}
+  onBlur={() => setPasswordFocused(false)}
+/>
+
+{showPasswordRequirements && (
+  <div className={styles.passwordRequirements}>
+    <div className={`${styles.requirement} ${passwordChecks.minLength ? styles.requirementMet : ''}`}>
+      {passwordChecks.minLength && <Check size={14} />}
+      <span>At least 8 characters</span>
+    </div>
+    {/* ... other requirements */}
+  </div>
+)}
+```
+
+**Styling**:
+```css
+.requirement {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-body); /* Black when not met */
+  transition: color 0.15s;
+}
+
+.requirementMet {
+  color: var(--color-primary); /* Teal when met */
+  font-weight: 500;
+}
+
+.checkIcon {
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+```
+
+**Design Pattern**: Conditional className + conditional icon rendering = clean, declarative code.
+
+---
+
+### Key Takeaways
+
+**Security**:
+- ✅ Never store security-critical state in-memory only (use database)
+- ✅ Always test "restart persistence" for session management features
+- ✅ Gate all secret metadata logging behind NODE_ENV checks
+- ✅ Add comprehensive security tests for CVE-level issues
+
+**Password UX**:
+- ✅ Real-time validation > post-submit validation (better UX)
+- ✅ Visual success indicators (color + checkmark) reduce errors
+- ✅ Simplicity > complexity (3 clear rules vs 6 confusing ones)
+- ✅ Frontend and backend must enforce identical rules
+
+**Code Organization**:
+- ✅ Eye icon positioning: Calculate based on label + gap + input height
+- ✅ Use `onFocus`/`onBlur` for show/hide behavior (better than click tracking)
+- ✅ Separate validation logic from UI (testable, reusable)
+
+---
+
 ## 2025-11-26 - MemMachine Integration & Recipe Modal UX Fixes
 
 **Context**: After completing Docker setup, tested recipe CSV upload. MemMachine batch storage completely failed (130/130 recipes with 404 errors). Fixed port configuration and missing reranker config. Also improved recipe modal UX based on user feedback.

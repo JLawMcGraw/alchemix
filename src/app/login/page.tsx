@@ -3,8 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { Eye, EyeOff, Check } from 'lucide-react';
 import { useStore } from '@/lib/store';
-import { validatePassword as validatePasswordPolicy } from '@/lib/passwordPolicy';
+import { validatePassword as validatePasswordPolicy, checkPasswordRequirements } from '@/lib/passwordPolicy';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -18,9 +19,16 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState('');
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  // Real-time password requirement checks
+  const passwordChecks = checkPasswordRequirements(password);
+  const showPasswordRequirements = isSignupMode && (passwordFocused || password.length > 0);
 
   // Validate existing token on mount
   useEffect(() => {
@@ -139,31 +147,70 @@ export default function LoginPage() {
               disabled={loading}
             />
 
-            <Input
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              fullWidth
-              disabled={loading}
-            />
-            {isSignupMode && (
-              <p className={styles.passwordHint}>
-                Use at least 12 characters with uppercase, lowercase, number, and special character.
-              </p>
-            )}
+            <div>
+              <div className={styles.passwordInputWrapper}>
+                <Input
+                  label="Password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onFocus={() => setPasswordFocused(true)}
+                  onBlur={() => setPasswordFocused(false)}
+                  placeholder="••••••••"
+                  fullWidth
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  className={styles.passwordToggle}
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  disabled={loading}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+
+              {/* Real-time password requirements - only show when typing */}
+              {showPasswordRequirements && (
+                <div className={styles.passwordRequirements}>
+                  <div className={`${styles.requirement} ${passwordChecks.minLength ? styles.requirementMet : ''}`}>
+                    {passwordChecks.minLength && <Check size={14} className={styles.checkIcon} />}
+                    <span>At least 8 characters</span>
+                  </div>
+                  <div className={`${styles.requirement} ${passwordChecks.hasUppercase ? styles.requirementMet : ''}`}>
+                    {passwordChecks.hasUppercase && <Check size={14} className={styles.checkIcon} />}
+                    <span>Contains uppercase letter</span>
+                  </div>
+                  <div className={`${styles.requirement} ${passwordChecks.hasNumberOrSymbol ? styles.requirementMet : ''}`}>
+                    {passwordChecks.hasNumberOrSymbol && <Check size={14} className={styles.checkIcon} />}
+                    <span>Contains number or symbol</span>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {isSignupMode && (
-              <Input
-                label="Confirm Password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="••••••••"
-                fullWidth
-                disabled={loading}
-              />
+              <div className={styles.passwordInputWrapper}>
+                <Input
+                  label="Confirm Password"
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  fullWidth
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  className={styles.passwordToggle}
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                  disabled={loading}
+                >
+                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
             )}
 
             {(formError || error) && (

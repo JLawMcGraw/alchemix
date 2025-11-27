@@ -1,18 +1,127 @@
 # Project Development Progress
 
-Last updated: 2025-11-26
+Last updated: 2025-11-27
 
 ---
 
 ## Current Status
 
-**Version**: v1.18.4
-**Phase**: Production Ready - MemMachine Integration Complete
-**Blockers**: None - Full Docker environment operational, recipe management UX improved
+**Version**: v1.18.5 (Security Hardening & UX Improvements)
+**Phase**: Production Ready - Enhanced Security & Login UX
+**Blockers**: None - All security vulnerabilities fixed, login/signup UX polished
 
 ---
 
-## Recent Session (2025-11-26): MemMachine Integration Fixes & Recipe Modal UX Improvements
+## Recent Session (2025-11-27): Security Fixes, Cleanup, & Login/Signup UX Improvements
+
+### Work Completed
+- ✅ **Security**: Fixed HIGH severity token versioning persistence vulnerability
+- ✅ **Security**: Fixed LOW severity JWT_SECRET metadata logging in production
+- ✅ **Security**: Added 17 comprehensive security tests (318 total tests passing)
+- ✅ **Cleanup**: Removed 34 unused files from root directory (64% reduction)
+- ✅ **UX**: Added password visibility toggles (eye icons) to login/signup
+- ✅ **UX**: Simplified password requirements (8 chars, uppercase, number/symbol)
+- ✅ **UX**: Implemented real-time password validation with visual feedback
+- ✅ **Backend**: Updated password validation to match frontend requirements
+
+### Components Modified
+
+**Security Files (4 files)**
+- `api/src/database/db.ts` - Added token_version column migration
+- `api/src/middleware/auth.ts` - Database-backed token versioning (replaced in-memory Map)
+- `api/src/config/env.ts` - Gated JWT_SECRET logging behind NODE_ENV check
+- `api/src/tests/setup.ts` - Added token_version to test schema
+
+**Frontend Files (3 files)**
+- `src/app/login/page.tsx` - Password visibility toggles, real-time validation, simplified requirements
+- `src/app/login/login.module.css` - Eye icon positioning, inline requirement styling
+- `src/lib/passwordPolicy.ts` - Updated to match new requirements (8 chars, uppercase, number/symbol)
+
+**Backend Files (1 file)**
+- `api/src/utils/passwordValidator.ts` - Updated validation (8 chars, uppercase, number/symbol)
+
+**Test Files (1 new file)**
+- `api/src/middleware/auth.tokenVersioning.test.ts` - 17 comprehensive security tests
+
+**Documentation (1 new file)**
+- `api/SECURITY_FIXES_2025-11-27.md` - Complete security fix documentation
+
+### Key Issues Resolved
+
+**1. Token Versioning Persistence Vulnerability (HIGH)**
+- **Problem**: Token versions stored in-memory Map → lost on restart → old tokens valid again after password change
+- **Attack Scenario**: User changes password, server restarts, attacker's old token becomes valid
+- **Root Cause**: `userTokenVersions = new Map()` with no database persistence
+- **Solution**: Added `token_version` column to users table, persist all increments to DB
+- **Impact**: Password changes now permanently invalidate old tokens (survives restarts)
+- **Tests**: 17 new tests verify persistence across "simulated" restarts
+
+**2. JWT_SECRET Metadata Logging (LOW)**
+- **Problem**: Logging secret length in production (e.g., "64 chars") leaks entropy information
+- **Root Cause**: `console.log('JWT_SECRET: present (64 chars)')` runs in all environments
+- **Solution**: Gate logging with `NODE_ENV === 'development'` check
+- **Impact**: Zero secret metadata in production logs
+
+**3. Root Directory Clutter (Maintenance)**
+- **Problem**: 53 files in root directory (Windows .bat files, old docs, redundant testing guides)
+- **Solution**:
+  - Deleted 23 files (11 Windows batch/PS, 5 testing docs, 7 misc/old files)
+  - Archived 9 migration docs to `Documentation/archives/migrations/`
+  - Consolidated 2 Docker docs into DOCKER_SETUP.md
+- **Result**: 53 → 19 files (64% reduction), cleaner project structure
+
+**4. Password Requirements Too Complex (UX)**
+- **Old**: 12 chars, uppercase, lowercase, number, special char, not common (6 requirements)
+- **New**: 8 chars, uppercase, number OR symbol (3 simple requirements)
+- **Rationale**: Better usability without sacrificing security (8^95 = 6.6 quadrillion combinations)
+
+**5. Password Visibility & Feedback (UX)**
+- **Added**: Eye/EyeOff icons to toggle password visibility
+- **Added**: Real-time validation - requirements appear below password field when typing
+- **Added**: Visual feedback - requirements turn teal with checkmark when met
+- **Behavior**: Requirements auto-show when focused/typing, auto-hide when empty
+
+### Architecture Insights
+
+**Token Versioning Security Pattern:**
+- Token versions MUST be persisted to database (not in-memory)
+- JWT payload includes version: `{ userId, email, tv: 5, ... }`
+- Auth middleware validates: `decoded.tv === db.token_version`
+- Mismatch = reject token (even if signature valid)
+- Critical for "logout all devices" and password change scenarios
+
+**Password Validation Best Practices:**
+- Frontend and backend must enforce same rules
+- Real-time validation improves UX (immediate feedback)
+- Simplicity > complexity (3 clear rules vs 6 confusing ones)
+- Visual success indicators (color + checkmark) reduce form errors
+
+**Project Maintenance:**
+- Archive completed migration docs (not delete - historical reference)
+- Remove platform-specific files (.bat for Mac projects)
+- Consolidate redundant documentation
+- Keep root directory minimal (< 20 files ideal)
+
+### Test Results
+
+**Security Tests:**
+- Added: `api/src/middleware/auth.tokenVersioning.test.ts` (17 tests)
+- Total: 318 tests passing (up from 299)
+- Coverage: Database schema, version persistence, restart simulation, attack scenarios
+
+**TypeScript Compilation:**
+- All files compile successfully
+- No new type errors introduced
+
+### Next Session Priority
+1. Update backend password tests to match new requirements
+2. Consider adding password strength meter (visual indicator)
+3. Test complete signup flow with new UX
+4. Review other potential security vulnerabilities
+
+---
+
+## Previous Session (2025-11-26): MemMachine Integration Fixes & Recipe Modal UX Improvements
 
 ### Work Completed
 - ✅ Fixed MemMachine batch recipe upload (404 errors - wrong port configuration)

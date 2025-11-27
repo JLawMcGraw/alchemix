@@ -22,7 +22,19 @@ if (result.error) {
   console.error('   Looking for .env at:', path.join(process.cwd(), '.env'));
 } else {
   console.log('✅ Environment variables loaded');
-  console.log('   JWT_SECRET:', process.env.JWT_SECRET ? `present (${process.env.JWT_SECRET.length} chars)` : 'MISSING');
+
+  // SECURITY FIX (2025-11-27): Only log JWT_SECRET metadata in development
+  // Production logs should NOT contain any secret metadata (length, presence, etc.)
+  // Reason: Leaks entropy information that aids brute-force attacks
+  if (process.env.NODE_ENV === 'development') {
+    console.log('   JWT_SECRET:', process.env.JWT_SECRET ? `present (${process.env.JWT_SECRET.length} chars)` : 'MISSING');
+  } else {
+    // Production: Only log if MISSING (critical error), not if present
+    if (!process.env.JWT_SECRET) {
+      console.error('   JWT_SECRET: MISSING (critical error)');
+    }
+  }
+
   console.log('   NODE_ENV:', process.env.NODE_ENV || 'not set');
   console.log('   PORT:', process.env.PORT || 'not set');
 }

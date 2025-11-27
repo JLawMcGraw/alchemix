@@ -8,10 +8,10 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 
 ## ✨ Current Status
 
-**Version:** v1.18.4 (MemMachine Integration Complete)
+**Version:** v1.18.5 (Security Hardening + Login UX Improvements)
 **Phase:** Production Ready - Full Stack Operational
-**Last Updated:** November 26, 2025
-**Known Issues:** None - MemMachine fully operational, recipe modals improved
+**Last Updated:** November 27, 2025
+**Known Issues:** None - Enhanced security and improved authentication UX
 
 ### What's Working
 - ✅ **Complete TypeScript monorepo** (Frontend + Backend) ⭐
@@ -95,12 +95,16 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
   - 8-layer prompt injection protection plus sanitized stored context/history
   - Sanitized chat history (last 10 turns) supplied with each request
   - **Fixed**: Chat history synchronization (complete history sent to backend before reply)
-- ✅ **Authentication Fixed** - No more logout on refresh or login redirect loops ⭐⭐
+- ✅ **Authentication Complete** - Enhanced security and modern UX ⭐⭐⭐
+  - **Persistent Token Versioning** (v1.18.5): Database-backed session invalidation survives server restarts ⭐
+  - **Password Visibility Toggles**: Eye icons in login/signup for easy password verification ⭐
+  - **Real-Time Password Requirements**: Inline validation with color feedback and checkmarks ⭐
+  - **Simplified Password Policy** (v1.18.5): 8+ chars, uppercase, number or symbol ⭐
   - Added `_hasHydrated` flag to Zustand store for proper rehydration timing
   - Created `useAuthGuard` hook for consistent auth protection across pages
   - Token validation after Zustand hydration completes
   - API response unwrapping fixed (nested data.data structure)
-  - Client-side password validator matches backend policy (12+ chars, mixed case, number, special, no common passwords)
+  - Client-side password validator matches backend policy exactly
 - ✅ **Recipe CRUD Complete** - Full create, read, update, delete operations ⭐⭐
 - ✅ **Recipe Editing** - Inline edit mode in RecipeDetailModal with form validation ⭐
 - ✅ **Recipe Deletion** - Backend endpoint with CASCADE cleanup and confirmation ⭐
@@ -122,10 +126,11 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
   - Consistent Lab Assistant personality matching AI Bartender voice
   - HTML rendering for `<strong>` tags to highlight recipe counts
   - Example: "Perfect for winter: Your bourbon collection unlocks **15 stirred cocktails**"
-- ✅ **Comprehensive Test Infrastructure** - 299/299 tests passing (100% pass rate) ⭐⭐⭐
-  - 92 new integration tests added (32% coverage increase)
+- ✅ **Comprehensive Test Infrastructure** - 318/318 tests passing (100% pass rate) ⭐⭐⭐
+  - 111 new integration tests added (35% coverage increase)
   - Complete route coverage (inventoryItems, recipes, collections, favorites, messages)
-  - Security testing (prompt injection, SQL injection, XSS prevention)
+  - Security testing (prompt injection, SQL injection, XSS prevention, token versioning)
+  - 17 dedicated token versioning security tests (database persistence, restart simulation, attack scenarios)
   - Test utilities (helpers, assertions, mocks) reduce boilerplate by ~60%
   - Docker testing environment (Dockerfile + docker-compose.test.yml)
   - Test documentation with best practices guide
@@ -184,26 +189,24 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 - ✅ Full inventory table with filtering
 - ✅ View recipe from favorites page
 
-### Latest Session (Session 15 - November 24, 2025)
-- ✅ Completed MemMachine v1 API migration with full TypeScript types
-- ✅ Created comprehensive types (SessionHeaders, MemMachineSearchResponse, NormalizedSearchResult)
-- ✅ Implemented response validation with validateAndNormalizeResponse() method
-- ✅ Daily chat sessions using chat-YYYY-MM-DD format
-- ✅ Successfully seeded 241/241 recipes to MemMachine
-- ✅ Verified semantic search returning 5-10 relevant recipes per query
-- ✅ Fixed clickable recipe links with enhanced AI prompt (visual borders, RECOMMENDATIONS: line)
-- ✅ Fixed regex matching for recipe names with parentheses (negative lookbehind/lookahead)
-- ✅ Resolved Windows WinNAT service blocking ports 3000/3001
-- ✅ TypeScript compilation passing with 0 errors
-- ✅ Cost optimization: 98% total reduction ($0.75 → $0.015 per session)
-- ✅ Implemented three-tier MemMachine deletion strategy (UUID tracking + smart filtering + auto-sync)
-- ✅ Created database migration for memmachine_uuid column (Option A ready)
-- ✅ Implemented smart filtering (cross-references DB, filters deleted recipes from AI context)
-- ✅ Auto-sync triggers on bulk delete (10+) with fire-and-forget pattern
-- ✅ Created manual sync/clear endpoints and npm script (npm run clear-memmachine)
-- ✅ Fixed recipe page stats update (Total Recipes, Craftable, Near Misses now auto-refresh)
-- ✅ Tested deletion strategy end-to-end (single delete, bulk delete, manual clear, re-upload)
-- ✅ Created migration documentation (MEMMACHINE_V1_MIGRATION_COMPLETE.md)
+### Latest Session (Session 16 - November 27, 2025)
+- ✅ **Security Hardening**: Fixed HIGH severity token versioning vulnerability ⭐⭐⭐
+  - Migrated from in-memory Map to database-backed token versioning (survives restarts)
+  - Added token_version column to users table with safe idempotent migration
+  - Updated auth middleware to use database for getTokenVersion/incrementTokenVersion
+  - Gated JWT_SECRET logging behind NODE_ENV check (prevents production metadata leakage)
+  - Created comprehensive test suite (17 new token versioning tests, 318/318 passing)
+- ✅ **Login/Signup UX Improvements**: Modern password experience ⭐⭐
+  - Password visibility toggles (eye icons) with proper vertical centering
+  - Real-time password requirements (auto-show on focus, auto-hide on blur)
+  - Visual success feedback (black → teal color, checkmarks appear when met)
+  - Simplified password policy: 8 chars minimum, uppercase, number OR symbol
+  - Frontend/backend validation alignment (same regex patterns on both sides)
+- ✅ **Project Cleanup**: Reduced root directory clutter (53 → 19 files, 64% reduction)
+  - Deleted Windows batch files, redundant testing docs, misc files
+  - Archived migration documentation to Documentation/archived/
+  - Consolidated Docker documentation
+- ✅ **Documentation**: Updated PROJECT_PROGRESS.md, DEV_NOTES.md, created SECURITY_FIXES_2025-11-27.md
 
 ### Next Phase
 - 🚀 **Deployment to Production** (Vercel + Railway)
@@ -712,5 +715,5 @@ MIT License - see LICENSE file for details
 
 **Built with ❤️ using Next.js 14 + Express + TypeScript**
 
-**Current Version:** v1.18.1 (MemMachine Deletion Strategy + Stats Update Fix)
-**Last Updated:** November 24, 2025
+**Current Version:** v1.18.5 (Security Hardening + Login UX Improvements)
+**Last Updated:** November 27, 2025

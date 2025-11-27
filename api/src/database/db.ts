@@ -660,6 +660,43 @@ export function initializeDatabase() {
     }
   }
 
+  /**
+   * Schema Migration: Add token_version to users table
+   *
+   * SECURITY FIX: Persist token versioning to survive server restarts.
+   *
+   * Problem:
+   * - Token versions were stored only in-memory (Map)
+   * - Server restart/deploy → Map cleared → all version increments lost
+   * - After password change: old tokens become valid again after restart
+   * - "Logout all devices" becomes temporary until next restart
+   *
+   * Solution:
+   * - Store token_version per user in database
+   * - Increment on password change, "logout all devices", security events
+   * - Auth middleware checks JWT.tv === DB.token_version
+   * - Mismatch → reject token (even if signature valid)
+   *
+   * How it works:
+   * 1. User changes password → token_version incremented in DB
+   * 2. Server restarts → versions persist
+   * 3. Old token arrives → JWT has tv=5, DB has tv=6 → reject
+   * 4. Attacker can't bypass by restarting server
+   *
+   * Default value: 0 (all existing users start at version 0)
+   *
+   * Safe to run multiple times (will fail silently if column exists).
+   */
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0`);
+    console.log('✅ Added token_version column to users table (security fix)');
+  } catch (error: any) {
+    // Column already exists, ignore error
+    if (!error.message?.includes('duplicate column name')) {
+      console.error('Migration warning:', error.message);
+    }
+  }
+
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_inventory_items_user_id ON inventory_items(user_id);
     CREATE INDEX IF NOT EXISTS idx_inventory_items_category ON inventory_items(category);

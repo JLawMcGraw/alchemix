@@ -1,27 +1,23 @@
 /**
  * Password Validation Utility
  *
- * Enforces strong password requirements to protect user accounts.
- * Prevents common weak passwords that are easily guessed or brute-forced.
+ * Enforces password requirements to protect user accounts.
+ * Balances security with usability.
  *
- * SECURITY FIX #9: Strengthened password policy
- * - Minimum 12 characters (was 6)
- * - Must contain uppercase and lowercase letters
- * - Must contain at least one number
- * - Must contain at least one special character
- * - Reject common weak passwords
+ * UPDATED PASSWORD POLICY (2025-11-27):
+ * - Minimum 8 characters (simplified from 12)
+ * - Must contain uppercase letter
+ * - Must contain number OR symbol
  *
  * Why these requirements?
- * - 12+ chars: Exponentially harder to brute-force
- * - Mixed case: Prevents dictionary attacks
- * - Numbers: Adds complexity
- * - Special chars: Further increases entropy
- * - Common password check: Prevents "Password123!"
+ * - 8+ chars: Good balance of security and memorability
+ * - Uppercase: Adds complexity
+ * - Number/Symbol: Prevents simple dictionary words
  *
  * Password Strength Formula:
  * - Possible chars: 26 (lowercase) + 26 (uppercase) + 10 (numbers) + 33 (special) = 95
- * - 12-char password: 95^12 = 540,360,087,662,636,962,890,625 combinations
- * - At 1 billion guesses/sec: Would take 17,129 years to crack
+ * - 8-char password: 95^8 = 6,634,204,312,890,625 combinations
+ * - At 1 billion guesses/sec: Would take ~77 days to crack (reasonable security)
  */
 
 /**
@@ -83,33 +79,30 @@ export interface PasswordValidationResult {
  *
  * Checks a password against security requirements.
  *
- * Requirements Checked:
- * 1. Minimum length (12 characters)
+ * Requirements Checked (UPDATED 2025-11-27):
+ * 1. Minimum length (8 characters)
  * 2. Maximum length (128 characters - prevents DoS via bcrypt)
  * 3. Contains uppercase letter (A-Z)
- * 4. Contains lowercase letter (a-z)
- * 5. Contains number (0-9)
- * 6. Contains special character (!@#$%^&*()_+-=[]{}|;:,.<>?)
- * 7. Not a common weak password
+ * 4. Contains number OR symbol
  *
  * @param password - The password to validate
  * @returns Validation result with errors if any
  *
  * @example
  * ```typescript
- * const result = validatePassword('weak');
+ * const result = validatePassword('MyPass123');
  * if (!result.isValid) {
  *   console.log(result.errors);
- *   // ["Password must be at least 12 characters", "Password must contain uppercase", ...]
+ *   // ["Password must contain uppercase", ...]
  * }
  * ```
  */
 export function validatePassword(password: string): PasswordValidationResult {
   const errors: string[] = [];
 
-  // Requirement 1: Minimum length
-  if (password.length < 12) {
-    errors.push('Password must be at least 12 characters long');
+  // Requirement 1: Minimum length (8 characters)
+  if (password.length < 8) {
+    errors.push('Password must be at least 8 characters long');
   }
 
   // Requirement 2: Maximum length (bcrypt has 72-byte limit, we use 128 for safety)
@@ -119,35 +112,12 @@ export function validatePassword(password: string): PasswordValidationResult {
 
   // Requirement 3: Contains uppercase letter
   if (!/[A-Z]/.test(password)) {
-    errors.push('Password must contain at least one uppercase letter (A-Z)');
+    errors.push('Password must contain at least one uppercase letter');
   }
 
-  // Requirement 4: Contains lowercase letter
-  if (!/[a-z]/.test(password)) {
-    errors.push('Password must contain at least one lowercase letter (a-z)');
-  }
-
-  // Requirement 5: Contains number
-  if (!/[0-9]/.test(password)) {
-    errors.push('Password must contain at least one number (0-9)');
-  }
-
-  // Requirement 6: Contains special character
-  // Special chars: !@#$%^&*()_+-=[]{}|;:,.<>?
-  if (!/[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/.test(password)) {
-    errors.push('Password must contain at least one special character (!@#$%^&*()_+-=[]{}|;:,.<>?)');
-  }
-
-  // Requirement 7: Not a common weak password
-  const passwordLower = password.toLowerCase();
-  if (COMMON_PASSWORDS.includes(passwordLower)) {
-    errors.push('This password is too common. Please choose a more unique password.');
-  }
-
-  // Additional check: No repeated characters
-  // Example: "aaaaaaaaaaaa" meets length but is weak
-  if (/(.)\1{5,}/.test(password)) {
-    errors.push('Password cannot contain more than 5 repeated characters in a row');
+  // Requirement 4: Contains number OR symbol
+  if (!/[0-9!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/.test(password)) {
+    errors.push('Password must contain at least one number or symbol');
   }
 
   return {
@@ -181,7 +151,7 @@ export function getPasswordStrength(password: string): number {
   let score = 0;
 
   // Length bonus (5 points per char above minimum, max 30 points)
-  const lengthBonus = Math.min((password.length - 12) * 5, 30);
+  const lengthBonus = Math.min((password.length - 8) * 5, 30);
   score += lengthBonus;
 
   // Character variety (max 40 points)

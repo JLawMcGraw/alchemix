@@ -308,7 +308,7 @@ export function RecipeDetailModal({
                       placeholder={index === 0 ? 'e.g., 2 oz Bourbon' : `Ingredient ${index + 1}`}
                       style={{ flex: 1 }}
                     />
-                    {editedRecipe.ingredients.length > 1 && (
+                    {(editedRecipe.ingredients?.length ?? 0) > 1 && (
                       <Button
                         variant="ghost"
                         size="sm"

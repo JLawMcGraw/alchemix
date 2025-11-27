@@ -41,39 +41,47 @@ export interface PasswordValidationResult {
   errors: string[];
 }
 
+export interface PasswordRequirementCheck {
+  minLength: boolean;
+  hasUppercase: boolean;
+  hasNumberOrSymbol: boolean;
+}
+
+/**
+ * Check individual password requirements for real-time feedback
+ */
+export function checkPasswordRequirements(password: string): PasswordRequirementCheck {
+  return {
+    minLength: password.length >= 8,
+    hasUppercase: /[A-Z]/.test(password),
+    hasNumberOrSymbol: /[0-9!@#$%^&*()_+\-=[\]{}|;:,.<>?]/.test(password),
+  };
+}
+
+/**
+ * Validate password against all requirements
+ */
 export function validatePassword(password: string): PasswordValidationResult {
   const errors: string[] = [];
 
-  if (password.length < 12) {
-    errors.push('Password must be at least 12 characters long');
+  // Minimum 8 characters
+  if (password.length < 8) {
+    errors.push('Password must be at least 8 characters long');
   }
 
+  // Maximum 128 characters
   if (password.length > 128) {
     errors.push('Password must be less than 128 characters');
   }
 
+  // Must contain uppercase letter
   if (!/[A-Z]/.test(password)) {
-    errors.push('Password must contain at least one uppercase letter (A-Z)');
+    errors.push('Password must contain at least one uppercase letter');
   }
 
-  if (!/[a-z]/.test(password)) {
-    errors.push('Password must contain at least one lowercase letter (a-z)');
-  }
-
-  if (!/[0-9]/.test(password)) {
-    errors.push('Password must contain at least one number (0-9)');
-  }
-
-  if (!/[!@#$%^&*()_+\-=[\]{}|;:,.<>?]/.test(password)) {
-    errors.push('Password must contain at least one special character (!@#$%^&*()_+-=[]{}|;:,.<>?)');
-  }
-
-  if (COMMON_PASSWORDS.includes(password.toLowerCase())) {
-    errors.push('This password is too common. Please choose a more unique password.');
-  }
-
-  if (/(.)\1{5,}/.test(password)) {
-    errors.push('Password cannot contain more than 5 repeated characters in a row');
+  // Must contain number OR symbol
+  if (!/[0-9!@#$%^&*()_+\-=[\]{}|;:,.<>?]/.test(password)) {
+    errors.push('Password must contain at least one number or symbol');
   }
 
   return {

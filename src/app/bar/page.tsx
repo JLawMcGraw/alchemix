@@ -164,8 +164,8 @@ function BarPageContent() {
       // Deselect all
       setSelectedIds(new Set());
     } else {
-      // Select all visible items
-      setSelectedIds(new Set(filteredItems.map(item => item.id)));
+      // Select all visible items (filter out undefined IDs)
+      setSelectedIds(new Set(filteredItems.map(item => item.id).filter((id): id is number => id !== undefined)));
     }
   };
 
@@ -378,7 +378,9 @@ function BarPageContent() {
           </Card>
         ) : (
           <div className={styles.itemsGrid}>
-            {filteredItems.map((item) => (
+            {filteredItems.map((item) => {
+              if (!item.id) return null; // Skip items without IDs
+              return (
               <Card
                 key={item.id}
                 padding="md"
@@ -448,7 +450,8 @@ function BarPageContent() {
                   </span>
                 </div>
               </Card>
-            ))}
+              );
+            })}
           </div>
         )}
 
