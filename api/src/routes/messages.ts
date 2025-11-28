@@ -36,6 +36,7 @@ import { userRateLimit } from '../middleware/userRateLimit';
 import { sanitizeString } from '../utils/inputValidator';
 import { db } from '../database/db';
 import { memoryService } from '../services/MemoryService';
+import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
 
@@ -583,10 +584,9 @@ CRITICAL RULES:
  * - Input sanitized to prevent XSS
  * - Output filtered to prevent data leakage
  */
-router.post('/', async (req: Request, res: Response) => {
-  try {
-    const { message, history } = req.body;
-    const userId = req.user?.userId;
+router.post('/', asyncHandler(async (req: Request, res: Response) => {
+  const { message, history } = req.body;
+  const userId = req.user?.userId;
 
     /**
      * SECURITY LAYER 1: Basic Input Validation
@@ -805,54 +805,13 @@ router.post('/', async (req: Request, res: Response) => {
      * All security checks passed.
      * Message is safe to return to client.
      */
-    res.json({
-      success: true,
-      data: {
-        message: aiMessage
-      }
-    });
-
-  } catch (error) {
-    /**
-     * Error Handling
-     *
-     * Handle API errors gracefully without leaking internals.
-     */
-    console.error('AI message error:', error);
-
-    // Handle Axios-specific errors (API failures)
-    if (axios.isAxiosError(error)) {
-      // Check for specific error codes
-      if (error.response?.status === 429) {
-        return res.status(429).json({
-          success: false,
-          error: 'AI service rate limit exceeded. Please try again in a moment.'
-        });
-      }
-
-      if (error.response?.status === 401) {
-        console.error('❌ Invalid Anthropic API key');
-        return res.status(503).json({
-          success: false,
-          error: 'AI service authentication failed. Please contact administrator.'
-        });
-      }
-
-      // Generic API error
-      return res.status(error.response?.status || 500).json({
-        success: false,
-        error: 'Failed to get AI response',
-        details: error.response?.data?.error?.message || 'Unknown error'
-      });
+  res.json({
+    success: true,
+    data: {
+      message: aiMessage
     }
-
-    // Generic server error
-    res.status(500).json({
-      success: false,
-      error: 'Failed to send message to AI'
-    });
-  }
-});
+  });
+}));
 
 /**
  * GET /api/messages/dashboard-insight - Get Dashboard Greeting & Insight
@@ -874,9 +833,8 @@ router.post('/', async (req: Request, res: Response) => {
  * - 503: AI service not configured
  * - 500: Server error
  */
-router.get('/dashboard-insight', async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
+router.get('/dashboard-insight', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -962,27 +920,11 @@ router.get('/dashboard-insight', async (req: Request, res: Response) => {
       };
     }
 
-    res.json({
-      success: true,
-      data: parsedResponse
-    });
-
-  } catch (error) {
-    console.error('Dashboard insight error:', error);
-
-    if (axios.isAxiosError(error)) {
-      return res.status(error.response?.status || 500).json({
-        success: false,
-        error: 'Failed to generate dashboard insight'
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      error: 'Failed to generate dashboard insight'
-    });
-  }
-});
+  res.json({
+    success: true,
+    data: parsedResponse
+  });
+}));
 
 /**
  * Export AI Messages Router

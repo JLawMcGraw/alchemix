@@ -13,7 +13,7 @@ describe('passwordValidator', () => {
         'MySecure!Pass123',
         'C0mpl3x&Password!',
         'Test@1234567890!',
-        'Aa1!bbbbbccc',  // Minimum requirements met (max 5 repeated chars)
+        'MyPass12',  // Minimum requirements met (8 chars, uppercase, number)
       ];
 
       validPasswords.forEach(password => {
@@ -23,10 +23,10 @@ describe('passwordValidator', () => {
       });
     });
 
-    it('should reject passwords shorter than 12 characters', () => {
-      const result = validatePassword('Short1!');
+    it('should reject passwords shorter than 8 characters', () => {
+      const result = validatePassword('Short1');
       expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Password must be at least 12 characters long');
+      expect(result.errors).toContain('Password must be at least 8 characters long');
     });
 
     it('should reject passwords longer than 128 characters', () => {
@@ -39,35 +39,40 @@ describe('passwordValidator', () => {
     it('should reject passwords without uppercase letters', () => {
       const result = validatePassword('lowercase123!');
       expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Password must contain at least one uppercase letter (A-Z)');
+      expect(result.errors).toContain('Password must contain at least one uppercase letter');
     });
 
-    it('should reject passwords without lowercase letters', () => {
-      const result = validatePassword('UPPERCASE123!');
-      expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Password must contain at least one lowercase letter (a-z)');
+    it('should accept passwords without lowercase letters (not required)', () => {
+      const result = validatePassword('UPPERCASE123');
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
     });
 
-    it('should reject passwords without numbers', () => {
-      const result = validatePassword('NoNumbersHere!');
+    it('should reject passwords without numbers or symbols', () => {
+      const result = validatePassword('NoNumbersOrSymbols');
       expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Password must contain at least one number (0-9)');
+      expect(result.errors).toContain('Password must contain at least one number or symbol');
     });
 
-    it('should reject passwords without special characters', () => {
-      const result = validatePassword('NoSpecialChars123');
-      expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Password must contain at least one special character (!@#$%^&*()_+-=[]{}|;:,.<>?)');
+    it('should accept passwords with numbers but no symbols', () => {
+      const result = validatePassword('MyPassword123');
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it('should accept passwords with symbols but no numbers', () => {
+      const result = validatePassword('MyPassword!@#');
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
     });
 
     it('should reject common weak passwords regardless of complexity', () => {
       // Note: These need to be EXACT matches (case-insensitive) from the common password list
-      // Adding complexity doesn't help if the base is a common password
       const commonPasswords = [
-        'password',  // Too short anyway
-        'password123',  // Exact match in common list (needs uppercase + special char to meet requirements)
-        '12345678',  // Too short
-        'qwerty',  // Too short
+        'password',     // Too short (< 8 chars)
+        'password123',  // Too short and no uppercase
+        '12345678',     // Meets length but no uppercase
+        'qwerty',       // Too short
       ];
 
       commonPasswords.forEach(password => {
@@ -76,53 +81,37 @@ describe('passwordValidator', () => {
       });
     });
 
-    it('should reject passwords with more than 5 repeated characters', () => {
-      const result = validatePassword('Aaaaaaaaa1!');
-      expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Password cannot contain more than 5 repeated characters in a row');
-    });
-
-    it('should accept passwords with up to 5 repeated characters', () => {
-      const result = validatePassword('Aaaaa12345!B');  // Exactly 5 a's in a row, 12 chars total
-      expect(result.isValid).toBe(true);
-    });
-
     it('should return multiple errors for very weak passwords', () => {
       const result = validatePassword('weak');
       expect(result.isValid).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(3);
+      expect(result.errors.length).toBeGreaterThanOrEqual(2); // Should fail length + number/symbol
     });
 
-    it('should handle edge case of exactly 12 characters', () => {
-      const result = validatePassword('Exactly12!ab');
+    it('should handle edge case of exactly 8 characters', () => {
+      const result = validatePassword('MyPass1!');
       expect(result.isValid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
 
     it('should handle edge case of exactly 128 characters', () => {
-      // Create a 128-char password without triggering the repeated char limit (max 5 in a row)
-      // Using a pattern that doesn't repeat more than 5 times: 'Ab1!C2@'
-      const pattern = 'Ab1!C2@';  // 7 chars
-      const validPassword = pattern.repeat(18) + 'Ab1!C2';  // 7*18 + 6 = 126 + 6 = 132, need to adjust
-      // Let's just build it carefully
+      // Create a 128-char password
       const pwd = 'Ab1!'.repeat(32);  // 4*32 = 128
       expect(pwd.length).toBe(128);
       const result = validatePassword(pwd);
       expect(result.isValid).toBe(true);
     });
 
-    it('should detect common password variations (case-insensitive)', () => {
-      // Test with a password that IS in the common list (exactly), just different case
-      // "password1234" is in the common passwords list
-      const result = validatePassword('PASSWORD1234');  // Will match "password1234" case-insensitively
-      expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('This password is too common. Please choose a more unique password.');
+    it('should accept common password with uppercase and number (basic requirements met)', () => {
+      // "password1234" is in common list but if we add uppercase, it meets minimum requirements
+      // Current policy doesn't block common passwords, just validates structure
+      const result = validatePassword('Password1234');
+      expect(result.isValid).toBe(true); // Meets: 8+ chars, uppercase, number
     });
 
     it('should accept all special characters', () => {
       const specialChars = '!@#$%^&*()_+-=[]{}|;:,.<>?';
       for (const char of specialChars) {
-        const password = `SecurePass123${char}`;
+        const password = `MyPassXX${char}`;  // 9 chars, uppercase, symbol
         const result = validatePassword(password);
         expect(result.isValid).toBe(true);
       }

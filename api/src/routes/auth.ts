@@ -33,6 +33,7 @@ import { generateToken, authMiddleware, getTokenVersion, generateJTI } from '../
 import { validatePassword } from '../utils/passwordValidator';
 import { tokenBlacklist } from '../utils/tokenBlacklist';
 import { User } from '../types';
+import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
 
@@ -67,9 +68,8 @@ const router = Router();
  * - Email uniqueness enforced by database constraint
  * - JWT token returned for immediate login
  */
-router.post('/signup', async (req: Request, res: Response) => {
-  try {
-    const { email, password } = req.body;
+router.post('/signup', asyncHandler(async (req: Request, res: Response) => {
+  const { email, password } = req.body;
 
     /**
      * Step 1: Basic Input Validation
@@ -231,32 +231,14 @@ router.post('/signup', async (req: Request, res: Response) => {
      * 201 Created status indicates new resource was created.
      * Return token for immediate authentication.
      */
-    res.status(201).json({
-      success: true,
-      data: {
-        token,
-        user
-      }
-    });
-  } catch (error) {
-    /**
-     * Error Handling
-     *
-     * Log detailed error for debugging (server-side only).
-     * Return generic error to client (don't leak internals).
-     *
-     * Common errors:
-     * - Database constraint violation (duplicate email)
-     * - bcrypt failure (system resource issue)
-     * - Database connection failure
-     */
-    console.error('Signup error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create account'
-    });
-  }
-});
+  res.status(201).json({
+    success: true,
+    data: {
+      token,
+      user
+    }
+  });
+}));
 
 /**
  * POST /auth/login - Authenticate User
@@ -289,9 +271,8 @@ router.post('/signup', async (req: Request, res: Response) => {
  * - bcrypt comparison is inherently timing-safe
  * - Password hash never returned to client
  */
-router.post('/login', async (req: Request, res: Response) => {
-  try {
-    const { email, password } = req.body;
+router.post('/login', asyncHandler(async (req: Request, res: Response) => {
+  const { email, password } = req.body;
 
     /**
      * Step 1: Basic Input Validation
@@ -424,31 +405,14 @@ router.post('/login', async (req: Request, res: Response) => {
      * 200 OK status indicates successful authentication.
      * Client stores token for future authenticated requests.
      */
-    res.json({
-      success: true,
-      data: {
-        token,
-        user: userWithoutPassword
-      }
-    });
-  } catch (error) {
-    /**
-     * Error Handling
-     *
-     * Log detailed error server-side for debugging.
-     * Return generic error to client (don't leak internals).
-     *
-     * Common errors:
-     * - Database connection failure
-     * - bcrypt error (rare, system resource issue)
-     */
-    console.error('Login error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to login'
-    });
-  }
-});
+  res.json({
+    success: true,
+    data: {
+      token,
+      user: userWithoutPassword
+    }
+  });
+}));
 
 /**
  * GET /auth/me - Get Current User Info
@@ -479,14 +443,13 @@ router.post('/login', async (req: Request, res: Response) => {
  * - Frontend needs to display user info (email, account creation date)
  * - Refresh user data after login
  */
-router.get('/me', authMiddleware, (req: Request, res: Response) => {
-  try {
-    /**
-     * Step 1: Extract User ID from JWT Token
-     *
-     * authMiddleware (runs before this handler) decodes the JWT and
-     * attaches user info to req.user. This includes:
-     * - userId: Database ID from token payload
+router.get('/me', authMiddleware, asyncHandler(async (req: Request, res: Response) => {
+  /**
+   * Step 1: Extract User ID from JWT Token
+   *
+   * authMiddleware (runs before this handler) decodes the JWT and
+   * attaches user info to req.user. This includes:
+   * - userId: Database ID from token payload
      * - email: Email from token payload
      *
      * If we reach this handler, the token is valid (not expired, correct signature).
@@ -539,24 +502,11 @@ router.get('/me', authMiddleware, (req: Request, res: Response) => {
      * Return user data (without password hash).
      * Frontend can use this to display profile info.
      */
-    res.json({
-      success: true,
-      data: user
-    });
-  } catch (error) {
-    /**
-     * Error Handling
-     *
-     * Log detailed error server-side.
-     * Return generic error to client.
-     */
-    console.error('Get user error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get user'
-    });
-  }
-});
+  res.json({
+    success: true,
+    data: user
+  });
+}));
 
 /**
  * POST /auth/logout - End User Session
@@ -608,14 +558,13 @@ router.get('/me', authMiddleware, (req: Request, res: Response) => {
  * - Log logout events for security analytics
  * - Support selective token revocation (per device)
  */
-router.post('/logout', authMiddleware, (req: Request, res: Response) => {
-  try {
-    /**
-     * Step 1: Extract Token from Authorization Header
-     *
-     * The authMiddleware has already validated the token exists.
-     * We need to extract it again for blacklisting.
-     *
+router.post('/logout', authMiddleware, asyncHandler(async (req: Request, res: Response) => {
+  /**
+   * Step 1: Extract Token from Authorization Header
+   *
+   * The authMiddleware has already validated the token exists.
+   * We need to extract it again for blacklisting.
+   *
      * Header format: "Authorization: Bearer <token>"
      * We extract the token part (after "Bearer ")
      */
@@ -678,32 +627,13 @@ router.post('/logout', authMiddleware, (req: Request, res: Response) => {
      * 2. Redirect to login page
      * 3. Clear any cached user data
      */
-    res.json({
-      success: true,
-      message: 'Logged out successfully'
-    });
+  res.json({
+    success: true,
+    message: 'Logged out successfully'
+  });
 
-    console.log(`✅ User ${req.user?.userId} logged out (token blacklisted)`);
-  } catch (error) {
-    /**
-     * Error Handling
-     *
-     * Even if blacklisting fails, we still allow logout.
-     * This ensures users can always logout even if there's a bug.
-     *
-     * Common errors:
-     * - JWT decode error (malformed token - shouldn't happen after auth middleware)
-     * - Blacklist error (memory full - very rare)
-     */
-    console.error('Logout error:', error);
-
-    // Still return success to allow client-side logout
-    res.json({
-      success: true,
-      message: 'Logged out successfully (server-side revocation may have failed)'
-    });
-  }
-});
+  console.log(`✅ User ${req.user?.userId} logged out (token blacklisted)`);
+}));
 
 /**
  * Export Authentication Router

@@ -22,6 +22,7 @@ import { authMiddleware } from '../middleware/auth';
 import { userRateLimit } from '../middleware/userRateLimit';
 import { sanitizeString } from '../utils/inputValidator';
 import { memoryService } from '../services/MemoryService';
+import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
 
@@ -49,8 +50,7 @@ router.use(authMiddleware);
  *   ]
  * }
  */
-router.get('/', async (req: Request, res: Response) => {
-  try {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -72,18 +72,11 @@ router.get('/', async (req: Request, res: Response) => {
       ORDER BY c.created_at DESC
     `).all(userId);
 
-    res.json({
-      success: true,
-      data: collections
-    });
-  } catch (error) {
-    console.error('Get collections error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch collections'
-    });
-  }
-});
+  res.json({
+    success: true,
+    data: collections
+  });
+}));
 
 /**
  * POST /api/collections - Create New Collection
@@ -106,8 +99,7 @@ router.get('/', async (req: Request, res: Response) => {
  *   }
  * }
  */
-router.post('/', async (req: Request, res: Response) => {
-  try {
+router.post('/', asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -152,18 +144,11 @@ router.post('/', async (req: Request, res: Response) => {
       console.error('Failed to store collection in MemMachine (non-critical):', err);
     });
 
-    res.status(201).json({
-      success: true,
-      data: collection
-    });
-  } catch (error) {
-    console.error('Create collection error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create collection'
-    });
-  }
-});
+  res.status(201).json({
+    success: true,
+    data: collection
+  });
+}));
 
 /**
  * PUT /api/collections/:id - Update Collection
@@ -185,8 +170,7 @@ router.post('/', async (req: Request, res: Response) => {
  *   }
  * }
  */
-router.put('/:id', async (req: Request, res: Response) => {
-  try {
+router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -258,18 +242,11 @@ router.put('/:id', async (req: Request, res: Response) => {
       'SELECT * FROM collections WHERE id = ?'
     ).get(collectionId);
 
-    res.json({
-      success: true,
-      data: updatedCollection
-    });
-  } catch (error) {
-    console.error('Update collection error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update collection'
-    });
-  }
-});
+  res.json({
+    success: true,
+    data: updatedCollection
+  });
+}));
 
 /**
  * DELETE /api/collections/:id - Delete Collection
@@ -283,8 +260,7 @@ router.put('/:id', async (req: Request, res: Response) => {
  *   "message": "Collection deleted successfully"
  * }
  */
-router.delete('/:id', async (req: Request, res: Response) => {
-  try {
+router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -317,17 +293,10 @@ router.delete('/:id', async (req: Request, res: Response) => {
     // Delete collection (CASCADE will set recipes.collection_id to NULL)
     db.prepare('DELETE FROM collections WHERE id = ?').run(collectionId);
 
-    res.json({
-      success: true,
-      message: 'Collection deleted successfully'
-    });
-  } catch (error) {
-    console.error('Delete collection error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to delete collection'
-    });
-  }
-});
+  res.json({
+    success: true,
+    message: 'Collection deleted successfully'
+  });
+}));
 
 export default router;

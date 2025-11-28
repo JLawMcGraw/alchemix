@@ -30,6 +30,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '../database/db';
 import { authMiddleware } from '../middleware/auth';
 import { userRateLimit } from '../middleware/userRateLimit';
+import { asyncHandler } from '../utils/asyncHandler';
 import { Recipe } from '../types';
 
 const router = Router();
@@ -664,10 +665,9 @@ function findMissingIngredients(ingredients: string[], bottles: BottleData[]): s
  * - Read-only: No database modifications
  * - No external API calls
  */
-router.get('/smart', (req: Request, res: Response) => {
+router.get('/smart', asyncHandler(async (req: Request, res: Response) => {
   console.log('[DEBUG-VERIFY-v2] Smart Shopping List Request Received');
-  try {
-    const userId = req.user?.userId;
+  const userId = req.user?.userId;
 
     /**
      * Step 1: Authentication Check
@@ -877,20 +877,7 @@ router.get('/smart', (req: Request, res: Response) => {
         missingCount: r.missingIngredients.length
       }))
     });
-  } catch (error) {
-    /**
-     * Error Handling
-     *
-     * Log detailed error server-side.
-     * Return generic error to client.
-     */
-    console.error('Smart shopping list error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to generate shopping list recommendations'
-    });
-  }
-});
+}));
 
 /**
  * Export Shopping List Router

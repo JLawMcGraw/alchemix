@@ -44,7 +44,6 @@ import { logger } from './utils/logger';
 // Import API route handlers
 import authRoutes from './routes/auth';
 import inventoryItemsRoutes from './routes/inventoryItems';
-import inventoryRoutes from './routes/inventory';  // Keep old route for backwards compatibility
 import recipesRoutes from './routes/recipes';
 import collectionsRoutes from './routes/collections';
 import favoritesRoutes from './routes/favorites';
@@ -540,8 +539,7 @@ app.use('/auth', authRoutes);          // Mount auth routes
 // Protected API routes (require authentication)
 // SECURITY FIX #14: Apply user-based rate limiting to authenticated routes
 // Note: Routes already include authMiddleware internally (sets req.user)
-app.use('/api/inventory-items', inventoryItemsRoutes);  // New inventory system with categories
-app.use('/api/inventory', inventoryRoutes);  // Backwards compatibility (will be deprecated)
+app.use('/api/inventory-items', inventoryItemsRoutes);  // Inventory system with categories
 app.use('/api/recipes', recipesRoutes);
 app.use('/api/collections', collectionsRoutes);
 app.use('/api/shopping-list', shoppingListRoutes);

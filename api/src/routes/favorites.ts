@@ -31,6 +31,7 @@ import { authMiddleware } from '../middleware/auth';
 import { userRateLimit } from '../middleware/userRateLimit';
 import { sanitizeString, validateNumber } from '../utils/inputValidator';
 import { Favorite } from '../types';
+import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
 
@@ -85,9 +86,8 @@ router.use(authMiddleware);
  * - Add sorting options (name, date)
  * - Join with recipes table for full recipe details
  */
-router.get('/', (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
 
     /**
      * Step 1: Authentication Check
@@ -127,28 +127,11 @@ router.get('/', (req: Request, res: Response) => {
      * Return favorites array (may be empty).
      * Empty array indicates user has no favorites yet.
      */
-    res.json({
-      success: true,
-      data: favorites
-    });
-  } catch (error) {
-    /**
-     * Error Handling
-     *
-     * Log detailed error server-side.
-     * Return generic error to client (don't leak internals).
-     *
-     * Common errors:
-     * - Database connection failure
-     * - SQLite error (database locked)
-     */
-    console.error('Get favorites error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch favorites'
-    });
-  }
-});
+  res.json({
+    success: true,
+    data: favorites
+  });
+}));
 
 /**
  * POST /api/favorites - Add Recipe to Favorites
@@ -200,9 +183,8 @@ router.get('/', (req: Request, res: Response) => {
  * - Add tags/categories to favorites
  * - Add personal notes field
  */
-router.post('/', (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
+router.post('/', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
 
     /**
      * Step 1: Authentication Check
@@ -365,26 +347,11 @@ router.post('/', (req: Request, res: Response) => {
      * 201 Created status indicates new resource was created.
      * Return complete favorite object for frontend to display.
      */
-    res.status(201).json({
-      success: true,
-      data: createdFavorite
-    });
-  } catch (error) {
-    /**
-     * Error Handling
-     *
-     * Common errors:
-     * - Database constraint violation (e.g., invalid user_id)
-     * - SQLite error (database locked, disk full)
-     * - Foreign key violation (if recipe_id doesn't exist)
-     */
-    console.error('Add favorite error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to add favorite'
-    });
-  }
-});
+  res.status(201).json({
+    success: true,
+    data: createdFavorite
+  });
+}));
 
 /**
  * DELETE /api/favorites/:id - Remove Favorite
@@ -419,9 +386,8 @@ router.post('/', (req: Request, res: Response) => {
  * - Add "undo" functionality (soft delete + restore)
  * - Track deletion timestamp for analytics
  */
-router.delete('/:id', (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
+router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
     const favoriteId = parseInt(req.params.id);
 
     /**
@@ -491,25 +457,11 @@ router.delete('/:id', (req: Request, res: Response) => {
      * 200 OK with confirmation message.
      * No data returned (favorite is deleted).
      */
-    res.json({
-      success: true,
-      message: 'Favorite removed successfully'
-    });
-  } catch (error) {
-    /**
-     * Error Handling
-     *
-     * Common errors:
-     * - Database constraint violation (rare for DELETE)
-     * - SQLite error (database locked)
-     */
-    console.error('Delete favorite error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to remove favorite'
-    });
-  }
-});
+  res.json({
+    success: true,
+    message: 'Favorite removed successfully'
+  });
+}));
 
 /**
  * Export Favorites Router

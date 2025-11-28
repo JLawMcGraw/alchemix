@@ -32,6 +32,7 @@ import { authMiddleware } from '../middleware/auth';
 import { userRateLimit } from '../middleware/userRateLimit';
 import { validateNumber } from '../utils/inputValidator';
 import { InventoryItem } from '../types';
+import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
 
@@ -122,22 +123,21 @@ router.use(authMiddleware);
  * - Input validation: page/limit/category validated
  * - SQL injection: Parameterized queries
  */
-router.get('/', (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
 
-    /**
-     * Step 1: Authentication Check
-     *
-     * This should never fail (authMiddleware prevents it),
-     * but we check for type safety and defense in depth.
-     */
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized'
-      });
-    }
+  /**
+   * Step 1: Authentication Check
+   *
+   * This should never fail (authMiddleware prevents it),
+   * but we check for type safety and defense in depth.
+   */
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized'
+    });
+  }
 
     /**
      * Step 2: Parse and Validate Pagination Parameters
@@ -279,32 +279,19 @@ router.get('/', (req: Request, res: Response) => {
      * - data: Array of items for current page
      * - pagination: Metadata for UI controls
      */
-    res.json({
-      success: true,
-      data: items,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNextPage,
-        hasPreviousPage
-      }
-    });
-  } catch (error) {
-    /**
-     * Error Handling
-     *
-     * Log detailed error server-side.
-     * Return generic error to client (don't leak internals).
-     */
-    console.error('Get inventory items error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch inventory items'
-    });
-  }
-});
+  res.json({
+    success: true,
+    data: items,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages,
+      hasNextPage,
+      hasPreviousPage
+    }
+  });
+}));
 
 /**
  * GET /api/inventory-items/category-counts - Get Counts for All Categories
@@ -333,19 +320,18 @@ router.get('/', (req: Request, res: Response) => {
  * - No parameters to validate (simple GET)
  * - SQL injection: Parameterized queries
  */
-router.get('/category-counts', (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
+router.get('/category-counts', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
 
-    /**
-     * Step 1: Authentication Check
-     */
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized'
-      });
-    }
+  /**
+   * Step 1: Authentication Check
+   */
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized'
+    });
+  }
 
     /**
      * Step 2: Get Total Count
@@ -409,24 +395,11 @@ router.get('/category-counts', (req: Request, res: Response) => {
 
     console.log('📊 Category counts calculated:', counts);
 
-    res.json({
-      success: true,
-      data: counts
-    });
-  } catch (error) {
-    /**
-     * Error Handling
-     *
-     * Log detailed error server-side.
-     * Return generic error to client (don't leak internals).
-     */
-    console.error('❌ Get category counts error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch category counts'
-    });
-  }
-});
+  res.json({
+    success: true,
+    data: counts
+  });
+}));
 
 /**
  * POST /api/inventory-items - Add New Item to Inventory
@@ -474,19 +447,18 @@ router.get('/category-counts', (req: Request, res: Response) => {
  * - User ownership: bottle.user_id set to authenticated user
  * - XSS prevention: HTML tags stripped from text fields
  */
-router.post('/', (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
+router.post('/', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
 
-    /**
-     * Step 1: Authentication Check
-     */
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized'
-      });
-    }
+  /**
+   * Step 1: Authentication Check
+   */
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized'
+    });
+  }
 
     /**
      * Step 2: Validate and Sanitize Input
@@ -578,25 +550,11 @@ router.post('/', (req: Request, res: Response) => {
      * 201 Created status indicates new resource was created.
      * Return complete item object for frontend to display.
      */
-    res.status(201).json({
-      success: true,
-      data: createdItem
-    });
-  } catch (error) {
-    /**
-     * Error Handling
-     *
-     * Common errors:
-     * - Database constraint violation (e.g., invalid user_id, invalid category)
-     * - SQLite error (database locked, disk full)
-     */
-    console.error('Add inventory item error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to add inventory item'
-    });
-  }
-});
+  res.status(201).json({
+    success: true,
+    data: createdItem
+  });
+}));
 
 /**
  * PUT /api/inventory/:id - Update Existing InventoryItem
@@ -636,10 +594,9 @@ router.post('/', (req: Request, res: Response) => {
  * - SQL injection: Parameterized queries only
  * - Authorization: Even with valid ID, users can't update others' inventory_items
  */
-router.put('/:id', (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
-    const itemId = parseInt(req.params.id);
+router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  const itemId = parseInt(req.params.id);
 
     /**
      * Step 1: Authentication Check
@@ -768,25 +725,11 @@ router.put('/:id', (req: Request, res: Response) => {
     /**
      * Step 7: Return Success Response
      */
-    res.json({
-      success: true,
-      data: updatedItem
-    });
-  } catch (error) {
-    /**
-     * Error Handling
-     *
-     * Common errors:
-     * - Database constraint violation
-     * - SQLite error
-     */
-    console.error('Update inventory item error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update inventory item'
-    });
-  }
-});
+  res.json({
+    success: true,
+    data: updatedItem
+  });
+}));
 
 /**
  * DELETE /api/inventory-items/bulk - Bulk Delete Inventory Items
@@ -815,9 +758,8 @@ router.put('/:id', (req: Request, res: Response) => {
  * - Limit: Maximum 500 items per request (prevents DoS)
  * - SQL injection: Parameterized queries
  */
-router.delete('/bulk', (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
+router.delete('/bulk', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -869,19 +811,12 @@ router.delete('/bulk', (req: Request, res: Response) => {
       WHERE id IN (${placeholders}) AND user_id = ?
     `).run(...ids, userId);
 
-    res.json({
-      success: true,
-      deleted: result.changes,
-      message: `Successfully deleted ${result.changes} item${result.changes === 1 ? '' : 's'}`
-    });
-  } catch (error) {
-    console.error('Bulk delete items error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to delete items'
-    });
-  }
-});
+  res.json({
+    success: true,
+    deleted: result.changes,
+    message: `Successfully deleted ${result.changes} item${result.changes === 1 ? '' : 's'}`
+  });
+}));
 
 /**
  * DELETE /api/inventory/:id - Delete InventoryItem
@@ -915,10 +850,9 @@ router.delete('/bulk', (req: Request, res: Response) => {
  * - Filter out deleted inventory_items in queries
  * - Allows data recovery and audit trails
  */
-router.delete('/:id', (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
-    const itemId = parseInt(req.params.id);
+router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  const itemId = parseInt(req.params.id);
 
     /**
      * Step 1: Authentication Check
@@ -980,25 +914,11 @@ router.delete('/:id', (req: Request, res: Response) => {
      * 200 OK with confirmation message.
      * No data returned (item is deleted).
      */
-    res.json({
-      success: true,
-      message: 'Item deleted successfully'
-    });
-  } catch (error) {
-    /**
-     * Error Handling
-     *
-     * Common errors:
-     * - Database constraint violation (e.g., foreign key if we add them)
-     * - SQLite error (database locked)
-     */
-    console.error('Delete inventory item error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to delete inventory item'
-    });
-  }
-});
+  res.json({
+    success: true,
+    message: 'Item deleted successfully'
+  });
+}));
 
 /**
  * Helper function to find a field value from record using multiple possible column names

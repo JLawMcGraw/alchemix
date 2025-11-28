@@ -35,6 +35,7 @@ import { userRateLimit } from '../middleware/userRateLimit';
 import { sanitizeString, validateNumber } from '../utils/inputValidator';
 import { Recipe } from '../types';
 import { memoryService } from '../services/MemoryService';
+import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
 
@@ -122,9 +123,8 @@ router.use(authMiddleware);
  * - Input validation: page/limit validated as numbers
  * - SQL injection: Parameterized queries
  */
-router.get('/', (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
 
     /**
      * Step 1: Authentication Check
@@ -287,32 +287,19 @@ router.get('/', (req: Request, res: Response) => {
      * - data: Array of recipes for current page
      * - pagination: Metadata for UI controls
      */
-    res.json({
-      success: true,
-      data: parsedRecipes,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNextPage,
-        hasPreviousPage
-      }
-    });
-  } catch (error) {
-    /**
-     * Error Handling
-     *
-     * Log detailed error server-side.
-     * Return generic error to client (don't leak internals).
-     */
-    console.error('Get recipes error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch recipes'
-    });
-  }
-});
+  res.json({
+    success: true,
+    data: parsedRecipes,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages,
+      hasNextPage,
+      hasPreviousPage
+    }
+  });
+}));
 
 /**
  * POST /api/recipes - Add New Recipe
@@ -369,9 +356,8 @@ router.get('/', (req: Request, res: Response) => {
  * - XSS prevention: HTML tags stripped from text fields
  * - Length limits: Prevent database bloat
  */
-router.post('/', (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
+router.post('/', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
 
     /**
      * Step 1: Authentication Check
@@ -574,27 +560,11 @@ router.post('/', (req: Request, res: Response) => {
      * 201 Created status indicates new resource was created.
      * Return complete recipe object for frontend to display.
      */
-    res.status(201).json({
-      success: true,
-      data: parsedRecipe
-    });
-  } catch (error) {
-    /**
-     * Error Handling
-     *
-     * Common errors:
-     * - Database constraint violation (e.g., invalid user_id)
-     * - JSON.stringify() error (circular reference, too large)
-     * - JSON.parse() error (malformed JSON)
-     * - SQLite error (database locked, disk full)
-     */
-    console.error('Add recipe error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to add recipe'
-    });
-  }
-});
+  res.status(201).json({
+    success: true,
+    data: parsedRecipe
+  });
+}));
 
 /**
  * Helper function to find a field value from record using multiple possible column names
@@ -731,9 +701,8 @@ function validateRecipeData(record: any): { isValid: boolean; errors: string[]; 
  * - Same validation as individual recipe creation
  * - Partial success: Import what we can, report errors
  */
-router.post('/import', upload.single('file'), async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
+router.post('/import', upload.single('file'), asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -895,21 +864,13 @@ router.post('/import', upload.single('file'), async (req: Request, res: Response
     }
 
     // Return summary
-    res.json({
-      success: true,
-      imported,
-      failed: errors.length,
-      errors: errors.length > 0 ? errors : undefined
-    });
-  } catch (error: any) {
-    console.error('Recipe CSV import error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to import CSV',
-      details: error.message
-    });
-  }
-});
+  res.json({
+    success: true,
+    imported,
+    failed: errors.length,
+    errors: errors.length > 0 ? errors : undefined
+  });
+}));
 
 /**
  * PUT /api/recipes/:id - Update Existing Recipe
@@ -955,9 +916,8 @@ router.post('/import', upload.single('file'), async (req: Request, res: Response
  * - Input validation: Same as POST /api/recipes
  * - SQL injection: Parameterized queries only
  */
-router.put('/:id', (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
+router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -1137,18 +1097,11 @@ router.put('/:id', (req: Request, res: Response) => {
       ingredients: JSON.parse(updatedRecipe.ingredients as string)
     };
 
-    res.json({
-      success: true,
-      data: parsedRecipe
-    });
-  } catch (error) {
-    console.error('Update recipe error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update recipe'
-    });
-  }
-});
+  res.json({
+    success: true,
+    data: parsedRecipe
+  });
+}));
 
 /**
  * POST /api/recipes/memmachine/sync - Sync MemMachine with AlcheMix Database
@@ -1179,9 +1132,8 @@ router.put('/:id', (req: Request, res: Response) => {
  *   }
  * }
  */
-router.post('/memmachine/sync', async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
+router.post('/memmachine/sync', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -1266,17 +1218,9 @@ router.post('/memmachine/sync', async (req: Request, res: Response) => {
         recipesInDB: recipes.length,
         uploaded: uploadResult.success,
         failed: uploadResult.failed
-      }
-    });
-
-  } catch (error) {
-    console.error('MemMachine sync error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to sync MemMachine'
-    });
-  }
-});
+    }
+  });
+}));
 
 /**
  * DELETE /api/recipes/memmachine/clear - Clear All MemMachine Recipe Memories
@@ -1294,9 +1238,8 @@ router.post('/memmachine/sync', async (req: Request, res: Response) => {
  *   "message": "Cleared all recipe memories from MemMachine"
  * }
  */
-router.delete('/memmachine/clear', async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
+router.delete('/memmachine/clear', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -1315,20 +1258,13 @@ router.delete('/memmachine/clear', async (req: Request, res: Response) => {
         success: true,
         message: 'Cleared all recipe memories from MemMachine'
       });
-    } else {
-      res.status(500).json({
-        success: false,
-        error: 'Failed to clear MemMachine memories'
-      });
-    }
-  } catch (error) {
-    console.error('Clear MemMachine memories error:', error);
+  } else {
     res.status(500).json({
       success: false,
       error: 'Failed to clear MemMachine memories'
     });
   }
-});
+}));
 
 /**
  * Helper: Auto-Sync MemMachine (Background)
@@ -1415,9 +1351,8 @@ async function autoSyncMemMachine(userId: number, reason: string) {
  *   "message": "Deleted 150 recipes"
  * }
  */
-router.delete('/all', async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
+router.delete('/all', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -1434,19 +1369,12 @@ router.delete('/all', async (req: Request, res: Response) => {
       console.error('Auto-sync error (non-critical):', err);
     });
 
-    res.json({
-      success: true,
-      deleted: result.changes,
-      message: `Deleted ${result.changes} ${result.changes === 1 ? 'recipe' : 'recipes'}`
-    });
-  } catch (error) {
-    console.error('Delete all recipes error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to delete recipes'
-    });
-  }
-});
+  res.json({
+    success: true,
+    deleted: result.changes,
+    message: `Deleted ${result.changes} ${result.changes === 1 ? 'recipe' : 'recipes'}`
+  });
+}));
 
 /**
  * DELETE /api/recipes/bulk - Delete Multiple Recipes
@@ -1454,9 +1382,8 @@ router.delete('/all', async (req: Request, res: Response) => {
  * Accepts an array of recipe IDs and deletes them in a single request.
  * Helps users clean up large imports without hitting user-level rate limits.
  */
-router.delete('/bulk', (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
+router.delete('/bulk', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -1535,18 +1462,11 @@ router.delete('/bulk', (req: Request, res: Response) => {
       console.log(`ℹ️ No MemMachine UUIDs found - recipes were created before UUID tracking`);
     }
 
-    res.json({
-      success: true,
-      deleted: result.changes,
-    });
-  } catch (error) {
-    console.error('Bulk delete recipes error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to delete recipes'
-    });
-  }
-});
+  res.json({
+    success: true,
+    deleted: result.changes,
+  });
+}));
 
 /**
  * DELETE /api/recipes/:id - Delete Recipe
@@ -1573,9 +1493,8 @@ router.delete('/bulk', (req: Request, res: Response) => {
  * - User ownership check: Ensures user can only delete their own recipes
  * - Cascade delete: Foreign key constraints handle favorites cleanup
  */
-router.delete('/:id', (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
+router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -1623,18 +1542,11 @@ router.delete('/:id', (req: Request, res: Response) => {
       memoryService.deleteUserRecipe(userId, existingRecipe.name);
     }
 
-    res.json({
-      success: true,
-      message: 'Recipe deleted successfully'
-    });
-  } catch (error) {
-    console.error('Delete recipe error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to delete recipe'
-    });
-  }
-});
+  res.json({
+    success: true,
+    message: 'Recipe deleted successfully'
+  });
+}));
 
 /**
  * Export Recipes Router
