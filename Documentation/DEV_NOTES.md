@@ -4,6 +4,151 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-11-27 - MemMachine UUID Deletion Implementation
+
+**Context**: Implemented true deletion for MemMachine episodes to prevent "ghost data" accumulation in vector databases. Fixed critical bug where MemMachine API wasn't returning UUIDs.
+
+### Critical Bug: MemMachine UUID Return
+
+**Problem**: MemMachine's POST /v1/memories endpoint created episodes successfully but returned `null` instead of the UUID.
+
+**Root Cause**: API endpoint wrapper functions didn't return the result from internal functions:
+
+```python
+# BROKEN (app.py lines 976-978)
+@app.post("/v1/memories")
+async def add_memory(...):
+    episode.merge_and_validate_session(session)
+    episode.update_response_session_header(response)
+    await _add_memory(episode)  # ❌ No return statement!
+
+async def _add_memory(episode: NewEpisode):
+    # ... code ...
+    uuid = await inst.add_memory_episode(...)
+    # ... code ...
+    return {"uuid": uuid}  # ✅ Returns UUID but not propagated
+```
+
+**Solution**: Add `return` keyword to propagate UUID response:
+
+```python
+# FIXED (app.py lines 976-978)
+@app.post("/v1/memories")
+async def add_memory(...):
+    episode.merge_and_validate_session(session)
+    episode.update_response_session_header(response)
+    return await _add_memory(episode)  # ✅ Now returns {"uuid": "..."}
+```
+
+**Impact**: UUIDs now properly returned in API response, enabling AlcheMix to store them for future deletion.
+
+**Files Modified**:
+- `MemMachine/src/memmachine/server/app.py:978` - POST /v1/memories endpoint
+- `MemMachine/src/memmachine/server/app.py:1056` - POST /v1/memories/episodic endpoint
+
+### Architecture Decision: UUID Deletion Stack
+
+**Design**: Implemented deletion across 4 memory layers to ensure complete cleanup:
+
+```
+DELETE /v1/memories/{uuid}
+  ↓
+EpisodicMemory.delete_episode_by_uuid(uuid)
+  ├─→ SessionMemory.delete_by_uuid(uuid)      [In-memory deque]
+  └─→ LongTermMemory.delete_by_uuid(uuid)     [Vector store]
+       └─→ DeclarativeMemory.delete_by_uuid(uuid)
+            ├─→ Find episode node by UUID
+            ├─→ Find related episode clusters
+            ├─→ Find related derivatives
+            └─→ Delete all nodes from Neo4j
+```
+
+**Why 4 Layers?**
+1. **SessionMemory** (short-term): Rebuilds deque without target episode, updates counters
+2. **LongTermMemory** (vector store): Wrapper that delegates to DeclarativeMemory
+3. **DeclarativeMemory** (graph logic): Handles Neo4j node deletion with relationships
+4. **EpisodicMemory** (orchestrator): Runs session + long-term deletion concurrently
+
+**Key Implementation Details**:
+
+```python
+# SessionMemory - Rebuild deque without target
+async def delete_by_uuid(self, episode_uuid: str):
+    target_uuid = uuid_module.UUID(episode_uuid)
+    async with self._lock:
+        episodes_to_keep = []
+        for episode in self._memory:
+            if episode.uuid != target_uuid:
+                episodes_to_keep.append(episode)
+            else:
+                # Update counters
+                self._current_episode_count -= 1
+                self._current_message_len -= len(episode.content)
+                self._current_token_num -= self._compute_token_num(episode)
+        self._memory.clear()
+        for episode in episodes_to_keep:
+            self._memory.append(episode)
+```
+
+```python
+# DeclarativeMemory - Delete episode + clusters + derivatives
+async def delete_by_uuid(self, episode_uuid):
+    # Find episode node
+    episode_node = next((node for node in matching_episode_nodes
+                        if node.uuid == episode_uuid), None)
+    if episode_node is None:
+        return  # Already deleted
+
+    # Find clusters → find derivatives → delete all
+    cluster_nodes = await self._vector_graph_store.search_related_nodes(...)
+    derivative_nodes = await asyncio.gather(*search_tasks)
+
+    all_uuids = episode_uuids + cluster_uuids + derivative_uuids
+    await self._vector_graph_store.delete_nodes(all_uuids)
+```
+
+### Gotcha: Docker Volumes for SQLite
+
+**Problem**: Using bind mount `./api/data:/app/data` for SQLite in production is unsafe:
+- **macOS virtiofs**: Slower than native volumes
+- **WAL mode**: File locking conflicts if host/container access simultaneously
+- **Crash risk**: Mid-write corruption if container crashes
+
+**Solution**: Use Docker-managed volumes for production:
+
+```yaml
+# docker-compose.yml (production)
+services:
+  api:
+    volumes:
+      - sqlite_data:/app/data  # ✅ Managed volume
+
+volumes:
+  sqlite_data:  # Docker manages internally
+```
+
+**Development**: Keep bind mount in `docker-compose.dev.yml` for easy DB inspection.
+
+**Backup Command**:
+```bash
+docker run --rm -v sqlite_data:/data -v $(pwd):/backup alpine \
+  tar czf /backup/db-backup.tar.gz /data
+```
+
+### Lesson: Always Test API Response Format
+
+**Mistake**: Assumed MemMachine was returning UUIDs based on internal code inspection. The UUID was being generated and used internally, but the API endpoint wasn't exposing it.
+
+**Discovery Method**: Created Node.js test script that actually called the API:
+```javascript
+const response = await axios.post('/v1/memories', episode, { headers });
+console.log('Response:', response.data);  // null ❌
+```
+
+**Takeaway**: Always test HTTP layer, not just internal functions. API contracts != implementation details.
+
+---
+
 ## 2025-11-27 - Security Hardening & Login/Signup UX Improvements
 
 **Context**: Security review identified vulnerabilities in token versioning and environment logging. Also implemented password visibility toggles and simplified password requirements with real-time validation feedback.

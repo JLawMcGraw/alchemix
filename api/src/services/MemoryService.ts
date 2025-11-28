@@ -228,13 +228,13 @@ export class MemoryService {
       const episode = this.buildEpisode(recipeText, userId);
       const headers = this.buildHeaders(userId, RECIPE_SESSION);
 
-      await this.client.post<CreateEpisodeResponse>('/v1/memories', episode, { headers });
+      const response = await this.client.post<{ uuid: string }>('/v1/memories', episode, { headers });
 
-      // MemMachine v1 API returns null on POST /v1/memories
-      // UUIDs are only available via search queries after creation
-      // For now, UUID tracking is not supported by MemMachine API
-      console.log(`✅ MemMachine: Stored recipe "${recipe.name}" for user ${userId}`);
-      return null;
+      // MemMachine v1 API now returns UUID in response body
+      // This UUID can be used for targeted deletion later
+      const uuid = response.data.uuid;
+      console.log(`✅ MemMachine: Stored recipe "${recipe.name}" for user ${userId} (UUID: ${uuid})`);
+      return uuid;
     } catch (error) {
       if (axios.isAxiosError(error)) {
         console.error(`❌ MemMachine: Failed to store recipe for user ${userId}:`, error.message);
@@ -293,15 +293,14 @@ export class MemoryService {
           const episode = this.buildEpisode(recipeText, userId);
           const headers = this.buildHeaders(userId, RECIPE_SESSION);
 
-          const response = await this.client.post<CreateEpisodeResponse>('/v1/memories', episode, { headers });
+          const response = await this.client.post<{ uuid: string }>('/v1/memories', episode, { headers });
 
-          // MemMachine v1 API returns null on POST /v1/memories
-          // UUIDs are only available via search queries after creation
-          // For now, we accept that UUID tracking is not available with current MemMachine API
-          // Deletion will use session-based cleanup instead
+          // MemMachine v1 API now returns UUID in response body
+          // This UUID can be used for targeted deletion later
+          const uuid = response.data.uuid;
 
-          console.log(`✅ MemMachine: Stored recipe "${recipe.name}" for user ${userId}`);
-          return { success: true, recipe: recipe.name, uuid: null };
+          console.log(`✅ MemMachine: Stored recipe "${recipe.name}" for user ${userId} (UUID: ${uuid})`);
+          return { success: true, recipe: recipe.name, uuid };
         } catch (error) {
           const errorMsg = axios.isAxiosError(error)
             ? error.message
@@ -479,11 +478,8 @@ export class MemoryService {
     try {
       const headers = this.buildHeaders(userId, RECIPE_SESSION);
 
-      // Delete specific episode using UUID
-      await this.client.delete('/v1/memories', {
-        headers,
-        data: { uuid },
-      });
+      // Delete specific episode using UUID (path parameter)
+      await this.client.delete(`/v1/memories/${uuid}`, { headers });
 
       const logName = recipeName ? `"${recipeName}"` : `with UUID ${uuid}`;
       console.log(`✅ MemMachine: Deleted recipe ${logName} for user ${userId}`);

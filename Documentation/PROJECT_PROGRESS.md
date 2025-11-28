@@ -6,13 +6,114 @@ Last updated: 2025-11-27
 
 ## Current Status
 
-**Version**: v1.18.5 (Security Hardening & UX Improvements)
-**Phase**: Production Ready - Enhanced Security & Login UX
-**Blockers**: None - All security vulnerabilities fixed, login/signup UX polished
+**Version**: v1.19.0 (UUID Deletion & MemMachine Integration Complete)
+**Phase**: Production Ready - True AI Memory Deletion
+**Blockers**: None - Full UUID lifecycle implemented and tested
 
 ---
 
-## Recent Session (2025-11-27): Security Fixes, Cleanup, & Login/Signup UX Improvements
+## Recent Session (2025-11-27): MemMachine UUID Deletion Implementation
+
+### Work Completed
+- ✅ **MemMachine Core**: Implemented UUID-based episode deletion across all memory layers
+- ✅ **Critical Bug Fix**: Fixed MemMachine API endpoints not returning UUIDs
+- ✅ **AlcheMix Integration**: Updated MemoryService to capture and store UUIDs
+- ✅ **Database**: Confirmed memmachine_uuid column working correctly
+- ✅ **Docker**: Migrated SQLite to Docker-managed volumes for production safety
+- ✅ **End-to-End Testing**: Successfully tested create → store → delete flow
+- ✅ **User-Agnostic**: Verified works for any user account (tested with user 3)
+
+### Components Modified
+
+**MemMachine Backend (5 files)**
+- `src/memmachine/episodic_memory/episodic_memory.py` - Added delete_episode_by_uuid() method
+- `src/memmachine/episodic_memory/declarative_memory/declarative_memory.py` - Added delete_by_uuid() with full cleanup
+- `src/memmachine/episodic_memory/long_term_memory/long_term_memory.py` - Added delete_by_uuid() wrapper
+- `src/memmachine/episodic_memory/short_term_memory/session_memory.py` - Added delete_by_uuid() for in-memory episodes
+- `src/memmachine/server/app.py` - **CRITICAL**: Added `return` statements + DELETE /v1/memories/{uuid} endpoint
+
+**AlcheMix Backend (1 file)**
+- `api/src/services/MemoryService.ts` - Updated to capture UUIDs, use DELETE /v1/memories/{uuid} endpoint
+
+**Infrastructure (1 file)**
+- `docker-compose.yml` - Changed SQLite from bind mount to Docker-managed volume
+
+### Key Issues Resolved
+
+**1. MemMachine UUID Return Bug (CRITICAL)**
+- **Problem**: POST /v1/memories created episodes but returned `null` instead of UUID
+- **Root Cause**: API endpoint functions called `await _add_memory(episode)` without `return` statement
+- **Solution**: Added `return await _add_memory(episode)` to both endpoints (lines 978, 1056)
+- **Impact**: UUIDs now properly returned in response body: `{"uuid": "4a4531a2-..."}`
+- **Files**: `MemMachine/src/memmachine/server/app.py`
+
+**2. Ghost Data Problem (ARCHITECTURAL)**
+- **Problem**: Deleted recipes remained in MemMachine vector database forever
+- **Root Cause**: No way to delete specific episodes - only entire sessions
+- **Solution**: Implemented full UUID deletion stack:
+  1. SessionMemory: Remove from in-memory deque
+  2. LongTermMemory: Delete from Neo4j vector store
+  3. DeclarativeMemory: Delete episode + clusters + derivatives
+  4. API: DELETE /v1/memories/{uuid} endpoint
+- **Impact**: True deletion prevents vector database bloat over time
+
+**3. Docker SQLite Safety (PRODUCTION)**
+- **Problem**: Bind mount `./api/data:/app/data` causes file locking issues + corruption risk
+- **Root Cause**: macOS virtiofs slower, WAL mode + multi-process access = corruption on crash
+- **Solution**: Migrated to Docker-managed volume `sqlite_data:/app/data`
+- **Impact**: Safer, faster, survives container crashes
+
+### Architecture Insights
+
+**UUID Deletion Flow:**
+```
+CREATE: User → AlcheMix DB → MemMachine → UUID → Store in recipes.memmachine_uuid
+DELETE: User → Read UUID → DELETE /v1/memories/{uuid} → Remove from vector DB → Delete from AlcheMix DB
+```
+
+**MemMachine Deletion Layers:**
+- **SessionMemory**: Rebuilds deque without target episode, updates counters
+- **LongTermMemory**: Delegates to DeclarativeMemory
+- **DeclarativeMemory**: Deletes episode node + related clusters + derivatives from Neo4j
+- **EpisodicMemory**: Orchestrates concurrent deletion from both session and long-term
+
+**Docker Volume Best Practices:**
+- Development: Use bind mounts for easy inspection (`docker-compose.dev.yml`)
+- Production: Use named volumes for safety/performance (`docker-compose.yml`)
+- Backup: `docker run --rm -v sqlite_data:/data -v $(pwd):/backup alpine tar czf /backup/db-backup.tar.gz /data`
+
+### Test Results
+
+**End-to-End Verification:**
+- ✅ Recipe created (ID 505): "UUID Final Test"
+- ✅ MemMachine UUID returned: `4a4531a2-f970-4771-851a-a1daa5afa798`
+- ✅ UUID stored in database: `SELECT memmachine_uuid FROM recipes WHERE id = 505`
+- ✅ Recipe deleted via UI (bulk delete)
+- ✅ Database count: 0 (recipe removed)
+- ✅ MemMachine search: No results (truly deleted)
+- ✅ Logs: "✅ MemMachine: Batch deletion complete - 1 succeeded, 0 failed"
+
+**User Testing:**
+- Tested with user_3 (home@test.com)
+- Works for any authenticated user (JWT-based user ID extraction)
+
+### Tasks Completed → Recently Completed
+- [x] Implement UUID deletion in MemMachine core
+- [x] Add DELETE /v1/memories/{uuid} API endpoint
+- [x] Fix UUID return bug in MemMachine
+- [x] Update AlcheMix to capture and store UUIDs
+- [x] Test end-to-end UUID deletion flow
+- [x] Migrate Docker SQLite to managed volumes
+
+### Next Priorities
+- [ ] Write automated tests for UUID deletion flow
+- [ ] Monitor MemMachine deletion performance at scale
+- [ ] Optional: Backfill UUIDs for existing recipes (re-import)
+- [ ] Optional: Add UI feedback ("Deleting from AI memory...")
+
+---
+
+## Previous Session (2025-11-27): Security Fixes, Cleanup, & Login/Signup UX Improvements
 
 ### Work Completed
 - ✅ **Security**: Fixed HIGH severity token versioning persistence vulnerability
