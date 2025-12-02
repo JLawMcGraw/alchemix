@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Neo4j - Graph database for vector embeddings
   neo4j:
@@ -49,7 +47,7 @@ services:
   memmachine:
     build:
       context: ..  # Use parent directory
-      dockerfile: MemMachine/Dockerfile
+      dockerfile: memmachine/Dockerfile
     container_name: alchemix-memmachine
     ports:
       - "8080:8080"
@@ -114,56 +112,56 @@ services:
       - alchemix-network
 
   # AlcheMix API - Express backend
-  api:
-    build:
-      context: ./api
-      dockerfile: Dockerfile.dev
-    container_name: alchemix-api
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=development
-      - PORT=3000
-      - JWT_SECRET=${JWT_SECRET}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - MEMMACHINE_API_URL=http://bar-server:8001
-      - MEMMACHINE_ENABLED=true
-      - FRONTEND_URL=http://localhost:3001
-    volumes:
-      - ./api:/app
-      - /app/node_modules
-      - sqlite_data:/app/data  # Persist SQLite database (Docker-managed volume)
-    depends_on:
-      bar-server:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
-    networks:
-      - alchemix-network
+  # api:
+  #   build:
+  #     context: ./api
+  #     dockerfile: Dockerfile.dev
+  #   container_name: alchemix-api
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - NODE_ENV=development
+  #     - PORT=3000
+  #     - JWT_SECRET=${JWT_SECRET}
+  #     - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+  #     - MEMMACHINE_API_URL=http://bar-server:8001
+  #     - MEMMACHINE_ENABLED=true
+  #     - FRONTEND_URL=http://localhost:3001
+  #   volumes:
+  #     - ./api:/app
+  #     - /app/node_modules
+  #     - sqlite_data:/app/data  # Persist SQLite database (Docker-managed volume)
+  #   depends_on:
+  #     bar-server:
+  #       condition: service_healthy
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1"]
+  #     interval: 15s
+  #     timeout: 10s
+  #     retries: 5
+  #   networks:
+  #     - alchemix-network
 
   # AlcheMix Frontend - Next.js
-  web:
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-    container_name: alchemix-web
-    ports:
-      - "3001:3001"
-    environment:
-      - NODE_ENV=development
-      - NEXT_PUBLIC_API_URL=http://localhost:3000
-    volumes:
-      - .:/app
-      - /app/node_modules
-      - /app/.next
-    depends_on:
-      api:
-        condition: service_healthy
-    networks:
-      - alchemix-network
+  # web:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.dev
+  #   container_name: alchemix-web
+  #   ports:
+  #     - "3001:3001"
+  #   environment:
+  #     - NODE_ENV=development
+  #     - NEXT_PUBLIC_API_URL=http://localhost:3000
+  #   volumes:
+  #     - .:/app
+  #     - /app/node_modules
+  #     - /app/.next
+  #   depends_on:
+  #     api:
+  #       condition: service_healthy
+  #   networks:
+  #     - alchemix-network
 
 networks:
   alchemix-network:

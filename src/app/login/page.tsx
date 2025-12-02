@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Eye, EyeOff, Check } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { validatePassword as validatePasswordPolicy, checkPasswordRequirements } from '@/lib/passwordPolicy';
@@ -13,7 +14,7 @@ import styles from './login.module.css';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, signup, isAuthenticated, _hasHydrated, validateToken, error } = useStore();
+  const { login, signup, isAuthenticated, _hasHydrated, validateToken } = useStore();
 
   const [isSignupMode, setIsSignupMode] = useState(false);
   const [email, setEmail] = useState('');
@@ -25,6 +26,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState('');
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [signupSuccess, setSignupSuccess] = useState(false);
 
   // Real-time password requirement checks
   const passwordChecks = checkPasswordRequirements(password);
@@ -90,6 +92,12 @@ export default function LoginPage() {
     try {
       if (isSignupMode) {
         await signup({ email, password });
+        // Show success message - user needs to verify email
+        setSignupSuccess(true);
+        setIsSignupMode(false);
+        setPassword('');
+        setConfirmPassword('');
+        return;
       } else {
         await login({ email, password });
       }
@@ -105,6 +113,7 @@ export default function LoginPage() {
     setIsSignupMode(!isSignupMode);
     setFormError('');
     setConfirmPassword('');
+    setSignupSuccess(false);
   };
 
   return (
@@ -117,8 +126,7 @@ export default function LoginPage() {
               src="/AlcheMix Logo Crop.png"
               alt="AlcheMix Logo"
               width={350}
-              height={0}
-              style={{ height: 'auto' }}
+              height={117}
               priority
             />
           </div>
@@ -135,6 +143,12 @@ export default function LoginPage() {
               ? 'Sign up to start mixing'
               : 'Sign in to your lab'}
           </p>
+
+          {signupSuccess && (
+            <div className={styles.successMessage}>
+              Account created! Check your email for a verification link to unlock all features.
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className={styles.form}>
             <Input
@@ -188,6 +202,13 @@ export default function LoginPage() {
                   </div>
                 </div>
               )}
+
+              {/* Forgot Password Link - only show in login mode */}
+              {!isSignupMode && (
+                <Link href="/forgot-password" className={styles.forgotPasswordLink}>
+                  Forgot your password?
+                </Link>
+              )}
             </div>
 
             {isSignupMode && (
@@ -213,9 +234,9 @@ export default function LoginPage() {
               </div>
             )}
 
-            {(formError || error) && (
+            {formError && (
               <div className={styles.errorMessage}>
-                {formError || error}
+                {formError}
               </div>
             )}
 

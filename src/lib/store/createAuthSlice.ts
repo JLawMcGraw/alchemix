@@ -106,7 +106,11 @@ export const createAuthSlice: StateCreator<
   },
 
   validateToken: async () => {
-    const { token } = get();
+    // Check both store and localStorage to handle pre-hydration calls
+    const storeToken = get().token;
+    const localToken = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const token = storeToken || localToken;
+
     if (!token) {
       set({ isAuthenticated: false, user: null, token: null });
       return false;
@@ -115,7 +119,8 @@ export const createAuthSlice: StateCreator<
     try {
       // Try to fetch user data with the persisted token
       const response = await authApi.me();
-      set({ user: response, isAuthenticated: true });
+      // Sync the token to store if we used localStorage token
+      set({ user: response, isAuthenticated: true, token });
       return true;
     } catch (error) {
       // Token is invalid or expired - clear everything

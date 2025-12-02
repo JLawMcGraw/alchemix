@@ -13,3 +13,5 @@ export { Spinner } from './Spinner';
 export { SuccessCheckmark } from './SuccessCheckmark';
 
 export { ToastProvider, useToast } from './Toast';
+
+export { VerificationBanner } from './VerificationBanner';

@@ -2,10 +2,14 @@
  * Authentication Routes
  *
  * Handles user authentication operations:
- * - Signup: Create new user account
- * - Login: Authenticate existing user
+ * - Signup: Create new user account (sends verification email)
+ * - Login: Authenticate existing user (returns is_verified status)
  * - Logout: End user session (SECURITY FIX #7 - Token blacklist)
  * - Me: Get current authenticated user info
+ * - Verify Email: Verify user's email address
+ * - Resend Verification: Resend verification email
+ * - Forgot Password: Request password reset email
+ * - Reset Password: Set new password with reset token
  *
  * Security Features:
  * - Password hashing with bcrypt (10 salt rounds)
@@ -16,6 +20,8 @@
  * - Rate limiting on signup/login (5 attempts per 15 min)
  * - Email uniqueness enforcement
  * - Constant-time password comparison (prevents timing attacks)
+ * - Email verification (soft block - can browse but not modify)
+ * - Secure password reset with time-limited tokens
  *
  * All passwords are hashed before storage - we NEVER store plaintext passwords.
  *
@@ -27,13 +33,23 @@
 
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { db } from '../database/db';
-import { generateToken, authMiddleware, getTokenVersion, generateJTI } from '../middleware/auth';
+import { generateToken, authMiddleware, getTokenVersion, generateJTI, incrementTokenVersion } from '../middleware/auth';
 import { validatePassword } from '../utils/passwordValidator';
 import { tokenBlacklist } from '../utils/tokenBlacklist';
+import { emailService } from '../services/EmailService';
 import { User } from '../types';
 import { asyncHandler } from '../utils/asyncHandler';
+
+/**
+ * Generate a secure random token for email verification or password reset
+ * Returns a 64-character hex string (32 bytes of randomness = 256 bits)
+ */
+function generateSecureToken(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
 
 const router = Router();
 
@@ -132,9 +148,10 @@ router.post('/signup', asyncHandler(async (req: Request, res: Response) => {
     const existingUser = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
 
     if (existingUser) {
+      // Generic error to prevent email enumeration attacks
       return res.status(400).json({
         success: false,
-        error: 'User already exists with this email'
+        error: 'Unable to create account'
       });
     }
 
@@ -161,32 +178,57 @@ router.post('/signup', asyncHandler(async (req: Request, res: Response) => {
     const password_hash = await bcrypt.hash(password, 10);
 
     /**
-     * Step 6: Create User in Database
+     * Step 6: Generate Verification Token
      *
-     * Insert new user record with email and hashed password.
+     * Create a secure token for email verification.
+     * Token expires in 24 hours.
+     */
+    const verificationToken = generateSecureToken();
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
+
+    /**
+     * Step 7: Create User in Database
+     *
+     * Insert new user record with email, hashed password, and verification token.
+     * is_verified defaults to 0 (false) - user must verify email.
      * Database auto-generates ID and created_at timestamp.
      *
-     * SQL: INSERT INTO users (email, password_hash) VALUES (?, ?)
+     * SQL: INSERT INTO users (email, password_hash, verification_token, verification_token_expires) VALUES (?, ?, ?, ?)
      * Parameterized query prevents SQL injection.
      */
     const result = db.prepare(
-      'INSERT INTO users (email, password_hash) VALUES (?, ?)'
-    ).run(email, password_hash);
+      'INSERT INTO users (email, password_hash, verification_token, verification_token_expires) VALUES (?, ?, ?, ?)'
+    ).run(email, password_hash, verificationToken, verificationExpires);
 
     const userId = result.lastInsertRowid as number;
 
     /**
-     * Step 7: Retrieve Created User
+     * Step 8: Send Verification Email
+     *
+     * Send email with verification link.
+     * Non-blocking - don't fail signup if email fails (user can resend later).
+     */
+    try {
+      await emailService.sendVerificationEmail(email, verificationToken);
+      console.log(`✅ Verification email sent to ${email}`);
+    } catch (emailError: any) {
+      console.error(`⚠️ Failed to send verification email to ${email}:`, emailError.message);
+      // Continue with signup - user can request new verification email later
+    }
+
+    /**
+     * Step 9: Retrieve Created User
      *
      * Fetch user record to return in response.
-     * Exclude password_hash from response for security.
+     * Include is_verified so frontend knows to show verification banner.
+     * Exclude password_hash and tokens from response for security.
      */
     const user = db.prepare(
-      'SELECT id, email, created_at FROM users WHERE id = ?'
+      'SELECT id, email, created_at, is_verified FROM users WHERE id = ?'
     ).get(userId) as User;
 
     /**
-     * Step 8: Generate JWT Token (SECURITY FIX #2, #10)
+     * Step 10: Generate JWT Token (SECURITY FIX #2, #10)
      *
      * Create authentication token for immediate login.
      * User doesn't need to login separately after signup.
@@ -226,16 +268,20 @@ router.post('/signup', asyncHandler(async (req: Request, res: Response) => {
     });
 
     /**
-     * Step 9: Return Success Response
+     * Step 11: Return Success Response
      *
      * 201 Created status indicates new resource was created.
      * Return token for immediate authentication.
+     * Include is_verified: false to trigger verification banner on frontend.
      */
   res.status(201).json({
     success: true,
     data: {
       token,
-      user
+      user: {
+        ...user,
+        is_verified: Boolean(user.is_verified) // Convert SQLite integer to boolean
+      }
     }
   });
 }));
@@ -288,10 +334,11 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
      * Step 2: Fetch User from Database
      *
      * Query includes password_hash for verification.
+     * Also includes is_verified for soft-block feature.
      * Uses parameterized query to prevent SQL injection.
      */
     const user = db.prepare(
-      'SELECT id, email, password_hash, created_at FROM users WHERE email = ?'
+      'SELECT id, email, password_hash, created_at, is_verified FROM users WHERE email = ?'
     ).get(email) as User | undefined;
 
     /**
@@ -396,20 +443,25 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
      *
      * NEVER return password hash to client.
      * Use destructuring to exclude it from response.
+     * Include is_verified for soft-block feature (frontend shows banner if false).
      */
-    const { password_hash, ...userWithoutPassword } = user;
+    const { password_hash, verification_token, verification_token_expires, reset_token, reset_token_expires, ...userWithoutSensitiveData } = user;
 
     /**
      * Step 7: Return Success Response
      *
      * 200 OK status indicates successful authentication.
      * Client stores token for future authenticated requests.
+     * is_verified tells frontend whether to show verification banner.
      */
   res.json({
     success: true,
     data: {
       token,
-      user: userWithoutPassword
+      user: {
+        ...userWithoutSensitiveData,
+        is_verified: Boolean(userWithoutSensitiveData.is_verified) // Convert SQLite integer to boolean
+      }
     }
   });
 }));
@@ -477,10 +529,11 @@ router.get('/me', authMiddleware, asyncHandler(async (req: Request, res: Respons
      *
      * Security Note:
      * - We exclude password_hash from the query (don't need it, shouldn't return it)
+     * - Include is_verified for soft-block feature
      * - Use parameterized query to prevent SQL injection
      */
     const user = db.prepare(
-      'SELECT id, email, created_at FROM users WHERE id = ?'
+      'SELECT id, email, created_at, is_verified FROM users WHERE id = ?'
     ).get(userId) as User | undefined;
 
     /**
@@ -501,10 +554,14 @@ router.get('/me', authMiddleware, asyncHandler(async (req: Request, res: Respons
      *
      * Return user data (without password hash).
      * Frontend can use this to display profile info.
+     * Include is_verified for soft-block feature.
      */
   res.json({
     success: true,
-    data: user
+    data: {
+      ...user,
+      is_verified: Boolean(user.is_verified) // Convert SQLite integer to boolean
+    }
   });
 }));
 
@@ -636,6 +693,310 @@ router.post('/logout', authMiddleware, asyncHandler(async (req: Request, res: Re
 }));
 
 /**
+ * POST /auth/verify-email - Verify User's Email Address
+ *
+ * Verifies the user's email using the token from the verification link.
+ *
+ * Request Body:
+ * {
+ *   "token": "64-character-hex-token"
+ * }
+ *
+ * Response (200 OK):
+ * {
+ *   "success": true,
+ *   "message": "Email verified successfully"
+ * }
+ *
+ * Error Responses:
+ * - 400: Missing token or invalid/expired token
+ * - 500: Server error
+ *
+ * Security:
+ * - Token expires after 24 hours
+ * - Token is cleared after successful verification
+ * - Generic error messages prevent token enumeration
+ */
+router.post('/verify-email', asyncHandler(async (req: Request, res: Response) => {
+  const { token } = req.body;
+
+  if (!token) {
+    return res.status(400).json({
+      success: false,
+      error: 'Verification token is required'
+    });
+  }
+
+  // Find user with this verification token
+  const user = db.prepare(
+    'SELECT id, email, verification_token_expires FROM users WHERE verification_token = ?'
+  ).get(token) as User | undefined;
+
+  if (!user) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid or expired verification link'
+    });
+  }
+
+  // Check if token has expired
+  const tokenExpires = new Date(user.verification_token_expires!);
+  if (tokenExpires < new Date()) {
+    return res.status(400).json({
+      success: false,
+      error: 'Verification link has expired. Please request a new one.'
+    });
+  }
+
+  // Mark user as verified and clear the token
+  db.prepare(
+    'UPDATE users SET is_verified = 1, verification_token = NULL, verification_token_expires = NULL WHERE id = ?'
+  ).run(user.id);
+
+  console.log(`✅ Email verified for user ${user.email} (ID: ${user.id})`);
+
+  res.json({
+    success: true,
+    message: 'Email verified successfully'
+  });
+}));
+
+/**
+ * POST /auth/resend-verification - Resend Verification Email
+ *
+ * Resends the verification email for the authenticated user.
+ * Requires authentication (user must be logged in).
+ *
+ * Headers:
+ *   Authorization: Bearer <token>
+ *
+ * Response (200 OK):
+ * {
+ *   "success": true,
+ *   "message": "Verification email sent"
+ * }
+ *
+ * Error Responses:
+ * - 400: User already verified
+ * - 401: Not authenticated
+ * - 500: Server error
+ */
+router.post('/resend-verification', authMiddleware, asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized'
+    });
+  }
+
+  // Get user's current verification status
+  const user = db.prepare(
+    'SELECT id, email, is_verified FROM users WHERE id = ?'
+  ).get(userId) as User | undefined;
+
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      error: 'User not found'
+    });
+  }
+
+  if (user.is_verified) {
+    return res.status(400).json({
+      success: false,
+      error: 'Email is already verified'
+    });
+  }
+
+  // Generate new verification token
+  const verificationToken = generateSecureToken();
+  const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
+
+  // Update token in database
+  db.prepare(
+    'UPDATE users SET verification_token = ?, verification_token_expires = ? WHERE id = ?'
+  ).run(verificationToken, verificationExpires, userId);
+
+  // Send verification email
+  try {
+    await emailService.sendVerificationEmail(user.email, verificationToken);
+    console.log(`✅ Verification email resent to ${user.email}`);
+  } catch (emailError: any) {
+    console.error(`❌ Failed to send verification email to ${user.email}:`, emailError.message);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to send verification email. Please try again later.'
+    });
+  }
+
+  res.json({
+    success: true,
+    message: 'Verification email sent'
+  });
+}));
+
+/**
+ * POST /auth/forgot-password - Request Password Reset
+ *
+ * Sends a password reset email to the user.
+ * Always returns success to prevent email enumeration.
+ *
+ * Request Body:
+ * {
+ *   "email": "user@example.com"
+ * }
+ *
+ * Response (200 OK):
+ * {
+ *   "success": true,
+ *   "message": "If an account exists with this email, a password reset link has been sent."
+ * }
+ *
+ * Security:
+ * - Always returns success (prevents email enumeration)
+ * - Reset token expires after 1 hour
+ * - Generic response message regardless of email existence
+ */
+router.post('/forgot-password', asyncHandler(async (req: Request, res: Response) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({
+      success: false,
+      error: 'Email is required'
+    });
+  }
+
+  // Always return success to prevent email enumeration
+  const genericSuccessMessage = 'If an account exists with this email, a password reset link has been sent.';
+
+  // Find user by email
+  const user = db.prepare(
+    'SELECT id, email FROM users WHERE email = ?'
+  ).get(email) as User | undefined;
+
+  if (!user) {
+    // Don't reveal that user doesn't exist
+    return res.json({
+      success: true,
+      message: genericSuccessMessage
+    });
+  }
+
+  // Generate reset token
+  const resetToken = generateSecureToken();
+  const resetExpires = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
+
+  // Update token in database
+  db.prepare(
+    'UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?'
+  ).run(resetToken, resetExpires, user.id);
+
+  // Send password reset email
+  try {
+    await emailService.sendPasswordResetEmail(user.email, resetToken);
+    console.log(`✅ Password reset email sent to ${user.email}`);
+  } catch (emailError: any) {
+    console.error(`❌ Failed to send password reset email to ${user.email}:`, emailError.message);
+    // Still return success to prevent enumeration
+  }
+
+  res.json({
+    success: true,
+    message: genericSuccessMessage
+  });
+}));
+
+/**
+ * POST /auth/reset-password - Reset Password with Token
+ *
+ * Sets a new password using the reset token from the email link.
+ *
+ * Request Body:
+ * {
+ *   "token": "64-character-hex-token",
+ *   "password": "NewSecurePassword123!"
+ * }
+ *
+ * Response (200 OK):
+ * {
+ *   "success": true,
+ *   "message": "Password reset successfully. Please login with your new password."
+ * }
+ *
+ * Error Responses:
+ * - 400: Missing/invalid token, expired token, weak password
+ * - 500: Server error
+ *
+ * Security:
+ * - Token expires after 1 hour
+ * - Password must meet strength requirements
+ * - Increments token_version (logs out all devices)
+ * - Clears reset token after use
+ */
+router.post('/reset-password', asyncHandler(async (req: Request, res: Response) => {
+  const { token, password } = req.body;
+
+  if (!token || !password) {
+    return res.status(400).json({
+      success: false,
+      error: 'Token and password are required'
+    });
+  }
+
+  // Find user with this reset token
+  const user = db.prepare(
+    'SELECT id, email, reset_token_expires FROM users WHERE reset_token = ?'
+  ).get(token) as User | undefined;
+
+  if (!user) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid or expired reset link'
+    });
+  }
+
+  // Check if token has expired
+  const tokenExpires = new Date(user.reset_token_expires!);
+  if (tokenExpires < new Date()) {
+    return res.status(400).json({
+      success: false,
+      error: 'Reset link has expired. Please request a new one.'
+    });
+  }
+
+  // Validate new password strength
+  const passwordValidation = validatePassword(password);
+  if (!passwordValidation.isValid) {
+    return res.status(400).json({
+      success: false,
+      error: 'Password does not meet security requirements',
+      details: passwordValidation.errors
+    });
+  }
+
+  // Hash new password
+  const password_hash = await bcrypt.hash(password, 10);
+
+  // Update password, clear reset token, and increment token_version (logs out all devices)
+  db.prepare(
+    'UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?'
+  ).run(password_hash, user.id);
+
+  // Increment token version to invalidate all existing sessions
+  incrementTokenVersion(user.id);
+
+  console.log(`✅ Password reset for user ${user.email} (ID: ${user.id}) - all sessions invalidated`);
+
+  res.json({
+    success: true,
+    message: 'Password reset successfully. Please login with your new password.'
+  });
+}));
+
+/**
  * Export Authentication Router
  *
  * This router is mounted at /auth in server.ts:
@@ -643,5 +1004,9 @@ router.post('/logout', authMiddleware, asyncHandler(async (req: Request, res: Re
  * - POST /auth/login
  * - GET /auth/me
  * - POST /auth/logout
+ * - POST /auth/verify-email
+ * - POST /auth/resend-verification
+ * - POST /auth/forgot-password
+ * - POST /auth/reset-password
  */
 export default router;

@@ -9,7 +9,7 @@ import { Card } from '@/components/ui/Card';
 import { Wine, Upload, Plus, Martini, X, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { CSVUploadModal, AddBottleModal, ItemDetailModal } from '@/components/modals';
 import { inventoryApi } from '@/lib/api';
-import type { InventoryCategory, InventoryItem } from '@/types';
+import type { InventoryCategory, InventoryItem, InventoryItemInput } from '@/types';
 import { categorizeSpirit, matchesSpiritCategory, SpiritCategory } from '@/lib/spirits';
 import styles from './bar.module.css';
 
@@ -128,7 +128,7 @@ function BarPageContent() {
     }
   };
 
-  const handleAddItem = async (item: Omit<InventoryItem, 'id'>) => {
+  const handleAddItem = async (item: InventoryItemInput) => {
     try {
       await addItem(item);
       // Refresh category counts
@@ -428,17 +428,17 @@ function BarPageContent() {
                     </div>
                   )}
 
-                  {item['Profile (Nose)'] && (
+                  {item.profile_nose && (
                     <div className={styles.itemDetail}>
                       <span className={styles.detailLabel}>Profile:</span>
-                      <span className={styles.detailValue}>{item['Profile (Nose)']}</span>
+                      <span className={styles.detailValue}>{item.profile_nose}</span>
                     </div>
                   )}
 
-                  {item['Distillery Location'] && (
+                  {item.distillery_location && (
                     <div className={styles.itemDetail}>
                       <span className={styles.detailLabel}>Location:</span>
-                      <span className={styles.detailValue}>{item['Distillery Location']}</span>
+                      <span className={styles.detailValue}>{item.distillery_location}</span>
                     </div>
                   )}
                 </div>
@@ -446,7 +446,7 @@ function BarPageContent() {
                 <div className={styles.cardFooter}>
                   <span className={styles.cardHint}>Click to view details</span>
                   <span className={styles.stockNumber}>
-                    Stock: {item['Stock Number'] ?? 0}
+                    Stock: {item.stock_number ?? 0}
                   </span>
                 </div>
               </Card>

@@ -4,6 +4,145 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-12-01 - Backend Refactoring & Email Verification
+
+### asyncHandler Pattern
+
+**Problem**: Every route had repetitive try/catch blocks with inconsistent error formatting.
+
+**Solution**: Created `api/src/utils/asyncHandler.ts` wrapper:
+
+```typescript
+import { Request, Response, NextFunction } from 'express';
+
+type AsyncHandler = (req: Request, res: Response, next: NextFunction) => Promise<any>;
+
+export const asyncHandler = (fn: AsyncHandler) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+};
+```
+
+**Usage**: Wrap all async route handlers:
+```typescript
+router.post('/', asyncHandler(async (req, res) => {
+  // No try/catch needed - errors propagate to error middleware
+  const result = await someAsyncOperation();
+  res.json({ success: true, data: result });
+}));
+```
+
+**Benefits**:
+- Eliminates ~500 lines of repetitive try/catch blocks
+- Consistent error response format via centralized error middleware
+- Cleaner, more readable route handlers
+
+### Database Schema: Snake_case Migration
+
+**Problem**: Column names like `"Stock Number"` required quoted identifiers everywhere, caused issues with some tools.
+
+**Solution**: Migrated all inventory_items columns to snake_case:
+
+| Before | After |
+|--------|-------|
+| `"Stock Number"` | `stock_number` |
+| `"Bottle Size"` | `bottle_size` |
+| `"Purchase Price"` | `purchase_price` |
+| `"Date Acquired"` | `date_acquired` |
+| `"Tasting Notes"` | `tasting_notes` |
+
+**Migration Strategy**:
+- Updated CREATE TABLE statement
+- Added ALTER TABLE migration for existing databases
+- Updated all queries in routes and services
+
+### Service Layer Extraction
+
+**Problem**: Route files contained business logic (500+ lines), making them hard to test and maintain.
+
+**Solution**: Extract services following single-responsibility principle:
+
+```
+api/src/services/
+├── RecipeService.ts      # Recipe CRUD, bulk ops, CSV import, MemMachine sync
+├── CollectionService.ts  # Collection management
+├── ShoppingListService.ts # Smart shopping list algorithm
+├── EmailService.ts       # Transactional email
+└── MemoryService.ts      # MemMachine integration (existing)
+```
+
+**Pattern**:
+```typescript
+// Service class with static methods (no instantiation needed)
+class RecipeService {
+  static getAll(userId: number, options: QueryOptions): Recipe[] { ... }
+  static create(userId: number, data: RecipeData): Recipe { ... }
+  static delete(recipeId: number, userId: number): boolean { ... }
+}
+
+// Route uses service
+router.get('/', asyncHandler(async (req, res) => {
+  const recipes = RecipeService.getAll(req.userId, req.query);
+  res.json({ success: true, data: recipes });
+}));
+```
+
+### Email Verification: Token Security
+
+**Design Decisions**:
+- **Token Length**: 32 bytes (64 hex chars) - 256 bits of entropy
+- **Verification Expiry**: 24 hours (reasonable for email delivery delays)
+- **Reset Expiry**: 1 hour (security-sensitive, shorter window)
+- **Storage**: Plain token in DB (not hashed - tokens are single-use and short-lived)
+
+**Email Enumeration Prevention**:
+```typescript
+// forgot-password always returns success - prevents knowing if email exists
+router.post('/forgot-password', asyncHandler(async (req, res) => {
+  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+
+  if (user) {
+    // Generate token, send email
+  }
+
+  // Always return same response
+  res.json({
+    success: true,
+    message: 'If an account exists, a reset link has been sent.'
+  });
+}));
+```
+
+### React Strict Mode: Double Effect Execution
+
+**Problem**: `useEffect` runs twice in development, causing verification to fail on second call.
+
+**Solution**: Use cleanup function to ignore cancelled requests:
+
+```typescript
+useEffect(() => {
+  let cancelled = false;
+
+  const verify = async () => {
+    try {
+      await authApi.verifyEmail(token);
+      if (cancelled) return; // Ignore if effect was cancelled
+      setStatus('success');
+    } catch (error) {
+      if (cancelled) return;
+      setStatus('error');
+    }
+  };
+
+  verify();
+
+  return () => { cancelled = true; }; // Cleanup cancels first execution
+}, [token]);
+```
+
+---
+
 ## 2025-11-27 - MemMachine UUID Deletion Implementation
 
 **Context**: Implemented true deletion for MemMachine episodes to prevent "ghost data" accumulation in vector databases. Fixed critical bug where MemMachine API wasn't returning UUIDs.

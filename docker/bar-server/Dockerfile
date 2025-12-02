@@ -13,19 +13,19 @@ RUN apt-get update && apt-get install -y \
 RUN pip install uv
 
 # Copy bar_assistant files from build context
-COPY MemMachine/examples/bar_assistant /app/
+COPY memmachine/examples/bar_assistant /app/
 
 # Copy additional required modules from examples
-COPY MemMachine/examples/base_query_constructor.py /app/
-COPY MemMachine/examples/default_query_constructor.py /app/
-COPY MemMachine/examples/example_server.py /app/
+COPY memmachine/examples/base_query_constructor.py /app/
+COPY memmachine/examples/default_query_constructor.py /app/
+COPY memmachine/examples/example_server.py /app/
 
 # Copy health endpoint helper and wrapper script
 COPY alchemix/docker/bar-server/health_endpoint.py /app/
 COPY alchemix/docker/bar-server/bar_server_wrapper.py /app/
 
 # Install MemMachine package
-COPY MemMachine /tmp/memmachine
+COPY memmachine /tmp/memmachine
 RUN uv pip install --system -e /tmp/memmachine
 
 # Install bar_assistant dependencies if they exist

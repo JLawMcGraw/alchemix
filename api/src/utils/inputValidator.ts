@@ -285,74 +285,74 @@ export function validateBottleData(data: any): ValidationResult {
   }
 
   // Optional: Stock Number
-  if (data['Stock Number'] !== undefined && data['Stock Number'] !== null) {
-    const stockNum = validateNumber(data['Stock Number'], 0, 999999);
+  if (data.stock_number !== undefined && data.stock_number !== null) {
+    const stockNum = validateNumber(data.stock_number, 0, 999999);
     if (!stockNum.isValid) {
       errors.push(`Stock Number: ${stockNum.errors.join(', ')}`);
     } else {
-      sanitized['Stock Number'] = stockNum.sanitized;
+      sanitized.stock_number = stockNum.sanitized;
     }
   }
 
-  // Optional: Liquor Type
-  if (data['Liquor Type']) {
-    sanitized['Liquor Type'] = sanitizeString(data['Liquor Type'], 100);
+  // Optional: Type (formerly Liquor Type)
+  if (data.type) {
+    sanitized.type = sanitizeString(data.type, 100);
   }
 
-  // Optional: Detailed Spirit Classification
-  if (data['Detailed Spirit Classification']) {
-    sanitized['Detailed Spirit Classification'] = sanitizeString(
-      data['Detailed Spirit Classification'],
+  // Optional: Spirit Classification
+  if (data.spirit_classification) {
+    sanitized.spirit_classification = sanitizeString(
+      data.spirit_classification,
       200
     );
   }
 
   // Optional: Distillation Method
-  if (data['Distillation Method']) {
-    sanitized['Distillation Method'] = sanitizeString(data['Distillation Method'], 100);
+  if (data.distillation_method) {
+    sanitized.distillation_method = sanitizeString(data.distillation_method, 100);
   }
 
-  // Optional: ABV (%)
-  if (data['ABV (%)'] !== undefined && data['ABV (%)'] !== null && data['ABV (%)'] !== '') {
-    const abv = validateNumber(data['ABV (%)'], 0, 100);
+  // Optional: ABV
+  if (data.abv !== undefined && data.abv !== null && data.abv !== '') {
+    const abv = validateNumber(data.abv, 0, 100);
     if (!abv.isValid) {
       errors.push(`ABV: ${abv.errors.join(', ')}`);
     } else {
-      sanitized['ABV (%)'] = abv.sanitized;
+      sanitized.abv = abv.sanitized;
     }
   }
 
   // Optional: Distillery Location
-  if (data['Distillery Location']) {
-    sanitized['Distillery Location'] = sanitizeString(data['Distillery Location'], 200);
+  if (data.distillery_location) {
+    sanitized.distillery_location = sanitizeString(data.distillery_location, 200);
   }
 
-  // Optional: Age Statement or Barrel Finish
-  if (data['Age Statement or Barrel Finish']) {
-    sanitized['Age Statement or Barrel Finish'] = sanitizeString(
-      data['Age Statement or Barrel Finish'],
+  // Optional: Age Statement
+  if (data.age_statement) {
+    sanitized.age_statement = sanitizeString(
+      data.age_statement,
       200
     );
   }
 
   // Optional: Additional Notes (allow longer text)
-  if (data['Additional Notes']) {
-    sanitized['Additional Notes'] = sanitizeString(data['Additional Notes'], 2000);
+  if (data.additional_notes) {
+    sanitized.additional_notes = sanitizeString(data.additional_notes, 2000);
   }
 
-  // Optional: Profile (Nose)
-  if (data['Profile (Nose)']) {
-    sanitized['Profile (Nose)'] = sanitizeString(data['Profile (Nose)'], 500);
+  // Optional: Profile Nose
+  if (data.profile_nose) {
+    sanitized.profile_nose = sanitizeString(data.profile_nose, 500);
   }
 
   // Optional: Palate
-  if (data['Palate']) {
-    sanitized['Palate'] = sanitizeString(data['Palate'], 500);
+  if (data.palate) {
+    sanitized.palate = sanitizeString(data.palate, 500);
   }
 
   // Optional: Finish
-  if (data['Finish']) {
-    sanitized['Finish'] = sanitizeString(data['Finish'], 500);
+  if (data.finish) {
+    sanitized.finish = sanitizeString(data.finish, 500);
   }
 
   return {

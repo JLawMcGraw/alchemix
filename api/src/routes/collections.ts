@@ -1,7 +1,8 @@
 /**
  * Collections Routes
  *
- * Handles CRUD operations for recipe collections (books/groups).
+ * Handles HTTP layer for recipe collections (books/groups).
+ * Business logic delegated to CollectionService.
  *
  * Features:
  * - GET /api/collections - List user's collections
@@ -12,23 +13,19 @@
  * Security:
  * - All routes require JWT authentication (authMiddleware)
  * - User isolation: Can only access their own collections
- * - Input validation: Names and text fields sanitized
- * - SQL injection prevention: Parameterized queries
+ * - Input validation: Names and text fields sanitized (in service)
+ * - SQL injection prevention: Parameterized queries (in service)
  */
 
 import { Router, Request, Response } from 'express';
-import { db } from '../database/db';
 import { authMiddleware } from '../middleware/auth';
-import { userRateLimit } from '../middleware/userRateLimit';
-import { sanitizeString } from '../utils/inputValidator';
-import { memoryService } from '../services/MemoryService';
 import { asyncHandler } from '../utils/asyncHandler';
+import { collectionService } from '../services/CollectionService';
 
 const router = Router();
 
 // All routes require authentication
 router.use(authMiddleware);
-// No rate limiting on collections - users should be able to view their collections freely
 
 /**
  * GET /api/collections - List User's Collections
@@ -51,26 +48,16 @@ router.use(authMiddleware);
  * }
  */
 router.get('/', asyncHandler(async (req: Request, res: Response) => {
-    const userId = req.user?.userId;
+  const userId = req.user?.userId;
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized'
-      });
-    }
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized'
+    });
+  }
 
-    // Get all collections with recipe count
-    const collections = db.prepare(`
-      SELECT
-        c.*,
-        COUNT(r.id) as recipe_count
-      FROM collections c
-      LEFT JOIN recipes r ON r.collection_id = c.id
-      WHERE c.user_id = ?
-      GROUP BY c.id
-      ORDER BY c.created_at DESC
-    `).all(userId);
+  const collections = collectionService.getAll(userId);
 
   res.json({
     success: true,
@@ -100,49 +87,26 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
  * }
  */
 router.post('/', asyncHandler(async (req: Request, res: Response) => {
-    const userId = req.user?.userId;
+  const userId = req.user?.userId;
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized'
-      });
-    }
-
-    const { name, description } = req.body;
-
-    // Validate required fields
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Collection name is required'
-      });
-    }
-
-    // Sanitize inputs
-    const sanitizedName = sanitizeString(name, 100);
-    const sanitizedDescription = description
-      ? sanitizeString(description, 500)
-      : null;
-
-    // Insert collection
-    const result = db.prepare(`
-      INSERT INTO collections (user_id, name, description)
-      VALUES (?, ?, ?)
-    `).run(userId, sanitizedName, sanitizedDescription);
-
-    // Fetch created collection
-    const collection = db.prepare(
-      'SELECT * FROM collections WHERE id = ?'
-    ).get(result.lastInsertRowid);
-
-    // Store collection in MemMachine (fire-and-forget)
-    memoryService.storeUserCollection(userId, {
-      name: sanitizedName,
-      description: sanitizedDescription || undefined,
-    }).catch(err => {
-      console.error('Failed to store collection in MemMachine (non-critical):', err);
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized'
     });
+  }
+
+  const { name, description } = req.body;
+
+  // Validate required fields
+  if (!name || typeof name !== 'string' || name.trim().length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: 'Collection name is required'
+    });
+  }
+
+  const collection = collectionService.create(userId, { name, description });
 
   res.status(201).json({
     success: true,
@@ -171,80 +135,38 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
  * }
  */
 router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
-    const userId = req.user?.userId;
+  const userId = req.user?.userId;
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized'
-      });
-    }
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized'
+    });
+  }
 
-    const collectionId = parseInt(req.params.id, 10);
-    if (isNaN(collectionId)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid collection ID'
-      });
-    }
+  const collectionId = parseInt(req.params.id, 10);
+  if (isNaN(collectionId)) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid collection ID'
+    });
+  }
 
-    const { name, description } = req.body;
+  const { name, description } = req.body;
 
-    // Check if collection exists and belongs to user
-    const existingCollection = db.prepare(
-      'SELECT id FROM collections WHERE id = ? AND user_id = ?'
-    ).get(collectionId, userId);
+  const result = collectionService.update(collectionId, userId, { name, description });
 
-    if (!existingCollection) {
-      return res.status(404).json({
-        success: false,
-        error: 'Collection not found or access denied'
-      });
-    }
-
-    // Build update query dynamically
-    const updates: string[] = [];
-    const values: any[] = [];
-
-    if (name !== undefined) {
-      const sanitizedName = sanitizeString(name, 100);
-      if (sanitizedName) {
-        updates.push('name = ?');
-        values.push(sanitizedName);
-      }
-    }
-
-    if (description !== undefined) {
-      const sanitizedDescription = description
-        ? sanitizeString(description, 500)
-        : null;
-      updates.push('description = ?');
-      values.push(sanitizedDescription);
-    }
-
-    if (updates.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'No valid fields to update'
-      });
-    }
-
-    values.push(collectionId);
-
-    db.prepare(`
-      UPDATE collections
-      SET ${updates.join(', ')}
-      WHERE id = ?
-    `).run(...values);
-
-    // Fetch updated collection
-    const updatedCollection = db.prepare(
-      'SELECT * FROM collections WHERE id = ?'
-    ).get(collectionId);
+  if (!result.success) {
+    const status = result.error === 'Collection not found or access denied' ? 404 : 400;
+    return res.status(status).json({
+      success: false,
+      error: result.error
+    });
+  }
 
   res.json({
     success: true,
-    data: updatedCollection
+    data: result.collection
   });
 }));
 
@@ -261,37 +183,31 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
  * }
  */
 router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
-    const userId = req.user?.userId;
+  const userId = req.user?.userId;
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized'
-      });
-    }
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized'
+    });
+  }
 
-    const collectionId = parseInt(req.params.id, 10);
-    if (isNaN(collectionId)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid collection ID'
-      });
-    }
+  const collectionId = parseInt(req.params.id, 10);
+  if (isNaN(collectionId)) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid collection ID'
+    });
+  }
 
-    // Check if collection exists and belongs to user
-    const existingCollection = db.prepare(
-      'SELECT id FROM collections WHERE id = ? AND user_id = ?'
-    ).get(collectionId, userId);
+  const deleted = collectionService.delete(collectionId, userId);
 
-    if (!existingCollection) {
-      return res.status(404).json({
-        success: false,
-        error: 'Collection not found or access denied'
-      });
-    }
-
-    // Delete collection (CASCADE will set recipes.collection_id to NULL)
-    db.prepare('DELETE FROM collections WHERE id = ?').run(collectionId);
+  if (!deleted) {
+    return res.status(404).json({
+      success: false,
+      error: 'Collection not found or access denied'
+    });
+  }
 
   res.json({
     success: true,

@@ -1,0 +1,305 @@
+# Project Status
+
+Last updated: 2025-11-17
+
+## Current Phase
+**Smart Shopping List Feature Complete & Production Hardening** - Intelligent ingredient recommendations with fuzzy matching, bulk recipe operations, and comprehensive AI/security improvements
+
+## Current Version
+v1.10.0-alpha (Smart Shopping List complete, bulk operations, production hardening)
+
+## Implementation Status
+
+### Foundation Setup
+- ✅ Next.js 14 project structure
+- ✅ TypeScript configuration (strict mode)
+- ✅ Design system (globals.css with CSS variables)
+- ✅ Core UI components (Button, Card, Input)
+- ✅ Zustand store setup with persistence
+- ✅ API client (Axios with interceptors)
+- ✅ TypeScript type definitions (15+ interfaces)
+- ✅ Logo asset added to project
+- ✅ Dependencies installed (lucide-react added)
+- ✅ All pages implemented
+
+### Authentication & User Management
+- ✅ JWT authentication (shared with Express backend)
+- ✅ Login/signup API integration
+- ✅ Auto-logout on 401 (Axios interceptor)
+- ✅ Persisted auth state (Zustand + localStorage)
+- ✅ Login page UI (with signup toggle)
+- ✅ Authentication flow tested successfully
+- ✅ **Rehydration fix** - Added `_hasHydrated` flag to prevent premature logout on page refresh
+- ✅ **useAuthGuard hook** - Consistent auth protection across all protected pages
+- ✅ **Token validation** - Validates JWT after Zustand hydration completes
+- ✅ **No more redirect loops** - Auth guard waits for hydration before redirecting
+- ✅ **Password policy parity** - Login form uses shared validator (12+ chars, mixed case, number, special, no common passwords)
+- ⬜ Account settings page
+- ⬜ Password reset flow
+- ⬜ Email verification
+
+### UI Components Library
+- ✅ Button (primary, outline, text variants) with icon support + forwardRef
+- ✅ Button ghost variant for subtle actions (recipes/folders UI)
+- ✅ Card (padding options, hover states)
+- ✅ Input (label, error states) + forwardRef
+- ✅ TopNav with navigation and logout
+- ✅ Lucide React icons integrated (30+ icons)
+- ✅ Toast notifications (ToastProvider + useToast hook)
+- ✅ Modal components (CSV Upload, Add Bottle, Edit Bottle, Delete Confirm)
+- ✅ Spinner component (sm/md/lg sizes, primary/white colors)
+- ✅ SuccessCheckmark component (animated feedback)
+- ✅ Modal system fully polished with accessibility
+- ✅ Modal animations (fade-in, slide-up)
+- ✅ Mobile responsive modals
+- ⬜ RecipeCard component (using inline Card)
+- ⬜ InventoryTable component (using inline table)
+- ⬜ ChatBubble component (using inline Card)
+
+### Pages (Next.js App Router)
+- ✅ Login page (`/login`) - with signup mode
+- ✅ Dashboard page (`/dashboard`) - stats, actions, overview cards
+- ✅ My Bar page (`/bar`) - inventory table with filters
+- ✅ AI Bartender page (`/ai`) - chat interface
+- ✅ Recipes page (`/recipes`) - grid view with search/filter
+- ✅ Favorites page (`/favorites`) - favorites + history tabs
+- ✅ Root layout with TopNav
+- ⬜ Account page (`/account`)
+
+### Bar Inventory Management
+- ✅ API client methods (getAll, add, update, delete) - **Fixed response data extraction (Session 7)**
+- ✅ Zustand store actions with debug logging
+- ✅ Inventory table UI with filters
+- ✅ Array safety checks to prevent crashes
+- ✅ Add bottle modal with 12-field form + real-time validation
+- ✅ Edit bottle modal - **Completely refactored to match database schema (Session 7)**
+- ✅ Delete confirmation modal with ARIA support
+- ✅ CSV import modal (bottles) - **Now working with 42 bottles imported (Session 7)**
+- ✅ Flexible CSV parsing - **Accepts multiple column name variations (Session 7)**
+- ✅ CSV validation helpers (findField, safeString, safeNumber)
+- ✅ Toast notifications for all operations
+- ✅ Loading spinners for async operations
+- ✅ Success animations on save
+- ✅ Unsaved changes protection
+- ✅ Form validation (inline error messages)
+- ✅ Mobile responsive forms
+- ✅ Accessibility (ARIA labels, keyboard navigation)
+- ⬜ AddBottleModal refactor to match database schema
+- ⬜ CSV import preview/validation UI
+- ⬜ Advanced filter/search functionality
+- ⬜ Bulk operations
+
+### Recipe Management
+- ✅ API client methods (getAll, add, update, delete) - **Full CRUD complete (Session 9)**
+- ✅ Zustand store actions (fetch, add, update, delete)
+- ✅ **Bulk Delete**: Backend DELETE /bulk endpoint handles up to 500 IDs per request
+- ✅ **Store Bulk Action**: `bulkDeleteRecipes` for atomic state updates without rate limits
+- ✅ **Pagination Fixed**: Restored proper pagination after large CSV imports (Session 13)
+- ✅ **Delete All Recipes**: Global action with selection refresh and count updates
+- ✅ Recipe grid view with cards
+- ✅ Search and filter UI (spirit type, search query)
+- ✅ Favorite/unfavorite toggle with Star icon
+- ✅ CSV import modal (recipes) - **Full implementation with flexible parsing (Session 8)**
+- ✅ Recipe CSV import backend endpoint - **Supports multiple delimiters (Session 8)**
+- ✅ Toast notifications for favorites
+- ✅ Recipe detail modal - **RecipeDetailModal component created (Session 8)**
+- ✅ Recipe editing in modal - **Full edit mode with inline forms (Session 9)**
+- ✅ Recipe deletion - **DELETE endpoint with confirmation (Session 9)**
+- ✅ Modal scrolling - **Fixed overflow for long recipes (Session 9)**
+- ✅ Ingredient parsing - **parseIngredients() helper handles JSON arrays and strings (Session 8)**
+- ✅ View recipe from favorites page - **Modal integration with recipe lookup (Session 8)**
+- ✅ Favorites enhancement - **Now links recipe_id for better data integrity (Session 8)**
+- ⬜ Recipe creation form (standalone page)
+
+### Recipe Collections (Session 11 - November 15, 2025)
+- ✅ **Database Schema**: collections table with user_id, name, description, timestamps
+- ✅ **Recipe Integration**: collection_id foreign key on recipes table
+- ✅ **API Endpoints**: Full CRUD (GET/POST/PUT/DELETE /api/collections)
+- ✅ **Recipe Count Query**: Collections return recipe_count via database JOIN
+- ✅ **Folder Navigation**: Click collection to enter, back button to return
+- ✅ **CSV Import Integration**: Collection selector dropdown during recipe import
+- ✅ **RecipeDetailModal Integration**: Assign/move recipes between collections
+- ✅ **Bulk Selection**: Checkbox-based multi-select with Set data structure
+- ✅ **Bulk Operations**: Mass move to collection, mass delete selected recipes
+- ✅ **Uncategorized Section**: Recipes without collection_id remain visible
+- ✅ **Collection CRUD Modal**: Create, edit, delete collections with descriptions
+- ✅ **Zustand Store Integration**: Collections state, CRUD actions, fetchCollections
+- ✅ **API Client Methods**: getCollections, createCollection, updateCollection, deleteCollection
+- ✅ **Recipe Update Support**: PUT /api/recipes/:id supports collection_id assignment
+- ✅ **Proper Recipe Counts**: Uses database count (handles 200+ recipes correctly)
+- ⬜ Collection search/filter
+- ⬜ Collection reordering
+- ⬜ Nested collections (sub-folders)
+
+### AI Bartender
+- ✅ API client integration (claude-sonnet-4-5-20250929)
+- ✅ Zustand chat actions
+- ✅ Chat interface UI with bubbles
+- ✅ User/AI message distinction with icons
+- ✅ Empty state with suggestions
+- ✅ Chat history display
+- ✅ **Context-aware system prompts** - Backend builds prompts with user's inventory + recipes + favorites
+- ✅ **"Lab Assistant" persona** - Informed enthusiasm, scientific voice, supportive curiosity
+- ✅ **Clickable recipe recommendations** - Recipe names in AI responses open RecipeDetailModal
+- ✅ **Flexible recipe name matching** - Handles "#1", "#2" suffixes and partial matches
+- ✅ **90-second timeout** - Supports large prompts with 300+ recipes
+- ✅ **Comprehensive security** - 8-layer prompt injection protection
+- ✅ **Recipe data loading** - fetchRecipes() and fetchFavorites() called on mount
+- ✅ **Conversation context** - Sanitized chat history (last 10 turns) sent with each AI request
+- ✅ **Favorite toggling by recipe_id** - Avoids duplicate favorites when names change
+- ⬜ Typing indicator animation
+- ⬜ Conversation persistence (currently in memory)
+
+### Favorites & History
+- ✅ API client methods (getAll, add, remove)
+- ✅ Zustand store actions
+- ✅ Favorites tab UI with star icons
+- ✅ History tab UI with date grouping
+- ✅ Empty states
+- ✅ Remove favorite functionality
+- ✅ Click to view recipe details - **Integrated RecipeDetailModal (Session 8)**
+- ✅ Recipe lookup by recipe_id - **Fallback to name matching (Session 8)**
+- ✅ Favorite/unfavorite from modal - **Auto-closes on remove (Session 8)**
+
+### Smart Shopping List (Session 13 - November 17, 2025) ⭐⭐⭐
+- ✅ **Backend Algorithm**: "Near miss" analysis (recipes missing exactly 1 ingredient)
+- ✅ **Fuzzy Matching**: Token-based matching (35% threshold) across name, liquor type, and detailed classification
+- ✅ **Multi-Field Matching**: Checks bottles against name, "Liquor Type", AND "Detailed Spirit Classification"
+- ✅ **Database-Driven**: Fetches full bottle data with classifications for intelligent matching
+- ✅ **Smart Recommendations**: Ranks ingredients by number of recipes each would unlock
+- ✅ **Pagination**: Top 10 recommendations per page with Previous/Next buttons
+- ✅ **Clickable Stats**: 4 view modes (recommendations, craftable, near misses, inventory)
+- ✅ **Craftable Recipes View**: Displays all recipes user can make with current inventory
+- ✅ **Near-Miss Recipes View**: Shows recipes missing 1 ingredient with highlighted missing item
+- ✅ **Inventory View**: Full bar inventory with bottles grouped by category
+- ✅ **Safe Array Guards**: Frontend prevents crashes during data loading
+- ✅ **Logout Cleanup**: Shopping list state cleared on logout to prevent data leaks
+- ✅ **Response Defaults**: API client returns safe defaults for all shopping list data
+- ✅ **Comprehensive Tests**: Integration tests with realistic data and fuzzy matching scenarios
+- ⬜ Recipe filtering (show only craftable or near-miss in main recipes view)
+- ⬜ Shopping list export (PDF/CSV)
+
+### Styling & Design
+- ✅ Design system CSS variables (AlcheMix colors)
+- ✅ AlcheMix brand colors (teal #3DD6C1, orange #F2A74B)
+- ✅ Typography (Space Grotesk, Inter fonts loaded)
+- ✅ 8px spacing grid system
+- ✅ Component CSS Modules
+- ✅ Professional icon system (Lucide React)
+- ✅ Responsive layouts (mobile-friendly nav)
+- ⬜ Mobile optimization (full responsive testing)
+- ⬜ Dark mode support (post-MVP)
+- ⬜ Animations and transitions
+- ⬜ Custom logo integration
+
+### Backend (Express + TypeScript in /api)
+- ✅ **Monorepo Structure**: Backend in `/api` folder within same repo
+- ✅ **TypeScript Backend**: Complete Express server with strict TypeScript
+- ✅ **Database**: SQLite with better-sqlite3, auto-schema initialization
+- ✅ **Authentication API**: Signup, login, me, logout endpoints with JWT
+- ✅ **Inventory API**: Full CRUD operations (get, add, update, delete bottles)
+- ✅ **Recipes API**: Get all recipes, add recipe with JSON ingredients
+- ✅ **Favorites API**: Get, add, remove favorites (with input validation)
+- ✅ **AI Messages API**: Anthropic Claude integration endpoint
+- ✅ **Middleware**: JWT auth middleware, error handler, CORS config
+- ✅ **Security - Phase 2+3 Complete** (5 major enhancements):
+- ✅ **Token Blacklist**: Immediate logout with O(1) revocation
+- ✅ **Persistent Blacklist**: Revoked JWTs stored in SQLite (`token_blacklist`) and reloaded on startup
+  - ✅ **Token Versioning**: Session fixation protection, invalidate all tokens on password change
+  - ✅ **User Rate Limiting**: 100 req/user/15min (sliding window algorithm)
+  - ✅ **Security Headers**: Helmet with HSTS, CSP, X-Frame-Options, Referrer-Policy (9 headers total)
+  - ✅ **JWT Token IDs (jti)**: 88% memory reduction in blacklist, granular revocation
+  - ✅ **Input Validation**: Comprehensive sanitization (XSS prevention)
+  - ✅ **Strong Passwords**: 8+ chars, complexity requirements
+  - ✅ **IP Rate Limiting**: 5-100 req/IP/15min (brute-force protection)
+  - ✅ **Defense in Depth**: 6-layer security architecture
+- ✅ **Documentation**: ~4,500 lines of enterprise-grade inline documentation
+- ✅ **Development Workflow**: Hot-reload with tsx watch, concurrently for both services
+- ✅ **Monorepo Scripts**: `npm run dev:all`, `npm run install:all`, `npm run type-check`
+- ✅ **Environment**: .env file with JWT_SECRET, DATABASE_PATH, FRONTEND_URL
+- ✅ **Tested**: Health endpoint, database initialization, server startup successful
+- ⬜ **Testing**: Integration tests for security features
+- ⬜ **Production**: Deploy to Railway with persistent storage
+
+### Frontend-Backend Integration
+- ✅ Express backend running on port 3000
+- ✅ Next.js dev server on port 3001
+- ✅ CORS configured correctly (FRONTEND_URL=http://localhost:3001)
+- ✅ API proxy working (Next.js rewrites)
+- ✅ JWT token authentication (7-day expiry)
+- ✅ Auto-logout on expired tokens
+- ✅ Error handling in API client
+- ⬜ End-to-end testing with new backend
+- ⬜ AI Bartender tested with real Anthropic API key
+
+## Current Blockers
+- **Deployment Pending**: Need to deploy to Vercel + Railway for Phase 1
+- **Logo Image**: Logo needs to be edited/resized before integration into TopNav and Login page
+- **AddBottleModal Schema Mismatch**: May need refactoring to match database schema like EditBottleModal
+
+## Active Next Steps (High Priority)
+1. **Phase 1 Deployment**:
+   - Test full stack functionality on Mac
+   - Push code to GitHub
+   - Deploy frontend to Vercel
+   - Deploy backend to Railway (with persistent storage)
+   - Test deployed app end-to-end
+   - Configure production environment variables
+2. **Test CSV Imports**: Verify recipe and bottle CSV imports work with various file formats
+3. **Refactor AddBottleModal**: Update to use database schema fields (name, Liquor Type, ABV, etc.)
+4. **Mobile Device Testing**: Test responsive behavior on actual mobile devices
+
+## Active Next Steps (Medium Priority)
+5. Add recipe editing functionality (currently read-only)
+6. Add recipe deletion
+7. Add CSV import preview with column mapping UI
+8. Add tooltip hints for complex form fields
+9. Field autocomplete for common values (spirit types, locations)
+
+## Recent Completions
+- **Smart Shopping List Complete** - Craftable/near-miss views, fuzzy matching, pagination - 2025-11-17 Session 13
+- **Bulk Recipe Delete** - Backend endpoint + store action for up to 500 recipes - 2025-11-17 Session 13
+- **Production Hardening** - AI key validation, prompt injection tightening, rate limit fixes - 2025-11-17 Session 13
+- **Test Infrastructure** - All tests passing with updated schema (Windows + WSL) - 2025-11-17 Session 13
+- **Ingredient Parser Fix** - Stopped stripping "sugar" to preserve "sugar syrup" - 2025-11-17 Session 13
+- **Safe Array Guards** - Frontend prevents crashes during shopping list data loading - 2025-11-17 Session 13
+- **Persisted Token Blacklist** - JWT revocations survive restarts via SQLite - 2025-11-16 Session 12
+- **AI Chat History Context** - Sanitized last 10 turns sent with Claude requests - 2025-11-16 Session 12
+- **Recipe Collections Complete** - Folder navigation, bulk operations, CSV integration - 2025-11-15 Session 11
+- **AI Bartender Clickable Recipes** - Recipe names in AI responses open RecipeDetailModal - 2025-11-14 Session 10
+- **Authentication Persistence Fixed** - Users no longer logged out on page refresh - 2025-11-14 Session 10
+- **useAuthGuard Hook** - Prevents login redirect loops, waits for Zustand hydration - 2025-11-14 Session 10
+- **Context-Aware AI Prompts** - Backend builds prompts with user's bar inventory and recipes - 2025-11-14 Session 10
+- **Flexible Recipe Name Matching** - Handles "#1" suffixes and partial matches - 2025-11-14 Session 10
+- **90-Second Claude API Timeout** - Supports large prompts with 300+ recipes - 2025-11-14 Session 10
+- **All TypeScript Build Errors Fixed** - Frontend and backend both compile successfully - 2025-11-14 Session 10
+- **Node.js v20 Installed** - Resolved Mac compilation issues with nvm - 2025-11-13 Session 8
+- **Recipe CSV Import** - Full implementation with flexible column matching - 2025-11-13 Session 8
+- **RecipeDetailModal** - Complete modal with ingredients, instructions, compatibility - 2025-11-13 Session 8
+- **Ingredient Parsing** - Fixed .split() errors across dashboard, recipes, favorites - 2025-11-13 Session 8
+- **Favorites Enhancement** - Now properly links recipe_id for better integrity - 2025-11-13 Session 8
+- **View Recipe from Favorites** - Modal integration with recipe lookup - 2025-11-13 Session 8
+- **CSV Import Fixed** - 42 bottles successfully imported with flexible field matching - 2025-11-12 Session 7
+- **EditBottleModal Refactored** - Complete rewrite to match database schema - 2025-11-12 Session 7
+- **API Response Fix** - Fixed nested data extraction from backend responses - 2025-11-12 Session 7
+- **Flexible CSV Validation** - Accepts multiple column name variations - 2025-11-12 Session 7
+- **Monorepo backend created** (TypeScript Express in /api folder) - 2025-11-09 Session 5
+- **Complete API built** (auth, inventory, recipes, favorites, AI messages) - 2025-11-09 Session 5
+- **Deployment strategy planned** (Phase 1: Vercel + Railway free tier) - 2025-11-09 Session 5
+- **Development workflow established** (`npm run dev:all`, concurrently) - 2025-11-09 Session 5
+- Modal system polish complete (accessibility, animations, responsive) - 2025-11-08 Session 4
+- Success animations implemented (SuccessCheckmark component) - 2025-11-08 Session 4
+- Loading spinners added (Spinner component) - 2025-11-08 Session 4
+- Real-time form validation implemented - 2025-11-08 Session 4
+- Mobile responsive modals (<640px) - 2025-11-08 Session 4
+- ARIA accessibility labels and focus management - 2025-11-08 Session 4
+- Keyboard navigation (ESC, Tab, Enter) - 2025-11-08 Session 4
+- Unsaved changes protection - 2025-11-08 Session 4
+- Modal scrolling bug fixed - 2025-11-08 Session 4
+- Modal system implemented (5 components, 13 files) - 2025-11-07 Session 3
+- Toast notification system built - 2025-11-07 Session 3
+- Full CRUD operations on My Bar page - 2025-11-07 Session 3
+- CSV import modals for bottles and recipes - 2025-11-07 Session 3
+- Lucide React icons integrated across entire app - 2025-11-07 Session 2
+
+---

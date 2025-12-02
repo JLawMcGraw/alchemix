@@ -4,7 +4,7 @@
  */
 
 import { StateCreator } from 'zustand';
-import type { InventoryItem, InventoryCategory, PaginationMetadata } from '@/types';
+import type { InventoryItem, InventoryItemInput, InventoryCategory, PaginationMetadata } from '@/types';
 import { inventoryApi } from '../api';
 
 export interface InventorySlice {
@@ -22,8 +22,8 @@ export interface InventorySlice {
 
   // Actions
   fetchItems: (page?: number, limit?: number, category?: InventoryCategory | 'all') => Promise<void>;
-  addItem: (item: InventoryItem) => Promise<void>;
-  updateItem: (id: number, item: Partial<InventoryItem>) => Promise<void>;
+  addItem: (item: InventoryItemInput) => Promise<void>;
+  updateItem: (id: number, item: Partial<InventoryItemInput>) => Promise<InventoryItem>;
   deleteItem: (id: number) => Promise<void>;
   setLoading: (isLoading: boolean) => void;
   setError: (error: string | null) => void;
@@ -106,6 +106,7 @@ export const createInventorySlice: StateCreator<
         isLoading: false,
         inventoryVersion: state.inventoryVersion + 1,
       }));
+      return updatedItem;
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || 'Failed to update inventory item';
       set({ error: errorMessage, isLoading: false });

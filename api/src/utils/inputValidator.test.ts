@@ -341,67 +341,67 @@ describe('inputValidator', () => {
       expect(result.sanitized.name).toBe('Test Bottle');
     });
 
-    it('should validate Stock Number within range', () => {
+    it('should validate stock_number within range', () => {
       const result = validateBottleData({
         name: 'Test',
-        'Stock Number': 1000000,
+        stock_number: 1000000,
       });
       expect(result.isValid).toBe(false);
       expect(result.errors.some(e => e.includes('Stock Number'))).toBe(true);
     });
 
-    it('should accept valid Stock Number', () => {
+    it('should accept valid stock_number', () => {
       const result = validateBottleData({
         name: 'Test',
-        'Stock Number': 12345,
+        stock_number: 12345,
       });
       expect(result.isValid).toBe(true);
-      expect(result.sanitized['Stock Number']).toBe(12345);
+      expect(result.sanitized.stock_number).toBe(12345);
     });
 
-    it('should validate ABV within 0-100 range', () => {
+    it('should validate abv within 0-100 range', () => {
       const result = validateBottleData({
         name: 'Test',
-        'ABV (%)': 150,
+        abv: 150,
       });
       expect(result.isValid).toBe(false);
       expect(result.errors.some(e => e.includes('ABV'))).toBe(true);
     });
 
-    it('should accept valid ABV', () => {
+    it('should accept valid abv', () => {
       const result = validateBottleData({
         name: 'Test',
-        'ABV (%)': 40,
+        abv: 40,
       });
       expect(result.isValid).toBe(true);
-      expect(result.sanitized['ABV (%)']).toBe(40);
+      expect(result.sanitized.abv).toBe(40);
     });
 
     it('should sanitize optional string fields', () => {
       const result = validateBottleData({
         name: 'Test',
-        'Liquor Type': '  Whiskey  ',
-        'Distillery Location': '<b>Scotland</b>',
+        type: '  Whiskey  ',
+        distillery_location: '<b>Scotland</b>',
       });
       expect(result.isValid).toBe(true);
-      expect(result.sanitized['Liquor Type']).toBe('Whiskey');
-      expect(result.sanitized['Distillery Location']).toBe('Scotland');
+      expect(result.sanitized.type).toBe('Whiskey');
+      expect(result.sanitized.distillery_location).toBe('Scotland');
     });
 
     it('should handle all optional fields', () => {
       const result = validateBottleData({
         name: 'Test Bottle',
-        'Stock Number': 123,
-        'Liquor Type': 'Whiskey',
-        'Detailed Spirit Classification': 'Single Malt',
-        'Distillation Method': 'Pot Still',
-        'ABV (%)': 43,
-        'Distillery Location': 'Scotland',
-        'Age Statement or Barrel Finish': '12 Years',
-        'Additional Notes': 'Excellent whiskey',
-        'Profile (Nose)': 'Fruity, vanilla',
-        'Palate': 'Smooth, oaky',
-        'Finish': 'Long, warm',
+        stock_number: 123,
+        type: 'Whiskey',
+        spirit_classification: 'Single Malt',
+        distillation_method: 'Pot Still',
+        abv: 43,
+        distillery_location: 'Scotland',
+        age_statement: '12 Years',
+        additional_notes: 'Excellent whiskey',
+        profile_nose: 'Fruity, vanilla',
+        palate: 'Smooth, oaky',
+        finish: 'Long, warm',
       });
 
       expect(result.isValid).toBe(true);
@@ -412,12 +412,12 @@ describe('inputValidator', () => {
       const longText = 'a'.repeat(3000);
       const result = validateBottleData({
         name: longText,
-        'Additional Notes': longText,
+        additional_notes: longText,
       });
 
       expect(result.isValid).toBe(true);
       expect(result.sanitized.name.length).toBeLessThanOrEqual(255);
-      expect(result.sanitized['Additional Notes'].length).toBeLessThanOrEqual(2000);
+      expect(result.sanitized.additional_notes.length).toBeLessThanOrEqual(2000);
     });
   });
 

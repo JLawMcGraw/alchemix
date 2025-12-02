@@ -97,25 +97,25 @@ ${inventory.length > 0 ? inventory
       if (item.type) {
         line += ` [${item.type}]`;
       }
-      if (item['Detailed Spirit Classification']) {
-        line += ` (${item['Detailed Spirit Classification']})`;
+      if (item.spirit_classification) {
+        line += ` (${item.spirit_classification})`;
       }
       if (item.abv) {
         const abvStr = typeof item.abv === 'string' ? item.abv : item.abv.toString();
         line += ` - ${abvStr}${abvStr.includes('%') ? '' : '%'} ABV`;
       }
       // Emphasize tasting notes - these are KEY for your recommendations
-      if (item['Profile (Nose)']) {
-        line += `\n  🔬 Profile (Nose): ${item['Profile (Nose)']}`;
+      if (item.profile_nose) {
+        line += `\n  🔬 Profile (Nose): ${item.profile_nose}`;
       }
-      if (item.Palate) {
-        line += `\n  👅 Palate: ${item.Palate}`;
+      if (item.palate) {
+        line += `\n  👅 Palate: ${item.palate}`;
       }
-      if (item.Finish) {
-        line += `\n  ⏱️ Finish: ${item.Finish}`;
+      if (item.finish) {
+        line += `\n  ⏱️ Finish: ${item.finish}`;
       }
-      if (item['Additional Notes']) {
-        line += `\n  📝 Notes: ${item['Additional Notes']}`;
+      if (item.additional_notes) {
+        line += `\n  📝 Notes: ${item.additional_notes}`;
       }
       return line;
     })

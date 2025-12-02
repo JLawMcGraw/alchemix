@@ -33,15 +33,15 @@ export function ItemDetailModal({
         category: item.category,
         type: item.type,
         abv: item.abv,
-        'Stock Number': item['Stock Number'],
-        'Detailed Spirit Classification': item['Detailed Spirit Classification'],
-        'Distillation Method': item['Distillation Method'],
-        'Distillery Location': item['Distillery Location'],
-        'Age Statement or Barrel Finish': item['Age Statement or Barrel Finish'],
-        'Additional Notes': item['Additional Notes'],
-        'Profile (Nose)': item['Profile (Nose)'],
-        Palate: item.Palate,
-        Finish: item.Finish,
+        stock_number: item.stock_number,
+        spirit_classification: item.spirit_classification,
+        distillation_method: item.distillation_method,
+        distillery_location: item.distillery_location,
+        age_statement: item.age_statement,
+        additional_notes: item.additional_notes,
+        profile_nose: item.profile_nose,
+        palate: item.palate,
+        finish: item.finish,
         tasting_notes: item.tasting_notes,
       });
       setIsEditMode(false);
@@ -58,9 +58,30 @@ export function ItemDetailModal({
     if (!item?.id) return;
 
     try {
-      await updateItem(item.id, editedItem);
+      const updatedItem = await updateItem(item.id, editedItem);
       await fetchItems();
       await fetchShoppingList();
+
+      // Update local editedItem state with the saved values to reflect changes in the modal
+      if (updatedItem) {
+        setEditedItem({
+          name: updatedItem.name,
+          category: updatedItem.category,
+          type: updatedItem.type,
+          abv: updatedItem.abv,
+          stock_number: updatedItem.stock_number,
+          spirit_classification: updatedItem.spirit_classification,
+          distillation_method: updatedItem.distillation_method,
+          distillery_location: updatedItem.distillery_location,
+          age_statement: updatedItem.age_statement,
+          additional_notes: updatedItem.additional_notes,
+          profile_nose: updatedItem.profile_nose,
+          palate: updatedItem.palate,
+          finish: updatedItem.finish,
+          tasting_notes: updatedItem.tasting_notes,
+        });
+      }
+
       setIsEditMode(false);
       showToast('success', 'Item updated successfully');
     } catch (error) {
@@ -96,15 +117,15 @@ export function ItemDetailModal({
         category: item.category,
         type: item.type,
         abv: item.abv,
-        'Stock Number': item['Stock Number'],
-        'Detailed Spirit Classification': item['Detailed Spirit Classification'],
-        'Distillation Method': item['Distillation Method'],
-        'Distillery Location': item['Distillery Location'],
-        'Age Statement or Barrel Finish': item['Age Statement or Barrel Finish'],
-        'Additional Notes': item['Additional Notes'],
-        'Profile (Nose)': item['Profile (Nose)'],
-        Palate: item.Palate,
-        Finish: item.Finish,
+        stock_number: item.stock_number,
+        spirit_classification: item.spirit_classification,
+        distillation_method: item.distillation_method,
+        distillery_location: item.distillery_location,
+        age_statement: item.age_statement,
+        additional_notes: item.additional_notes,
+        profile_nose: item.profile_nose,
+        palate: item.palate,
+        finish: item.finish,
         tasting_notes: item.tasting_notes,
       });
     }
@@ -176,7 +197,7 @@ export function ItemDetailModal({
                   placeholder="Item name"
                 />
               ) : (
-                <h2 className={styles.title} id="item-detail-title">{item.name}</h2>
+                <h2 className={styles.title} id="item-detail-title">{editedItem.name || item.name}</h2>
               )}
               <div className={styles.categoryBadge}>
                 {isEditMode ? (
@@ -197,7 +218,7 @@ export function ItemDetailModal({
                     <option value="other">Other</option>
                   </select>
                 ) : (
-                  <span className={styles.category}>{item.category}</span>
+                  <span className={styles.category}>{editedItem.category || item.category}</span>
                 )}
               </div>
             </div>
@@ -249,7 +270,7 @@ export function ItemDetailModal({
                     placeholder="e.g., Bourbon, Gin"
                   />
                 ) : (
-                  <p className={styles.value}>{item.type || '-'}</p>
+                  <p className={styles.value}>{editedItem.type || item.type || '-'}</p>
                 )}
               </div>
 
@@ -265,7 +286,7 @@ export function ItemDetailModal({
                   />
                 ) : (
                   <p className={styles.value}>
-                    {item.abv ? `${item.abv}${item.abv.toString().includes('%') ? '' : '%'}` : '-'}
+                    {(editedItem.abv || item.abv) ? `${editedItem.abv || item.abv}${(editedItem.abv || item.abv)?.toString().includes('%') ? '' : '%'}` : '-'}
                   </p>
                 )}
               </div>
@@ -276,23 +297,23 @@ export function ItemDetailModal({
                   <input
                     type="number"
                     min="0"
-                    value={editedItem['Stock Number'] ?? ''}
+                    value={editedItem.stock_number ?? ''}
                     onChange={(e) => {
                       const val = e.target.value;
                       const parsed = parseInt(val, 10);
-                      
+
                       // Handle empty string as undefined
                       if (val === '') {
-                        setEditedItem({ ...editedItem, 'Stock Number': undefined });
+                        setEditedItem({ ...editedItem, stock_number: undefined });
                         return;
                       }
 
                       // Clamp negative numbers to 0
                       const safeValue = Number.isNaN(parsed) ? undefined : (parsed < 0 ? 0 : parsed);
-                      
+
                       setEditedItem({
                         ...editedItem,
-                        'Stock Number': safeValue,
+                        stock_number: safeValue,
                       });
                     }}
                     className={styles.input}
@@ -300,7 +321,7 @@ export function ItemDetailModal({
                   />
                 ) : (
                   <p className={styles.value}>
-                    {item['Stock Number'] ?? '-'}
+                    {editedItem.stock_number ?? item.stock_number ?? '-'}
                   </p>
                 )}
               </div>
@@ -310,13 +331,13 @@ export function ItemDetailModal({
                 {isEditMode ? (
                   <input
                     type="text"
-                    value={editedItem['Detailed Spirit Classification'] || ''}
-                    onChange={(e) => setEditedItem({ ...editedItem, 'Detailed Spirit Classification': e.target.value })}
+                    value={editedItem.spirit_classification || ''}
+                    onChange={(e) => setEditedItem({ ...editedItem, spirit_classification: e.target.value })}
                     className={styles.input}
                     placeholder="e.g., Kentucky Straight Bourbon"
                   />
                 ) : (
-                  <p className={styles.value}>{item['Detailed Spirit Classification'] || '-'}</p>
+                  <p className={styles.value}>{editedItem.spirit_classification || item.spirit_classification || '-'}</p>
                 )}
               </div>
             </div>
@@ -331,13 +352,13 @@ export function ItemDetailModal({
                 {isEditMode ? (
                   <input
                     type="text"
-                    value={editedItem['Distillation Method'] || ''}
-                    onChange={(e) => setEditedItem({ ...editedItem, 'Distillation Method': e.target.value })}
+                    value={editedItem.distillation_method || ''}
+                    onChange={(e) => setEditedItem({ ...editedItem, distillation_method: e.target.value })}
                     className={styles.input}
                     placeholder="e.g., Pot Still, Column Still"
                   />
                 ) : (
-                  <p className={styles.value}>{item['Distillation Method'] || '-'}</p>
+                  <p className={styles.value}>{editedItem.distillation_method || item.distillation_method || '-'}</p>
                 )}
               </div>
 
@@ -346,13 +367,13 @@ export function ItemDetailModal({
                 {isEditMode ? (
                   <input
                     type="text"
-                    value={editedItem['Distillery Location'] || ''}
-                    onChange={(e) => setEditedItem({ ...editedItem, 'Distillery Location': e.target.value })}
+                    value={editedItem.distillery_location || ''}
+                    onChange={(e) => setEditedItem({ ...editedItem, distillery_location: e.target.value })}
                     className={styles.input}
                     placeholder="e.g., Kentucky, USA"
                   />
                 ) : (
-                  <p className={styles.value}>{item['Distillery Location'] || '-'}</p>
+                  <p className={styles.value}>{editedItem.distillery_location || item.distillery_location || '-'}</p>
                 )}
               </div>
 
@@ -361,13 +382,13 @@ export function ItemDetailModal({
                 {isEditMode ? (
                   <input
                     type="text"
-                    value={editedItem['Age Statement or Barrel Finish'] || ''}
-                    onChange={(e) => setEditedItem({ ...editedItem, 'Age Statement or Barrel Finish': e.target.value })}
+                    value={editedItem.age_statement || ''}
+                    onChange={(e) => setEditedItem({ ...editedItem, age_statement: e.target.value })}
                     className={styles.input}
                     placeholder="e.g., 12 Year, Sherry Cask"
                   />
                 ) : (
-                  <p className={styles.value}>{item['Age Statement or Barrel Finish'] || '-'}</p>
+                  <p className={styles.value}>{editedItem.age_statement || item.age_statement || '-'}</p>
                 )}
               </div>
             </div>
@@ -380,14 +401,14 @@ export function ItemDetailModal({
               <label className={styles.label}>Profile (Nose)</label>
               {isEditMode ? (
                 <textarea
-                  value={editedItem['Profile (Nose)'] || ''}
-                  onChange={(e) => setEditedItem({ ...editedItem, 'Profile (Nose)': e.target.value })}
+                  value={editedItem.profile_nose || ''}
+                  onChange={(e) => setEditedItem({ ...editedItem, profile_nose: e.target.value })}
                   className={styles.textarea}
                   placeholder="Aroma notes, e.g., vanilla, oak, caramel"
                   rows={3}
                 />
               ) : (
-                <p className={styles.value}>{item['Profile (Nose)'] || '-'}</p>
+                <p className={styles.value}>{editedItem.profile_nose || item.profile_nose || '-'}</p>
               )}
             </div>
 
@@ -395,14 +416,14 @@ export function ItemDetailModal({
               <label className={styles.label}>Palate</label>
               {isEditMode ? (
                 <textarea
-                  value={editedItem.Palate || ''}
-                  onChange={(e) => setEditedItem({ ...editedItem, Palate: e.target.value })}
+                  value={editedItem.palate || ''}
+                  onChange={(e) => setEditedItem({ ...editedItem, palate: e.target.value })}
                   className={styles.textarea}
                   placeholder="Flavor notes, e.g., honey, spice, fruit"
                   rows={3}
                 />
               ) : (
-                <p className={styles.value}>{item.Palate || '-'}</p>
+                <p className={styles.value}>{editedItem.palate || item.palate || '-'}</p>
               )}
             </div>
 
@@ -410,14 +431,14 @@ export function ItemDetailModal({
               <label className={styles.label}>Finish</label>
               {isEditMode ? (
                 <textarea
-                  value={editedItem.Finish || ''}
-                  onChange={(e) => setEditedItem({ ...editedItem, Finish: e.target.value })}
+                  value={editedItem.finish || ''}
+                  onChange={(e) => setEditedItem({ ...editedItem, finish: e.target.value })}
                   className={styles.textarea}
                   placeholder="Finish notes, e.g., long, smooth, warming"
                   rows={3}
                 />
               ) : (
-                <p className={styles.value}>{item.Finish || '-'}</p>
+                <p className={styles.value}>{editedItem.finish || item.finish || '-'}</p>
               )}
             </div>
 
@@ -437,7 +458,7 @@ export function ItemDetailModal({
                   </p>
                 </>
               ) : (
-                <p className={styles.value}>{item.tasting_notes || '-'}</p>
+                <p className={styles.value}>{editedItem.tasting_notes || item.tasting_notes || '-'}</p>
               )}
             </div>
           </section>
@@ -448,14 +469,14 @@ export function ItemDetailModal({
             <div className={styles.field}>
               {isEditMode ? (
                 <textarea
-                  value={editedItem['Additional Notes'] || ''}
-                  onChange={(e) => setEditedItem({ ...editedItem, 'Additional Notes': e.target.value })}
+                  value={editedItem.additional_notes || ''}
+                  onChange={(e) => setEditedItem({ ...editedItem, additional_notes: e.target.value })}
                   className={styles.textarea}
                   placeholder="Any other notes or comments"
                   rows={4}
                 />
               ) : (
-                <p className={styles.value}>{item['Additional Notes'] || '-'}</p>
+                <p className={styles.value}>{editedItem.additional_notes || item.additional_notes || '-'}</p>
               )}
             </div>
           </section>

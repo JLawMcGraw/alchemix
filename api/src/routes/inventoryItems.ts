@@ -1,48 +1,38 @@
 /**
  * Inventory Items Routes
  *
- * Handles CRUD operations for user's inventory (spirits, mixers, garnishes, etc.).
+ * Handles HTTP layer for user's inventory (spirits, mixers, garnishes, etc.).
+ * Business logic delegated to InventoryService.
  *
  * Features:
  * - GET /api/inventory-items - List user's inventory items with pagination and filtering
+ * - GET /api/inventory-items/category-counts - Get counts for all categories
  * - POST /api/inventory-items - Add new item to inventory
  * - PUT /api/inventory-items/:id - Update existing item
  * - DELETE /api/inventory-items/:id - Remove item from inventory
+ * - DELETE /api/inventory-items/bulk - Bulk delete items
  * - POST /api/inventory-items/import - CSV import
  *
  * Security:
  * - All routes require JWT authentication (authMiddleware)
  * - User isolation: Can only access their own items
- * - Input validation: Sanitized via inputValidator utility
- * - SQL injection prevention: Parameterized queries
+ * - Input validation: Sanitized via InventoryService
+ * - SQL injection prevention: Parameterized queries (in service)
  * - Pagination: Prevents DoS via large result sets
- *
- * SECURITY FIX #12: Added pagination to prevent performance issues
- * - Default: 50 items per page
- * - Maximum: 100 items per page
- * - Prevents N+1 query issues with large inventories
- * - Reduces memory usage and API response time
  */
 
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import { parse } from 'csv-parse/sync';
-import { db } from '../database/db';
 import { authMiddleware } from '../middleware/auth';
-import { userRateLimit } from '../middleware/userRateLimit';
 import { validateNumber } from '../utils/inputValidator';
-import { InventoryItem } from '../types';
 import { asyncHandler } from '../utils/asyncHandler';
+import { inventoryService, VALID_CATEGORIES } from '../services/InventoryService';
 
 const router = Router();
 
 /**
  * Multer Configuration for File Uploads
- *
- * Configure multer for CSV file uploads:
- * - Memory storage (don't save to disk)
- * - 5MB file size limit
- * - Only accept CSV files
  */
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -50,7 +40,6 @@ const upload = multer({
     fileSize: 5 * 1024 * 1024, // 5MB max
   },
   fileFilter: (req, file, cb) => {
-    // Only accept CSV files
     if (file.mimetype === 'text/csv' || file.originalname.endsWith('.csv')) {
       cb(null, true);
     } else {
@@ -59,79 +48,20 @@ const upload = multer({
   },
 });
 
-/**
- * Authentication Requirement
- *
- * All inventory routes require valid JWT token.
- * Ensures users can only access/modify their own items.
- */
+// All routes require authentication
 router.use(authMiddleware);
-// No rate limiting on inventory - users should be able to view their inventory freely
 
 /**
  * GET /api/inventory-items - List User's Inventory Items with Pagination & Filtering
  *
- * Returns paginated list of inventory items owned by authenticated user.
- * Supports filtering by category (spirit, liqueur, mixer, garnish, syrup, wine, beer, other).
- *
- * SECURITY FIX #12: Added pagination to prevent DoS and performance issues.
- *
  * Query Parameters:
  * - page: Page number (default: 1, min: 1)
  * - limit: Items per page (default: 50, max: 100, min: 1)
- * - category: Filter by category (optional - spirit, liqueur, mixer, garnish, syrup, wine, beer, other)
- *
- * Example Requests:
- * - GET /api/inventory-items → First 50 items (all categories)
- * - GET /api/inventory-items?page=2 → Items 51-100
- * - GET /api/inventory-items?page=1&limit=25 → First 25 items
- * - GET /api/inventory-items?category=spirit → All spirits
- * - GET /api/inventory-items?category=mixer&page=1&limit=20 → First 20 mixers
- *
- * Response (200 OK):
- * {
- *   "success": true,
- *   "data": [
- *     {
- *       "id": 1,
- *       "user_id": 1,
- *       "name": "Maker's Mark",
- *       "category": "spirit",
- *       "type": "Bourbon",
- *       "abv": "45",
- *       ...
- *     }
- *   ],
- *   "pagination": {
- *     "page": 1,
- *     "limit": 50,
- *     "total": 147,
- *     "totalPages": 3,
- *     "hasNextPage": true,
- *     "hasPreviousPage": false
- *   }
- * }
- *
- * Why Pagination Matters:
- * - Performance: Fetching 1,000 items takes 100ms, 50 items takes 5ms
- * - Memory: Large result sets consume server memory
- * - Network: Smaller payloads = faster response times
- * - DoS Prevention: Attacker can't exhaust resources with huge queries
- *
- * Security:
- * - User isolation: WHERE user_id = ? ensures data privacy
- * - Input validation: page/limit/category validated
- * - SQL injection: Parameterized queries
+ * - category: Filter by category (optional)
  */
 router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.userId;
 
-  /**
-   * Step 1: Authentication Check
-   *
-   * This should never fail (authMiddleware prevents it),
-   * but we check for type safety and defense in depth.
-   */
   if (!userId) {
     return res.status(401).json({
       success: false,
@@ -139,193 +69,60 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-    /**
-     * Step 2: Parse and Validate Pagination Parameters
-     *
-     * Extract page and limit from query string, with defaults.
-     * Validate they are positive numbers within acceptable range.
-     */
-    const pageParam = req.query.page as string | undefined;
-    const limitParam = req.query.limit as string | undefined;
+  // Validate page parameter
+  const pageParam = req.query.page as string | undefined;
+  const pageValidation = validateNumber(pageParam || '1', 1, undefined);
 
-    // Validate page parameter (default: 1, min: 1)
-    const pageValidation = validateNumber(
-      pageParam || '1',
-      1,        // min: page 1
-      undefined // max: no limit (handled by total pages)
-    );
+  if (!pageValidation.isValid) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid page parameter',
+      details: pageValidation.errors
+    });
+  }
 
-    if (!pageValidation.isValid) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid page parameter',
-        details: pageValidation.errors
-      });
-    }
+  const page = pageValidation.sanitized || 1;
 
-    const page = pageValidation.sanitized || 1;
+  // Validate limit parameter
+  const limitParam = req.query.limit as string | undefined;
+  const limitValidation = validateNumber(limitParam || '50', 1, 100);
 
-    // Validate limit parameter (default: 50, min: 1, max: 100)
-    const limitValidation = validateNumber(
-      limitParam || '50',
-      1,    // min: at least 1 bottle per page
-      100   // max: prevent excessive memory usage
-    );
+  if (!limitValidation.isValid) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid limit parameter',
+      details: limitValidation.errors
+    });
+  }
 
-    if (!limitValidation.isValid) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid limit parameter',
-        details: limitValidation.errors
-      });
-    }
+  const limit = limitValidation.sanitized || 50;
 
-    const limit = limitValidation.sanitized || 50;
+  // Validate category parameter
+  const categoryParam = req.query.category as string | undefined;
 
-    /**
-     * Step 3: Parse and Validate Category Filter (Optional)
-     *
-     * If category is provided, validate it's one of the allowed categories.
-     */
-    const categoryParam = req.query.category as string | undefined;
-    const validCategories = ['spirit', 'liqueur', 'mixer', 'garnish', 'syrup', 'wine', 'beer', 'other'];
+  if (categoryParam && !inventoryService.isValidCategory(categoryParam)) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid category parameter',
+      details: `Category must be one of: ${VALID_CATEGORIES.join(', ')}`
+    });
+  }
 
-    if (categoryParam && !validCategories.includes(categoryParam)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid category parameter',
-        details: `Category must be one of: ${validCategories.join(', ')}`
-      });
-    }
+  const result = inventoryService.getAll(userId, { page, limit }, categoryParam);
 
-    /**
-     * Step 4: Calculate SQL OFFSET
-     *
-     * Offset = (page - 1) × limit
-     * Examples:
-     * - Page 1, Limit 50: Offset 0 (rows 1-50)
-     * - Page 2, Limit 50: Offset 50 (rows 51-100)
-     * - Page 3, Limit 25: Offset 50 (rows 51-75)
-     */
-    const offset = (page - 1) * limit;
-
-    /**
-     * Step 5: Build WHERE clause for category filtering
-     */
-    const whereClause = categoryParam
-      ? 'WHERE user_id = ? AND category = ?'
-      : 'WHERE user_id = ?';
-
-    const queryParams = categoryParam ? [userId, categoryParam] : [userId];
-
-    /**
-     * Step 6: Count Total Items (for pagination metadata)
-     *
-     * COUNT(*) query to determine total pages.
-     * Separate query is necessary for pagination info.
-     *
-     * Performance Note:
-     * - COUNT(*) on indexed user_id column is fast (<1ms)
-     * - Result is small (single integer)
-     */
-    const countResult = db.prepare(
-      `SELECT COUNT(*) as total FROM inventory_items ${whereClause}`
-    ).get(...queryParams) as { total: number };
-
-    const total = countResult.total;
-
-    /**
-     * Step 7: Fetch Paginated Items
-     *
-     * SQL Query Breakdown:
-     * - SELECT *: All item columns
-     * - WHERE user_id = ?: User isolation for security
-     * - WHERE category = ?: Optional category filter
-     * - ORDER BY created_at DESC: Newest items first
-     * - LIMIT ?: Number of rows to return
-     * - OFFSET ?: Number of rows to skip
-     *
-     * Example SQL:
-     * SELECT * FROM inventory_items WHERE user_id = 1 AND category = 'spirit'
-     * ORDER BY created_at DESC LIMIT 50 OFFSET 0
-     */
-    const items = db.prepare(`
-      SELECT * FROM inventory_items
-      ${whereClause}
-      ORDER BY created_at DESC
-      LIMIT ? OFFSET ?
-    `).all(...queryParams, limit, offset) as InventoryItem[];
-
-    /**
-     * Step 6: Calculate Pagination Metadata
-     *
-     * Provide frontend with pagination context:
-     * - Current page number
-     * - Items per page
-     * - Total items across all pages
-     * - Total number of pages
-     * - Whether next/previous pages exist
-     *
-     * This allows frontend to render pagination controls.
-     */
-    const totalPages = Math.ceil(total / limit);
-    const hasNextPage = page < totalPages;
-    const hasPreviousPage = page > 1;
-
-    /**
-     * Step 8: Return Paginated Response
-     *
-     * Standard pagination response format:
-     * - data: Array of items for current page
-     * - pagination: Metadata for UI controls
-     */
   res.json({
     success: true,
-    data: items,
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages,
-      hasNextPage,
-      hasPreviousPage
-    }
+    data: result.items,
+    pagination: result.pagination
   });
 }));
 
 /**
  * GET /api/inventory-items/category-counts - Get Counts for All Categories
- *
- * Returns item counts for each category including total.
- * Used by the Bar page to display accurate counts on category tabs.
- *
- * Response (200 OK):
- * {
- *   "success": true,
- *   "data": {
- *     "all": 45,
- *     "spirit": 28,
- *     "liqueur": 12,
- *     "mixer": 3,
- *     "syrup": 2,
- *     "garnish": 0,
- *     "wine": 0,
- *     "beer": 0,
- *     "other": 0
- *   }
- * }
- *
- * Security:
- * - User isolation: WHERE user_id = ? ensures data privacy
- * - No parameters to validate (simple GET)
- * - SQL injection: Parameterized queries
  */
 router.get('/category-counts', asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.userId;
 
-  /**
-   * Step 1: Authentication Check
-   */
   if (!userId) {
     return res.status(401).json({
       success: false,
@@ -333,67 +130,9 @@ router.get('/category-counts', asyncHandler(async (req: Request, res: Response) 
     });
   }
 
-    /**
-     * Step 2: Get Total Count
-     *
-     * Simple COUNT(*) query for all items belonging to user.
-     */
-    const totalResult = db.prepare(
-      'SELECT COUNT(*) as total FROM inventory_items WHERE user_id = ?'
-    ).get(userId) as { total: number };
+  const counts = inventoryService.getCategoryCounts(userId);
 
-    /**
-     * Step 3: Get Category Breakdown
-     *
-     * Use GROUP BY to count items per category in a single query.
-     * This is more efficient than separate queries per category.
-     *
-     * SQL Query:
-     * SELECT category, COUNT(*) as count
-     * FROM inventory_items
-     * WHERE user_id = ?
-     * GROUP BY category
-     *
-     * Example result:
-     * [
-     *   { category: 'spirit', count: 28 },
-     *   { category: 'liqueur', count: 12 },
-     *   { category: 'mixer', count: 3 }
-     * ]
-     */
-    const categoryResults = db.prepare(`
-      SELECT category, COUNT(*) as count
-      FROM inventory_items
-      WHERE user_id = ?
-      GROUP BY category
-    `).all(userId) as Array<{ category: string; count: number }>;
-
-    /**
-     * Step 4: Build Complete Response
-     *
-     * Initialize all categories to 0, then fill in actual counts.
-     * This ensures frontend always receives all categories even if count is 0.
-     */
-    const counts: Record<string, number> = {
-      all: totalResult.total,
-      spirit: 0,
-      liqueur: 0,
-      mixer: 0,
-      syrup: 0,
-      garnish: 0,
-      wine: 0,
-      beer: 0,
-      other: 0
-    };
-
-    // Fill in actual counts from database
-    categoryResults.forEach(({ category, count }) => {
-      if (category in counts) {
-        counts[category] = count;
-      }
-    });
-
-    console.log('📊 Category counts calculated:', counts);
+  console.log('📊 Category counts calculated:', counts);
 
   res.json({
     success: true,
@@ -403,56 +142,10 @@ router.get('/category-counts', asyncHandler(async (req: Request, res: Response) 
 
 /**
  * POST /api/inventory-items - Add New Item to Inventory
- *
- * Creates a new item in user's inventory.
- *
- * Request Body:
- * {
- *   "name": "Maker's Mark",                    // REQUIRED
- *   "category": "spirit",                      // REQUIRED (spirit, liqueur, mixer, garnish, syrup, wine, beer, other)
- *   "type": "Bourbon",                         // Optional (formerly "Liquor Type")
- *   "abv": "45",                               // Optional (formerly "ABV (%)")
- *   "Stock Number": 42,                        // Optional
- *   "Detailed Spirit Classification": "...",   // Optional
- *   "Distillation Method": "Pot Still",        // Optional
- *   "ABV (%)": 45,                             // Optional
- *   "Distillery Location": "Loretto, KY",      // Optional
- *   "Age Statement or Barrel Finish": "...",   // Optional
- *   "Additional Notes": "...",                 // Optional (max 2000 chars)
- *   "Profile (Nose)": "...",                   // Optional (max 500 chars)
- *   "Palate": "...",                           // Optional (max 500 chars)
- *   "Finish": "..."                            // Optional (max 500 chars)
- * }
- *
- * Response (201 Created):
- * {
- *   "success": true,
- *   "data": {
- *     "id": 123,
- *     "user_id": 1,
- *     "name": "Maker's Mark",
- *     "created_at": "2025-11-10T14:32:05.123Z",
- *     ...
- *   }
- * }
- *
- * Error Responses:
- * - 400: Missing name, validation failed
- * - 401: Unauthorized (no valid JWT)
- * - 500: Database error
- *
- * Security:
- * - Input validation: All fields sanitized via validateInventoryItemData()
- * - SQL injection: Parameterized queries only
- * - User ownership: bottle.user_id set to authenticated user
- * - XSS prevention: HTML tags stripped from text fields
  */
 router.post('/', asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.userId;
 
-  /**
-   * Step 1: Authentication Check
-   */
   if (!userId) {
     return res.status(401).json({
       success: false,
@@ -460,271 +153,64 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-    /**
-     * Step 2: Validate and Sanitize Input
-     *
-     * Uses validateInventoryItemData() utility to:
-     * - Check required fields (name)
-     * - Sanitize string fields (remove HTML, trim, limit length)
-     * - Validate numeric fields (ABV, Stock Number)
-     * - Enforce data type constraints
-     *
-     * This prevents:
-     * - XSS attacks (via HTML in text fields)
-     * - Database bloat (via extremely long strings)
-     * - Type errors (via wrong data types)
-     */
-    const validation = validateInventoryItemData(req.body);
+  const validation = inventoryService.validateItemData(req.body);
 
-    if (!validation.isValid) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: validation.errors
-      });
-    }
+  if (!validation.isValid) {
+    return res.status(400).json({
+      success: false,
+      error: 'Validation failed',
+      details: validation.errors
+    });
+  }
 
-    const item = {
-      ...validation.sanitized,
-      // Normalize zero/negative stock to null so availability checks work reliably
-      'Stock Number':
-        validation.sanitized['Stock Number'] !== undefined &&
-        validation.sanitized['Stock Number'] !== null &&
-        validation.sanitized['Stock Number'] <= 0
-          ? null
-          : validation.sanitized['Stock Number'],
-    };
+  const item = inventoryService.create(userId, validation.sanitized!);
 
-    /**
-     * Step 3: Insert Item into Database
-     *
-     * SQL INSERT with category (required) + type/abv (new simplified columns) + legacy columns.
-     * Parameterized query prevents SQL injection.
-     *
-     * Note: Field names with spaces require double quotes in SQLite.
-     * Example: "Stock Number" vs Stock_Number
-     *
-     * Database automatically adds:
-     * - id: Auto-increment primary key
-     * - created_at: Current timestamp (DEFAULT)
-     */
-    const result = db.prepare(`
-      INSERT INTO inventory_items (
-        user_id, name, category, type, abv,
-        "Stock Number", "Detailed Spirit Classification", "Distillation Method",
-        "Distillery Location", "Age Statement or Barrel Finish", "Additional Notes",
-        "Profile (Nose)", "Palate", "Finish"
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      userId,
-      item.name,
-      item.category,
-      item.type || null,
-      item.abv || null,
-      item['Stock Number'] ?? null,
-      item['Detailed Spirit Classification'] || null,
-      item['Distillation Method'] || null,
-      item['Distillery Location'] || null,
-      item['Age Statement or Barrel Finish'] || null,
-      item['Additional Notes'] || null,
-      item['Profile (Nose)'] || null,
-      item['Palate'] || null,
-      item['Finish'] || null
-    );
-
-    const itemId = result.lastInsertRowid as number;
-
-    /**
-     * Step 4: Retrieve Created Item
-     *
-     * Fetch the complete item record to return in response.
-     * This includes database-generated fields (id, created_at).
-     */
-    const createdItem = db.prepare(
-      'SELECT * FROM inventory_items WHERE id = ?'
-    ).get(itemId) as InventoryItem;
-
-    /**
-     * Step 5: Return Success Response
-     *
-     * 201 Created status indicates new resource was created.
-     * Return complete item object for frontend to display.
-     */
   res.status(201).json({
     success: true,
-    data: createdItem
+    data: item
   });
 }));
 
 /**
- * PUT /api/inventory/:id - Update Existing InventoryItem
- *
- * Updates an existing bottle in user's inventory.
- *
- * Route Parameters:
- * - id: InventoryItem ID to update (must be positive integer)
- *
- * Request Body:
- * {
- *   "name": "Updated Name",
- *   "ABV (%)": 46.5,
- *   // ... any fields to update
- * }
- *
- * Response (200 OK):
- * {
- *   "success": true,
- *   "data": {
- *     "id": 123,
- *     "name": "Updated Name",
- *     "ABV (%)": 46.5,
- *     ...
- *   }
- * }
- *
- * Error Responses:
- * - 400: Invalid bottle ID (not a number)
- * - 401: Unauthorized (no valid JWT)
- * - 404: InventoryItem not found or doesn't belong to user
- * - 500: Database error
- *
- * Security:
- * - User ownership: WHERE user_id = ? ensures users can only update own inventory_items
- * - Input validation: All fields sanitized via validateInventoryItemData()
- * - SQL injection: Parameterized queries only
- * - Authorization: Even with valid ID, users can't update others' inventory_items
+ * PUT /api/inventory-items/:id - Update Existing Item
  */
 router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   const itemId = parseInt(req.params.id);
 
-    /**
-     * Step 1: Authentication Check
-     */
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized'
-      });
-    }
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized'
+    });
+  }
 
-    /**
-     * Step 2: Validate Item ID
-     *
-     * Ensure ID is a valid positive integer.
-     * parseInt() returns NaN for non-numeric strings.
-     */
-    if (isNaN(itemId)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid item ID'
-      });
-    }
+  if (isNaN(itemId)) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid item ID'
+    });
+  }
 
-    /**
-     * Step 3: Verify Ownership
-     *
-     * Check that item exists AND belongs to authenticated user.
-     * This prevents users from updating others' inventory_items.
-     *
-     * Security Note:
-     * - WHERE id = ? AND user_id = ? ensures both conditions
-     * - If item exists but belongs to another user → 404 (not 403)
-     * - Prevents leaking information about other users' inventories
-     */
-    const existingItem = db.prepare(
-      'SELECT id FROM inventory_items WHERE id = ? AND user_id = ?'
-    ).get(itemId, userId);
+  const validation = inventoryService.validateItemData(req.body);
 
-    if (!existingItem) {
-      return res.status(404).json({
-        success: false,
-        error: 'Item not found'
-      });
-    }
+  if (!validation.isValid) {
+    return res.status(400).json({
+      success: false,
+      error: 'Validation failed',
+      details: validation.errors
+    });
+  }
 
-    /**
-     * Step 4: Validate and Sanitize Input
-     *
-     * Same validation as POST endpoint.
-     * Ensures updated data meets security/quality standards.
-     */
-    const validation = validateInventoryItemData(req.body);
+  const updatedItem = inventoryService.update(itemId, userId, validation.sanitized!);
 
-    if (!validation.isValid) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: validation.errors
-      });
-    }
+  if (!updatedItem) {
+    return res.status(404).json({
+      success: false,
+      error: 'Item not found'
+    });
+  }
 
-    const item = {
-      ...validation.sanitized,
-      // Normalize zero/negative stock to null so availability checks work reliably
-      'Stock Number':
-        validation.sanitized['Stock Number'] !== undefined &&
-        validation.sanitized['Stock Number'] !== null &&
-        validation.sanitized['Stock Number'] <= 0
-          ? null
-          : validation.sanitized['Stock Number'],
-    };
-
-    /**
-     * Step 5: Update Item in Database
-     *
-     * SQL UPDATE with category, type, abv + legacy columns.
-     * WHERE clause ensures user ownership (defense in depth).
-     *
-     * Note: updated_at timestamp would auto-update if we had that column.
-     * Consider adding in Phase 3 for audit trails.
-     */
-    db.prepare(`
-      UPDATE inventory_items SET
-        name = ?,
-        category = ?,
-        type = ?,
-        abv = ?,
-        "Stock Number" = ?,
-        "Detailed Spirit Classification" = ?,
-        "Distillation Method" = ?,
-        "Distillery Location" = ?,
-        "Age Statement or Barrel Finish" = ?,
-        "Additional Notes" = ?,
-        "Profile (Nose)" = ?,
-        "Palate" = ?,
-        "Finish" = ?
-      WHERE id = ? AND user_id = ?
-    `).run(
-      item.name,
-      item.category,
-      item.type || null,
-      item.abv || null,
-      item['Stock Number'] ?? null,
-      item['Detailed Spirit Classification'] || null,
-      item['Distillation Method'] || null,
-      item['Distillery Location'] || null,
-      item['Age Statement or Barrel Finish'] || null,
-      item['Additional Notes'] || null,
-      item['Profile (Nose)'] || null,
-      item['Palate'] || null,
-      item['Finish'] || null,
-      itemId,
-      userId
-    );
-
-    /**
-     * Step 6: Retrieve Updated Item
-     *
-     * Fetch the complete updated record to return in response.
-     */
-    const updatedItem = db.prepare(
-      'SELECT * FROM inventory_items WHERE id = ?'
-    ).get(itemId) as InventoryItem;
-
-    /**
-     * Step 7: Return Success Response
-     */
   res.json({
     success: true,
     data: updatedItem
@@ -734,186 +220,91 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
 /**
  * DELETE /api/inventory-items/bulk - Bulk Delete Inventory Items
  *
- * Deletes multiple inventory items by their IDs in a single request.
- *
  * Request Body:
  * {
  *   "ids": [1, 2, 3, 4, 5]  // Array of item IDs to delete (max 500)
  * }
- *
- * Response (200 OK):
- * {
- *   "success": true,
- *   "deleted": 5,
- *   "message": "Successfully deleted 5 items"
- * }
- *
- * Error Responses:
- * - 400: Invalid request (no ids, not array, too many ids)
- * - 401: Unauthorized
- * - 500: Database error
- *
- * Security:
- * - User ownership: Only deletes items belonging to authenticated user
- * - Limit: Maximum 500 items per request (prevents DoS)
- * - SQL injection: Parameterized queries
  */
 router.delete('/bulk', asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.userId;
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized'
-      });
-    }
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized'
+    });
+  }
 
-    // Validate request body
-    const { ids } = req.body;
+  const { ids } = req.body;
 
-    if (!ids || !Array.isArray(ids)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid request: ids must be an array'
-      });
-    }
+  if (!ids || !Array.isArray(ids)) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid request: ids must be an array'
+    });
+  }
 
-    if (ids.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'No items specified for deletion'
-      });
-    }
+  if (ids.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: 'No items specified for deletion'
+    });
+  }
 
-    // Limit to 500 items to prevent DoS
-    if (ids.length > 500) {
-      return res.status(400).json({
-        success: false,
-        error: 'Too many items (max 500 per request)'
-      });
-    }
+  if (ids.length > 500) {
+    return res.status(400).json({
+      success: false,
+      error: 'Too many items (max 500 per request)'
+    });
+  }
 
-    // Validate all IDs are numbers
-    const validIds = ids.every((id: any) => typeof id === 'number' || !isNaN(parseInt(id)));
-    if (!validIds) {
-      return res.status(400).json({
-        success: false,
-        error: 'All IDs must be valid numbers'
-      });
-    }
+  const validIds = ids.every((id: any) => typeof id === 'number' || !isNaN(parseInt(id)));
+  if (!validIds) {
+    return res.status(400).json({
+      success: false,
+      error: 'All IDs must be valid numbers'
+    });
+  }
 
-    // Create placeholders for SQL IN clause
-    const placeholders = ids.map(() => '?').join(',');
-
-    // Delete items (only those owned by user)
-    const result = db.prepare(`
-      DELETE FROM inventory_items
-      WHERE id IN (${placeholders}) AND user_id = ?
-    `).run(...ids, userId);
+  const deleted = inventoryService.bulkDelete(ids, userId);
 
   res.json({
     success: true,
-    deleted: result.changes,
-    message: `Successfully deleted ${result.changes} item${result.changes === 1 ? '' : 's'}`
+    deleted,
+    message: `Successfully deleted ${deleted} item${deleted === 1 ? '' : 's'}`
   });
 }));
 
 /**
- * DELETE /api/inventory/:id - Delete InventoryItem
- *
- * Removes a bottle from user's inventory permanently.
- *
- * Route Parameters:
- * - id: InventoryItem ID to delete (must be positive integer)
- *
- * Response (200 OK):
- * {
- *   "success": true,
- *   "message": "InventoryItem deleted successfully"
- * }
- *
- * Error Responses:
- * - 400: Invalid bottle ID (not a number)
- * - 401: Unauthorized (no valid JWT)
- * - 404: InventoryItem not found or doesn't belong to user
- * - 500: Database error
- *
- * Security:
- * - User ownership: WHERE user_id = ? ensures users can only delete own inventory_items
- * - SQL injection: Parameterized query
- * - Authorization: Even with valid ID, users can't delete others' inventory_items
- *
- * Note: This is a hard delete (permanent removal).
- * Consider implementing soft delete in Phase 3:
- * - Add `deleted_at` timestamp column
- * - UPDATE instead of DELETE
- * - Filter out deleted inventory_items in queries
- * - Allows data recovery and audit trails
+ * DELETE /api/inventory-items/:id - Delete Item
  */
 router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   const itemId = parseInt(req.params.id);
 
-    /**
-     * Step 1: Authentication Check
-     */
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized'
-      });
-    }
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized'
+    });
+  }
 
-    /**
-     * Step 2: Validate Item ID
-     */
-    if (isNaN(itemId)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid item ID'
-      });
-    }
+  if (isNaN(itemId)) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid item ID'
+    });
+  }
 
-    /**
-     * Step 3: Verify Ownership
-     *
-     * Check that item exists AND belongs to authenticated user.
-     * Prevents deleting other users' inventory_items.
-     */
-    const existingItem = db.prepare(
-      'SELECT id FROM inventory_items WHERE id = ? AND user_id = ?'
-    ).get(itemId, userId);
+  const deleted = inventoryService.delete(itemId, userId);
 
-    if (!existingItem) {
-      return res.status(404).json({
-        success: false,
-        error: 'Item not found'
-      });
-    }
+  if (!deleted) {
+    return res.status(404).json({
+      success: false,
+      error: 'Item not found'
+    });
+  }
 
-    /**
-     * Step 4: Delete Item
-     *
-     * Permanent removal from database.
-     * WHERE clause ensures user ownership (defense in depth).
-     *
-     * SQL: DELETE FROM inventory_items WHERE id = ? AND user_id = ?
-     *
-     * Future Enhancement (Phase 3):
-     * Implement soft delete for data recovery:
-     * - Add `deleted_at` TIMESTAMP column
-     * - UPDATE inventory_items SET deleted_at = CURRENT_TIMESTAMP
-     * - WHERE deleted_at IS NULL in all queries
-     */
-    db.prepare('DELETE FROM inventory_items WHERE id = ? AND user_id = ?')
-      .run(itemId, userId);
-
-    /**
-     * Step 5: Return Success Response
-     *
-     * 200 OK with confirmation message.
-     * No data returned (item is deleted).
-     */
   res.json({
     success: true,
     message: 'Item deleted successfully'
@@ -921,372 +312,85 @@ router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
 }));
 
 /**
- * Helper function to find a field value from record using multiple possible column names
+ * POST /api/inventory-items/import - CSV Import
  */
-function findField(record: any, possibleNames: string[]): any {
-  for (const name of possibleNames) {
-    const value = record[name];
-    if (value !== undefined && value !== null && value !== '') {
-      return value;
-    }
-  }
-  return null;
-}
+router.post('/import', upload.single('file'), asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
 
-/**
- * Helper function to auto-categorize items based on liquor type, classification, or name
- * Returns one of: 'spirit', 'liqueur', 'mixer', 'syrup', 'garnish', 'wine', 'beer', 'other'
- */
-function autoCategorize(type: string | null, classification: string | null, name: string | null = null): string {
-  const typeStr = (type || '').toLowerCase().trim();
-  const classStr = (classification || '').toLowerCase().trim();
-  const nameStr = (name || '').toLowerCase().trim();
-  // Combine all fields for matching - name is important for items like "Lemon Juice" or "Sparkling Water"
-  const combined = `${nameStr} ${typeStr} ${classStr}`.toLowerCase();
-
-  // Check liqueurs FIRST (before spirits) since many liqueurs are spirit-based
-  // This prevents "falernum liqueur" from matching "rum" in spirits
-  const liqueurKeywords = [
-    'liqueur', 'amaro', 'amaretto', 'aperitif', 'aperitivo',
-    'creme de', 'crème de', 'curacao', 'curaçao',
-    'triple sec', 'cointreau', 'grand marnier',
-    'chambord', 'chartreuse', 'drambuie', 'frangelico',
-    'kahlua', 'baileys', 'irish cream',
-    'limoncello', 'sambuca', 'schnapps',
-    'st germain', 'st-germain', 'elderflower',
-    'campari', 'aperol', 'cynar', 'fernet',
-    'allspice dram', 'dram', 'falernum liqueur'
-  ];
-
-  for (const keyword of liqueurKeywords) {
-    if (combined.includes(keyword)) {
-      return 'liqueur';
-    }
-  }
-
-  // Check spirits (after liqueurs to avoid false matches)
-  const spiritKeywords = [
-    'whiskey', 'whisky', 'bourbon', 'rye', 'scotch', 'irish whiskey',
-    'rum', 'rhum', 'rhum agricole', 'agricole', 'cachaca', 'cachaça',
-    'vodka', 'gin', 'tequila', 'mezcal',
-    'brandy', 'cognac', 'armagnac', 'pisco',
-    'absinthe', 'aquavit', 'jenever',
-    'baijiu', 'shochu', 'soju'
-  ];
-
-  for (const keyword of spiritKeywords) {
-    if (combined.includes(keyword)) {
-      return 'spirit';
-    }
-  }
-
-  // Check wine
-  const wineKeywords = [
-    'wine', 'vermouth', 'sherry', 'port', 'madeira',
-    'marsala', 'champagne', 'prosecco', 'sparkling wine'
-  ];
-
-  for (const keyword of wineKeywords) {
-    if (combined.includes(keyword)) {
-      return 'wine';
-    }
-  }
-
-  // Check beer
-  const beerKeywords = ['beer', 'ale', 'lager', 'stout', 'ipa'];
-
-  for (const keyword of beerKeywords) {
-    if (combined.includes(keyword)) {
-      return 'beer';
-    }
-  }
-
-  // Check syrups (but NOT if it already said "liqueur")
-  const syrupKeywords = [
-    'syrup', 'grenadine', 'orgeat',
-    'honey', 'agave', 'simple syrup', 'rich syrup'
-  ];
-
-  // Only check for plain "falernum" (not "falernum liqueur" which was caught above)
-  if (!combined.includes('liqueur') && combined.includes('falernum')) {
-    return 'syrup';
-  }
-
-  for (const keyword of syrupKeywords) {
-    if (combined.includes(keyword)) {
-      return 'syrup';
-    }
-  }
-
-  // Check mixers
-  const mixerKeywords = [
-    // Juices - general and specific
-    'juice', 'lemon juice', 'lime juice', 'orange juice', 'grapefruit juice',
-    'pineapple juice', 'cranberry juice', 'tomato juice',
-    // Citrus fruits (often used for juice)
-    'lemon', 'lime', 'orange', 'grapefruit',
-    // Carbonated
-    'tonic', 'tonic water', 'soda', 'cola', 'ginger beer', 'ginger ale',
-    'club soda', 'seltzer', 'sparkling water', 'soda water',
-    // Bitters
-    'bitter', 'bitters', 'angostura', 'peychaud',
-    // Dairy
-    'cream', 'milk', 'coconut cream', 'coconut milk'
-  ];
-
-  for (const keyword of mixerKeywords) {
-    if (combined.includes(keyword)) {
-      return 'mixer';
-    }
-  }
-
-  // Check garnishes
-  const garnishKeywords = [
-    'garnish', 'cherry', 'olive', 'onion',
-    'salt', 'sugar', 'rim', 'mint', 'herb'
-  ];
-
-  for (const keyword of garnishKeywords) {
-    if (combined.includes(keyword)) {
-      return 'garnish';
-    }
-  }
-
-  // Default to 'other' if no matches found
-  return 'other';
-}
-
-/**
- * Helper function to validate and sanitize inventory item data
- * Handles both API requests and CSV imports with flexible column names
- */
-function validateInventoryItemData(record: any): { isValid: boolean; errors: string[]; sanitized?: any } {
-  const errors: string[] = [];
-
-  // Try to find the name field with various possible column names
-  const nameField = findField(record, [
-    'name', 'Name', 'NAME',
-    'Spirit Name', 'spirit name', 'Spirit', 'spirit',
-    'Bottle Name', 'bottle name', 'Bottle', 'bottle',
-    'Product Name', 'product name', 'Product', 'product',
-    'Brand', 'brand'
-  ]);
-
-  // Require name field
-  if (!nameField || (typeof nameField === 'string' && nameField.trim().length === 0)) {
-    errors.push(`Missing name field. Available columns: ${Object.keys(record).join(', ')}`);
-  }
-
-  // If validation failed, return early
-  if (errors.length > 0) {
-    return { isValid: false, errors };
-  }
-
-  // Helper to safely convert to string and trim
-  const safeString = (val: any) => val ? String(val).trim() : null;
-  const safeNumber = (val: any) => {
-    const num = parseInt(String(val));
-    return isNaN(num) ? null : num;
-  };
-
-  // Extract type and classification fields first for auto-categorization
-  const type = safeString(findField(record, ['type', 'Type', 'TYPE', 'Liquor Type', 'liquor type']));
-  const classification = safeString(findField(record, ['Detailed Spirit Classification', 'Classification', 'classification', 'Spirit Type', 'spirit type']));
-  const name = safeString(nameField);
-
-  // Try to find explicit category, otherwise auto-categorize based on type/classification/name
-  const explicitCategory = findField(record, ['category', 'Category', 'CATEGORY']);
-  const category = explicitCategory
-    ? String(explicitCategory).trim().toLowerCase()
-    : autoCategorize(type, classification, name);
-
-  // Validate category is one of the allowed values
-  const validCategories = ['spirit', 'liqueur', 'mixer', 'garnish', 'syrup', 'wine', 'beer', 'other'];
-  if (!validCategories.includes(category)) {
-    errors.push(`Invalid category: "${category}". Must be one of: ${validCategories.join(', ')}`);
-    return { isValid: false, errors };
-  }
-
-  // Sanitize the data - be very flexible with column names
-  const sanitized = {
-    name: safeString(nameField),
-    category,
-    type,
-    abv: safeString(findField(record, ['abv', 'ABV', 'ABV (%)', 'Alcohol', 'alcohol', 'Proof', 'proof'])),
-    'Stock Number': safeNumber(findField(record, ['Stock Number', 'stock number', 'Stock', 'stock', 'Number', '#'])),
-    'Detailed Spirit Classification': classification,
-    'Distillation Method': safeString(findField(record, ['Distillation Method', 'distillation method', 'Method', 'method'])),
-    'Distillery Location': safeString(findField(record, ['Distillery Location', 'distillery location', 'Location', 'location', 'Origin', 'origin', 'Country', 'country'])),
-    'Age Statement or Barrel Finish': safeString(findField(record, ['Age Statement or Barrel Finish', 'Age Statement', 'age statement', 'Age', 'age', 'Barrel Finish', 'barrel finish'])),
-    'Additional Notes': safeString(findField(record, ['Additional Notes', 'additional notes', 'Notes', 'notes', 'Description', 'description', 'Comments', 'comments'])),
-    'Profile (Nose)': safeString(findField(record, ['Profile (Nose)', 'Nose', 'nose', 'Aroma', 'aroma', 'Smell', 'smell'])),
-    'Palate': safeString(findField(record, ['Palate', 'palate', 'Taste', 'taste', 'Flavor', 'flavor'])),
-    'Finish': safeString(findField(record, ['Finish', 'finish', 'Aftertaste', 'aftertaste'])),
-  };
-
-  return { isValid: true, errors: [], sanitized };
-}
-
-/**
- * POST /api/inventory/import - CSV Import
- *
- * Bulk import inventory_items from CSV file.
- *
- * Request: multipart/form-data with 'file' field
- *
- * CSV Format:
- * ```
- * name,Stock Number,Liquor Type,ABV (%),Detailed Spirit Classification,Distillation Method,Distillery Location,Age Statement or Barrel Finish,Additional Notes,Profile (Nose),Palate,Finish
- * "Maker's Mark",42,Bourbon,45,"Kentucky Straight Bourbon","Pot Still","Loretto, KY","No Age Statement","Classic wheated bourbon","Caramel and vanilla","Sweet and smooth","Warm finish"
- * ```
- *
- * Response (200 OK):
- * {
- *   "success": true,
- *   "imported": 25,
- *   "failed": 2,
- *   "errors": [
- *     { "row": 3, "error": "Missing required field: name" },
- *     { "row": 7, "error": "Invalid ABV value" }
- *   ]
- * }
- */
-router.post('/import', upload.single('file'), async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
-
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized'
-      });
-    }
-
-    // Check if file was uploaded
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        error: 'No file uploaded'
-      });
-    }
-
-    // Parse CSV
-    const csvContent = req.file.buffer.toString('utf-8');
-    let records: any[];
-
-    try {
-      records = parse(csvContent, {
-        columns: true, // First row is headers
-        skip_empty_lines: true,
-        trim: true,
-      });
-    } catch (parseError: any) {
-      return res.status(400).json({
-        success: false,
-        error: 'Failed to parse CSV file',
-        details: parseError.message
-      });
-    }
-
-    // Limit to 1000 rows to prevent DoS
-    if (records.length > 1000) {
-      return res.status(400).json({
-        success: false,
-        error: 'Too many rows',
-        details: 'Maximum 1000 inventory_items per import'
-      });
-    }
-
-    if (records.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'CSV file is empty'
-      });
-    }
-
-    // Process each row
-    let imported = 0;
-    const errors: { row: number; error: string }[] = [];
-
-    for (let i = 0; i < records.length; i++) {
-      const record = records[i];
-      const rowNumber = i + 2; // +2 because: 0-indexed + header row
-
-      try {
-        // Validate bottle data
-        const validation = validateInventoryItemData(record);
-
-        if (!validation.isValid) {
-          errors.push({
-            row: rowNumber,
-            error: validation.errors.join(', ')
-          });
-          continue;
-        }
-
-        const item = validation.sanitized;
-
-        // Insert into database
-        db.prepare(`
-          INSERT INTO inventory_items (
-            user_id, name, category, type, abv,
-            "Stock Number", "Detailed Spirit Classification", "Distillation Method",
-            "Distillery Location", "Age Statement or Barrel Finish", "Additional Notes",
-            "Profile (Nose)", "Palate", "Finish"
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
-          userId,
-          item.name,
-          item.category,
-          item.type || null,
-          item.abv || null,
-          item['Stock Number'] || null,
-          item['Detailed Spirit Classification'] || null,
-          item['Distillation Method'] || null,
-          item['Distillery Location'] || null,
-          item['Age Statement or Barrel Finish'] || null,
-          item['Additional Notes'] || null,
-          item['Profile (Nose)'] || null,
-          item['Palate'] || null,
-          item['Finish'] || null
-        );
-
-        imported++;
-      } catch (error: any) {
-        errors.push({
-          row: rowNumber,
-          error: error.message || 'Failed to import row'
-        });
-      }
-    }
-
-    // Return summary
-    res.json({
-      success: true,
-      imported,
-      failed: errors.length,
-      errors: errors.length > 0 ? errors : undefined
-    });
-  } catch (error: any) {
-    console.error('CSV import error:', error);
-    res.status(500).json({
+  if (!userId) {
+    return res.status(401).json({
       success: false,
-      error: 'Failed to import CSV',
-      details: error.message
+      error: 'Unauthorized'
     });
   }
-});
 
-/**
- * Export Inventory Items Router
- *
- * Mounted at /api/inventory-items in server.ts:
- * - GET    /api/inventory-items           - List inventory items (paginated, category filtering)
- * - POST   /api/inventory-items           - Add item
- * - PUT    /api/inventory-items/:id       - Update item
- * - DELETE /api/inventory-items/:id       - Delete item
- * - POST   /api/inventory-items/import    - CSV import
- *
- * All routes require authentication (authMiddleware applied to router).
- */
+  if (!req.file) {
+    return res.status(400).json({
+      success: false,
+      error: 'No file uploaded'
+    });
+  }
+
+  // Parse CSV with encoding detection
+  // Handle UTF-8 BOM and fallback for Windows-1252/Latin-1 encoded files
+  let csvContent: string;
+  const buffer = req.file.buffer;
+
+  // Check for UTF-8 BOM (EF BB BF) and strip it
+  if (buffer[0] === 0xEF && buffer[1] === 0xBB && buffer[2] === 0xBF) {
+    csvContent = buffer.slice(3).toString('utf-8');
+  } else {
+    // Try UTF-8 first
+    csvContent = buffer.toString('utf-8');
+
+    // Check for replacement characters (indicates encoding issue)
+    // The � character (U+FFFD) appears when UTF-8 decoding fails
+    if (csvContent.includes('\uFFFD')) {
+      // Fallback to Latin-1 (Windows-1252 compatible) for legacy CSV files
+      csvContent = buffer.toString('latin1');
+    }
+  }
+
+  let records: any[];
+
+  try {
+    records = parse(csvContent, {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true,
+    });
+  } catch (parseError: any) {
+    return res.status(400).json({
+      success: false,
+      error: 'Failed to parse CSV file',
+      details: parseError.message
+    });
+  }
+
+  // Limit to 1000 rows to prevent DoS
+  if (records.length > 1000) {
+    return res.status(400).json({
+      success: false,
+      error: 'Too many rows',
+      details: 'Maximum 1000 inventory_items per import'
+    });
+  }
+
+  if (records.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: 'CSV file is empty'
+    });
+  }
+
+  const result = inventoryService.importFromCSV(userId, records);
+
+  res.json({
+    success: true,
+    imported: result.imported,
+    failed: result.failed,
+    errors: result.errors.length > 0 ? result.errors : undefined
+  });
+}));
+
 export default router;

@@ -1,0 +1,129 @@
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  background: var(--color-status-warning-bg, rgba(245, 158, 11, 0.1));
+  border-bottom: 1px solid var(--color-status-warning, #f59e0b);
+}
+
+.content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 1;
+}
+
+.icon {
+  color: var(--color-status-warning, #f59e0b);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.message {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.message strong {
+  font-size: 14px;
+  color: var(--color-text-body);
+}
+
+.description {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.error {
+  font-size: 13px;
+  color: var(--color-status-error);
+  margin-top: 4px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.resendButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--color-status-warning, #f59e0b);
+  border: none;
+  border-radius: var(--radius);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.resendButton:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.resendButton:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.dismissButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.dismissButton:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: var(--color-text-body);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .content {
+    align-items: flex-start;
+  }
+
+  .actions {
+    justify-content: space-between;
+    margin-top: 8px;
+  }
+
+  .resendButton {
+    flex: 1;
+    justify-content: center;
+  }
+}

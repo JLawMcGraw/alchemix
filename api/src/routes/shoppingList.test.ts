@@ -105,7 +105,7 @@ describe('Shopping List Routes Integration Tests', () => {
     it('should identify a simple near miss (1 ingredient unlocks 1 recipe)', async () => {
       // Add bourbon and sugar to inventory with stock numbers
       testDb.prepare(`
-        INSERT INTO inventory_items (user_id, name, category, "Stock Number")
+        INSERT INTO inventory_items (user_id, name, category, "stock_number")
         VALUES (?, ?, 'spirit', 1), (?, ?, 'other', 1)
       `).run(userId, 'Buffalo Trace Bourbon', userId, 'Sugar Cubes');
 
@@ -145,7 +145,7 @@ describe('Shopping List Routes Integration Tests', () => {
     it('should count multiple recipes unlocked by the same ingredient', async () => {
       // Add rum, lime juice, and mint leaves to inventory with stock numbers
       testDb.prepare(`
-        INSERT INTO inventory_items (user_id, name, category, "Stock Number")
+        INSERT INTO inventory_items (user_id, name, category, "stock_number")
         VALUES (?, ?, 'spirit', 1), (?, ?, 'mixer', 1), (?, ?, 'garnish', 1)
       `).run(userId, 'Havana Club Rum', userId, 'Fresh Lime Juice', userId, 'Mint Leaves');
 
@@ -186,7 +186,7 @@ describe('Shopping List Routes Integration Tests', () => {
     it('should sort recommendations by unlock count (descending)', async () => {
       // Add vodka to inventory with stock number
       testDb.prepare(`
-        INSERT INTO inventory_items (user_id, name, category, "Stock Number")
+        INSERT INTO inventory_items (user_id, name, category, "stock_number")
         VALUES (?, ?, 'spirit', 1)
       `).run(userId, 'Grey Goose Vodka');
 
@@ -233,7 +233,7 @@ describe('Shopping List Routes Integration Tests', () => {
     it('should exclude already craftable recipes from recommendations', async () => {
       // Add bourbon, bitters, and lemon juice to inventory with type classifications
       testDb.prepare(`
-        INSERT INTO inventory_items (user_id, name, category, type, "Stock Number")
+        INSERT INTO inventory_items (user_id, name, category, type, "stock_number")
         VALUES (?, ?, 'spirit', 'Whiskey', 1), (?, ?, 'spirit', 'Bitters', 1), (?, ?, 'mixer', 'Citrus', 1)
       `).run(userId, 'Bourbon', userId, 'Angostura Bitters', userId, 'Fresh Lemon Juice');
 
@@ -269,7 +269,7 @@ describe('Shopping List Routes Integration Tests', () => {
     it('should exclude recipes missing 2+ ingredients', async () => {
       // Add only bourbon to inventory with stock number
       testDb.prepare(`
-        INSERT INTO inventory_items (user_id, name, category, "Stock Number")
+        INSERT INTO inventory_items (user_id, name, category, "stock_number")
         VALUES (?, ?, 'spirit', 1)
       `).run(userId, 'Bourbon');
 
@@ -296,7 +296,7 @@ describe('Shopping List Routes Integration Tests', () => {
     it('should handle recipes with empty or malformed ingredients', async () => {
       // Add vodka to inventory with stock number
       testDb.prepare(`
-        INSERT INTO inventory_items (user_id, name, category, "Stock Number")
+        INSERT INTO inventory_items (user_id, name, category, "stock_number")
         VALUES (?, ?, 'spirit', 1)
       `).run(userId, 'Vodka');
 
@@ -329,7 +329,7 @@ describe('Shopping List Routes Integration Tests', () => {
     it('should perform case-insensitive ingredient matching', async () => {
       // Add bourbon with mixed case to inventory with stock number
       testDb.prepare(`
-        INSERT INTO inventory_items (user_id, name, category, "Stock Number")
+        INSERT INTO inventory_items (user_id, name, category, "stock_number")
         VALUES (?, ?, 'spirit', 1)
       `).run(userId, 'BUFFALO TRACE BOURBON');
 
@@ -362,7 +362,7 @@ describe('Shopping List Routes Integration Tests', () => {
     it('should handle fuzzy matching for ingredient names', async () => {
       // Add "Angostura Aromatic Bitters" and Bourbon to inventory with stock numbers and types
       testDb.prepare(`
-        INSERT INTO inventory_items (user_id, name, category, type, "Stock Number")
+        INSERT INTO inventory_items (user_id, name, category, type, "stock_number")
         VALUES (?, ?, 'spirit', 'Bitters', 1), (?, ?, 'spirit', 'Whiskey', 1)
       `).run(userId, 'Angostura Aromatic Bitters', userId, 'Bourbon');
 
@@ -400,7 +400,7 @@ describe('Shopping List Routes Integration Tests', () => {
     it('should return correct statistics', async () => {
       // Add 2 bottles to inventory with stock numbers
       testDb.prepare(`
-        INSERT INTO inventory_items (user_id, name, category, "Stock Number")
+        INSERT INTO inventory_items (user_id, name, category, "stock_number")
         VALUES (?, ?, 'spirit', 1), (?, ?, 'spirit', 1)
       `).run(userId, 'Vodka', userId, 'Rum');
 
@@ -442,7 +442,7 @@ describe('Shopping List Routes Integration Tests', () => {
     it('should expose breakdowns for recipes missing 2-3 and 4+ ingredients', async () => {
       // Inventory: only vodka with stock number
       testDb.prepare(`
-        INSERT INTO inventory_items (user_id, name, category, "Stock Number")
+        INSERT INTO inventory_items (user_id, name, category, "stock_number")
         VALUES (?, ?, 'spirit', 1)
       `).run(userId, 'Vodka');
 
@@ -491,7 +491,7 @@ describe('Shopping List Routes Integration Tests', () => {
     it('should handle advanced fuzzy matching and synonyms (Fix Verification)', async () => {
       // Add inventory with specific names and stock numbers
       testDb.prepare(`
-        INSERT INTO inventory_items (user_id, name, category, "Detailed Spirit Classification", "Stock Number")
+        INSERT INTO inventory_items (user_id, name, category, "spirit_classification", "stock_number")
         VALUES
           (?, 'Bacardi Superior', 'spirit', 'White Rum', 1),
           (?, 'Maker''s Mark', 'spirit', 'Bourbon', 1),

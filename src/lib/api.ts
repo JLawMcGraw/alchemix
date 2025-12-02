@@ -8,6 +8,7 @@ import type {
   LoginCredentials,
   SignupCredentials,
   InventoryItem,
+  InventoryItemInput,
   InventoryCategory,
   Recipe,
   Collection,
@@ -112,6 +113,22 @@ export const authApi = {
   async logout(): Promise<void> {
     await apiClient.post('/auth/logout');
   },
+
+  async verifyEmail(token: string): Promise<{ message: string }> {
+    return request<{ message: string }>('post', '/auth/verify-email', { token });
+  },
+
+  async resendVerification(): Promise<{ message: string }> {
+    return request<{ message: string }>('post', '/auth/resend-verification');
+  },
+
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    return request<{ message: string }>('post', '/auth/forgot-password', { email });
+  },
+
+  async resetPassword(token: string, password: string): Promise<{ message: string }> {
+    return request<{ message: string }>('post', '/auth/reset-password', { token, password });
+  },
 };
 
 export interface InventoryPagination {
@@ -168,11 +185,11 @@ export const inventoryApi = {
     return data.data;
   },
 
-  async add(item: InventoryItem): Promise<InventoryItem> {
+  async add(item: InventoryItemInput): Promise<InventoryItem> {
     return request<InventoryItem>('post', '/api/inventory-items', item);
   },
 
-  async update(id: number, item: Partial<InventoryItem>): Promise<InventoryItem> {
+  async update(id: number, item: Partial<InventoryItemInput>): Promise<InventoryItem> {
     return request<InventoryItem>('put', `/api/inventory-items/${id}`, item);
   },
 

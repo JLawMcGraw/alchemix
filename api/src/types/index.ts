@@ -6,6 +6,13 @@ export interface User {
   email: string;
   password_hash?: string;  // Only on backend
   created_at?: string;
+  // Email verification fields
+  is_verified?: boolean;  // Whether email has been verified
+  verification_token?: string;  // Token sent via email (backend only)
+  verification_token_expires?: string;  // Token expiry (backend only)
+  // Password reset fields (backend only)
+  reset_token?: string;
+  reset_token_expires?: string;
 }
 
 export type InventoryCategory =
@@ -23,17 +30,17 @@ export interface InventoryItem {
   user_id?: number;
   name: string;
   category: InventoryCategory;  // Required categories enforced by union
-  type?: string;  // Formerly "Liquor Type" - item classification (e.g., "Bourbon", "Gin", "Citrus")
-  abv?: string | number;  // Formerly "ABV (%)" - alcohol by volume
-  'Stock Number'?: number;
-  'Detailed Spirit Classification'?: string;
-  'Distillation Method'?: string;
-  'Distillery Location'?: string;
-  'Age Statement or Barrel Finish'?: string;
-  'Additional Notes'?: string;
-  'Profile (Nose)'?: string;
-  'Palate'?: string;
-  'Finish'?: string;
+  type?: string;  // Item classification (e.g., "Bourbon", "Gin", "Citrus")
+  abv?: string | number;  // Alcohol by volume
+  stock_number?: number;
+  spirit_classification?: string;
+  distillation_method?: string;
+  distillery_location?: string;
+  age_statement?: string;
+  additional_notes?: string;
+  profile_nose?: string;
+  palate?: string;
+  finish?: string;
   tasting_notes?: string;  // User's personal tasting notes for enriched AI recommendations
   created_at?: string;
 }

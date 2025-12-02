@@ -35,15 +35,15 @@ describe('Database Operations', () => {
         'category',
         'type',
         'abv',
-        'Stock Number',
-        'Detailed Spirit Classification',
-        'Distillation Method',
-        'Distillery Location',
-        'Age Statement or Barrel Finish',
-        'Additional Notes',
-        'Profile (Nose)',
-        'Palate',
-        'Finish',
+        'stock_number',
+        'spirit_classification',
+        'distillation_method',
+        'distillery_location',
+        'age_statement',
+        'additional_notes',
+        'profile_nose',
+        'palate',
+        'finish',
         'tasting_notes',
         'created_at'
       ]));
@@ -151,7 +151,7 @@ describe('Database Operations', () => {
       notes?: string | null;
     } = {}) => {
       const stmt = db.prepare(`
-        INSERT INTO inventory_items (user_id, name, category, type, "Detailed Spirit Classification", "Additional Notes")
+        INSERT INTO inventory_items (user_id, name, category, type, spirit_classification, additional_notes)
         VALUES (?, ?, ?, ?, ?, ?)
       `);
 
@@ -203,9 +203,9 @@ describe('Database Operations', () => {
       const result = insertItem();
       const itemId = Number(result.lastInsertRowid);
 
-      db.prepare('UPDATE inventory_items SET "Stock Number" = ? WHERE id = ?').run(500, itemId);
+      db.prepare('UPDATE inventory_items SET stock_number = ? WHERE id = ?').run(500, itemId);
 
-      const item = db.prepare('SELECT "Stock Number" as stock FROM inventory_items WHERE id = ?').get(itemId) as any;
+      const item = db.prepare('SELECT stock_number as stock FROM inventory_items WHERE id = ?').get(itemId) as any;
       expect(item.stock).toBe(500);
     });
 
@@ -215,7 +215,7 @@ describe('Database Operations', () => {
         VALUES (?, ?, ?)
       `).run(userId, 'Minimal Item', 'other');
 
-      const item = db.prepare('SELECT "Detailed Spirit Classification" as detail FROM inventory_items WHERE id = ?')
+      const item = db.prepare('SELECT spirit_classification as detail FROM inventory_items WHERE id = ?')
         .get(result.lastInsertRowid) as any;
       expect(item.detail).toBeNull();
     });
@@ -421,7 +421,7 @@ describe('Database Operations', () => {
 
       // Insert multiple inventory items for performance testing
       const stmt = db.prepare(
-        'INSERT INTO inventory_items (user_id, name, category, type, "Detailed Spirit Classification") VALUES (?, ?, ?, ?, ?)'
+        'INSERT INTO inventory_items (user_id, name, category, type, spirit_classification) VALUES (?, ?, ?, ?, ?)'
       );
 
       for (let i = 0; i < 100; i++) {

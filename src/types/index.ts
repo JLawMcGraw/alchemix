@@ -5,6 +5,7 @@ export interface User {
   id: number;
   email: string;
   created_at?: string;
+  is_verified?: boolean;  // Email verification status (false = soft block)
 }
 
 export interface AuthResponse {
@@ -32,25 +33,29 @@ export type InventoryCategory =
   | 'beer'
   | 'other';
 
-// Inventory Item
-export interface InventoryItem {
-  id?: number;
-  user_id?: number;
+// Base inventory item fields (for creating/updating)
+export interface InventoryItemInput {
   name: string;
   category: InventoryCategory;  // Required categories enforced by union
-  type?: string;  // Formerly "Liquor Type" - item classification (e.g., "Bourbon", "Gin", "Citrus")
-  abv?: string | number;  // Formerly "ABV (%)" - alcohol by volume
-  'Stock Number'?: number;
-  'Detailed Spirit Classification'?: string;
-  'Distillation Method'?: string;
-  'Distillery Location'?: string;
-  'Age Statement or Barrel Finish'?: string;
-  'Additional Notes'?: string;
-  'Profile (Nose)'?: string;
-  'Palate'?: string;
-  'Finish'?: string;
+  type?: string;  // Item classification (e.g., "Bourbon", "Gin", "Citrus")
+  abv?: string | number;  // Alcohol by volume
+  stock_number?: number;
+  spirit_classification?: string;
+  distillation_method?: string;
+  distillery_location?: string;
+  age_statement?: string;
+  additional_notes?: string;
+  profile_nose?: string;
+  palate?: string;
+  finish?: string;
   tasting_notes?: string;  // User's personal tasting notes for enriched AI recommendations
-  created_at?: string;
+}
+
+// Full inventory item (from database - always has id, user_id, created_at)
+export interface InventoryItem extends InventoryItemInput {
+  id: number;
+  user_id: number;
+  created_at: string;
 }
 
 // Backwards compatibility alias
@@ -212,8 +217,8 @@ export interface AppState {
   validateToken: () => Promise<boolean>;
 
   fetchItems: (page?: number, limit?: number, category?: InventoryCategory | 'all') => Promise<void>;
-  addItem: (item: InventoryItem) => Promise<void>;
-  updateItem: (id: number, item: Partial<InventoryItem>) => Promise<void>;
+  addItem: (item: InventoryItemInput) => Promise<void>;
+  updateItem: (id: number, item: Partial<InventoryItemInput>) => Promise<void>;
   deleteItem: (id: number) => Promise<void>;
 
   fetchRecipes: (page?: number, limit?: number) => Promise<Recipe[]>;

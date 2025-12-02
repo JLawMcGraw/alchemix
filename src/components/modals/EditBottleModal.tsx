@@ -18,15 +18,15 @@ type FormDataState = {
   category: InventoryCategory;
   type: string;
   abv: string;
-  'Stock Number': string;
-  'Detailed Spirit Classification': string;
-  'Distillation Method': string;
-  'Distillery Location': string;
-  'Age Statement or Barrel Finish': string;
-  'Additional Notes': string;
-  'Profile (Nose)': string;
-  Palate: string;
-  Finish: string;
+  stock_number: string;
+  spirit_classification: string;
+  distillation_method: string;
+  distillery_location: string;
+  age_statement: string;
+  additional_notes: string;
+  profile_nose: string;
+  palate: string;
+  finish: string;
 };
 
 export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottleModalProps) {
@@ -35,15 +35,15 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
     category: 'spirit',
     type: '',
     abv: '',
-    'Stock Number': '',
-    'Detailed Spirit Classification': '',
-    'Distillation Method': '',
-    'Distillery Location': '',
-    'Age Statement or Barrel Finish': '',
-    'Additional Notes': '',
-    'Profile (Nose)': '',
-    Palate: '',
-    Finish: '',
+    stock_number: '',
+    spirit_classification: '',
+    distillation_method: '',
+    distillery_location: '',
+    age_statement: '',
+    additional_notes: '',
+    profile_nose: '',
+    palate: '',
+    finish: '',
   });
 
   const [loading, setLoading] = useState(false);
@@ -58,8 +58,8 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
 
   useEffect(() => {
     if (bottle) {
-      const stockValue = bottle['Stock Number'] !== null && bottle['Stock Number'] !== undefined
-        ? bottle['Stock Number'].toString()
+      const stockValue = bottle.stock_number !== null && bottle.stock_number !== undefined
+        ? bottle.stock_number.toString()
         : '0';
 
       setFormData({
@@ -67,15 +67,15 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
         category: bottle.category || 'spirit',
         type: bottle.type || '',
         abv: bottle.abv?.toString() || '',
-        'Stock Number': stockValue,
-        'Detailed Spirit Classification': bottle['Detailed Spirit Classification'] || '',
-        'Distillation Method': bottle['Distillation Method'] || '',
-        'Distillery Location': bottle['Distillery Location'] || '',
-        'Age Statement or Barrel Finish': bottle['Age Statement or Barrel Finish'] || '',
-        'Additional Notes': bottle['Additional Notes'] || '',
-        'Profile (Nose)': bottle['Profile (Nose)'] || '',
-        Palate: bottle.Palate || '',
-        Finish: bottle.Finish || '',
+        stock_number: stockValue,
+        spirit_classification: bottle.spirit_classification || '',
+        distillation_method: bottle.distillation_method || '',
+        distillery_location: bottle.distillery_location || '',
+        age_statement: bottle.age_statement || '',
+        additional_notes: bottle.additional_notes || '',
+        profile_nose: bottle.profile_nose || '',
+        palate: bottle.palate || '',
+        finish: bottle.finish || '',
       });
       // Reset scroll position when bottle changes
       if (contentRef.current) {
@@ -143,14 +143,14 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
     switch (field) {
       case 'name':
         return !value.trim() ? 'Name is required' : '';
-      case 'Stock Number': {
+      case 'stock_number': {
         if (!value) return '';
         const num = parseInt(value);
         if (isNaN(num)) return 'Must be a valid number';
         if (num < 0) return 'Cannot be negative';
         return '';
       }
-      case 'ABV (%)': {
+      case 'abv': {
         if (!value) return '';
         const num = parseFloat(value);
         if (isNaN(num)) return 'Must be a valid number';
@@ -185,15 +185,15 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
         category: formData.category,
         type: formData.type || undefined,
         abv: formData.abv || undefined,
-        'Stock Number': formData['Stock Number'] !== '' ? parseInt(formData['Stock Number']) : undefined,
-        'Detailed Spirit Classification': formData['Detailed Spirit Classification'] || undefined,
-        'Distillation Method': formData['Distillation Method'] || undefined,
-        'Distillery Location': formData['Distillery Location'] || undefined,
-        'Age Statement or Barrel Finish': formData['Age Statement or Barrel Finish'] || undefined,
-        'Additional Notes': formData['Additional Notes'] || undefined,
-        'Profile (Nose)': formData['Profile (Nose)'] || undefined,
-        Palate: formData.Palate || undefined,
-        'Finish': formData['Finish'] || undefined,
+        stock_number: formData.stock_number !== '' ? parseInt(formData.stock_number) : undefined,
+        spirit_classification: formData.spirit_classification || undefined,
+        distillation_method: formData.distillation_method || undefined,
+        distillery_location: formData.distillery_location || undefined,
+        age_statement: formData.age_statement || undefined,
+        additional_notes: formData.additional_notes || undefined,
+        profile_nose: formData.profile_nose || undefined,
+        palate: formData.palate || undefined,
+        finish: formData.finish || undefined,
       };
 
       await onUpdate(bottle.id!, updates);
@@ -278,15 +278,15 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  value={formData['Stock Number']}
+                  value={formData.stock_number}
                   onChange={(e) => {
                     // Only allow digits
                     const value = e.target.value.replace(/[^0-9]/g, '');
-                    handleChange('Stock Number', value);
+                    handleChange('stock_number', value);
                   }}
                   placeholder="e.g., 0, 1, 2..."
                   fullWidth
-                  error={fieldErrors['Stock Number']}
+                  error={fieldErrors.stock_number}
                 />
                 <Input
                   label="Type"
@@ -302,15 +302,15 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
                 <h3 className={styles.sectionTitle}>Classification & Details</h3>
                 <Input
                   label="Detailed Spirit Classification"
-                  value={formData['Detailed Spirit Classification']}
-                  onChange={(e) => handleChange('Detailed Spirit Classification', e.target.value)}
+                  value={formData.spirit_classification}
+                  onChange={(e) => handleChange('spirit_classification', e.target.value)}
                   placeholder="e.g., Kentucky Straight Bourbon"
                   fullWidth
                 />
                 <Input
                   label="Distillation Method"
-                  value={formData['Distillation Method']}
-                  onChange={(e) => handleChange('Distillation Method', e.target.value)}
+                  value={formData.distillation_method}
+                  onChange={(e) => handleChange('distillation_method', e.target.value)}
                   placeholder="e.g., Pot Still, Column Still"
                   fullWidth
                 />
@@ -331,15 +331,15 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
                 <h3 className={styles.sectionTitle}>Location & Age</h3>
                 <Input
                   label="Distillery Location"
-                  value={formData['Distillery Location']}
-                  onChange={(e) => handleChange('Distillery Location', e.target.value)}
+                  value={formData.distillery_location}
+                  onChange={(e) => handleChange('distillery_location', e.target.value)}
                   placeholder="e.g., Kentucky, USA"
                   fullWidth
                 />
                 <Input
                   label="Age Statement or Barrel Finish"
-                  value={formData['Age Statement or Barrel Finish']}
-                  onChange={(e) => handleChange('Age Statement or Barrel Finish', e.target.value)}
+                  value={formData.age_statement}
+                  onChange={(e) => handleChange('age_statement', e.target.value)}
                   placeholder="e.g., 12 Year, Sherry Cask Finish"
                   fullWidth
                 />
@@ -352,8 +352,8 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
                   <label className={styles.textareaLabel}>Profile (Nose)</label>
                   <textarea
                     className={styles.textarea}
-                    value={formData['Profile (Nose)']}
-                    onChange={(e) => handleChange('Profile (Nose)', e.target.value)}
+                    value={formData.profile_nose}
+                    onChange={(e) => handleChange('profile_nose', e.target.value)}
                     placeholder="Aroma notes, e.g., vanilla, oak, caramel"
                     rows={2}
                   />
@@ -362,8 +362,8 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
                   <label className={styles.textareaLabel}>Palate</label>
                   <textarea
                     className={styles.textarea}
-                    value={formData['Palate']}
-                    onChange={(e) => handleChange('Palate', e.target.value)}
+                    value={formData.palate}
+                    onChange={(e) => handleChange('palate', e.target.value)}
                     placeholder="Flavor notes, e.g., honey, spice, fruit"
                     rows={2}
                   />
@@ -372,8 +372,8 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
                   <label className={styles.textareaLabel}>Finish</label>
                   <textarea
                     className={styles.textarea}
-                    value={formData['Finish']}
-                    onChange={(e) => handleChange('Finish', e.target.value)}
+                    value={formData.finish}
+                    onChange={(e) => handleChange('finish', e.target.value)}
                     placeholder="Finish notes, e.g., long, smooth, warming"
                     rows={2}
                   />
@@ -387,8 +387,8 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
                   <label className={styles.textareaLabel}>Additional Notes</label>
                   <textarea
                     className={styles.textarea}
-                    value={formData['Additional Notes']}
-                    onChange={(e) => handleChange('Additional Notes', e.target.value)}
+                    value={formData.additional_notes}
+                    onChange={(e) => handleChange('additional_notes', e.target.value)}
                     placeholder="Any other notes or comments"
                     rows={3}
                   />

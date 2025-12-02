@@ -231,57 +231,51 @@ export function initializeDatabase() {
    *
    * Columns (Item Details):
    * - name: Item name (REQUIRED, e.g., "Maker's Mark", "Simple Syrup")
-   * - type: Item type/classification (formerly "Liquor Type" - e.g., "Bourbon", "Gin", "Citrus")
-   * - abv: Alcohol by volume (formerly "ABV (%)" - for alcoholic items only)
-   * - Stock Number: Optional inventory tracking number
-   * - Detailed Spirit Classification: Sub-category (e.g., "Kentucky Straight Bourbon")
-   * - Distillation Method: Production method (e.g., "Pot Still", "Column Still")
-   * - Distillery Location: Where it's made (e.g., "Loretto, KY")
-   * - Age Statement or Barrel Finish: Aging info (e.g., "6 years", "Sherry Cask")
-   * - Additional Notes: Free-form notes (max 2000 chars)
-   * - Profile (Nose): Tasting notes - aroma (max 500 chars)
-   * - Palate: Tasting notes - flavor (max 500 chars)
-   * - Finish: Tasting notes - aftertaste (max 500 chars)
-   *
-   * Why quoted column names?
-   * - Field names have spaces ("Stock Number", "ABV (%)")
-   * - SQLite requires quotes for non-standard identifiers
-   * - Alternative: Use underscores (stock_number, abv_percent)
-   * - We use quoted names for compatibility with CSV imports
+   * - type: Item type/classification (e.g., "Bourbon", "Gin", "Citrus")
+   * - abv: Alcohol by volume (for alcoholic items only)
+   * - stock_number: Optional inventory tracking number
+   * - spirit_classification: Sub-category (e.g., "Kentucky Straight Bourbon")
+   * - distillation_method: Production method (e.g., "Pot Still", "Column Still")
+   * - distillery_location: Where it's made (e.g., "Loretto, KY")
+   * - age_statement: Aging info (e.g., "6 years", "Sherry Cask")
+   * - additional_notes: Free-form notes (max 2000 chars)
+   * - profile_nose: Tasting notes - aroma (max 500 chars)
+   * - palate: Tasting notes - flavor (max 500 chars)
+   * - finish: Tasting notes - aftertaste (max 500 chars)
    *
    * Constraints:
-   * - user_id NOT NULL: Every bottle belongs to a user
-   * - name NOT NULL: Every bottle needs a name
+   * - user_id NOT NULL: Every item belongs to a user
+   * - name NOT NULL: Every item needs a name
    * - FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-   *   - If user is deleted, their bottles are deleted too
+   *   - If user is deleted, their items are deleted too
    *   - Ensures data privacy and prevents orphaned data
    *
    * Performance:
    * - Index on user_id (see indexes section below)
    * - Typical query: SELECT * WHERE user_id = ?
-   * - With index: <1ms for 1000 bottles
-   * - Without index: ~50ms for 1000 bottles
+   * - With index: <1ms for 1000 items
+   * - Without index: ~50ms for 1000 items
    *
    * Example Row:
    * {
    *   id: 42,
    *   user_id: 1,
    *   name: "Maker's Mark",
-   *   "Stock Number": 123,
-   *   "Liquor Type": "Bourbon",
-   *   "Detailed Spirit Classification": "Kentucky Straight Bourbon Whisky",
-   *   "Distillation Method": "Pot Still",
-   *   "ABV (%)": "45",
-   *   "Distillery Location": "Loretto, KY",
-   *   "Age Statement or Barrel Finish": null,
-   *   "Additional Notes": "Gift from friend",
-   *   "Profile (Nose)": "Vanilla, caramel, oak",
-   *   "Palate": "Sweet, smooth, wheat notes",
-   *   "Finish": "Medium, slightly spicy",
+   *   stock_number: 123,
+   *   type: "Bourbon",
+   *   spirit_classification: "Kentucky Straight Bourbon Whisky",
+   *   distillation_method: "Pot Still",
+   *   abv: "45",
+   *   distillery_location: "Loretto, KY",
+   *   age_statement: null,
+   *   additional_notes: "Gift from friend",
+   *   profile_nose: "Vanilla, caramel, oak",
+   *   palate: "Sweet, smooth, wheat notes",
+   *   finish: "Medium, slightly spicy",
    *   created_at: "2025-11-10 14:32:05"
    * }
    *
-   * Future Enhancements (Phase 3+):
+   * Future Enhancements:
    * - Add updated_at DATETIME (track modifications)
    * - Add deleted_at DATETIME (soft delete for data recovery)
    * - Add photo_url TEXT (bottle photos)
@@ -297,15 +291,15 @@ export function initializeDatabase() {
       category TEXT NOT NULL CHECK(category IN ('spirit', 'liqueur', 'mixer', 'garnish', 'syrup', 'wine', 'beer', 'other')),
       type TEXT,
       abv TEXT,
-      "Stock Number" INTEGER,
-      "Detailed Spirit Classification" TEXT,
-      "Distillation Method" TEXT,
-      "Distillery Location" TEXT,
-      "Age Statement or Barrel Finish" TEXT,
-      "Additional Notes" TEXT,
-      "Profile (Nose)" TEXT,
-      "Palate" TEXT,
-      "Finish" TEXT,
+      stock_number INTEGER,
+      spirit_classification TEXT,
+      distillation_method TEXT,
+      distillery_location TEXT,
+      age_statement TEXT,
+      additional_notes TEXT,
+      profile_nose TEXT,
+      palate TEXT,
+      finish TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
@@ -694,6 +688,165 @@ export function initializeDatabase() {
     // Column already exists, ignore error
     if (!error.message?.includes('duplicate column name')) {
       console.error('Migration warning:', error.message);
+    }
+  }
+
+  /**
+   * Schema Migration: Rename space-containing columns to snake_case
+   *
+   * Renames legacy columns with spaces to standard snake_case naming:
+   * - "Stock Number" → stock_number
+   * - "Detailed Spirit Classification" → spirit_classification
+   * - "Distillation Method" → distillation_method
+   * - "Distillery Location" → distillery_location
+   * - "Age Statement or Barrel Finish" → age_statement
+   * - "Additional Notes" → additional_notes
+   * - "Profile (Nose)" → profile_nose
+   * - "Palate" → palate (no change needed)
+   * - "Finish" → finish (no change needed)
+   *
+   * Why this migration?
+   * - Removes need for quoted identifiers in SQL
+   * - Standard naming convention across codebase
+   * - Simplifies frontend/backend type definitions
+   * - Better compatibility with ORMs and tooling
+   *
+   * Safe to run multiple times (checks for old column existence first).
+   */
+  try {
+    // Check if old "Stock Number" column exists (indicator that migration is needed)
+    const tableInfo = db.prepare('PRAGMA table_info(inventory_items)').all() as { name: string }[];
+    const hasOldColumns = tableInfo.some(col => col.name === 'Stock Number');
+
+    if (hasOldColumns) {
+      console.log('🔄 Migrating inventory_items columns from quoted names to snake_case...');
+
+      // SQLite doesn't support ALTER TABLE RENAME COLUMN in older versions
+      // Use the standard SQLite table rebuild approach
+      db.exec(`
+        -- Create new table with correct column names
+        CREATE TABLE inventory_items_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          name TEXT NOT NULL,
+          category TEXT NOT NULL CHECK(category IN ('spirit', 'liqueur', 'mixer', 'garnish', 'syrup', 'wine', 'beer', 'other')),
+          type TEXT,
+          abv TEXT,
+          stock_number INTEGER,
+          spirit_classification TEXT,
+          distillation_method TEXT,
+          distillery_location TEXT,
+          age_statement TEXT,
+          additional_notes TEXT,
+          profile_nose TEXT,
+          palate TEXT,
+          finish TEXT,
+          tasting_notes TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+
+        -- Copy data from old table to new table
+        INSERT INTO inventory_items_new (
+          id, user_id, name, category, type, abv,
+          stock_number, spirit_classification, distillation_method,
+          distillery_location, age_statement, additional_notes,
+          profile_nose, palate, finish, tasting_notes, created_at
+        )
+        SELECT
+          id, user_id, name, category, type, abv,
+          "Stock Number", "Detailed Spirit Classification", "Distillation Method",
+          "Distillery Location", "Age Statement or Barrel Finish", "Additional Notes",
+          "Profile (Nose)", "Palate", "Finish", tasting_notes, created_at
+        FROM inventory_items;
+
+        -- Drop old table
+        DROP TABLE inventory_items;
+
+        -- Rename new table to original name
+        ALTER TABLE inventory_items_new RENAME TO inventory_items;
+      `);
+
+      console.log('✅ Successfully migrated inventory_items columns to snake_case');
+    }
+  } catch (error: any) {
+    // Migration already complete or table doesn't have old columns
+    if (!error.message?.includes('no such column') && !error.message?.includes('no such table')) {
+      console.error('Column rename migration warning:', error.message);
+    }
+  }
+
+  /**
+   * Schema Migration: Add Email Verification columns to users table
+   *
+   * Adds columns for email verification flow:
+   * - is_verified: Whether email has been verified (default: false for new users)
+   * - verification_token: Random token sent via email
+   * - verification_token_expires: Token expiry timestamp (24 hours from generation)
+   *
+   * Soft Block Implementation:
+   * - Unverified users can browse but cannot create/modify data
+   * - Frontend shows verification banner until email is verified
+   * - Token expires after 24 hours, user can request new one
+   *
+   * Safe to run multiple times (will fail silently if columns exist).
+   */
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0`);
+    console.log('✅ Added is_verified column to users table');
+  } catch (error: any) {
+    if (!error.message?.includes('duplicate column name')) {
+      console.error('Migration warning (is_verified):', error.message);
+    }
+  }
+
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN verification_token TEXT`);
+    console.log('✅ Added verification_token column to users table');
+  } catch (error: any) {
+    if (!error.message?.includes('duplicate column name')) {
+      console.error('Migration warning (verification_token):', error.message);
+    }
+  }
+
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN verification_token_expires DATETIME`);
+    console.log('✅ Added verification_token_expires column to users table');
+  } catch (error: any) {
+    if (!error.message?.includes('duplicate column name')) {
+      console.error('Migration warning (verification_token_expires):', error.message);
+    }
+  }
+
+  /**
+   * Schema Migration: Add Password Reset columns to users table
+   *
+   * Adds columns for password reset flow:
+   * - reset_token: Random token sent via email
+   * - reset_token_expires: Token expiry timestamp (1 hour from generation)
+   *
+   * Security:
+   * - Token expires after 1 hour (shorter than verification for security)
+   * - Password reset increments token_version (logs out all devices)
+   * - Generic error messages prevent email enumeration
+   *
+   * Safe to run multiple times (will fail silently if columns exist).
+   */
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN reset_token TEXT`);
+    console.log('✅ Added reset_token column to users table');
+  } catch (error: any) {
+    if (!error.message?.includes('duplicate column name')) {
+      console.error('Migration warning (reset_token):', error.message);
+    }
+  }
+
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN reset_token_expires DATETIME`);
+    console.log('✅ Added reset_token_expires column to users table');
+  } catch (error: any) {
+    if (!error.message?.includes('duplicate column name')) {
+      console.error('Migration warning (reset_token_expires):', error.message);
     }
   }
 

@@ -123,6 +123,15 @@ const SYNONYMS: Record<string, string[]> = {
   'black raspberry liqueur': ['chambord', 'raspberry liqueur'],
   'raspberry liqueur': ['chambord', 'black raspberry liqueur'],
 
+  // Curaçao variants (orange-flavored curaçao liqueurs)
+  'curacao': ['orange curacao', 'dry curacao'],
+  'orange curacao': ['curacao', 'dry curacao'],
+  'dry curacao': ['curacao', 'orange curacao'],
+
+  // Triple sec / Cointreau (distinct from curaçao)
+  'triple sec': ['cointreau'],
+  'cointreau': ['triple sec'],
+
   // Anise spirits - Pernod/Pastis/Absinthe
   'pernod': ['pastis', 'absinthe'],
   'pastis': ['pernod', 'absinthe'],
@@ -133,7 +142,35 @@ const SYNONYMS: Record<string, string[]> = {
   'sparkling water': ['seltzer', 'club soda', 'carbonated water', 'soda water'],
   'club soda': ['seltzer', 'sparkling water', 'carbonated water', 'soda water'],
   'carbonated water': ['seltzer', 'sparkling water', 'club soda', 'soda water'],
-  'soda water': ['seltzer', 'sparkling water', 'club soda', 'carbonated water']
+  'soda water': ['seltzer', 'sparkling water', 'club soda', 'carbonated water'],
+
+  // Vermouth variants
+  'sweet vermouth': ['red vermouth', 'rosso vermouth', 'italian vermouth'],
+  'red vermouth': ['sweet vermouth', 'rosso vermouth', 'italian vermouth'],
+  'rosso vermouth': ['sweet vermouth', 'red vermouth', 'italian vermouth'],
+  'italian vermouth': ['sweet vermouth', 'red vermouth', 'rosso vermouth'],
+  'dry vermouth': ['white vermouth', 'french vermouth', 'extra dry vermouth'],
+  'white vermouth': ['dry vermouth', 'french vermouth', 'extra dry vermouth'],
+  'french vermouth': ['dry vermouth', 'white vermouth', 'extra dry vermouth'],
+  'extra dry vermouth': ['dry vermouth', 'white vermouth', 'french vermouth'],
+
+  // Citrus juice shortcuts (whole fruit can substitute for juice)
+  'lime juice': ['lime', 'fresh lime juice', 'fresh lime'],
+  'lime': ['lime juice', 'fresh lime juice', 'fresh lime'],
+  'fresh lime juice': ['lime juice', 'lime', 'fresh lime'],
+  'fresh lime': ['lime juice', 'lime', 'fresh lime juice'],
+  'lemon juice': ['lemon', 'fresh lemon juice', 'fresh lemon'],
+  'lemon': ['lemon juice', 'fresh lemon juice', 'fresh lemon'],
+  'fresh lemon juice': ['lemon juice', 'lemon', 'fresh lemon'],
+  'fresh lemon': ['lemon juice', 'lemon', 'fresh lemon juice'],
+  'orange juice': ['orange', 'fresh orange juice', 'fresh orange'],
+  'orange': ['orange juice', 'fresh orange juice', 'fresh orange'],
+  'fresh orange juice': ['orange juice', 'orange', 'fresh orange'],
+  'fresh orange': ['orange juice', 'orange', 'fresh orange juice'],
+  'grapefruit juice': ['grapefruit', 'fresh grapefruit juice', 'fresh grapefruit'],
+  'grapefruit': ['grapefruit juice', 'fresh grapefruit juice', 'fresh grapefruit'],
+  'fresh grapefruit juice': ['grapefruit juice', 'grapefruit', 'fresh grapefruit'],
+  'fresh grapefruit': ['grapefruit juice', 'grapefruit', 'fresh grapefruit juice']
 };
 
 /**
@@ -352,7 +389,7 @@ function parseIngredientName(ingredientStr: string): string | string[] {
  * Bottle Data Interface
  *
  * Extended bottle information including spirit classifications from database.
- * Uses actual "Liquor Type" and "Detailed Spirit Classification" fields
+ * Uses actual "type" and "spirit_classification" fields
  * instead of hardcoded brand mappings.
  */
 interface BottleData {
@@ -691,18 +728,18 @@ router.get('/smart', asyncHandler(async (req: Request, res: Response) => {
      * Example:
      * - name: "Maker's Mark"
      * - type: "Whiskey"
-     * - "Detailed Spirit Classification": "Bourbon"
+     * - spirit_classification: "Bourbon"
      * → Matches ingredient "bourbon" via classification field
      */
     const bottlesRaw = db.prepare(`
       SELECT
         name,
         type as liquorType,
-        "Detailed Spirit Classification" as detailedClassification,
-        "Stock Number" as stockNumber
+        spirit_classification as detailedClassification,
+        stock_number as stockNumber
       FROM inventory_items
       WHERE user_id = ?
-        AND ("Stock Number" IS NOT NULL AND "Stock Number" > 0)
+        AND (stock_number IS NOT NULL AND stock_number > 0)
     `).all(userId) as Array<{
       name: string;
       liquorType: string | null;

@@ -1,18 +1,157 @@
 # Project Development Progress
 
-Last updated: 2025-11-27
+Last updated: 2025-12-01
 
 ---
 
 ## Current Status
 
-**Version**: v1.19.0 (UUID Deletion & MemMachine Integration Complete)
-**Phase**: Production Ready - True AI Memory Deletion
-**Blockers**: None - Full UUID lifecycle implemented and tested
+**Version**: v1.20.0 (Email Verification, Password Reset & Backend Refactoring)
+**Phase**: Production Ready - Full Auth Flow with Email Verification
+**Blockers**: None - All 379 tests passing
 
 ---
 
-## Recent Session (2025-11-27): MemMachine UUID Deletion Implementation
+## Recent Session (2025-12-01): Email Verification, Password Reset & Major Backend Refactoring
+
+### Work Completed
+
+#### Email Verification & Password Reset
+- ✅ **Email Verification**: Full flow with verification tokens, 24-hour expiry, soft-block for unverified users
+- ✅ **Password Reset**: Secure reset flow with 1-hour tokens, session invalidation, email enumeration protection
+- ✅ **EmailService**: Nodemailer-based transactional email with SMTP support (Gmail, SendGrid, Mailgun, Amazon SES)
+- ✅ **Verification Banner**: UI component showing when user needs to verify email
+- ✅ **useVerificationGuard Hook**: Soft-block pattern for unverified users (can browse, cannot modify)
+- ✅ **Login Page Updates**: "Forgot Password?" link, signup success message
+
+#### Backend Architecture Refactoring
+- ✅ **asyncHandler Pattern**: Standardized async error handling across all route files
+- ✅ **Database Schema Migration**: Renamed all columns from quoted "Space Names" to snake_case (stock_number, etc.)
+- ✅ **Service Layer Extraction**: Extracted business logic from routes into dedicated service classes
+- ✅ **RecipeService**: Complete CRUD + MemMachine integration + CSV import logic
+- ✅ **CollectionService**: Collection management with recipe associations
+- ✅ **ShoppingListService**: Smart shopping list algorithm with ingredient matching
+
+#### Testing & Quality
+- ✅ **Test Coverage**: 62 new tests (auth endpoints, EmailService, MemMachine UUID tracking)
+- ✅ **Bug Fix**: React Strict Mode causing double verification API calls
+- ✅ **TypeScript**: Installed @types/supertest for proper test typing
+
+### Components Modified
+
+**Backend - Async Error Handling** (`api/src/utils/asyncHandler.ts`)
+- New utility wrapping async route handlers with try/catch
+- Eliminates repetitive try/catch blocks across all routes
+- Consistent error response format
+
+**Backend - Database Schema** (`api/src/database/db.ts`)
+- Migrated column names from quoted strings to snake_case:
+  - `"Stock Number"` → `stock_number`
+  - `"Bottle Size"` → `bottle_size`
+  - `"Purchase Price"` → `purchase_price`
+  - `"Date Acquired"` → `date_acquired`
+  - And all other inventory_items columns
+- Added email verification columns: `is_verified`, `verification_token`, `verification_token_expires`
+- Added password reset columns: `reset_token`, `reset_token_expires`
+
+**Backend - Service Layer Extraction**
+- `api/src/services/RecipeService.ts` - Recipe CRUD, bulk operations, CSV import, MemMachine sync
+- `api/src/services/CollectionService.ts` - Collection management
+- `api/src/services/ShoppingListService.ts` - Smart shopping list algorithm
+- `api/src/services/EmailService.ts` - Transactional email with Nodemailer
+
+**Backend - Route Refactoring**
+- `api/src/routes/recipes.ts` - Now uses RecipeService + asyncHandler
+- `api/src/routes/collections.ts` - Now uses CollectionService + asyncHandler
+- `api/src/routes/shoppingList.ts` - Now uses ShoppingListService + asyncHandler
+- `api/src/routes/inventoryItems.ts` - Updated for snake_case columns + asyncHandler
+- `api/src/routes/auth.ts` - Added verification/reset endpoints + asyncHandler
+
+**Backend - EmailService** (`api/src/services/EmailService.ts`)
+- Nodemailer SMTP integration with graceful fallback to console logging
+- `sendVerificationEmail()` and `sendPasswordResetEmail()` with HTML templates
+- `isConfigured()` for checking SMTP configuration status
+
+**Frontend - New Pages**
+- `src/app/verify-email/page.tsx` - Auto-verifies token from URL
+- `src/app/forgot-password/page.tsx` - Email form for password reset request
+- `src/app/reset-password/page.tsx` - Password form with requirements display
+
+**Frontend - UI Components**
+- `src/components/ui/VerificationBanner.tsx` - Warning banner with resend button
+- `src/hooks/useVerificationGuard.ts` - Soft-block hook for unverified users
+
+**Frontend - Login Page** (`src/app/login/page.tsx`)
+- Added "Forgot your password?" link
+- Added signup success message with verification instructions
+
+### Key Issues Resolved
+
+**1. Inconsistent Error Handling**
+- **Problem**: Each route had its own try/catch with slightly different error responses
+- **Solution**: Created `asyncHandler` wrapper that standardizes error handling across all routes
+
+**2. Column Name Inconsistency**
+- **Problem**: Database columns used quoted "Space Names" requiring special handling
+- **Solution**: Migrated all columns to snake_case for cleaner queries and better tooling support
+
+**3. Routes Becoming Monolithic**
+- **Problem**: Route files contained business logic, making them hard to test and maintain
+- **Solution**: Extracted service layer (RecipeService, CollectionService, ShoppingListService)
+
+**4. React Strict Mode Double Execution**
+- **Problem**: Verification page showing "failed" briefly then "success"
+- **Solution**: Added cleanup function with `cancelled` flag to ignore cancelled effect results
+
+### Architecture Insights
+
+**asyncHandler Pattern**:
+```typescript
+// Before - repetitive try/catch in every route
+router.post('/', async (req, res) => {
+  try {
+    // ... logic
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// After - clean routes with centralized error handling
+router.post('/', asyncHandler(async (req, res) => {
+  // ... logic (errors auto-caught and formatted)
+}));
+```
+
+**Service Layer Pattern**:
+```
+Routes (HTTP layer) → Services (Business logic) → Database
+     ↓                        ↓
+  Validation              MemMachine sync
+  Auth checks             Complex algorithms
+  Response format         Transactions
+```
+
+**Snake_case Migration**:
+- All inventory_items columns now use snake_case
+- Queries no longer need quoted column names
+- Better compatibility with ORMs and tooling
+
+### Test Results
+
+- **Total Tests**: 379 (up from 317)
+- **New Tests Added**: 62
+- **All Tests Passing**: Yes
+- **TypeScript Compilation**: Clean
+
+### Next Priorities
+- [ ] Integrate `useVerificationGuard` into data-modifying components
+- [ ] Add rate limiting for resend-verification and forgot-password endpoints
+- [ ] Continue service layer extraction for remaining routes
+- [ ] Add integration tests for new service classes
+
+---
+
+## Previous Session (2025-11-27): MemMachine UUID Deletion Implementation
 
 ### Work Completed
 - ✅ **MemMachine Core**: Implemented UUID-based episode deletion across all memory layers

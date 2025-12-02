@@ -3,13 +3,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, X, AlertCircle } from 'lucide-react';
 import { Button, Input, Spinner, SuccessCheckmark } from '@/components/ui';
-import type { InventoryCategory, InventoryItem } from '@/types';
+import type { InventoryCategory, InventoryItemInput } from '@/types';
 import styles from './BottleFormModal.module.css';
 
 interface AddBottleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (item: Omit<InventoryItem, 'id'>) => Promise<void>;
+  onAdd: (item: InventoryItemInput) => Promise<void>;
 }
 
 type FormState = {
@@ -17,15 +17,15 @@ type FormState = {
   category: InventoryCategory;
   type: string;
   abv: string;
-  'Stock Number': string;
-  'Detailed Spirit Classification': string;
-  'Distillation Method': string;
-  'Distillery Location': string;
-  'Age Statement or Barrel Finish': string;
-  'Additional Notes': string;
-  'Profile (Nose)': string;
-  Palate: string;
-  Finish: string;
+  stock_number: string;
+  spirit_classification: string;
+  distillation_method: string;
+  distillery_location: string;
+  age_statement: string;
+  additional_notes: string;
+  profile_nose: string;
+  palate: string;
+  finish: string;
   tasting_notes: string;
 };
 
@@ -34,15 +34,15 @@ const createInitialFormState = (): FormState => ({
   category: 'spirit',
   type: '',
   abv: '',
-  'Stock Number': '',
-  'Detailed Spirit Classification': '',
-  'Distillation Method': '',
-  'Distillery Location': '',
-  'Age Statement or Barrel Finish': '',
-  'Additional Notes': '',
-  'Profile (Nose)': '',
-  Palate: '',
-  Finish: '',
+  stock_number: '',
+  spirit_classification: '',
+  distillation_method: '',
+  distillery_location: '',
+  age_statement: '',
+  additional_notes: '',
+  profile_nose: '',
+  palate: '',
+  finish: '',
   tasting_notes: '',
 });
 
@@ -137,21 +137,21 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
     setError(null);
 
     try {
-      // Map form data to InventoryItem type
-      const item: Omit<InventoryItem, 'id'> = {
+      // Map form data to InventoryItemInput type
+      const item: InventoryItemInput = {
         name: formData.name,
         category: formData.category,
         type: formData.type || undefined,
         abv: formData.abv || undefined,
-        'Stock Number': formData['Stock Number'] !== '' ? parseInt(formData['Stock Number']) : undefined,
-        'Detailed Spirit Classification': formData['Detailed Spirit Classification'] || undefined,
-        'Distillation Method': formData['Distillation Method'] || undefined,
-        'Distillery Location': formData['Distillery Location'] || undefined,
-        'Age Statement or Barrel Finish': formData['Age Statement or Barrel Finish'] || undefined,
-        'Additional Notes': formData['Additional Notes'] || undefined,
-        'Profile (Nose)': formData['Profile (Nose)'] || undefined,
-        Palate: formData.Palate || undefined,
-        Finish: formData.Finish || undefined,
+        stock_number: formData.stock_number !== '' ? parseInt(formData.stock_number) : undefined,
+        spirit_classification: formData.spirit_classification || undefined,
+        distillation_method: formData.distillation_method || undefined,
+        distillery_location: formData.distillery_location || undefined,
+        age_statement: formData.age_statement || undefined,
+        additional_notes: formData.additional_notes || undefined,
+        profile_nose: formData.profile_nose || undefined,
+        palate: formData.palate || undefined,
+        finish: formData.finish || undefined,
         tasting_notes: formData.tasting_notes || undefined,
       };
 
@@ -239,15 +239,15 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  value={formData['Stock Number']}
+                  value={formData.stock_number}
                   onChange={(e) => {
                     // Only allow digits
                     const value = e.target.value.replace(/[^0-9]/g, '');
-                    handleChange('Stock Number', value);
+                    handleChange('stock_number', value);
                   }}
                   placeholder="e.g., 1"
                   fullWidth
-                  error={fieldErrors['Stock Number']}
+                  error={fieldErrors.stock_number}
                 />
                 <div style={{ marginBottom: '16px' }}>
                   <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500 }}>
@@ -301,22 +301,22 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
                 <h3 className={styles.sectionTitle}>Additional Details (Optional)</h3>
                 <Input
                   label="Detailed Classification"
-                  value={formData['Detailed Spirit Classification']}
-                  onChange={(e) => handleChange('Detailed Spirit Classification', e.target.value)}
+                  value={formData.spirit_classification}
+                  onChange={(e) => handleChange('spirit_classification', e.target.value)}
                   placeholder="e.g., Single Malt Scotch"
                   fullWidth
                 />
                 <Input
                   label="Age Statement / Barrel Finish"
-                  value={formData['Age Statement or Barrel Finish']}
-                  onChange={(e) => handleChange('Age Statement or Barrel Finish', e.target.value)}
+                  value={formData.age_statement}
+                  onChange={(e) => handleChange('age_statement', e.target.value)}
                   placeholder="e.g., 12 Year, VSOP"
                   fullWidth
                 />
                 <Input
                   label="Distillery Location"
-                  value={formData['Distillery Location']}
-                  onChange={(e) => handleChange('Distillery Location', e.target.value)}
+                  value={formData.distillery_location}
+                  onChange={(e) => handleChange('distillery_location', e.target.value)}
                   placeholder="e.g., Kentucky, Scotland"
                   fullWidth
                 />
@@ -329,8 +329,8 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
                   <label className={styles.textareaLabel}>Nose</label>
                   <textarea
                     className={styles.textarea}
-                    value={formData['Profile (Nose)']}
-                    onChange={(e) => handleChange('Profile (Nose)', e.target.value)}
+                    value={formData.profile_nose}
+                    onChange={(e) => handleChange('profile_nose', e.target.value)}
                     placeholder="Aroma and scent profile"
                     rows={2}
                   />
@@ -339,8 +339,8 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
                   <label className={styles.textareaLabel}>Palate</label>
                   <textarea
                     className={styles.textarea}
-                    value={formData.Palate}
-                    onChange={(e) => handleChange('Palate', e.target.value)}
+                    value={formData.palate}
+                    onChange={(e) => handleChange('palate', e.target.value)}
                     placeholder="Taste and flavor profile"
                     rows={2}
                   />
@@ -349,8 +349,8 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
                   <label className={styles.textareaLabel}>Finish</label>
                   <textarea
                     className={styles.textarea}
-                    value={formData.Finish}
-                    onChange={(e) => handleChange('Finish', e.target.value)}
+                    value={formData.finish}
+                    onChange={(e) => handleChange('finish', e.target.value)}
                     placeholder="Aftertaste and lingering notes"
                     rows={2}
                   />
