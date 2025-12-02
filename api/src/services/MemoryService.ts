@@ -667,36 +667,45 @@ export class MemoryService {
   }
 
   /**
-   * Format Context for AI Prompt (with Database Cross-Reference)
+   * Format Context for AI Prompt (with Database Cross-Reference + Duplicate Filtering)
    *
    * Converts NormalizedSearchResult into human-readable string for Claude's system prompt.
-   * FILTERS OUT DELETED RECIPES by cross-referencing with AlcheMix database.
+   * FILTERS OUT:
+   * 1. Deleted recipes (cross-reference with AlcheMix database)
+   * 2. Already-recommended recipes (from conversation history)
    *
-   * This solves the MemMachine UUID limitation: Even though we can't delete individual
-   * recipes from MemMachine, we can filter them out when building the AI context.
+   * This solves two problems:
+   * - MemMachine UUID limitation: Filter deleted recipes when building AI context
+   * - Duplicate recommendations: Hide recipes already suggested in this conversation
    *
    * @param searchResult - Normalized search result from MemMachine
    * @param userId - User ID (for database lookup)
    * @param db - Database instance (optional, for recipe verification)
    * @param limit - Maximum number of recipes to include (default: MAX_PROMPT_RECIPES)
+   * @param alreadyRecommended - Set of recipe names to exclude (already recommended)
    * @returns Formatted string for AI prompt
    */
   formatContextForPrompt(
     searchResult: NormalizedSearchResult,
     userId: number,
     db?: any,
-    limit: number = MAX_PROMPT_RECIPES
+    limit: number = MAX_PROMPT_RECIPES,
+    alreadyRecommended: Set<string> = new Set()
   ): string {
     if (!searchResult || (!searchResult.episodic?.length && !searchResult.profile?.length)) {
       return '';
     }
 
-    let contextText = '\n\n## RELEVANT CONTEXT FROM MEMORY\n';
+    // Relabeled: These are SEARCH RESULTS, not definitive answers
+    let contextText = '\n\n## SEMANTIC SEARCH RESULTS (Evaluate These - Not Pre-Selected Answers)\n';
 
     // Add episodic memories (specific recipes found)
-    // FILTERING LOGIC: Only include episodes that contain recipe content AND still exist in DB
+    // FILTERING LOGIC: Only include episodes that:
+    // 1. Contain recipe content
+    // 2. Still exist in DB
+    // 3. Haven't been recommended already in this conversation
     if (searchResult.episodic?.length > 0) {
-      contextText += '\n### Recently Discussed Recipes:\n';
+      contextText += '\n### Potential Matches (use your judgment to filter):\n';
 
       // Filter for recipe-related content
       const recipeEpisodes = searchResult.episodic.filter(
@@ -717,19 +726,36 @@ export class MemoryService {
             // Check if recipe still exists in AlcheMix database
             const exists = db.prepare('SELECT 1 FROM recipes WHERE user_id = ? AND name = ? LIMIT 1').get(userId, recipeName);
 
-            if (exists) {
-              validRecipes.push(episode);
-            } else {
+            if (!exists) {
               console.log(`🗑️ Filtered out deleted recipe from MemMachine context: "${recipeName}"`);
+              continue;
             }
+
+            // Check if already recommended in this conversation
+            if (alreadyRecommended.has(recipeName)) {
+              console.log(`🔄 Filtered out already-recommended recipe: "${recipeName}"`);
+              continue;
+            }
+
+            validRecipes.push(episode);
           } else {
             // Can't extract name, include anyway (might be profile memory or other content)
             validRecipes.push(episode);
           }
         }
       } else {
-        // No database provided, include all (backward compatible)
-        validRecipes.push(...recipeEpisodes);
+        // No database provided, filter only by alreadyRecommended
+        for (const episode of recipeEpisodes) {
+          const match = episode.content.match(/Recipe:\s*([^\n.]+)/);
+          if (match) {
+            const recipeName = match[1].trim();
+            if (alreadyRecommended.has(recipeName)) {
+              console.log(`🔄 Filtered out already-recommended recipe: "${recipeName}"`);
+              continue;
+            }
+          }
+          validRecipes.push(episode);
+        }
       }
 
       const limitedRecipes = validRecipes.slice(0, limit);
@@ -739,7 +765,7 @@ export class MemoryService {
 
       // If no recipes found after filtering, indicate that
       if (limitedRecipes.length === 0) {
-        contextText += '(No recipe-specific memories found for this query)\n';
+        contextText += '(No NEW recipe matches found - consider suggesting something different)\n';
       }
     }
 
