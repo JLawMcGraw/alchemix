@@ -6,7 +6,7 @@
 
 Modern cocktail inventory and recipe management system with AI-powered bartender recommendations.
 
-**Version:** v1.20.0 | **Last Updated:** December 1, 2025
+**Version:** v1.22.0 | **Last Updated:** December 3, 2025
 
 ## Features
 
@@ -40,7 +40,8 @@ npm run dev:all
 |-------|------------|
 | Frontend | Next.js 14, TypeScript, Zustand, CSS Modules |
 | Backend | Express.js, TypeScript, SQLite, JWT |
-| AI | Claude API (Haiku 4.5), MemMachine semantic memory |
+| AI | Claude API (Haiku 4.5), MemMachine v2 semantic memory |
+| Infrastructure | Docker, Neo4j 5.23, PostgreSQL 16 (pgvector) |
 | Email | Nodemailer (Gmail, SendGrid, Mailgun, Amazon SES) |
 
 ## Project Structure
@@ -120,16 +121,36 @@ npm run build              # Frontend
 cd api && npm run build    # Backend
 ```
 
-## Docker (Optional)
+## Docker (Required for AI Features)
+
+The AI Bartender requires MemMachine (semantic memory) which runs in Docker alongside Neo4j and Postgres.
 
 ```bash
-# Full stack
+# Start all services (Neo4j, Postgres, MemMachine, API, Frontend)
 docker compose up
 
-# Infrastructure only (for local dev)
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+# Or infrastructure only (for local dev with hot reload)
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 npm run dev:all
 ```
+
+### Docker Services
+
+| Service | Port | Description |
+|---------|------|-------------|
+| Neo4j | 7474, 7687 | Graph database for vector embeddings |
+| Postgres | 5432 | Profile storage for MemMachine |
+| MemMachine | 8080 | Semantic memory API (v2) |
+| Bar Server | 8001 | Query constructor |
+| API | 3000 | Express backend |
+| Frontend | 3001 | Next.js frontend |
+
+### MemMachine v2 API
+
+AlcheMix uses MemMachine v2 API for semantic recipe search and AI context:
+- Recipes stored with UIDs for tracking
+- Per-user project isolation (`org: alchemix`, `project: user_{id}_recipes`)
+- Vector similarity search via Neo4j GDS plugin
 
 ## Documentation
 
