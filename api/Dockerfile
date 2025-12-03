@@ -75,7 +75,7 @@ ENV PORT=3000
 
 # Add OCI image metadata
 LABEL org.opencontainers.image.title="AlcheMix API"
-LABEL org.opencontainers.image.version="1.20.0"
+LABEL org.opencontainers.image.version="1.22.0"
 LABEL org.opencontainers.image.description="AlcheMix Express API Backend"
 LABEL org.opencontainers.image.vendor="AlcheMix"
 LABEL org.opencontainers.image.source="https://github.com/yourusername/alchemix"

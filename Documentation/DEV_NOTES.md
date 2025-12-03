@@ -4,6 +4,94 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-12-02 - HttpOnly Cookie Authentication & Security Hardening
+
+### Breaking Change: JWT Storage Migration
+
+**Before (v1.22.0)**: JWT stored in localStorage, accessible via JavaScript
+**After (v1.23.0)**: JWT stored in httpOnly cookie, inaccessible to JavaScript
+
+**Why HttpOnly Cookies**:
+- **XSS Protection**: JavaScript cannot read httpOnly cookies, preventing token theft via XSS attacks
+- **CSRF Protection**: Added Double Submit Cookie pattern with timing-safe comparison
+- **Automatic Transmission**: Browser sends cookie automatically on same-origin requests
+
+### Authentication Flow Changes
+
+```typescript
+// OLD: Token in localStorage (XSS vulnerable)
+const token = localStorage.getItem('token');
+headers: { Authorization: `Bearer ${token}` }
+
+// NEW: HttpOnly cookie (XSS protected)
+// Cookie sent automatically, no JS access needed
+credentials: 'include'  // Required for cookie transmission
+```
+
+### CSRF Protection Implementation
+
+**Double Submit Cookie Pattern**:
+1. Server generates CSRF token and sends in both:
+   - HttpOnly `csrf_token` cookie
+   - Response header `X-CSRF-Token`
+2. Client stores header value and sends back in `X-CSRF-Token` header
+3. Server compares cookie vs header using timing-safe comparison
+
+```typescript
+// Timing-safe comparison prevents timing attacks
+import { timingSafeEqual } from 'crypto';
+
+function safeCompare(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
+```
+
+### Frontend Store Changes
+
+**Zustand Persist Configuration**:
+```typescript
+partialize: (state) => ({
+  // Only persist user, NOT isAuthenticated
+  // isAuthenticated derived from valid httpOnly cookie
+  user: state.user,
+}),
+onRehydrateStorage: () => (state) => {
+  if (state) {
+    state._hasHydrated = true;
+    state.isAuthenticated = false;  // Will be set after cookie validation
+  }
+}
+```
+
+**useAuthGuard Hook**:
+- Cannot check `localStorage.getItem('token')` (doesn't exist)
+- Always calls `validateToken()` which fetches `/auth/me`
+- Cookie sent automatically by browser
+
+### Cookie Configuration
+
+```typescript
+const cookieOptions = {
+  httpOnly: true,           // Not accessible via JavaScript
+  secure: process.env.NODE_ENV === 'production',  // HTTPS only in prod
+  sameSite: 'lax',          // CSRF protection for GET requests
+  maxAge: 7 * 24 * 60 * 60 * 1000,  // 7 days
+  path: '/',
+};
+```
+
+### Test Migration
+
+All 295 backend tests updated for cookie-based auth:
+- Added `getSetCookies()` helper for type-safe cookie extraction
+- Tests store and send cookies between requests
+- CSRF token extracted from response headers
+
+---
+
 ## 2025-12-03 - MemMachine v2 API Migration
 
 ### Breaking API Changes (v1 → v2)

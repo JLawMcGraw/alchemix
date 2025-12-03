@@ -38,6 +38,39 @@ import { db } from '../database/db';
 import { memoryService } from '../services/MemoryService';
 import { asyncHandler } from '../utils/asyncHandler';
 
+/**
+ * Type definitions for database records
+ */
+interface InventoryItemRecord {
+  id: number;
+  user_id: number;
+  name: string;
+  type?: string;
+  'Detailed Spirit Classification'?: string;
+  abv?: string;
+  'Profile (Nose)'?: string;
+  Palate?: string;
+  Finish?: string;
+  stock_number?: number;
+}
+
+interface RecipeRecord {
+  id: number;
+  user_id: number;
+  name: string;
+  category?: string;
+  spirit_type?: string;
+  ingredients?: string;
+  memmachine_uid?: string;
+}
+
+interface FavoriteRecord {
+  id: number;
+  user_id: number;
+  recipe_name: string;
+  created_at: string;
+}
+
 const router = Router();
 
 /**
@@ -249,12 +282,12 @@ async function buildDashboardInsightPrompt(userId: number): Promise<Array<{ type
   // Fetch user's inventory (only items with stock > 0)
   const inventory = db.prepare(
     'SELECT * FROM inventory_items WHERE user_id = ? AND (stock_number IS NOT NULL AND stock_number > 0) ORDER BY name'
-  ).all(userId) as any[];
+  ).all(userId) as InventoryItemRecord[];
 
   // Fetch user's recipes
   const recipes = db.prepare(
     'SELECT * FROM recipes WHERE user_id = ? ORDER BY name'
-  ).all(userId) as any[];
+  ).all(userId) as RecipeRecord[];
 
   const inventoryCount = inventory.length;
   const recipeCount = recipes.length;
@@ -269,7 +302,7 @@ async function buildDashboardInsightPrompt(userId: number): Promise<Array<{ type
     'Winter';
 
   // Build full recipe list with categories for analysis
-  const recipesWithCategories = recipes.map((recipe: any) => {
+  const recipesWithCategories = recipes.map((recipe) => {
     const name = sanitizeContextField(recipe.name, 'recipe.name', userId);
     const category = sanitizeContextField(recipe.category, 'recipe.category', userId);
     const spiritType = sanitizeContextField(recipe.spirit_type, 'recipe.spirit_type', userId);
@@ -277,7 +310,7 @@ async function buildDashboardInsightPrompt(userId: number): Promise<Array<{ type
   }).filter(r => r.name);
 
   // Build inventory list for craftability analysis
-  const inventoryList = inventory.map((item: any) => {
+  const inventoryList = inventory.map((item) => {
     const name = sanitizeContextField(item.name, 'item.name', userId);
     const type = sanitizeContextField(item.type, 'item.type', userId);
     const classification = sanitizeContextField(item['Detailed Spirit Classification'], 'item.classification', userId);
@@ -405,23 +438,23 @@ async function buildContextAwarePrompt(
   // Fetch user's inventory (only items with stock > 0)
   const inventory = db.prepare(
     'SELECT * FROM inventory_items WHERE user_id = ? AND (stock_number IS NOT NULL AND stock_number > 0) ORDER BY name LIMIT ?'
-  ).all(userId, MAX_INVENTORY_ITEMS) as any[];
+  ).all(userId, MAX_INVENTORY_ITEMS) as InventoryItemRecord[];
 
   // Fetch user's recipes
   const recipes = db.prepare(
     'SELECT * FROM recipes WHERE user_id = ? ORDER BY name LIMIT ?'
-  ).all(userId, MAX_RECIPES) as any[];
+  ).all(userId, MAX_RECIPES) as RecipeRecord[];
 
   // Fetch user's favorites
   const favorites = db.prepare(
     'SELECT * FROM favorites WHERE user_id = ? ORDER BY created_at DESC LIMIT ?'
-  ).all(userId, MAX_FAVORITES) as any[];
+  ).all(userId, MAX_FAVORITES) as FavoriteRecord[];
 
   // COMPRESSED FORMAT: Single line per item with key tasting data
   // Saves ~50% tokens while preserving info needed for cocktail crafting
   // Format: "- Name [Type] (Classification) ABV% | Nose: ... | Palate: ... | Finish: ..."
   const inventoryEntries = inventory
-    .map((bottle: any) => {
+    .map((bottle) => {
       const name = sanitizeContextField(bottle.name, 'bottle.name', userId);
       if (!name) {
         return null;
@@ -458,7 +491,7 @@ async function buildContextAwarePrompt(
   // Saves ~70% tokens - user clicks linked recipe to see full instructions/glass
   // Format: "- Mai Tai (Trader Vic) [Tiki]: rum, lime, orgeat, curaçao"
   const recipeEntries = recipes
-    .map((recipe: any) => {
+    .map((recipe) => {
       const name = sanitizeContextField(recipe.name, 'recipe.name', userId);
       if (!name) {
         return null;
@@ -480,13 +513,13 @@ async function buildContextAwarePrompt(
           parsedIngredients = JSON.parse(ingredients);
         } catch {
           // If not JSON, split by comma
-          parsedIngredients = ingredients.split(',').map((i: string) => i.trim());
+          parsedIngredients = ingredients.split(',').map((i) => i.trim());
         }
 
         // Extract ingredient names (remove measurements like "1 oz", "2 dashes", etc.)
         if (Array.isArray(parsedIngredients)) {
           ingredientsList = parsedIngredients
-            .map((ing: string) => {
+            .map((ing) => {
               // Remove common measurement patterns
               return ing
                 .replace(/^\d+(\.\d+)?\s*(oz|ml|cl|dash(es)?|drop(s)?|barspoon(s)?|tsp|tbsp|cup(s)?|part(s)?|splash(es)?|float|rinse|top|fill)?\s*/i, '')
@@ -511,9 +544,9 @@ async function buildContextAwarePrompt(
     .join('\n');
 
   const favoriteEntries = favorites
-    .map((f: any) => sanitizeContextField(f.recipe_name, 'favorite.recipe_name', userId))
-    .filter(Boolean)
-    .map((name: string) => `- ${name}`)
+    .map((f) => sanitizeContextField(f.recipe_name, 'favorite.recipe_name', userId))
+    .filter((name): name is string => Boolean(name))
+    .map((name) => `- ${name}`)
     .join('\n');
 
   // Extract already-recommended recipes from conversation history

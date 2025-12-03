@@ -21,7 +21,7 @@ const router = Router();
 /**
  * Application version (should match package.json)
  */
-const APP_VERSION = '1.20.0';
+const APP_VERSION = '1.22.0';
 
 /**
  * Liveness Probe - GET /health/live

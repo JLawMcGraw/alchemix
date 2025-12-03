@@ -138,9 +138,18 @@ export const corsOptions: CorsOptions = {
    * Specifies which headers the frontend can include in requests.
    *
    * - Content-Type: Indicates request body format (application/json)
-   * - Authorization: Contains JWT token (Bearer eyJhbGci...)
+   * - Authorization: Contains JWT token (Bearer eyJhbGci...) - for backward compat
+   * - X-CSRF-Token: CSRF protection token (required for cookie auth)
    *
    * Browsers will reject requests with headers not in this list.
    */
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+
+  /**
+   * Exposed Headers
+   *
+   * Headers that the browser is allowed to read from the response.
+   * Required for the frontend to access Set-Cookie headers.
+   */
+  exposedHeaders: ['Set-Cookie']
 };

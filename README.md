@@ -6,7 +6,7 @@
 
 Modern cocktail inventory and recipe management system with AI-powered bartender recommendations.
 
-**Version:** v1.22.0 | **Last Updated:** December 3, 2025
+**Version:** v1.23.0 | **Last Updated:** December 2, 2025
 
 ## Features
 
@@ -14,6 +14,7 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 - **Recipe Management** - Full CRUD, collections/folders, bulk operations, CSV import
 - **Smart Shopping List** - Near-miss algorithm, ingredient recommendations, 6 recipe buckets
 - **AI Bartender** - Claude-powered assistant with MemMachine semantic memory
+- **Secure Auth** - HttpOnly cookie JWT with CSRF protection (XSS-resistant)
 - **Email Verification** - Secure signup flow with verification tokens
 - **Password Reset** - Secure reset flow with email delivery
 
@@ -113,7 +114,7 @@ MEMMACHINE_API_URL=http://localhost:8080
 npm run type-check          # Frontend
 cd api && npm run type-check # Backend
 
-# Run tests (379 tests)
+# Run tests (462 tests)
 cd api && npm test
 
 # Build

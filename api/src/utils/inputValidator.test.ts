@@ -311,7 +311,7 @@ describe('inputValidator', () => {
 
       const result = validateBottleData(validBottle);
       expect(result.isValid).toBe(true);
-      expect(result.sanitized.name).toBe('Test Bottle');
+      expect(result.sanitized!.name).toBe('Test Bottle');
     });
 
     it('should reject bottle without name', () => {
@@ -321,7 +321,7 @@ describe('inputValidator', () => {
     });
 
     it('should reject bottle with non-string name', () => {
-      const result = validateBottleData({ name: 123 });
+      const result = validateBottleData({ name: 123 as unknown as string });
       expect(result.isValid).toBe(false);
       expect(result.errors).toContain('Bottle name is required');
     });
@@ -338,7 +338,7 @@ describe('inputValidator', () => {
       });
       expect(result.isValid).toBe(true);
       // Script tags and their contents are removed entirely for XSS prevention
-      expect(result.sanitized.name).toBe('Test Bottle');
+      expect(result.sanitized!.name).toBe('Test Bottle');
     });
 
     it('should validate stock_number within range', () => {
@@ -356,7 +356,7 @@ describe('inputValidator', () => {
         stock_number: 12345,
       });
       expect(result.isValid).toBe(true);
-      expect(result.sanitized.stock_number).toBe(12345);
+      expect(result.sanitized!.stock_number).toBe(12345);
     });
 
     it('should validate abv within 0-100 range', () => {
@@ -374,7 +374,7 @@ describe('inputValidator', () => {
         abv: 40,
       });
       expect(result.isValid).toBe(true);
-      expect(result.sanitized.abv).toBe(40);
+      expect(result.sanitized!.abv).toBe(40);
     });
 
     it('should sanitize optional string fields', () => {
@@ -384,8 +384,8 @@ describe('inputValidator', () => {
         distillery_location: '<b>Scotland</b>',
       });
       expect(result.isValid).toBe(true);
-      expect(result.sanitized.type).toBe('Whiskey');
-      expect(result.sanitized.distillery_location).toBe('Scotland');
+      expect(result.sanitized!.type).toBe('Whiskey');
+      expect(result.sanitized!.distillery_location).toBe('Scotland');
     });
 
     it('should handle all optional fields', () => {
@@ -405,7 +405,7 @@ describe('inputValidator', () => {
       });
 
       expect(result.isValid).toBe(true);
-      expect(Object.keys(result.sanitized)).toHaveLength(12);
+      expect(Object.keys(result.sanitized!)).toHaveLength(12);
     });
 
     it('should truncate long text fields to max length', () => {
@@ -416,8 +416,8 @@ describe('inputValidator', () => {
       });
 
       expect(result.isValid).toBe(true);
-      expect(result.sanitized.name.length).toBeLessThanOrEqual(255);
-      expect(result.sanitized.additional_notes.length).toBeLessThanOrEqual(2000);
+      expect(result.sanitized!.name!.length).toBeLessThanOrEqual(255);
+      expect(result.sanitized!.additional_notes!.length).toBeLessThanOrEqual(2000);
     });
   });
 
@@ -429,7 +429,7 @@ describe('inputValidator', () => {
         normalKey: 'safe value',
       };
 
-      const sanitized = sanitizeObjectKeys(malicious);
+      const sanitized = sanitizeObjectKeys(malicious) as Record<string, unknown>;
       expect(sanitized).not.toHaveProperty('$where');
       expect(sanitized).not.toHaveProperty('$ne');
       expect(sanitized).toHaveProperty('normalKey');
@@ -445,7 +445,7 @@ describe('inputValidator', () => {
         safe: 'value',
       };
 
-      const sanitized = sanitizeObjectKeys(malicious);
+      const sanitized = sanitizeObjectKeys(malicious) as { user: { name: string }; safe: string };
       expect(sanitized.user).not.toHaveProperty('$where');
       expect(sanitized.user).toHaveProperty('name');
       expect(sanitized.user.name).toBe('John');
@@ -459,7 +459,7 @@ describe('inputValidator', () => {
         ],
       };
 
-      const sanitized = sanitizeObjectKeys(malicious);
+      const sanitized = sanitizeObjectKeys(malicious) as { items: Array<{ id: number }> };
       expect(sanitized.items[0]).not.toHaveProperty('$where');
       expect(sanitized.items[0]).toHaveProperty('id');
       expect(sanitized.items[1]).not.toHaveProperty('$ne');
@@ -493,7 +493,7 @@ describe('inputValidator', () => {
         },
       };
 
-      const sanitized = sanitizeObjectKeys(malicious);
+      const sanitized = sanitizeObjectKeys(malicious) as { level1: { level2: { level3: { safe: string } } } };
       expect(sanitized.level1.level2.level3).not.toHaveProperty('$dangerous');
       expect(sanitized.level1.level2.level3.safe).toBe('good');
     });

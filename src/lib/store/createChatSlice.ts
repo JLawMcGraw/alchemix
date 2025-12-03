@@ -14,6 +14,18 @@ import type {
   MajorGapsRecipe
 } from '@/types';
 import { aiApi, shoppingListApi } from '../api';
+import { AxiosError } from 'axios';
+
+/** Extract error message from Axios or standard Error */
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof AxiosError) {
+    return error.response?.data?.error || fallback;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return fallback;
+}
 
 export interface ChatSlice {
   // State
@@ -84,8 +96,8 @@ export const createChatSlice: StateCreator<
       }));
 
       return response;
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || error.message || 'Failed to send message';
+    } catch (error) {
+      // Re-throw the original error for upstream handling
       throw error;
     }
   },
@@ -115,10 +127,9 @@ export const createChatSlice: StateCreator<
         majorGapsRecipes: response.majorGapsRecipes || [],
         isLoadingShoppingList: false,
       });
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Failed to fetch shopping list';
+    } catch (error) {
       set({ isLoadingShoppingList: false });
-      throw new Error(errorMessage);
+      throw new Error(getErrorMessage(error, 'Failed to fetch shopping list'));
     }
   },
 
@@ -131,7 +142,7 @@ export const createChatSlice: StateCreator<
         dashboardInsight: response.insight,
         isDashboardInsightLoading: false,
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to fetch dashboard insight:', error);
       // Keep default greeting on error
       set({ isDashboardInsightLoading: false });

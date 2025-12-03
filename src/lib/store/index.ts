@@ -24,14 +24,14 @@ export const useStore = create<AppStore>()(
     {
       name: 'alchemix-storage', // LocalStorage key
       partialize: (state) => ({
-        // Only persist user and token, NOT isAuthenticated
-        // isAuthenticated should be derived from valid token, not persisted
+        // Only persist user, NOT isAuthenticated
+        // isAuthenticated should be derived from valid httpOnly cookie session
+        // Token is now stored in httpOnly cookie (not accessible via JS)
         user: state.user,
-        token: state.token,
       }),
       onRehydrateStorage: () => (state) => {
         // After rehydration, mark as hydrated
-        // Keep isAuthenticated = false initially, will be set to true after validation
+        // Keep isAuthenticated = false initially, will be set to true after cookie validation
         if (state) {
           state._hasHydrated = true;
           state.isAuthenticated = false;

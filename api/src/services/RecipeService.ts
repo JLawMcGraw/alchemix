@@ -46,7 +46,7 @@ export interface PaginatedResult<T> {
  */
 export interface CreateRecipeInput {
   name: string;
-  ingredients?: string | string[] | any;
+  ingredients?: string | string[] | unknown;
   instructions?: string;
   glass?: string;
   category?: string;
@@ -61,7 +61,7 @@ export interface CreateRecipeInput {
  */
 export interface UpdateRecipeInput {
   name?: string;
-  ingredients?: string | string[] | any;
+  ingredients?: string | string[] | unknown;
   instructions?: string;
   glass?: string;
   category?: string;
@@ -287,12 +287,12 @@ export class RecipeService {
     const safeUpdates: UpdateRecipeInput = {};
     for (const field of ALLOWED_UPDATE_FIELDS) {
       if (field in updates) {
-        (safeUpdates as any)[field] = (updates as any)[field];
+        (safeUpdates as Record<string, unknown>)[field] = (updates as Record<string, unknown>)[field];
       }
     }
 
     const fieldsToUpdate: string[] = [];
-    const values: any[] = [];
+    const values: (string | number | null)[] = [];
 
     // Name
     if (safeUpdates.name !== undefined) {
@@ -314,7 +314,7 @@ export class RecipeService {
         return { success: false, error: ingredientsResult.error };
       }
       fieldsToUpdate.push('ingredients = ?');
-      values.push(ingredientsResult.str);
+      values.push(ingredientsResult.str ?? null);
     }
 
     // Instructions
@@ -444,10 +444,16 @@ export class RecipeService {
    * instead of individual queries (fixes N+1 query pattern).
    * This is ~10x faster for large imports.
    */
-  importFromCSV(userId: number, records: any[], collectionId: number | null): ImportResult {
+  importFromCSV(userId: number, records: Record<string, unknown>[], collectionId: number | null): ImportResult {
     let imported = 0;
     const errors: Array<{ row: number; error: string }> = [];
-    const recipesForMemMachine: any[] = [];
+    const recipesForMemMachine: Array<{
+      name: string;
+      ingredients: string[];
+      instructions: string | null;
+      glass: string | null;
+      category: string | null;
+    }> = [];
     const validatedRecipes: Array<{
       rowNumber: number;
       name: string;
@@ -509,8 +515,9 @@ export class RecipeService {
               glass: recipe.glass,
               category: recipe.category,
             });
-          } catch (error: any) {
-            errors.push({ row: recipe.rowNumber, error: error.message || 'Failed to import row' });
+          } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to import row';
+            errors.push({ row: recipe.rowNumber, error: message });
           }
         }
       });
@@ -595,7 +602,7 @@ export class RecipeService {
   /**
    * Process ingredients input to JSON string
    */
-  private processIngredients(ingredients: any): { valid: boolean; str?: string; error?: string } {
+  private processIngredients(ingredients: unknown): { valid: boolean; str?: string; error?: string } {
     if (!ingredients) {
       return { valid: true, str: '[]' };
     }
@@ -622,7 +629,7 @@ export class RecipeService {
   /**
    * Safe JSON parse with fallback
    */
-  private safeParseJSON(str: string): any {
+  private safeParseJSON(str: string): string[] | string {
     try {
       return JSON.parse(str);
     } catch {
@@ -653,8 +660,16 @@ export class RecipeService {
   /**
    * Batch store recipes in MemMachine
    */
-  private batchStoreInMemMachine(userId: number, recipes: any[]): void {
-    memoryService.storeUserRecipesBatch(userId, recipes).then(result => {
+  private batchStoreInMemMachine(userId: number, recipes: Array<{ name: string; ingredients: string[]; instructions: string | null; glass: string | null; category: string | null }>): void {
+    // Transform null to undefined for MemMachine API compatibility
+    const recipesForApi = recipes.map(r => ({
+      name: r.name,
+      ingredients: r.ingredients,
+      instructions: r.instructions ?? undefined,
+      glass: r.glass ?? undefined,
+      category: r.category ?? undefined,
+    }));
+    memoryService.storeUserRecipesBatch(userId, recipesForApi).then(result => {
       if (result.uidMap.size > 0) {
         console.log(`💾 Storing ${result.uidMap.size} MemMachine UIDs in database...`);
 
@@ -693,7 +708,7 @@ export class RecipeService {
   /**
    * Validate and sanitize CSV recipe data
    */
-  private validateCSVRecipeData(record: any): CSVValidationResult {
+  private validateCSVRecipeData(record: Record<string, unknown>): CSVValidationResult {
     const errors: string[] = [];
 
     const nameField = this.findField(record, [
@@ -707,7 +722,7 @@ export class RecipeService {
       return { isValid: false, errors };
     }
 
-    const safeString = (val: any) => val ? String(val).trim() : null;
+    const safeString = (val: unknown) => val ? String(val).trim() : null;
 
     // Parse ingredients
     const ingredientsField = this.findField(record, [
@@ -757,7 +772,7 @@ export class RecipeService {
   /**
    * Find a field value from record using multiple possible column names
    */
-  private findField(record: any, possibleNames: string[]): any {
+  private findField(record: Record<string, unknown>, possibleNames: string[]): unknown {
     for (const name of possibleNames) {
       const value = record[name];
       if (value !== undefined && value !== null && value !== '') {

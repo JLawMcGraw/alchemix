@@ -52,45 +52,64 @@ describe('API Client', () => {
     };
     global.localStorage = localStorageMock as any;
 
+    // Mock document.cookie for CSRF token
+    Object.defineProperty(document, 'cookie', {
+      writable: true,
+      value: 'csrf_token=test-csrf-token-123',
+    });
+
     // Mock window.location
     delete (window as any).location;
     window.location = { href: '', pathname: '' } as any;
   });
 
   describe('Request Interceptor', () => {
-    it('should add Authorization header when token exists', async () => {
-      // Setup
-      const token = 'test-token-123';
-      (localStorage.getItem as any).mockReturnValue(token);
-
-      // Trigger interceptor
-      const config = { headers: {} };
+    it('should add X-CSRF-Token header for POST requests', async () => {
+      // Trigger interceptor with POST method
+      const config = { headers: {}, method: 'POST' };
       const interceptor = mockAxiosInstance._requestInterceptor;
       const result = interceptor(config);
 
-      expect(result.headers.Authorization).toBe(`Bearer ${token}`);
+      expect(result.headers['X-CSRF-Token']).toBe('test-csrf-token-123');
     });
 
-    it('should not add Authorization header when token does not exist', () => {
-      (localStorage.getItem as any).mockReturnValue(null);
-
-      const config = { headers: {} };
+    it('should add X-CSRF-Token header for PUT requests', async () => {
+      const config = { headers: {}, method: 'PUT' };
       const interceptor = mockAxiosInstance._requestInterceptor;
       const result = interceptor(config);
 
-      expect(result.headers.Authorization).toBeUndefined();
+      expect(result.headers['X-CSRF-Token']).toBe('test-csrf-token-123');
     });
 
-    it('should handle missing headers object', () => {
-      const token = 'test-token-123';
-      (localStorage.getItem as any).mockReturnValue(token);
-
-      const config = {};
+    it('should add X-CSRF-Token header for DELETE requests', async () => {
+      const config = { headers: {}, method: 'DELETE' };
       const interceptor = mockAxiosInstance._requestInterceptor;
       const result = interceptor(config);
 
-      // Should not crash
-      expect(result).toBeDefined();
+      expect(result.headers['X-CSRF-Token']).toBe('test-csrf-token-123');
+    });
+
+    it('should not add X-CSRF-Token header for GET requests', () => {
+      const config = { headers: {}, method: 'GET' };
+      const interceptor = mockAxiosInstance._requestInterceptor;
+      const result = interceptor(config);
+
+      expect(result.headers['X-CSRF-Token']).toBeUndefined();
+    });
+
+    it('should handle missing CSRF cookie gracefully', () => {
+      // Clear the cookie
+      Object.defineProperty(document, 'cookie', {
+        writable: true,
+        value: '',
+      });
+
+      const config = { headers: {}, method: 'POST' };
+      const interceptor = mockAxiosInstance._requestInterceptor;
+      const result = interceptor(config);
+
+      // Should not crash, just no CSRF header
+      expect(result.headers['X-CSRF-Token']).toBeUndefined();
     });
   });
 
@@ -112,8 +131,7 @@ describe('API Client', () => {
         // Expected to reject
       }
 
-      expect(localStorage.removeItem).toHaveBeenCalledWith('token');
-      expect(localStorage.removeItem).toHaveBeenCalledWith('user');
+      // Now only clears alchemix-storage (token is in httpOnly cookie, cleared by server)
       expect(localStorage.removeItem).toHaveBeenCalledWith('alchemix-storage');
       expect(window.location.href).toBe('/login');
     });
@@ -166,11 +184,12 @@ describe('API Client', () => {
         password: 'SecurePassword123!',
       };
 
+      // Response no longer includes token (it's in httpOnly cookie)
       const mockResponse = {
         data: {
           success: true,
           data: {
-            token: 'jwt-token',
+            csrfToken: 'csrf-token',
             user: { id: 1, email: 'test@example.com' },
           },
         },
@@ -180,7 +199,8 @@ describe('API Client', () => {
 
       const result = await authApi.login(credentials);
 
-      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/auth/login', credentials);
+      // request() calls apiClient.post(url, data, config) - config is undefined here
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/auth/login', credentials, undefined);
       expect(result).toEqual(mockResponse.data.data);
     });
 
@@ -194,7 +214,7 @@ describe('API Client', () => {
         data: {
           success: true,
           data: {
-            token: 'jwt-token',
+            csrfToken: 'csrf-token',
             user: { id: 2, email: 'newuser@example.com' },
           },
         },
@@ -204,7 +224,8 @@ describe('API Client', () => {
 
       const result = await authApi.signup(credentials);
 
-      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/auth/signup', credentials);
+      // request() calls apiClient.post(url, data, config) - config is undefined here
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/auth/signup', credentials, undefined);
       expect(result).toEqual(mockResponse.data.data);
     });
 
@@ -223,7 +244,8 @@ describe('API Client', () => {
 
       const result = await authApi.me();
 
-      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/auth/me');
+      // request() calls apiClient.get(url, config) - config is undefined here
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/auth/me', undefined);
       expect(result).toEqual(mockResponse.data.data);
     });
 
@@ -288,7 +310,8 @@ describe('API Client', () => {
 
       const result = await inventoryApi.add(newBottle as any);
 
-      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/api/inventory-items', newBottle);
+      // request() calls apiClient.post(url, data, config) - config is undefined here
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/api/inventory-items', newBottle, undefined);
       expect(result).toEqual(mockResponse.data.data);
     });
 
@@ -307,18 +330,28 @@ describe('API Client', () => {
 
       const result = await inventoryApi.update(bottleId, updates);
 
-      expect(mockAxiosInstance.put).toHaveBeenCalledWith(`/api/inventory-items/${bottleId}`, updates);
+      // request() calls apiClient.put(url, data, config) - config is undefined here
+      expect(mockAxiosInstance.put).toHaveBeenCalledWith(`/api/inventory-items/${bottleId}`, updates, undefined);
       expect(result).toEqual(mockResponse.data.data);
     });
 
     it('should delete a bottle', async () => {
       const bottleId = 1;
 
-      mockAxiosInstance.delete.mockResolvedValue({});
+      // delete uses request() which expects response.data.data structure
+      const mockResponse = {
+        data: {
+          success: true,
+          data: undefined, // void return
+        },
+      };
+
+      mockAxiosInstance.delete.mockResolvedValue(mockResponse);
 
       await inventoryApi.delete(bottleId);
 
-      expect(mockAxiosInstance.delete).toHaveBeenCalledWith(`/api/inventory-items/${bottleId}`);
+      // request() calls apiClient.delete(url, config) - config is undefined here
+      expect(mockAxiosInstance.delete).toHaveBeenCalledWith(`/api/inventory-items/${bottleId}`, undefined);
     });
 
     it('should import CSV file', async () => {
@@ -396,6 +429,7 @@ describe('API Client', () => {
 
       const result = await recipeApi.add(newRecipe as any);
 
+      // recipeApi.add doesn't use request(), it uses apiClient.post directly
       expect(mockAxiosInstance.post).toHaveBeenCalledWith('/api/recipes', newRecipe);
       expect(result).toEqual(mockResponse.data.data);
     });

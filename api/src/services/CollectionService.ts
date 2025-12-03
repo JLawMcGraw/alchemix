@@ -141,7 +141,7 @@ export class CollectionService {
 
     // Build update query dynamically
     const updates: string[] = [];
-    const values: any[] = [];
+    const values: (string | number | null)[] = [];
 
     if (input.name !== undefined) {
       const sanitizedName = sanitizeString(input.name, 100);

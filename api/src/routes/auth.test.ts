@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import express, { Express } from 'express';
 import request from 'supertest';
+import cookieParser from 'cookie-parser';
 import { createTestDatabase, cleanupTestDatabase } from '../tests/setup';
 import Database from 'better-sqlite3';
 import bcrypt from 'bcrypt';
@@ -38,6 +39,40 @@ vi.mock('../services/EmailService', () => ({
 import authRoutes from './auth';
 import { errorHandler } from '../middleware/errorHandler';
 
+/**
+ * Helper to get set-cookie header as array
+ * Express/supertest may return string | string[] depending on response
+ */
+function getSetCookies(response: request.Response): string[] {
+  const setCookies = response.headers['set-cookie'];
+  if (!setCookies) return [];
+  // Handle both string and string[] cases
+  return Array.isArray(setCookies) ? setCookies : [setCookies];
+}
+
+/**
+ * Helper to extract cookies from response for use in subsequent requests
+ * Returns cookie string for use with .set('Cookie', cookies)
+ */
+function extractCookies(response: request.Response): string {
+  const setCookies = getSetCookies(response);
+  if (!setCookies.length) return '';
+  return setCookies.map((cookie: string) => cookie.split(';')[0]).join('; ');
+}
+
+/**
+ * Helper to extract CSRF token from cookies for use in X-CSRF-Token header
+ */
+function extractCsrfToken(response: request.Response): string {
+  const setCookies = getSetCookies(response);
+  for (const cookie of setCookies) {
+    if (cookie.startsWith('csrf_token=')) {
+      return cookie.split(';')[0].replace('csrf_token=', '');
+    }
+  }
+  return '';
+}
+
 describe('Auth Routes Integration Tests', () => {
   let app: Express;
 
@@ -48,6 +83,7 @@ describe('Auth Routes Integration Tests', () => {
     // Create Express app
     app = express();
     app.use(express.json());
+    app.use(cookieParser()); // Required for cookie-based auth
     app.use('/auth', authRoutes);
     app.use(errorHandler);
   });
@@ -68,11 +104,20 @@ describe('Auth Routes Integration Tests', () => {
 
       expect(response.body).toHaveProperty('success', true);
       expect(response.body).toHaveProperty('data');
-      expect(response.body.data).toHaveProperty('token');
+      // Token is now in httpOnly cookie, csrfToken is in response body
+      expect(response.body.data).toHaveProperty('csrfToken');
       expect(response.body.data).toHaveProperty('user');
       expect(response.body.data.user).toHaveProperty('id');
       expect(response.body.data.user).toHaveProperty('email', 'newuser@example.com');
       expect(response.body.data.user).not.toHaveProperty('password_hash');
+
+      // Verify auth_token cookie is set
+      expect(response.headers['set-cookie']).toBeDefined();
+      const cookies = getSetCookies(response);
+      expect(cookies.some((c: string) => c.startsWith('auth_token='))).toBe(true);
+      expect(cookies.some((c: string) => c.startsWith('csrf_token='))).toBe(true);
+      // Verify httpOnly is set on auth_token
+      expect(cookies.some((c: string) => c.includes('auth_token=') && c.includes('HttpOnly'))).toBe(true);
     });
 
     it('should reject signup with invalid email', async () => {
@@ -187,7 +232,7 @@ describe('Auth Routes Integration Tests', () => {
         .run('testuser@example.com', hashedPassword);
     });
 
-    it('should login with valid credentials', async () => {
+    it('should login with valid credentials and set cookies', async () => {
       const response = await request(app)
         .post('/auth/login')
         .send({
@@ -200,7 +245,13 @@ describe('Auth Routes Integration Tests', () => {
       expect(response.body).toHaveProperty('data');
       expect(response.body.data).toHaveProperty('user');
       expect(response.body.data.user).toHaveProperty('email', 'testuser@example.com');
-      expect(response.body.data).toHaveProperty('token');
+      expect(response.body.data).toHaveProperty('csrfToken');
+
+      // Verify cookies are set
+      expect(response.headers['set-cookie']).toBeDefined();
+      const cookies = getSetCookies(response);
+      expect(cookies.some((c: string) => c.startsWith('auth_token='))).toBe(true);
+      expect(cookies.some((c: string) => c.startsWith('csrf_token='))).toBe(true);
     });
 
     it('should reject login with incorrect password', async () => {
@@ -263,7 +314,7 @@ describe('Auth Routes Integration Tests', () => {
       expect(response.body).toHaveProperty('success', false);
     });
 
-    it('should return a valid JWT token', async () => {
+    it('should set valid JWT token in httpOnly cookie', async () => {
       const response = await request(app)
         .post('/auth/login')
         .send({
@@ -272,7 +323,12 @@ describe('Auth Routes Integration Tests', () => {
         })
         .expect(200);
 
-      const token = response.body.data.token;
+      const cookies = getSetCookies(response);
+      const authCookie = cookies.find((c: string) => c.startsWith('auth_token='));
+      expect(authCookie).toBeDefined();
+
+      // Extract token from cookie
+      const token = authCookie!.split(';')[0].replace('auth_token=', '');
       expect(token).toBeDefined();
       expect(typeof token).toBe('string');
       expect(token.split('.')).toHaveLength(3); // JWT has 3 parts
@@ -280,7 +336,8 @@ describe('Auth Routes Integration Tests', () => {
   });
 
   describe('GET /auth/me', () => {
-    let authToken: string;
+    let authCookies: string;
+    let csrfToken: string;
     let userId: number;
 
     beforeEach(async () => {
@@ -299,13 +356,14 @@ describe('Auth Routes Integration Tests', () => {
           password: 'SecurePassword123!',
         });
 
-      authToken = loginResponse.body.data.token;
+      authCookies = extractCookies(loginResponse);
+      csrfToken = extractCsrfToken(loginResponse);
     });
 
-    it('should return user profile with valid token', async () => {
+    it('should return user profile with valid cookie', async () => {
       const response = await request(app)
         .get('/auth/me')
-        .set('Authorization', `Bearer ${authToken}`)
+        .set('Cookie', authCookies)
         .expect(200);
 
       expect(response.body).toHaveProperty('success', true);
@@ -314,7 +372,7 @@ describe('Auth Routes Integration Tests', () => {
       expect(response.body.data).not.toHaveProperty('password_hash');
     });
 
-    it('should reject request without token', async () => {
+    it('should reject request without cookie', async () => {
       const response = await request(app)
         .get('/auth/me')
         .expect(401);
@@ -322,19 +380,10 @@ describe('Auth Routes Integration Tests', () => {
       expect(response.body).toHaveProperty('success', false);
     });
 
-    it('should reject request with invalid token', async () => {
+    it('should reject request with invalid cookie', async () => {
       const response = await request(app)
         .get('/auth/me')
-        .set('Authorization', 'Bearer invalid-token')
-        .expect(401);
-
-      expect(response.body).toHaveProperty('success', false);
-    });
-
-    it('should reject request with malformed Authorization header', async () => {
-      const response = await request(app)
-        .get('/auth/me')
-        .set('Authorization', 'InvalidFormat ' + authToken) // Wrong prefix
+        .set('Cookie', 'auth_token=invalid-token')
         .expect(401);
 
       expect(response.body).toHaveProperty('success', false);
@@ -342,7 +391,8 @@ describe('Auth Routes Integration Tests', () => {
   });
 
   describe('POST /auth/logout', () => {
-    let authToken: string;
+    let authCookies: string;
+    let csrfToken: string;
 
     beforeEach(async () => {
       // Create and login a user
@@ -358,17 +408,23 @@ describe('Auth Routes Integration Tests', () => {
           password: 'SecurePassword123!',
         });
 
-      authToken = loginResponse.body.data.token;
+      authCookies = extractCookies(loginResponse);
+      csrfToken = extractCsrfToken(loginResponse);
     });
 
-    it('should logout successfully with valid token', async () => {
+    it('should logout successfully with valid cookie', async () => {
       const response = await request(app)
         .post('/auth/logout')
-        .set('Authorization', `Bearer ${authToken}`)
+        .set('Cookie', authCookies)
+        .set('X-CSRF-Token', csrfToken)
         .expect(200);
 
       expect(response.body).toHaveProperty('success', true);
       expect(response.body).toHaveProperty('message', 'Logged out successfully');
+
+      // Verify cookies are cleared
+      const cookies = getSetCookies(response);
+      expect(cookies.some((c: string) => c.includes('auth_token=;') || c.includes('auth_token=deleted'))).toBe(true);
     });
 
     it('should add token to blacklist on logout', async () => {
@@ -376,13 +432,14 @@ describe('Auth Routes Integration Tests', () => {
 
       await request(app)
         .post('/auth/logout')
-        .set('Authorization', `Bearer ${authToken}`)
+        .set('Cookie', authCookies)
+        .set('X-CSRF-Token', csrfToken)
         .expect(200);
 
       expect(tokenBlacklist.add).toHaveBeenCalled();
     });
 
-    it('should reject logout without token', async () => {
+    it('should reject logout without cookie', async () => {
       const response = await request(app)
         .post('/auth/logout')
         .expect(401);
@@ -452,6 +509,52 @@ describe('Auth Routes Integration Tests', () => {
       // Error messages should be generic enough to not leak user existence
       expect(duplicateResponse.body.error).toBeDefined();
       expect(nonExistentResponse.body.error).toBeDefined();
+    });
+
+    it('should set httpOnly flag on auth cookie', async () => {
+      const response = await request(app)
+        .post('/auth/login')
+        .send({
+          email: 'testuser@example.com',
+          password: 'SecurePassword123!',
+        });
+
+      // First create the user
+      const hashedPassword = await bcrypt.hash('SecurePassword123!', 10);
+      testDb
+        .prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)')
+        .run('httponly@example.com', hashedPassword);
+
+      const loginResponse = await request(app)
+        .post('/auth/login')
+        .send({
+          email: 'httponly@example.com',
+          password: 'SecurePassword123!',
+        })
+        .expect(200);
+
+      const cookies = getSetCookies(loginResponse);
+      const authCookie = cookies.find((c: string) => c.startsWith('auth_token='));
+      expect(authCookie).toContain('HttpOnly');
+    });
+
+    it('should set SameSite=Strict on cookies', async () => {
+      const hashedPassword = await bcrypt.hash('SecurePassword123!', 10);
+      testDb
+        .prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)')
+        .run('samesite@example.com', hashedPassword);
+
+      const loginResponse = await request(app)
+        .post('/auth/login')
+        .send({
+          email: 'samesite@example.com',
+          password: 'SecurePassword123!',
+        })
+        .expect(200);
+
+      const cookies = getSetCookies(loginResponse);
+      const authCookie = cookies.find((c: string) => c.startsWith('auth_token='));
+      expect(authCookie!.toLowerCase()).toContain('samesite=strict');
     });
   });
 
@@ -567,10 +670,11 @@ describe('Auth Routes Integration Tests', () => {
   });
 
   describe('POST /auth/resend-verification', () => {
-    let authToken: string;
+    let authCookies: string;
+    let csrfToken: string;
 
     beforeEach(async () => {
-      // Create unverified user and get auth token
+      // Create unverified user and get auth cookies
       const hashedPassword = await bcrypt.hash('SecurePassword123!', 10);
       testDb.prepare(
         'INSERT INTO users (email, password_hash, is_verified) VALUES (?, ?, 0)'
@@ -583,13 +687,15 @@ describe('Auth Routes Integration Tests', () => {
           password: 'SecurePassword123!',
         });
 
-      authToken = loginResponse.body.data.token;
+      authCookies = extractCookies(loginResponse);
+      csrfToken = extractCsrfToken(loginResponse);
     });
 
     it('should resend verification email to unverified user', async () => {
       const response = await request(app)
         .post('/auth/resend-verification')
-        .set('Authorization', `Bearer ${authToken}`)
+        .set('Cookie', authCookies)
+        .set('X-CSRF-Token', csrfToken)
         .expect(200);
 
       expect(response.body).toHaveProperty('success', true);
@@ -625,11 +731,13 @@ describe('Auth Routes Integration Tests', () => {
           password: 'SecurePassword123!',
         });
 
-      const verifiedToken = loginResponse.body.data.token;
+      const verifiedCookies = extractCookies(loginResponse);
+      const verifiedCsrf = extractCsrfToken(loginResponse);
 
       const response = await request(app)
         .post('/auth/resend-verification')
-        .set('Authorization', `Bearer ${verifiedToken}`)
+        .set('Cookie', verifiedCookies)
+        .set('X-CSRF-Token', verifiedCsrf)
         .expect(400);
 
       expect(response.body).toHaveProperty('success', false);
@@ -644,7 +752,8 @@ describe('Auth Routes Integration Tests', () => {
 
       await request(app)
         .post('/auth/resend-verification')
-        .set('Authorization', `Bearer ${authToken}`)
+        .set('Cookie', authCookies)
+        .set('X-CSRF-Token', csrfToken)
         .expect(200);
 
       // Verify new token is different from old
@@ -1019,11 +1128,11 @@ describe('Auth Routes Integration Tests', () => {
           password: 'SecurePassword123!',
         });
 
-      const token = loginResponse.body.data.token;
+      const authCookies = extractCookies(loginResponse);
 
       const response = await request(app)
         .get('/auth/me')
-        .set('Authorization', `Bearer ${token}`)
+        .set('Cookie', authCookies)
         .expect(200);
 
       expect(response.body.data).toHaveProperty('is_verified', true);

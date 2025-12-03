@@ -28,7 +28,12 @@ const nextConfig = {
   },
   // Allow images from localhost during development
   images: {
-    domains: ['localhost'],
+    remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+      },
+    ],
   },
   // Proxy API requests to Express backend
   async rewrites() {

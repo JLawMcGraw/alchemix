@@ -25,6 +25,7 @@
  */
 
 import axios, { AxiosInstance } from 'axios';
+import type Database from 'better-sqlite3';
 import {
   AddMemoriesRequest,
   AddMemoriesResponse,
@@ -720,7 +721,7 @@ export class MemoryService {
   formatContextForPrompt(
     searchResult: NormalizedSearchResult,
     userId: number,
-    db?: any,
+    db?: Database.Database,
     limit: number = MAX_PROMPT_RECIPES,
     alreadyRecommended: Set<string> = new Set()
   ): string {

@@ -1,5 +1,10 @@
 // AlcheMix API Client
 // Connects to Express backend at localhost:3000
+//
+// SECURITY: Uses httpOnly cookies for JWT storage (XSS protection)
+// - Auth token stored in httpOnly cookie (not accessible via JavaScript)
+// - CSRF token stored in regular cookie (read by JS for header inclusion)
+// - All state-changing requests include X-CSRF-Token header
 
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import type {
@@ -21,23 +26,44 @@ import type {
 // API Base URL (Express backend)
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
+/**
+ * Get CSRF token from cookie
+ * The csrf_token cookie is set by the server on login/signup
+ * and must be included in X-CSRF-Token header for state-changing requests
+ */
+function getCSRFToken(): string | null {
+  if (typeof document === 'undefined') return null;
+
+  const cookies = document.cookie.split(';');
+  for (const cookie of cookies) {
+    const [name, value] = cookie.trim().split('=');
+    if (name === 'csrf_token') {
+      return decodeURIComponent(value);
+    }
+  }
+  return null;
+}
+
 // Create Axios instance
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true, // For cookies (CSRF tokens)
+  withCredentials: true, // CRITICAL: Send cookies with requests (httpOnly auth cookie)
 });
 
-// Request interceptor to add auth token
+// Request interceptor to add CSRF token
 apiClient.interceptors.request.use(
   (config) => {
-    // Get token from localStorage
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // Add CSRF token to state-changing requests
+    // The auth token is now in an httpOnly cookie (sent automatically)
+    const method = config.method?.toUpperCase();
+    if (method && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
+      const csrfToken = getCSRFToken();
+      if (csrfToken && config.headers) {
+        config.headers['X-CSRF-Token'] = csrfToken;
+      }
     }
 
     return config;
@@ -51,19 +77,21 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    // Handle 401 Unauthorized (token expired)
+    // Handle 401 Unauthorized (token expired or invalid)
     if (error.response?.status === 401) {
-      // Clear all auth data and redirect to login
+      // Clear Zustand persisted storage to reset isAuthenticated
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        // Clear Zustand persisted storage to reset isAuthenticated
         localStorage.removeItem('alchemix-storage');
         // Prevent redirect loop by only redirecting if not already on login page
         if (window.location.pathname !== '/login') {
           window.location.href = '/login';
         }
       }
+    }
+
+    // Handle 403 Forbidden (CSRF validation failed)
+    if (error.response?.status === 403) {
+      console.error('CSRF validation failed. Try logging in again.');
     }
 
     return Promise.reject(error);
@@ -77,8 +105,8 @@ apiClient.interceptors.response.use(
 async function request<T>(
   method: 'get' | 'post' | 'put' | 'delete',
   url: string,
-  data?: any,
-  config?: any
+  data?: unknown,
+  config?: Record<string, unknown>
 ): Promise<T> {
   try {
     let response;
@@ -238,7 +266,14 @@ export const recipeApi = {
     const { data } = await apiClient.get<{
       success: boolean;
       data: Recipe[];
-      pagination: any;
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+        hasNextPage: boolean;
+        hasPreviousPage: boolean;
+      };
     }>(`/api/recipes?page=${page}&limit=${limit}`);
     return { recipes: data.data, pagination: data.pagination };
   },
@@ -269,14 +304,14 @@ export const recipeApi = {
     return { deleted: data.deleted, message: data.message };
   },
 
-  async importCSV(file: File, collectionId?: number): Promise<{ imported: number; failed: number; errors?: any[] }> {
+  async importCSV(file: File, collectionId?: number): Promise<{ imported: number; failed: number; errors?: Array<{ row: number; error: string }> }> {
     const formData = new FormData();
     formData.append('file', file);
     if (collectionId) {
       formData.append('collection_id', collectionId.toString());
     }
 
-    const { data } = await apiClient.post<{ success: boolean; imported: number; failed: number; errors?: any[] }>(
+    const { data } = await apiClient.post<{ success: boolean; imported: number; failed: number; errors?: Array<{ row: number; error: string }> }>(
       '/api/recipes/import',
       formData,
       {

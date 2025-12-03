@@ -1,0 +1,165 @@
+# =============================================================================
+# Dependabot Configuration
+# =============================================================================
+# Automated dependency updates for security and maintenance
+#
+# This configuration:
+# - Checks for npm updates weekly (Monday 9am UTC)
+# - Groups minor/patch updates to reduce PR noise
+# - Limits open PRs to prevent overwhelming reviewers
+# - Covers both frontend and API packages
+#
+# Security updates are always prioritized and created immediately.
+# =============================================================================
+
+version: 2
+
+updates:
+  # ===========================================================================
+  # Frontend (Next.js) Dependencies
+  # ===========================================================================
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    # Group updates to reduce PR noise
+    groups:
+      # React ecosystem updates
+      react:
+        patterns:
+          - "react*"
+          - "@types/react*"
+          - "next*"
+      # UI/styling updates
+      ui:
+        patterns:
+          - "tailwind*"
+          - "lucide-react"
+          - "class-variance-authority"
+          - "clsx"
+      # Testing updates
+      testing:
+        patterns:
+          - "jest*"
+          - "@testing-library/*"
+          - "vitest*"
+      # Development tools
+      dev-tools:
+        patterns:
+          - "typescript"
+          - "eslint*"
+          - "@typescript-eslint/*"
+          - "prettier*"
+    # Ignore major version updates (review manually)
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    labels:
+      - "dependencies"
+      - "frontend"
+    commit-message:
+      prefix: "chore(deps)"
+
+  # ===========================================================================
+  # API (Express) Dependencies
+  # ===========================================================================
+  - package-ecosystem: "npm"
+    directory: "/api"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    groups:
+      # Express ecosystem
+      express:
+        patterns:
+          - "express*"
+          - "cors"
+          - "helmet"
+          - "express-rate-limit"
+      # Security packages
+      security:
+        patterns:
+          - "jsonwebtoken"
+          - "bcrypt*"
+          - "validator"
+      # Database
+      database:
+        patterns:
+          - "better-sqlite3"
+          - "@types/better-sqlite3"
+      # Testing
+      testing:
+        patterns:
+          - "jest*"
+          - "@types/jest"
+          - "supertest*"
+      # Development tools
+      dev-tools:
+        patterns:
+          - "typescript"
+          - "ts-node*"
+          - "nodemon"
+          - "@types/*"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    labels:
+      - "dependencies"
+      - "api"
+    commit-message:
+      prefix: "chore(deps)"
+
+  # ===========================================================================
+  # GitHub Actions
+  # ===========================================================================
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "chore(ci)"
+
+  # ===========================================================================
+  # Docker Base Images
+  # ===========================================================================
+  - package-ecosystem: "docker"
+    directory: "/api"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 2
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore(docker)"
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 2
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore(docker)"

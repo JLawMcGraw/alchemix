@@ -6,23 +6,79 @@ import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Skeleton, StatCardSkeleton, InsightSkeleton } from '@/components/ui/Skeleton';
 import { CSVUploadModal } from '@/components/modals/CSVUploadModal';
 import { useToast } from '@/components/ui/Toast';
 import { Sparkles, Wine, Upload, BookOpen, Star, Zap, FolderOpen } from 'lucide-react';
 import { inventoryApi, recipeApi } from '@/lib/api';
-import DOMPurify from 'isomorphic-dompurify';
 import styles from './dashboard.module.css';
 
 /**
  * Safely render HTML content with only allowed tags
  * Prevents XSS attacks from AI-generated content
+ *
+ * SSR-safe implementation that doesn't rely on DOM APIs or jsdom
+ * Allows only: strong, em, b, i, br tags (no attributes)
  */
 const sanitizeAndRenderHTML = (html: string): string => {
   if (!html) return '';
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: ['strong', 'em', 'b', 'i', 'br'],
-    ALLOWED_ATTR: [],
-  });
+
+  // Step 1: Escape HTML entities to prevent double-encoding issues
+  const entityMap: Record<string, string> = {
+    '&lt;': '<',
+    '&gt;': '>',
+    '&amp;': '&',
+    '&quot;': '"',
+    '&#x27;': "'",
+    '&#39;': "'",
+  };
+
+  let decoded = html;
+  for (const [entity, char] of Object.entries(entityMap)) {
+    decoded = decoded.replace(new RegExp(entity, 'g'), char);
+  }
+
+  // Step 2: Use placeholder tokens for allowed tags
+  const allowedTags = ['strong', 'em', 'b', 'i', 'br'];
+  const placeholders: { placeholder: string; tag: string }[] = [];
+  let placeholderIndex = 0;
+
+  // Replace allowed tags with placeholders
+  for (const tag of allowedTags) {
+    // Opening tags (with optional whitespace)
+    decoded = decoded.replace(new RegExp(`<${tag}(\\s[^>]*)?>`, 'gi'), () => {
+      const placeholder = `__ALLOWED_TAG_${placeholderIndex++}__`;
+      placeholders.push({ placeholder, tag: `<${tag}>` });
+      return placeholder;
+    });
+
+    // Closing tags
+    decoded = decoded.replace(new RegExp(`</${tag}>`, 'gi'), () => {
+      const placeholder = `__ALLOWED_TAG_${placeholderIndex++}__`;
+      placeholders.push({ placeholder, tag: `</${tag}>` });
+      return placeholder;
+    });
+
+    // Self-closing tags (for <br/>)
+    decoded = decoded.replace(new RegExp(`<${tag}\\s*/>`, 'gi'), () => {
+      const placeholder = `__ALLOWED_TAG_${placeholderIndex++}__`;
+      placeholders.push({ placeholder, tag: `<${tag}/>` });
+      return placeholder;
+    });
+  }
+
+  // Step 3: Remove all remaining HTML tags (potentially malicious)
+  decoded = decoded.replace(/<[^>]*>/g, '');
+
+  // Step 4: Escape any remaining < > characters to prevent injection
+  decoded = decoded.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // Step 5: Restore allowed tags from placeholders
+  for (const { placeholder, tag } of placeholders) {
+    decoded = decoded.replace(placeholder, tag);
+  }
+
+  return decoded;
 };
 
 const renderGreetingContent = (greeting: string): React.ReactNode => {
@@ -102,33 +158,10 @@ export default function DashboardPage() {
   const { showToast } = useToast();
   const [csvModalOpen, setCsvModalOpen] = useState(false);
   const [csvModalType, setCsvModalType] = useState<'items' | 'recipes'>('items');
-
-  // Fetch data when authenticated
-  useEffect(() => {
-    if (isAuthenticated && !isValidating) {
-      fetchItems().catch(console.error);
-      fetchRecipes().catch(console.error);
-      fetchFavorites().catch(console.error);
-      fetchCollections().catch(console.error);
-      fetchDashboardInsight().catch(console.error);
-      fetchShoppingList().catch(console.error);
-    }
-  }, [isAuthenticated, isValidating, fetchItems, fetchRecipes, fetchFavorites, fetchCollections, fetchDashboardInsight, fetchShoppingList]);
-
-  // Show loading state during validation
-  if (isValidating) {
-    return (
-      <div className={styles.dashboard}>
-        <div className={styles.container}>
-          <div style={{ padding: '2rem', textAlign: 'center' }}>
-            Loading...
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number> | null>(null);
 
   // Memoized helper function to parse ingredients (prevents recreation on every render)
+  // NOTE: All hooks must be called before any conditional returns (React rules of hooks)
   const parseIngredients = useCallback((ingredients: string | string[] | undefined): string[] => {
     if (!ingredients) return [];
     if (Array.isArray(ingredients)) return ingredients;
@@ -150,10 +183,6 @@ export default function DashboardPage() {
     lowStockCount: 0,
   }), [inventoryItems, recipes, favorites, collections]);
 
-  if (!isAuthenticated) {
-    return null; // useAuthGuard will handle redirect
-  }
-
   // CSV Import handlers (memoized to prevent child re-renders)
   const handleOpenCSVModal = useCallback((type: 'items' | 'recipes') => {
     setCsvModalType(type);
@@ -165,7 +194,9 @@ export default function DashboardPage() {
       if (csvModalType === 'items') {
         const result = await inventoryApi.importCSV(file);
         showToast('success', `Successfully imported ${result.imported} items!`);
-        await fetchItems();
+        // Refresh category counts after import
+        const counts = await inventoryApi.getCategoryCounts();
+        setCategoryCounts(counts);
       } else {
         const result = await recipeApi.importCSV(file, collectionId);
         if (result.imported > 0) {
@@ -183,7 +214,43 @@ export default function DashboardPage() {
       showToast('error', error.message || 'Failed to import CSV');
       throw error;
     }
-  }, [csvModalType, showToast, fetchItems, fetchRecipes]);
+  }, [csvModalType, showToast, fetchRecipes]);
+
+  // Fetch data when authenticated
+  // Note: We check isAuthenticated && !isValidating to ensure we only fetch after auth is confirmed
+  useEffect(() => {
+    if (!isAuthenticated || isValidating) {
+      return;
+    }
+
+    // Fetch category counts directly (more efficient than fetching all items)
+    inventoryApi.getCategoryCounts()
+      .then(setCategoryCounts)
+      .catch(console.error);
+    fetchRecipes().catch(console.error);
+    fetchFavorites().catch(console.error);
+    fetchCollections().catch(console.error);
+    fetchDashboardInsight().catch(console.error);
+    fetchShoppingList().catch(console.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, isValidating]);
+
+  // Show loading state during validation
+  if (isValidating) {
+    return (
+      <div className={styles.dashboard}>
+        <div className={styles.container}>
+          <div style={{ padding: '2rem', textAlign: 'center' }}>
+            Loading...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null; // useAuthGuard will handle redirect
+  }
 
   return (
     <div className={styles.dashboard}>
@@ -212,7 +279,7 @@ export default function DashboardPage() {
             </div>
             <div className={styles.cardContent}>
               {isDashboardInsightLoading ? (
-                <p className={styles.loadingText}>Analyzing your lab notes...</p>
+                <InsightSkeleton />
               ) : dashboardInsight ? (
                 <p
                   className={styles.insightText}
@@ -251,17 +318,11 @@ export default function DashboardPage() {
                 </button>
               </div>
               <div className={styles.cardContent}>
-                {itemsArray.length === 0 ? (
+                {!categoryCounts || Object.keys(categoryCounts).length === 0 ? (
                   <p className={styles.emptyState}>No items yet.</p>
                 ) : (
                   <ul className={styles.categoryList}>
                     {(() => {
-                      const categoryCounts = itemsArray.reduce((acc, item) => {
-                        const category = item.category || 'other';
-                        acc[category] = (acc[category] || 0) + 1;
-                        return acc;
-                      }, {} as Record<string, number>);
-
                       const categoryLabels: Record<string, string> = {
                         spirit: 'Spirits',
                         liqueur: 'Liqueurs',
@@ -274,6 +335,7 @@ export default function DashboardPage() {
                       };
 
                       return Object.entries(categoryCounts)
+                        .filter(([, count]) => count > 0)
                         .sort(([, a], [, b]) => b - a)
                         .map(([category, count]) => (
                           <li

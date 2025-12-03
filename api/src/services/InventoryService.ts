@@ -336,7 +336,7 @@ export class InventoryService {
   /**
    * Import items from parsed CSV records
    */
-  importFromCSV(userId: number, records: any[]): ImportResult {
+  importFromCSV(userId: number, records: Record<string, unknown>[]): ImportResult {
     let imported = 0;
     const errors: Array<{ row: number; error: string }> = [];
 
@@ -357,10 +357,11 @@ export class InventoryService {
 
         this.create(userId, validation.sanitized!);
         imported++;
-      } catch (error: any) {
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to import row';
         errors.push({
           row: rowNumber,
-          error: error.message || 'Failed to import row'
+          error: message
         });
       }
     }
@@ -376,7 +377,7 @@ export class InventoryService {
    * Validate and sanitize inventory item data
    * Handles both API requests and CSV imports with flexible column names
    */
-  validateItemData(record: any): ValidationResult {
+  validateItemData(record: Record<string, unknown>): ValidationResult {
     const errors: string[] = [];
 
     // Try to find the name field with various possible column names
@@ -395,8 +396,8 @@ export class InventoryService {
     }
 
     // Helper functions
-    const safeString = (val: any) => val ? String(val).trim() : null;
-    const safeNumber = (val: any) => {
+    const safeString = (val: unknown) => val ? String(val).trim() : null;
+    const safeNumber = (val: unknown) => {
       const num = parseInt(String(val));
       return isNaN(num) ? null : num;
     };
@@ -441,7 +442,7 @@ export class InventoryService {
   /**
    * Find a field value from record using multiple possible column names
    */
-  private findField(record: any, possibleNames: string[]): any {
+  private findField(record: Record<string, unknown>, possibleNames: string[]): unknown {
     for (const name of possibleNames) {
       const value = record[name];
       if (value !== undefined && value !== null && value !== '') {

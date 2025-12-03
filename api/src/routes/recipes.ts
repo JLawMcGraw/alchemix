@@ -172,7 +172,7 @@ router.post('/import', upload.single('file'), asyncHandler(async (req: Request, 
 
   // Parse CSV
   const csvContent = req.file.buffer.toString('utf-8');
-  let records: any[];
+  let records: Record<string, string>[];
 
   try {
     records = parse(csvContent, {
@@ -180,11 +180,12 @@ router.post('/import', upload.single('file'), asyncHandler(async (req: Request, 
       skip_empty_lines: true,
       trim: true,
     });
-  } catch (parseError: any) {
+  } catch (parseError) {
+    const message = parseError instanceof Error ? parseError.message : 'Unknown parse error';
     return res.status(400).json({
       success: false,
       error: 'Failed to parse CSV file',
-      details: parseError.message
+      details: message
     });
   }
 
@@ -275,10 +276,11 @@ router.post('/memmachine/sync', asyncHandler(async (req: Request, res: Response)
       message: `MemMachine synced successfully - ${stats.uploaded} recipes uploaded`,
       stats
     });
-  } catch (error: any) {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to sync MemMachine';
     res.status(500).json({
       success: false,
-      error: error.message || 'Failed to sync MemMachine'
+      error: message
     });
   }
 }));

@@ -94,26 +94,6 @@ services:
         max-file: "3"
 
   # ===========================================================================
-  # Bar Server (MemMachine API)
-  # ===========================================================================
-  bar-server:
-    restart: always
-    ports: []
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 1G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # ===========================================================================
   # AlcheMix API Backend
   # ===========================================================================
   api:
@@ -127,7 +107,7 @@ services:
       - PORT=3000
       - JWT_SECRET=${JWT_SECRET}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - MEMMACHINE_API_URL=http://bar-server:8001
+      - MEMMACHINE_API_URL=http://memmachine:8080
       - MEMMACHINE_ENABLED=true
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3001}
     # Production: Only expose to localhost (use reverse proxy)
@@ -157,8 +137,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      bar-server:
-        condition: service_started
+      memmachine:
+        condition: service_healthy
 
   # ===========================================================================
   # AlcheMix Frontend

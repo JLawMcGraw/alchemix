@@ -65,7 +65,7 @@ export const apiLimiter = rateLimit({
   handler: rateLimitHandler,
   keyGenerator: (req) => {
     // Use user ID if authenticated, otherwise IP
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
     return userId ? `user:${userId}` : req.ip || 'unknown';
   },
 });
@@ -127,7 +127,7 @@ export const aiLimiter = rateLimit({
   },
   keyGenerator: (req) => {
     // Always use user ID for AI rate limiting (requires auth)
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
     return userId ? `ai:${userId}` : `ai:${req.ip || 'unknown'}`;
   },
 });
@@ -157,7 +157,7 @@ export const importLimiter = rateLimit({
     });
   },
   keyGenerator: (req) => {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.userId;
     return userId ? `import:${userId}` : `import:${req.ip || 'unknown'}`;
   },
 });

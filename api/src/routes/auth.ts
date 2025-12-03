@@ -51,6 +51,41 @@ function generateSecureToken(): string {
   return crypto.randomBytes(32).toString('hex');
 }
 
+/**
+ * Generate CSRF token
+ * Returns a 32-character hex string (16 bytes of randomness = 128 bits)
+ */
+function generateCSRFToken(): string {
+  return crypto.randomBytes(16).toString('hex');
+}
+
+/**
+ * Cookie Configuration for JWT Token
+ *
+ * Security settings:
+ * - httpOnly: true - Cookie NOT accessible via JavaScript (XSS protection)
+ * - secure: true (production) - Cookie only sent over HTTPS
+ * - sameSite: 'strict' - Cookie not sent with cross-site requests (CSRF protection)
+ * - maxAge: 7 days - Matches JWT expiration
+ * - path: '/' - Cookie valid for all routes
+ */
+function getAuthCookieOptions(): {
+  httpOnly: boolean;
+  secure: boolean;
+  sameSite: 'strict' | 'lax' | 'none';
+  maxAge: number;
+  path: string;
+} {
+  const isProduction = process.env.NODE_ENV === 'production';
+  return {
+    httpOnly: true,                          // NOT accessible via JavaScript
+    secure: isProduction,                    // HTTPS only in production
+    sameSite: 'strict',                      // Strict CSRF protection
+    maxAge: 7 * 24 * 60 * 60 * 1000,        // 7 days in milliseconds
+    path: '/',                               // Valid for all routes
+  };
+}
+
 const router = Router();
 
 /**
@@ -211,8 +246,9 @@ router.post('/signup', asyncHandler(async (req: Request, res: Response) => {
     try {
       await emailService.sendVerificationEmail(email, verificationToken);
       console.log(`✅ Verification email sent to ${email}`);
-    } catch (emailError: any) {
-      console.error(`⚠️ Failed to send verification email to ${email}:`, emailError.message);
+    } catch (emailError) {
+      const message = emailError instanceof Error ? emailError.message : 'Unknown error';
+      console.error(`⚠️ Failed to send verification email to ${email}:`, message);
       // Continue with signup - user can request new verification email later
     }
 
@@ -268,16 +304,35 @@ router.post('/signup', asyncHandler(async (req: Request, res: Response) => {
     });
 
     /**
-     * Step 11: Return Success Response
+     * Step 11: Set httpOnly Cookie and Return Success Response
+     *
+     * SECURITY UPGRADE: Token stored in httpOnly cookie instead of response body.
+     * - Cookie is NOT accessible via JavaScript (XSS protection)
+     * - Cookie is automatically sent with every request
+     * - CSRF token returned in body for state-changing requests
      *
      * 201 Created status indicates new resource was created.
-     * Return token for immediate authentication.
      * Include is_verified: false to trigger verification banner on frontend.
      */
+    const csrfToken = generateCSRFToken();
+
+    // Set JWT in httpOnly cookie
+    res.cookie('auth_token', token, getAuthCookieOptions());
+
+    // Set CSRF token in a separate non-httpOnly cookie (readable by JS for header inclusion)
+    res.cookie('csrf_token', csrfToken, {
+      httpOnly: false,  // JS needs to read this to include in headers
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+
   res.status(201).json({
     success: true,
     data: {
-      token,
+      // Token no longer in response body (stored in httpOnly cookie)
+      csrfToken,  // Frontend stores this for CSRF protection
       user: {
         ...user,
         is_verified: Boolean(user.is_verified) // Convert SQLite integer to boolean
@@ -448,16 +503,35 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
     const { password_hash, verification_token, verification_token_expires, reset_token, reset_token_expires, ...userWithoutSensitiveData } = user;
 
     /**
-     * Step 7: Return Success Response
+     * Step 7: Set httpOnly Cookie and Return Success Response
+     *
+     * SECURITY UPGRADE: Token stored in httpOnly cookie instead of response body.
+     * - Cookie is NOT accessible via JavaScript (XSS protection)
+     * - Cookie is automatically sent with every request
+     * - CSRF token returned in body for state-changing requests
      *
      * 200 OK status indicates successful authentication.
-     * Client stores token for future authenticated requests.
      * is_verified tells frontend whether to show verification banner.
      */
+    const csrfToken = generateCSRFToken();
+
+    // Set JWT in httpOnly cookie
+    res.cookie('auth_token', token, getAuthCookieOptions());
+
+    // Set CSRF token in a separate non-httpOnly cookie (readable by JS for header inclusion)
+    res.cookie('csrf_token', csrfToken, {
+      httpOnly: false,  // JS needs to read this to include in headers
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+
   res.json({
     success: true,
     data: {
-      token,
+      // Token no longer in response body (stored in httpOnly cookie)
+      csrfToken,  // Frontend stores this for CSRF protection
       user: {
         ...userWithoutSensitiveData,
         is_verified: Boolean(userWithoutSensitiveData.is_verified) // Convert SQLite integer to boolean
@@ -617,26 +691,32 @@ router.get('/me', authMiddleware, asyncHandler(async (req: Request, res: Respons
  */
 router.post('/logout', authMiddleware, asyncHandler(async (req: Request, res: Response) => {
   /**
-   * Step 1: Extract Token from Authorization Header
+   * Step 1: Extract Token from Cookie or Authorization Header
    *
    * The authMiddleware has already validated the token exists.
    * We need to extract it again for blacklisting.
    *
-     * Header format: "Authorization: Bearer <token>"
-     * We extract the token part (after "Bearer ")
-     */
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      // Should never happen (authMiddleware already checked this)
+   * Priority: Cookie first (new approach), then Authorization header (backward compat)
+   */
+    // Try cookie first (new httpOnly cookie approach)
+    let token = req.cookies?.auth_token;
+
+    // Fall back to Authorization header (backward compatibility)
+    if (!token) {
+      const authHeader = req.headers.authorization;
+      if (authHeader) {
+        token = authHeader.startsWith('Bearer ')
+          ? authHeader.substring(7)
+          : authHeader;
+      }
+    }
+
+    if (!token) {
       return res.status(401).json({
         success: false,
         error: 'No authorization token provided'
       });
     }
-
-    const token = authHeader.startsWith('Bearer ')
-      ? authHeader.substring(7)
-      : authHeader;
 
     /**
      * Step 2: Decode Token to Get Expiry
@@ -650,7 +730,7 @@ router.post('/logout', authMiddleware, asyncHandler(async (req: Request, res: Re
      * JWT exp claim is in seconds (Unix timestamp).
      */
     const JWT_SECRET = process.env.JWT_SECRET!; // Safe: validated at startup
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, JWT_SECRET) as jwt.JwtPayload;
 
     if (!decoded.exp) {
       console.warn('⚠️  Token missing exp claim - cannot blacklist properly');
@@ -677,19 +757,33 @@ router.post('/logout', authMiddleware, asyncHandler(async (req: Request, res: Re
     tokenBlacklist.add(token, decoded.exp);
 
     /**
-     * Step 4: Return Success Response
+     * Step 4: Clear Cookies and Return Success Response
      *
-     * Client should now:
-     * 1. Remove token from localStorage
-     * 2. Redirect to login page
-     * 3. Clear any cached user data
+     * Clear the httpOnly auth cookie and CSRF token cookie.
+     * Client should now redirect to login page.
      */
+    // Clear auth cookie
+    res.clearCookie('auth_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+    });
+
+    // Clear CSRF cookie
+    res.clearCookie('csrf_token', {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+    });
+
   res.json({
     success: true,
     message: 'Logged out successfully'
   });
 
-  console.log(`✅ User ${req.user?.userId} logged out (token blacklisted)`);
+  console.log(`✅ User ${req.user?.userId} logged out (token blacklisted, cookies cleared)`);
 }));
 
 /**
@@ -823,8 +917,9 @@ router.post('/resend-verification', authMiddleware, asyncHandler(async (req: Req
   try {
     await emailService.sendVerificationEmail(user.email, verificationToken);
     console.log(`✅ Verification email resent to ${user.email}`);
-  } catch (emailError: any) {
-    console.error(`❌ Failed to send verification email to ${user.email}:`, emailError.message);
+  } catch (emailError) {
+    const message = emailError instanceof Error ? emailError.message : 'Unknown error';
+    console.error(`❌ Failed to send verification email to ${user.email}:`, message);
     return res.status(500).json({
       success: false,
       error: 'Failed to send verification email. Please try again later.'
@@ -898,8 +993,9 @@ router.post('/forgot-password', asyncHandler(async (req: Request, res: Response)
   try {
     await emailService.sendPasswordResetEmail(user.email, resetToken);
     console.log(`✅ Password reset email sent to ${user.email}`);
-  } catch (emailError: any) {
-    console.error(`❌ Failed to send password reset email to ${user.email}:`, emailError.message);
+  } catch (emailError) {
+    const message = emailError instanceof Error ? emailError.message : 'Unknown error';
+    console.error(`❌ Failed to send password reset email to ${user.email}:`, message);
     // Still return success to prevent enumeration
   }
 

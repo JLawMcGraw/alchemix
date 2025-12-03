@@ -1,5 +1,9 @@
 // Auth Guard Hook
 // Protects pages by validating token and redirecting if not authenticated
+//
+// With httpOnly cookie-based auth, we can't check if a token exists in JS.
+// Instead, we always call validateToken() which tries to fetch /auth/me.
+// If the cookie is valid, it succeeds; if not, it fails and we redirect.
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -17,13 +21,9 @@ export function useAuthGuard() {
         return;
       }
 
-      // Check if token exists in localStorage
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-
-      if (token) {
-        // Validate the token with the backend
-        await validateToken();
-      }
+      // With httpOnly cookies, we can't check if token exists in JS
+      // Always validate by calling the backend - cookie is sent automatically
+      await validateToken();
 
       setIsValidating(false);
     };

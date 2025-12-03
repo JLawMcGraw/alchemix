@@ -6,13 +6,131 @@ Last updated: 2025-12-03
 
 ## Current Status
 
-**Version**: v1.22.0 (MemMachine v2 API Migration)
-**Phase**: Production Ready - MemMachine v2 Integration Complete
-**Blockers**: None - Docker containers healthy, v2 API verified
+**Version**: v1.23.0 (Security & Infrastructure)
+**Phase**: Production Ready - HttpOnly Cookie Auth Complete
+**Blockers**: None - All 462 tests passing (380 backend + 82 frontend)
 
 ---
 
-## Recent Session (2025-12-03): MemMachine v2 API Migration & Upstream Merge
+## Recent Session (2025-12-03): HttpOnly Cookie Auth, DevOps Infrastructure, UI Components
+
+### Work Completed
+
+#### Security: HttpOnly Cookie-Based Authentication (XSS Protection)
+- ✅ **Backend cookie infrastructure** - Added cookie-parser middleware to Express
+- ✅ **Auth routes updated** - Login/signup set httpOnly cookies instead of JWT in response body
+- ✅ **Auth middleware updated** - Reads JWT from `auth_token` cookie (not Authorization header)
+- ✅ **CSRF protection implemented** - Double Submit Cookie pattern with timing-safe comparison
+  - New `api/src/middleware/csrf.ts` with constant-time string comparison
+  - `csrf_token` cookie (readable by JS) + `X-CSRF-Token` header for state-changing requests
+- ✅ **Frontend API client updated** - Uses `withCredentials: true`, reads CSRF token from cookie
+- ✅ **Auth store updated** - Removed localStorage token handling, validates via cookie
+- ✅ **CORS configuration updated** - Added X-CSRF-Token to allowed headers, exposed Set-Cookie
+- ✅ **useAuthGuard hook fixed** - Always calls validateToken() (removed stale localStorage check)
+
+#### DevOps Infrastructure
+- ✅ **Dependabot configuration** - New `.github/dependabot.yml` with:
+  - Weekly npm updates for frontend and API (Mondays 9am UTC)
+  - Grouped updates (React, UI, testing, dev-tools, Express, security, database)
+  - GitHub Actions and Docker base image monitoring
+  - Major version updates ignored (manual review required)
+- ✅ **Database backup script** - New `api/scripts/backup-database.ts`:
+  - Timestamped backups with optional gzip compression
+  - Integrity verification after backup
+  - Configurable retention (--keep=N flag)
+  - Cron-ready for automated backups
+- ✅ **Docker improvements** - Updated Dockerfile.prod and docker-compose.prod.yml
+- ✅ **Rate limiter enhancements** - Updated `api/src/config/rateLimiter.ts`
+
+#### UI Component Library
+- ✅ **New Skeleton component** - `src/components/ui/Skeleton.tsx`:
+  - Shimmer animation with wave/pulse/none modes
+  - Variants: text, circular, rectangular
+  - Pre-built layouts: CardSkeleton, TableRowSkeleton, ListItemSkeleton
+  - Dashboard-specific: StatCardSkeleton, InsightSkeleton
+- ✅ **Button component enhancements** - Extended styles in Button.module.css
+- ✅ **Card component enhancements** - Extended styles in Card.module.css
+- ✅ **Input component enhancements** - Extended styles in Input.module.css
+
+#### Input Validation Hardening
+- ✅ **Enhanced inputValidator.ts** - Additional validation functions and edge cases
+- ✅ **Extended test coverage** - 28+ new tests in inputValidator.test.ts
+
+#### Dashboard Bug Fixes
+- ✅ **My Bar Overview empty on login/refresh** - Multiple fixes:
+  - Fixed useAuthGuard to always call validateToken() (httpOnly cookie compatible)
+  - Fixed useEffect dependency array preventing stale closures
+  - Switched from fetching all items to using `/api/inventory-items/category-counts` endpoint
+- ✅ **Category filter persistence bug** - Dashboard was reusing bar page filter
+- ✅ **Zero-count categories hidden** - Added filter to hide categories with 0 items
+
+#### Test Suite Updates (All 462 Tests Passing)
+- ✅ **Backend auth.test.ts** - Complete rewrite for cookie-based authentication
+  - Added `getSetCookies()` helper for type-safe cookie extraction
+  - Tests use `.set('Cookie', cookies)` instead of Authorization header
+  - Added tests for HttpOnly and SameSite=Strict cookie attributes
+- ✅ **Frontend store.test.ts** - Updated for cookie auth (removed token references)
+- ✅ **Frontend api.test.ts** - Updated for CSRF token handling
+
+### New Files Created
+- `.github/dependabot.yml` - Automated dependency updates
+- `api/scripts/backup-database.ts` - Database backup utility
+- `api/src/middleware/csrf.ts` - CSRF protection middleware
+- `src/components/ui/Skeleton.tsx` - Loading skeleton component
+- `src/components/ui/Skeleton.module.css` - Skeleton styles
+
+### Components Modified (43 files, +1435/-882 lines)
+
+**Backend (api/)**:
+- `middleware/auth.ts` - Cookie-based token extraction
+- `middleware/csrf.ts` - New CSRF middleware
+- `routes/auth.ts` - Cookie auth responses
+- `routes/auth.test.ts` - Complete test rewrite
+- `routes/health.ts`, `inventoryItems.ts`, `messages.ts`, `recipes.ts` - Various fixes
+- `server.ts` - Cookie-parser, CSRF middleware integration
+- `services/*` - Minor fixes across services
+- `utils/corsConfig.ts` - CSRF header support
+- `utils/inputValidator.ts` - Enhanced validation
+- `config/rateLimiter.ts` - Rate limit improvements
+
+**Frontend (src/)**:
+- `lib/api.ts` - withCredentials, CSRF token handling
+- `lib/store/*.ts` - All slices updated for cookie auth
+- `hooks/useAuthGuard.ts` - Cookie-compatible validation
+- `app/dashboard/page.tsx` - Category counts, loading states
+- `components/ui/*.tsx` - Button, Card, Input, new Skeleton
+
+**DevOps**:
+- `.github/dependabot.yml` - New
+- `docker-compose.yml`, `docker-compose.prod.yml` - Updates
+- `Dockerfile.prod`, `api/Dockerfile` - Updates
+- `.env.docker`, `next.config.js` - Config updates
+
+### Security Improvements
+
+| Before (v1.22) | After (v1.23) |
+|----------------|---------------|
+| JWT in localStorage | JWT in httpOnly cookie |
+| XSS can steal token | Token inaccessible to JS |
+| No CSRF protection | Double Submit Cookie pattern |
+| Token in response body | Token only in cookie |
+
+### Breaking Changes
+
+**Frontend Authentication**:
+- `authApi.login()` no longer returns `token` in response body
+- `authApi.login()` returns `csrfToken` instead (for CSRF header)
+- Token is automatically sent via cookie (no manual header needed)
+
+### Next Steps
+- [ ] Monitor authentication in production
+- [ ] Consider refresh token rotation for long sessions
+- [ ] Add rate limiting to auth endpoints
+- [ ] Test Dependabot PRs when they start arriving
+
+---
+
+## Previous Session (2025-12-03): MemMachine v2 API Migration & Upstream Merge
 
 ### Work Completed
 

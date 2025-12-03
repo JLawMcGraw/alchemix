@@ -110,7 +110,7 @@ export class FavoriteService {
       };
     }
 
-    return { isValid: true, value: validation.sanitized };
+    return { isValid: true, value: validation.sanitized ?? null };
   }
 
   /**

@@ -2,33 +2,38 @@
  * Auth Slice
  * Manages user authentication state and actions
  *
- * SECURITY NOTE: Token Storage
- * Currently tokens are stored in localStorage which is accessible to JavaScript.
- * This makes them vulnerable to XSS attacks - if an attacker can execute JavaScript
- * on the page, they can steal the token.
+ * SECURITY: HttpOnly Cookie-Based Authentication
+ * - JWT token is stored in httpOnly cookie (NOT accessible via JavaScript)
+ * - Prevents XSS attacks from stealing authentication tokens
+ * - CSRF protection via X-CSRF-Token header
+ * - Token is automatically sent with all requests (withCredentials: true)
  *
- * RECOMMENDED MIGRATION (Phase 3+):
- * Move to httpOnly cookies for token storage:
- * 1. Backend sets token in httpOnly cookie on login (not accessible to JS)
- * 2. Backend reads token from cookie instead of Authorization header
- * 3. Frontend removes localStorage token handling
- * 4. Add CSRF protection since cookies are sent automatically
- *
- * Current mitigations in place:
- * - Content Security Policy (CSP) headers to prevent XSS
- * - Input sanitization with DOMPurify
- * - Short token expiry (requires re-auth)
- * - Token versioning for revocation
+ * How it works:
+ * 1. Login/Signup: Server sets httpOnly cookie with JWT
+ * 2. API Requests: Browser automatically includes cookie
+ * 3. CSRF Protection: Frontend reads csrf_token cookie and includes in header
+ * 4. Logout: Server clears the httpOnly cookie
  */
 
 import { StateCreator } from 'zustand';
 import type { User, LoginCredentials, SignupCredentials } from '@/types';
 import { authApi } from '../api';
+import { AxiosError } from 'axios';
+
+/** Extract error message from Axios or standard Error */
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof AxiosError) {
+    return error.response?.data?.error || fallback;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return fallback;
+}
 
 export interface AuthSlice {
   // State
   user: User | null;
-  token: string | null;
   isAuthenticated: boolean;
   _hasHydrated: boolean;
 
@@ -36,7 +41,7 @@ export interface AuthSlice {
   login: (credentials: LoginCredentials) => Promise<void>;
   signup: (credentials: SignupCredentials) => Promise<void>;
   logout: () => void;
-  setUser: (user: User, token: string) => void;
+  setUser: (user: User) => void;
   validateToken: () => Promise<boolean>;
 }
 
@@ -48,7 +53,6 @@ export const createAuthSlice: StateCreator<
 > = (set, get) => ({
   // Initial State
   user: null,
-  token: null,
   isAuthenticated: false,
   _hasHydrated: false,
 
@@ -57,23 +61,16 @@ export const createAuthSlice: StateCreator<
     try {
       const response = await authApi.login(credentials);
 
-      // Extract token and user from response
-      const { token, user } = response;
-
-      // Store token and user
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(user));
-      }
+      // Server sets httpOnly cookie automatically
+      // Response now contains user data and csrfToken (token is in cookie)
+      const { user } = response;
 
       set({
         user: user,
-        token: token,
         isAuthenticated: true,
       });
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Login failed';
-      throw new Error(errorMessage);
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Login failed'));
     }
   },
 
@@ -81,71 +78,46 @@ export const createAuthSlice: StateCreator<
     try {
       const response = await authApi.signup(credentials);
 
-      // Extract token and user from response
-      const { token, user } = response;
-
-      // Store token and user
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(user));
-      }
+      // Server sets httpOnly cookie automatically
+      // Response now contains user data and csrfToken (token is in cookie)
+      const { user } = response;
 
       set({
         user: user,
-        token: token,
         isAuthenticated: true,
       });
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Signup failed';
-      throw new Error(errorMessage);
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Signup failed'));
     }
   },
 
   logout: () => {
-    // Clear localStorage
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-    }
-
     // Reset authentication state
     set({
       user: null,
-      token: null,
       isAuthenticated: false,
     });
 
-    // Call logout API
+    // Call logout API (clears httpOnly cookie on server)
     authApi.logout().catch(console.error);
   },
 
-  setUser: (user, token) => {
-    set({ user, token, isAuthenticated: true });
+  setUser: (user) => {
+    set({ user, isAuthenticated: true });
   },
 
   validateToken: async () => {
-    // Check both store and localStorage to handle pre-hydration calls
-    const storeToken = get().token;
-    const localToken = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    const token = storeToken || localToken;
-
-    if (!token) {
-      set({ isAuthenticated: false, user: null, token: null });
-      return false;
-    }
-
+    // With httpOnly cookies, we can't check if token exists in JS
+    // Instead, we try to fetch user data - if cookie is valid, it will work
     try {
-      // Try to fetch user data with the persisted token
       const response = await authApi.me();
-      // Sync the token to store if we used localStorage token
-      set({ user: response, isAuthenticated: true, token });
+      set({ user: response, isAuthenticated: true });
       return true;
     } catch (error) {
-      // Token is invalid or expired - clear everything
-      set({ isAuthenticated: false, user: null, token: null });
+      // Cookie is invalid, expired, or not present
+      set({ isAuthenticated: false, user: null });
+      // Clear Zustand persisted storage
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
         localStorage.removeItem('alchemix-storage');
       }
       return false;

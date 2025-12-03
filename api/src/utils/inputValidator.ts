@@ -24,10 +24,46 @@
  *
  * Standard format for all validation results.
  */
-export interface ValidationResult {
+export interface ValidationResult<T = unknown> {
   isValid: boolean;
   errors: string[];
-  sanitized?: any; // Cleaned version of the input
+  sanitized?: T; // Cleaned version of the input
+}
+
+/** Number validation result */
+export interface NumberValidationResult extends ValidationResult<number | null> {
+  sanitized?: number | null;
+}
+
+/** Date validation result */
+export interface DateValidationResult extends ValidationResult<string | null> {
+  sanitized?: string | null;
+}
+
+/** String validation result */
+export interface StringValidationResult extends ValidationResult<string> {
+  sanitized?: string;
+}
+
+/** Bottle data input interface (forward declaration for use in BottleValidationResult) */
+export interface SanitizedBottleData {
+  name?: string;
+  stock_number?: number | null;
+  type?: string;
+  spirit_classification?: string;
+  distillation_method?: string;
+  abv?: number | null;
+  distillery_location?: string;
+  age_statement?: string;
+  additional_notes?: string;
+  profile_nose?: string;
+  palate?: string;
+  finish?: string;
+}
+
+/** Bottle data validation result */
+export interface BottleValidationResult extends ValidationResult<SanitizedBottleData> {
+  sanitized?: SanitizedBottleData;
 }
 
 /**
@@ -146,11 +182,11 @@ export function validateEmail(email: string): ValidationResult {
  * @returns Validation result with parsed number
  */
 export function validateNumber(
-  input: any,
+  input: unknown,
   min?: number,
   max?: number,
   allowNull: boolean = false
-): ValidationResult {
+): NumberValidationResult {
   const errors: string[] = [];
 
   // Allow null if specified
@@ -211,10 +247,10 @@ export function validateNumber(
  * @returns Validation result with ISO date string
  */
 export function validateDate(
-  input: any,
+  input: unknown,
   allowFuture: boolean = false,
   allowNull: boolean = true
-): ValidationResult {
+): DateValidationResult {
   const errors: string[] = [];
 
   // Allow null if specified
@@ -227,7 +263,7 @@ export function validateDate(
   }
 
   // Try to parse date
-  const date = new Date(input);
+  const date = new Date(input as string | number | Date);
 
   // Check if valid date
   if (isNaN(date.getTime())) {
@@ -270,9 +306,24 @@ export function validateDate(
  * @param data - Bottle data object
  * @returns Validation result with sanitized data
  */
-export function validateBottleData(data: any): ValidationResult {
+interface BottleDataInput {
+  name?: string;
+  stock_number?: unknown;
+  type?: string;
+  spirit_classification?: string;
+  distillation_method?: string;
+  abv?: unknown;
+  distillery_location?: string;
+  age_statement?: string;
+  additional_notes?: string;
+  profile_nose?: string;
+  palate?: string;
+  finish?: string;
+}
+
+export function validateBottleData(data: BottleDataInput): BottleValidationResult {
   const errors: string[] = [];
-  const sanitized: any = {};
+  const sanitized: SanitizedBottleData = {};
 
   // Required: name
   if (!data.name || typeof data.name !== 'string') {
@@ -372,24 +423,30 @@ export function validateBottleData(data: any): ValidationResult {
  * @param obj - Object to sanitize
  * @returns Sanitized object with operator keys removed
  */
-export function sanitizeObjectKeys(obj: any): any {
+export function sanitizeObjectKeys(obj: unknown): unknown {
   if (typeof obj !== 'object' || obj === null) {
     return obj;
   }
 
-  const sanitized: any = Array.isArray(obj) ? [] : {};
+  if (Array.isArray(obj)) {
+    return obj.map((item) => sanitizeObjectKeys(item));
+  }
 
-  for (const key in obj) {
+  const sanitized: Record<string, unknown> = {};
+  const objRecord = obj as Record<string, unknown>;
+
+  for (const key in objRecord) {
     // Remove keys starting with $ (MongoDB operators)
     if (key.startsWith('$')) {
       continue;
     }
 
     // Recursively sanitize nested objects
-    if (typeof obj[key] === 'object' && obj[key] !== null) {
-      sanitized[key] = sanitizeObjectKeys(obj[key]);
+    const value = objRecord[key];
+    if (typeof value === 'object' && value !== null) {
+      sanitized[key] = sanitizeObjectKeys(value);
     } else {
-      sanitized[key] = obj[key];
+      sanitized[key] = value;
     }
   }
 

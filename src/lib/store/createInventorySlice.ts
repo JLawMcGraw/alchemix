@@ -6,6 +6,18 @@
 import { StateCreator } from 'zustand';
 import type { InventoryItem, InventoryItemInput, InventoryCategory, PaginationMetadata } from '@/types';
 import { inventoryApi } from '../api';
+import { AxiosError } from 'axios';
+
+/** Extract error message from Axios or standard Error */
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof AxiosError) {
+    return error.response?.data?.error || fallback;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return fallback;
+}
 
 export interface InventorySlice {
   // State
@@ -74,8 +86,8 @@ export const createInventorySlice: StateCreator<
           category: nextCategory,
         },
       });
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Failed to fetch inventory items';
+    } catch (error) {
+      const errorMessage = getErrorMessage(error, 'Failed to fetch inventory items');
       set({ error: errorMessage, isLoading: false });
       throw new Error(errorMessage);
     }
@@ -90,8 +102,8 @@ export const createInventorySlice: StateCreator<
         isLoading: false,
         inventoryVersion: state.inventoryVersion + 1,
       }));
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Failed to add inventory item';
+    } catch (error) {
+      const errorMessage = getErrorMessage(error, 'Failed to add inventory item');
       set({ error: errorMessage, isLoading: false });
       throw new Error(errorMessage);
     }
@@ -107,8 +119,8 @@ export const createInventorySlice: StateCreator<
         inventoryVersion: state.inventoryVersion + 1,
       }));
       return updatedItem;
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Failed to update inventory item';
+    } catch (error) {
+      const errorMessage = getErrorMessage(error, 'Failed to update inventory item');
       set({ error: errorMessage, isLoading: false });
       throw new Error(errorMessage);
     }
@@ -123,8 +135,8 @@ export const createInventorySlice: StateCreator<
         isLoading: false,
         inventoryVersion: state.inventoryVersion + 1,
       }));
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Failed to delete inventory item';
+    } catch (error) {
+      const errorMessage = getErrorMessage(error, 'Failed to delete inventory item');
       set({ error: errorMessage, isLoading: false });
       throw new Error(errorMessage);
     }

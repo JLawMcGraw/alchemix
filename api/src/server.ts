@@ -29,17 +29,38 @@
  */
 import './config/env';
 
+/**
+ * Environment Validation (PRODUCTION READINESS)
+ *
+ * Validates all required environment variables on startup.
+ * Fail-fast approach: crashes immediately if critical config is missing.
+ *
+ * This runs synchronously before the server starts, ensuring:
+ * - JWT_SECRET is set and >= 32 characters
+ * - NODE_ENV is valid (development/production/test)
+ * - PORT is a valid number
+ * - Optional vars are validated if present (SMTP, etc.)
+ */
+import { config } from './config/validateEnv';
+
 // Now import modules that depend on environment variables
 import express, { Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+import cookieParser from 'cookie-parser';
 import { initializeDatabase, db } from './database/db';
 import { corsOptions } from './utils/corsConfig';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { requestIdMiddleware } from './middleware/requestId';
 import { requestLoggerMiddleware, errorLoggerMiddleware } from './middleware/requestLogger';
 import { logger } from './utils/logger';
+
+// Import rate limiters from centralized config
+import {
+  authLimiter,
+  aiLimiter,
+  passwordResetLimiter,
+} from './config/rateLimiter';
 
 // Import API route handlers
 import authRoutes from './routes/auth';
@@ -49,6 +70,10 @@ import collectionsRoutes from './routes/collections';
 import favoritesRoutes from './routes/favorites';
 import messagesRoutes from './routes/messages';
 import shoppingListRoutes from './routes/shoppingList';
+import healthRoutes from './routes/health';
+
+// Import CSRF middleware for cookie-based auth protection
+import { csrfMiddleware } from './middleware/csrf';
 
 /**
  * Initialize Express Application
@@ -56,7 +81,7 @@ import shoppingListRoutes from './routes/shoppingList';
  * Creates the Express app instance that will handle all HTTP requests.
  */
 const app: Express = express();
-const PORT = process.env.PORT || 3000;
+const PORT = config.PORT;
 
 /**
  * SECURITY FIX #5: HTTPS Redirect Middleware
@@ -307,78 +332,19 @@ app.use(helmet({
 }));
 
 /**
- * Rate Limiting: General API Protection
+ * Rate Limiting Configuration
  *
- * Limits requests to prevent abuse and DoS attacks.
- * Applied to all /api/* routes.
+ * Rate limiters are imported from ./config/rateLimiter.ts for centralized management.
+ * Each limiter is applied to specific routes below.
  *
- * Configuration:
- * - Window: 15 minutes
- * - Max requests: 100 per IP address
- * - Response: 429 Too Many Requests
- * - Skip OPTIONS requests (CORS preflight checks)
+ * Available limiters:
+ * - authLimiter: 5 attempts per 15 min (login/signup - brute-force protection)
+ * - aiLimiter: 30 messages per hour per user (AI bartender - cost control)
+ * - passwordResetLimiter: 3 requests per hour (password reset - abuse prevention)
  *
- * Example:
- * - User makes 100 requests in 10 minutes → OK
- * - User makes 101st request → Blocked for remaining 5 minutes
- *
- * This prevents:
- * - API abuse and data scraping
- * - Automated attacks
- * - Resource exhaustion
- *
- * CORS Fix: Skip OPTIONS (preflight) requests from rate limiting
- * - OPTIONS requests don't perform actions, just check permissions
- * - Browsers send OPTIONS before actual POST/PUT/DELETE requests
- * - Rate limiting OPTIONS breaks CORS and blocks legitimate requests
+ * Note: General API rate limiting is disabled per user request.
+ * Users should be able to freely view their bar and recipes without limits.
  */
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes in milliseconds
-  max: 100,                  // Maximum 100 requests per window
-  message: 'Too many requests from this IP, please try again later',
-  standardHeaders: true,     // Return rate limit info in headers
-  legacyHeaders: false,      // Disable X-RateLimit-* headers
-  // Skip OPTIONS requests (CORS preflight) - they don't perform operations
-  skip: (req) => req.method === 'OPTIONS',
-});
-
-/**
- * Rate Limiting: Authentication Protection
- *
- * Stricter rate limiting for login/signup endpoints.
- * Prevents brute-force password attacks and account enumeration.
- *
- * Configuration:
- * - Window: 15 minutes
- * - Max requests: 5 per IP address
- * - Response: 429 Too Many Requests
- * - Skip OPTIONS requests (CORS preflight checks)
- *
- * Why stricter?
- * - Failed login attempts indicate potential attack
- * - Legitimate users rarely fail login more than 2-3 times
- * - 5 attempts allows for typos while blocking automation
- *
- * Security Impact:
- * - Brute-force attack trying 10,000 passwords → 5 attempts in 15 min = 13.9 days
- * - Without rate limiting → 10,000 attempts in minutes
- */
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5,                    // Maximum 5 authentication attempts
-  message: 'Too many authentication attempts from this IP. Please try again in 15 minutes.',
-  standardHeaders: true,
-  legacyHeaders: false,
-  // Skip successful requests (only count failures)
-  skipSuccessfulRequests: true,
-  // Skip OPTIONS requests (CORS preflight) - they don't perform operations
-  skip: (req) => req.method === 'OPTIONS',
-});
-
-// DISABLED: Rate limiting removed for data viewing routes per user request
-// User should be able to freely view their bar and recipes without limits
-// Rate limiting is only applied to expensive operations (AI bartender in messages.ts)
-// app.use('/api/', apiLimiter);
 
 /**
  * CORS (Cross-Origin Resource Sharing) Middleware
@@ -444,35 +410,43 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 /**
- * Health Check Endpoint
+ * Cookie Parser Middleware
  *
- * Simple endpoint to verify the API server is running.
- * Used by monitoring tools, load balancers, and deployment systems.
+ * Parses Cookie header and populates req.cookies with cookie name-value pairs.
+ * Required for httpOnly cookie-based authentication.
  *
- * Returns:
- * - status: "ok" if server is responding
- * - timestamp: Current server time (ISO 8601 format)
- * - uptime: Seconds since server started
+ * Security Benefits of httpOnly Cookies:
+ * - Tokens are NOT accessible via JavaScript (prevents XSS token theft)
+ * - Cookies automatically sent with requests (no localStorage handling)
+ * - Can be set as Secure (HTTPS only) and SameSite (CSRF protection)
+ *
+ * The optional secret enables signed cookies for additional integrity verification.
+ */
+app.use(cookieParser(process.env.COOKIE_SECRET || process.env.JWT_SECRET));
+
+/**
+ * Health Check Routes (Kubernetes/Docker Compatible)
+ *
+ * Mounted from ./routes/health.ts for production-grade health checks.
+ *
+ * Endpoints:
+ * - GET /health         - Legacy endpoint (backward compatible)
+ * - GET /health/live    - Liveness probe (is the process alive?)
+ * - GET /health/ready   - Readiness probe (is the service ready for traffic?)
+ * - GET /health/startup - Startup probe (has initialization completed?)
  *
  * Usage:
- * - Monitoring: Check every 30s, alert if status != "ok"
- * - Load balancer: Remove unhealthy instances from pool
- * - Deployment: Verify new version started successfully
+ * - Kubernetes: Configure probes in deployment.yaml
+ * - Docker: HEALTHCHECK in Dockerfile
+ * - Load balancer: Route traffic only to ready instances
+ * - Monitoring: Alert if status != healthy
  *
- * Example response:
- * {
- *   "status": "ok",
- *   "timestamp": "2025-11-10T14:32:05.123Z",
- *   "uptime": 3642.5
- * }
+ * Why separate endpoints?
+ * - /health/live: Quick check, no dependencies (container restart on failure)
+ * - /health/ready: Checks DB, env vars (traffic routing decision)
+ * - /health/startup: One-time check after boot (allows slow init)
  */
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime()
-  });
-});
+app.use(healthRoutes);
 
 /**
  * API Routes Configuration (OPTIMIZATION: API VERSIONING #4)
@@ -531,20 +505,22 @@ app.get('/health', (req, res) => {
  */
 
 // Authentication routes (login, signup, logout)
-// SECURITY FIX #3: Apply strict rate limiting to prevent brute-force attacks
-app.use('/auth/login', authLimiter);   // 5 attempts per 15 minutes (IP-based)
-app.use('/auth/signup', authLimiter);  // 5 attempts per 15 minutes (IP-based)
-app.use('/auth', authRoutes);          // Mount auth routes
+// Rate limiters imported from ./config/rateLimiter.ts
+app.use('/auth/login', authLimiter);           // 5 attempts per 15 min (brute-force protection)
+app.use('/auth/signup', authLimiter);          // 5 attempts per 15 min (abuse prevention)
+app.use('/auth/forgot-password', passwordResetLimiter);  // 3 per hour (email enumeration prevention)
+app.use('/auth/reset-password', passwordResetLimiter);   // 3 per hour (token abuse prevention)
+app.use('/auth', authRoutes);                  // Mount auth routes
 
-// Protected API routes (require authentication)
-// SECURITY FIX #14: Apply user-based rate limiting to authenticated routes
+// Protected API routes (require authentication + CSRF protection)
 // Note: Routes already include authMiddleware internally (sets req.user)
-app.use('/api/inventory-items', inventoryItemsRoutes);  // Inventory system with categories
-app.use('/api/recipes', recipesRoutes);
-app.use('/api/collections', collectionsRoutes);
-app.use('/api/shopping-list', shoppingListRoutes);
-app.use('/api/favorites', favoritesRoutes);
-app.use('/api/messages', messagesRoutes); // Lower limit for expensive AI requests
+// CSRF middleware validates X-CSRF-Token header for state-changing requests (POST/PUT/DELETE)
+app.use('/api/inventory-items', csrfMiddleware, inventoryItemsRoutes);  // Inventory system with categories
+app.use('/api/recipes', csrfMiddleware, recipesRoutes);
+app.use('/api/collections', csrfMiddleware, collectionsRoutes);
+app.use('/api/shopping-list', csrfMiddleware, shoppingListRoutes);
+app.use('/api/favorites', csrfMiddleware, favoritesRoutes);
+app.use('/api/messages', aiLimiter, csrfMiddleware, messagesRoutes);    // 30 messages/hour (AI cost control)
 
 /**
  * 404 Not Found Handler
@@ -654,26 +630,26 @@ const server = app.listen(PORT, () => {
   console.log('└─────────────────────────────────────────┘');
   console.log('');
   console.log('Available endpoints:');
-  console.log('  GET  /health                    - Health check');
-  console.log('  POST /auth/signup               - Create account (rate limited)');
-  console.log('  POST /auth/login                - Authenticate user (rate limited)');
+  console.log('  GET  /health                    - Legacy health check');
+  console.log('  GET  /health/live               - Liveness probe (K8s)');
+  console.log('  GET  /health/ready              - Readiness probe (K8s)');
+  console.log('  GET  /health/startup            - Startup probe (K8s)');
+  console.log('  POST /auth/signup               - Create account (5/15min)');
+  console.log('  POST /auth/login                - Authenticate user (5/15min)');
+  console.log('  POST /auth/forgot-password      - Request password reset (3/hr)');
+  console.log('  POST /auth/reset-password       - Reset password (3/hr)');
   console.log('  GET  /auth/me                   - Get current user');
   console.log('  POST /auth/logout               - End session');
-  console.log('  GET  /api/inventory-items       - List user inventory items (with category filter)');
-  console.log('  POST /api/inventory-items       - Add new item');
-  console.log('  PUT  /api/inventory-items/:id   - Update item');
-  console.log('  DELETE /api/inventory-items/:id - Delete item');
+  console.log('  GET  /api/inventory-items       - List user inventory');
   console.log('  GET  /api/recipes               - List recipes');
-  console.log('  POST /api/recipes               - Add recipe');
   console.log('  GET  /api/favorites             - List favorites');
-  console.log('  POST /api/favorites             - Add favorite');
-  console.log('  DELETE /api/favorites/:id       - Remove favorite');
-  console.log('  POST /api/messages              - Send AI chat message');
+  console.log('  POST /api/messages              - AI bartender (30/hr)');
   console.log('');
   console.log('🔒 Security: All /api/* routes require JWT authentication');
-  console.log('⏱️  Rate Limits: Auth 5/15min, API 100/15min');
+  console.log('⏱️  Rate Limits: Auth 5/15min, Password 3/hr, AI 30/hr');
   console.log('📊 Logging: Structured logging with Winston (logs/ directory)');
   console.log('🆔 Request IDs: Correlation tracking enabled');
+  console.log('✅ Environment: Validated on startup');
   console.log('');
 });
 

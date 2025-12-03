@@ -1,0 +1,183 @@
+/**
+ * Skeleton Loading Styles
+ *
+ * Animated placeholders for loading states.
+ * Uses CSS animations for smooth shimmer effects.
+ */
+
+/* Base skeleton styles */
+.skeleton {
+  display: inline-block;
+  background-color: var(--color-surface-alt, #2a2a2a);
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Variants */
+.text {
+  border-radius: 4px;
+  margin-bottom: 0.5em;
+}
+
+.text:last-child {
+  margin-bottom: 0;
+}
+
+.circular {
+  border-radius: 50%;
+}
+
+.rectangular {
+  border-radius: 8px;
+}
+
+/* Wave animation (shimmer effect) */
+.wave::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.08),
+    transparent
+  );
+  animation: wave 1.5s ease-in-out infinite;
+}
+
+@keyframes wave {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Pulse animation */
+.pulse {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* No animation */
+.none::after {
+  display: none;
+}
+
+/* Skeleton group (for multi-line text) */
+.skeletonGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+}
+
+/* Card skeleton */
+.cardSkeleton {
+  background-color: var(--color-surface, #1e1e1e);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--color-border, #333);
+}
+
+.cardSkeletonContent {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Table row skeleton */
+.tableRowSkeleton td {
+  padding: 0.75rem 1rem;
+}
+
+/* List item skeleton */
+.listItemSkeleton {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background-color: var(--color-surface, #1e1e1e);
+  border-radius: 8px;
+}
+
+.listItemContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* Stat card skeleton */
+.statCardSkeleton {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem;
+  background-color: var(--color-surface, #1e1e1e);
+  border-radius: 12px;
+  border: 1px solid var(--color-border, #333);
+}
+
+.statCardContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Insight skeleton */
+.insightSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+}
+
+.insightLoadingMessage {
+  color: var(--color-text-muted, #888);
+  font-size: 0.9rem;
+  font-style: italic;
+  margin: 0 0 0.5rem 0;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Responsive adjustments */
+@media (prefers-reduced-motion: reduce) {
+  .wave::after {
+    animation: none;
+  }
+
+  .pulse {
+    animation: none;
+  }
+}
+
+/* Dark mode specific (if needed) */
+@media (prefers-color-scheme: dark) {
+  .skeleton {
+    background-color: var(--color-surface-alt, #2a2a2a);
+  }
+
+  .wave::after {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.06),
+      transparent
+    );
+  }
+}

@@ -88,8 +88,9 @@ async function sendEmail(to: string, subject: string, html: string): Promise<voi
       html,
     });
     console.log(`✅ Email sent successfully to ${to}`);
-  } catch (error: any) {
-    console.error(`❌ Failed to send email to ${to}:`, error.message);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`❌ Failed to send email to ${to}:`, message);
     throw new Error('Failed to send email. Please try again later.');
   }
 }

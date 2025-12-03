@@ -258,7 +258,7 @@ router.delete('/bulk', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  const validIds = ids.every((id: any) => typeof id === 'number' || !isNaN(parseInt(id)));
+  const validIds = ids.every((id: unknown) => typeof id === 'number' || (typeof id === 'string' && !isNaN(parseInt(id))));
   if (!validIds) {
     return res.status(400).json({
       success: false,
@@ -351,7 +351,7 @@ router.post('/import', upload.single('file'), asyncHandler(async (req: Request, 
     }
   }
 
-  let records: any[];
+  let records: Record<string, string>[];
 
   try {
     records = parse(csvContent, {
@@ -359,11 +359,12 @@ router.post('/import', upload.single('file'), asyncHandler(async (req: Request, 
       skip_empty_lines: true,
       trim: true,
     });
-  } catch (parseError: any) {
+  } catch (parseError) {
+    const message = parseError instanceof Error ? parseError.message : 'Unknown parse error';
     return res.status(400).json({
       success: false,
       error: 'Failed to parse CSV file',
-      details: parseError.message
+      details: message
     });
   }
 

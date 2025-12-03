@@ -360,34 +360,37 @@ export function incrementTokenVersion(userId: number): number {
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
   try {
     /**
-     * Step 1: Extract Authorization Header
+     * Step 1: Extract Token from Cookie or Authorization Header
      *
-     * Expected format: "Authorization: Bearer <token>"
-     * The header contains the JWT token needed to verify the user's identity.
+     * SECURITY UPGRADE: Now supports httpOnly cookie-based auth.
+     * Priority: Cookie first (more secure), then Authorization header (backward compat)
+     *
+     * Cookie: auth_token (httpOnly, secure, sameSite=strict)
+     * Header: Authorization: Bearer <token>
      */
-    const authHeader = req.headers.authorization;
+    let token: string | undefined;
+
+    // Try httpOnly cookie first (new secure approach)
+    if (req.cookies?.auth_token) {
+      token = req.cookies.auth_token;
+    }
+    // Fall back to Authorization header (backward compatibility for API clients)
+    else {
+      const authHeader = req.headers.authorization;
+      if (authHeader) {
+        token = authHeader.startsWith('Bearer ')
+          ? authHeader.substring(7) // Remove "Bearer " prefix (7 characters)
+          : authHeader; // Use as-is if no prefix
+      }
+    }
 
     // Reject requests without authentication
-    if (!authHeader) {
+    if (!token) {
       return res.status(401).json({
         success: false,
         error: 'No authorization token provided'
       });
     }
-
-    /**
-     * Step 2: Extract Token from Header
-     *
-     * Authorization header format: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-     * We need to strip the "Bearer " prefix to get just the token.
-     *
-     * Supports both:
-     * - Standard format: "Bearer <token>"
-     * - Direct token: "<token>" (for compatibility)
-     */
-    const token = authHeader.startsWith('Bearer ')
-      ? authHeader.substring(7) // Remove "Bearer " prefix (7 characters)
-      : authHeader; // Use as-is if no prefix
 
     /**
      * Step 3: Check Token Blacklist (SECURITY FIX #7)

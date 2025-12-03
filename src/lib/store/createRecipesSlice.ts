@@ -6,6 +6,18 @@
 import { StateCreator } from 'zustand';
 import type { Recipe, Collection, Favorite } from '@/types';
 import { recipeApi, collectionsApi, favoritesApi } from '../api';
+import { AxiosError } from 'axios';
+
+/** Extract error message from Axios or standard Error */
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof AxiosError) {
+    return error.response?.data?.error || fallback;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return fallback;
+}
 
 export interface RecipesSlice {
   // State
@@ -77,9 +89,8 @@ export const createRecipesSlice: StateCreator<
       const { recipes } = await recipeApi.getAll(page, limit);
       set({ recipes });
       return recipes;
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Failed to fetch recipes';
-      throw new Error(errorMessage);
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Failed to fetch recipes'));
     }
   },
 
@@ -89,9 +100,8 @@ export const createRecipesSlice: StateCreator<
       set((state) => ({
         recipes: [...state.recipes, newRecipe],
       }));
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Failed to add recipe';
-      throw new Error(errorMessage);
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Failed to add recipe'));
     }
   },
 
@@ -101,9 +111,8 @@ export const createRecipesSlice: StateCreator<
       set((state) => ({
         recipes: state.recipes.map((r) => (r.id === id ? updatedRecipe : r)),
       }));
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Failed to update recipe';
-      throw new Error(errorMessage);
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Failed to update recipe'));
     }
   },
 
@@ -113,9 +122,8 @@ export const createRecipesSlice: StateCreator<
       set((state) => ({
         recipes: state.recipes.filter((r) => r.id !== id),
       }));
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Failed to delete recipe';
-      throw new Error(errorMessage);
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Failed to delete recipe'));
     }
   },
 
@@ -131,9 +139,8 @@ export const createRecipesSlice: StateCreator<
         recipes: state.recipes.filter((r) => !r.id || !idsToDelete.has(r.id)),
       }));
       return deleted;
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Failed to delete recipes';
-      throw new Error(errorMessage);
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Failed to delete recipes'));
     }
   },
 
@@ -142,9 +149,8 @@ export const createRecipesSlice: StateCreator<
     try {
       const collections = await collectionsApi.getAll();
       set({ collections });
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Failed to fetch collections';
-      throw new Error(errorMessage);
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Failed to fetch collections'));
     }
   },
 
@@ -154,9 +160,8 @@ export const createRecipesSlice: StateCreator<
       set((state) => ({
         collections: [...state.collections, newCollection],
       }));
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Failed to add collection';
-      throw new Error(errorMessage);
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Failed to add collection'));
     }
   },
 
@@ -168,9 +173,8 @@ export const createRecipesSlice: StateCreator<
           c.id === id ? updatedCollection : c
         ),
       }));
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Failed to update collection';
-      throw new Error(errorMessage);
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Failed to update collection'));
     }
   },
 
@@ -180,9 +184,8 @@ export const createRecipesSlice: StateCreator<
       set((state) => ({
         collections: state.collections.filter((c) => c.id !== id),
       }));
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Failed to delete collection';
-      throw new Error(errorMessage);
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Failed to delete collection'));
     }
   },
 
@@ -191,9 +194,8 @@ export const createRecipesSlice: StateCreator<
     try {
       const favorites = await favoritesApi.getAll();
       set({ favorites });
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Failed to fetch favorites';
-      throw new Error(errorMessage);
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Failed to fetch favorites'));
     }
   },
 
@@ -203,9 +205,8 @@ export const createRecipesSlice: StateCreator<
       set((state) => ({
         favorites: [...state.favorites, newFavorite],
       }));
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Failed to add favorite';
-      throw new Error(errorMessage);
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Failed to add favorite'));
     }
   },
 
@@ -215,9 +216,8 @@ export const createRecipesSlice: StateCreator<
       set((state) => ({
         favorites: state.favorites.filter((f) => f.id !== id),
       }));
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Failed to remove favorite';
-      throw new Error(errorMessage);
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Failed to remove favorite'));
     }
   },
 });

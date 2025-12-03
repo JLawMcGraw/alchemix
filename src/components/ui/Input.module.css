@@ -60,3 +60,12 @@
   font-size: var(--text-sm);
   color: var(--color-error);
 }
+
+.helperText {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.required {
+  color: var(--color-error);
+}
