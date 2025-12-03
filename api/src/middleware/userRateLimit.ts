@@ -112,6 +112,13 @@ const userRequests = new Map<string, number[]>();
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const RETENTION_PERIOD_MS = 60 * 60 * 1000; // 1 hour
 
+/**
+ * Maximum number of users to track in the rate limiter.
+ * Prevents memory exhaustion attacks where many users make requests.
+ * When limit is reached, oldest users are evicted (LRU-style).
+ */
+const MAX_TRACKED_USERS = 10000;
+
 function buildScopeIdentifier(req: Request): string {
   const basePath = req.baseUrl || '';
   const routePath = typeof req.route?.path === 'string' ? req.route.path : '';
@@ -357,7 +364,27 @@ export function userRateLimit(
     }
 
     /**
-     * Step 5: Record Current Request
+     * Step 5: Memory Protection Check
+     *
+     * Prevent memory exhaustion by limiting tracked users.
+     * If at capacity, evict oldest users (LRU-style).
+     */
+    if (userRequests.size >= MAX_TRACKED_USERS && !userRequests.has(bucketKey)) {
+      // Evict 10% oldest entries to make room
+      const entriesToEvict = Math.ceil(MAX_TRACKED_USERS * 0.1);
+      const sortedEntries = Array.from(userRequests.entries())
+        .map(([key, ts]) => ({ key, lastActivity: Math.max(...ts) }))
+        .sort((a, b) => a.lastActivity - b.lastActivity);
+
+      for (let i = 0; i < entriesToEvict && i < sortedEntries.length; i++) {
+        userRequests.delete(sortedEntries[i].key);
+      }
+
+      console.log(`🧹 Rate limiter memory protection: evicted ${entriesToEvict} oldest entries`);
+    }
+
+    /**
+     * Step 6: Record Current Request
      *
      * Add current timestamp to user's request history.
      * Update Map with new timestamp array.
@@ -366,7 +393,7 @@ export function userRateLimit(
     userRequests.set(bucketKey, timestamps);
 
     /**
-     * Step 6: Set Rate Limit Headers
+     * Step 7: Set Rate Limit Headers
      *
      * Inform client of rate limit status.
      * Allows frontend to show warnings before hitting limit.
@@ -385,7 +412,7 @@ export function userRateLimit(
     res.set('X-RateLimit-Reset', Math.floor(resetTime / 1000).toString());
 
     /**
-     * Step 7: Continue to Next Middleware
+     * Step 8: Continue to Next Middleware
      *
      * Rate limit not exceeded - allow request to proceed.
      */

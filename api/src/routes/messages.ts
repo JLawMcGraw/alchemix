@@ -396,20 +396,26 @@ async function buildContextAwarePrompt(
   userMessage: string = '',
   conversationHistory: { role: 'user' | 'assistant'; content: string }[] = []
 ): Promise<Array<{ type: string; text: string; cache_control?: { type: string } }>> {
+  // PERFORMANCE: Limit query results to prevent memory bloat
+  // These limits are generous but protect against extreme cases
+  const MAX_INVENTORY_ITEMS = 500;
+  const MAX_RECIPES = 500;
+  const MAX_FAVORITES = 100;
+
   // Fetch user's inventory (only items with stock > 0)
   const inventory = db.prepare(
-    'SELECT * FROM inventory_items WHERE user_id = ? AND (stock_number IS NOT NULL AND stock_number > 0) ORDER BY name'
-  ).all(userId) as any[];
+    'SELECT * FROM inventory_items WHERE user_id = ? AND (stock_number IS NOT NULL AND stock_number > 0) ORDER BY name LIMIT ?'
+  ).all(userId, MAX_INVENTORY_ITEMS) as any[];
 
   // Fetch user's recipes
   const recipes = db.prepare(
-    'SELECT * FROM recipes WHERE user_id = ? ORDER BY name'
-  ).all(userId) as any[];
+    'SELECT * FROM recipes WHERE user_id = ? ORDER BY name LIMIT ?'
+  ).all(userId, MAX_RECIPES) as any[];
 
   // Fetch user's favorites
   const favorites = db.prepare(
-    'SELECT * FROM favorites WHERE user_id = ? ORDER BY created_at DESC'
-  ).all(userId) as any[];
+    'SELECT * FROM favorites WHERE user_id = ? ORDER BY created_at DESC LIMIT ?'
+  ).all(userId, MAX_FAVORITES) as any[];
 
   // COMPRESSED FORMAT: Single line per item with key tasting data
   // Saves ~50% tokens while preserving info needed for cocktail crafting

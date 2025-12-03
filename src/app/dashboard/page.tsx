@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
@@ -10,7 +10,20 @@ import { CSVUploadModal } from '@/components/modals/CSVUploadModal';
 import { useToast } from '@/components/ui/Toast';
 import { Sparkles, Wine, Upload, BookOpen, Star, Zap, FolderOpen } from 'lucide-react';
 import { inventoryApi, recipeApi } from '@/lib/api';
+import DOMPurify from 'isomorphic-dompurify';
 import styles from './dashboard.module.css';
+
+/**
+ * Safely render HTML content with only allowed tags
+ * Prevents XSS attacks from AI-generated content
+ */
+const sanitizeAndRenderHTML = (html: string): string => {
+  if (!html) return '';
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['strong', 'em', 'b', 'i', 'br'],
+    ALLOWED_ATTR: [],
+  });
+};
 
 const renderGreetingContent = (greeting: string): React.ReactNode => {
   if (!greeting) {
@@ -115,12 +128,8 @@ export default function DashboardPage() {
     );
   }
 
-  if (!isAuthenticated) {
-    return null; // useAuthGuard will handle redirect
-  }
-
-  // Helper function to parse ingredients
-  const parseIngredients = (ingredients: string | string[] | undefined): string[] => {
+  // Memoized helper function to parse ingredients (prevents recreation on every render)
+  const parseIngredients = useCallback((ingredients: string | string[] | undefined): string[] => {
     if (!ingredients) return [];
     if (Array.isArray(ingredients)) return ingredients;
     try {
@@ -129,23 +138,29 @@ export default function DashboardPage() {
     } catch {
       return ingredients.split(',').map(i => i.trim());
     }
-  };
+  }, []);
 
-  // Calculate stats
-  const itemsArray = Array.isArray(inventoryItems) ? inventoryItems : [];
-  const recipesArray = Array.isArray(recipes) ? recipes : [];
-  const favoritesArray = Array.isArray(favorites) ? favorites : [];
-  const collectionsArray = Array.isArray(collections) ? collections : [];
-  // Low stock feature disabled until Quantity field is added to InventoryItem type
-  const lowStockCount = 0;
+  // Memoized stats calculations (only recalculate when data changes)
+  const { itemsArray, recipesArray, favoritesArray, collectionsArray, lowStockCount } = useMemo(() => ({
+    itemsArray: Array.isArray(inventoryItems) ? inventoryItems : [],
+    recipesArray: Array.isArray(recipes) ? recipes : [],
+    favoritesArray: Array.isArray(favorites) ? favorites : [],
+    collectionsArray: Array.isArray(collections) ? collections : [],
+    // Low stock feature disabled until Quantity field is added to InventoryItem type
+    lowStockCount: 0,
+  }), [inventoryItems, recipes, favorites, collections]);
 
-  // CSV Import handlers
-  const handleOpenCSVModal = (type: 'items' | 'recipes') => {
+  if (!isAuthenticated) {
+    return null; // useAuthGuard will handle redirect
+  }
+
+  // CSV Import handlers (memoized to prevent child re-renders)
+  const handleOpenCSVModal = useCallback((type: 'items' | 'recipes') => {
     setCsvModalType(type);
     setCsvModalOpen(true);
-  };
+  }, []);
 
-  const handleCSVUpload = async (file: File, collectionId?: number) => {
+  const handleCSVUpload = useCallback(async (file: File, collectionId?: number) => {
     try {
       if (csvModalType === 'items') {
         const result = await inventoryApi.importCSV(file);
@@ -168,7 +183,7 @@ export default function DashboardPage() {
       showToast('error', error.message || 'Failed to import CSV');
       throw error;
     }
-  };
+  }, [csvModalType, showToast, fetchItems, fetchRecipes]);
 
   return (
     <div className={styles.dashboard}>
@@ -199,7 +214,10 @@ export default function DashboardPage() {
               {isDashboardInsightLoading ? (
                 <p className={styles.loadingText}>Analyzing your lab notes...</p>
               ) : dashboardInsight ? (
-                <p className={styles.insightText} dangerouslySetInnerHTML={{ __html: dashboardInsight }} />
+                <p
+                  className={styles.insightText}
+                  dangerouslySetInnerHTML={{ __html: sanitizeAndRenderHTML(dashboardInsight) }}
+                />
               ) : (
                 <p className={styles.emptyState}>
                   Add items and recipes to get personalized insights!

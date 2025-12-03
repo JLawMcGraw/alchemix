@@ -1,18 +1,135 @@
 # Project Development Progress
 
-Last updated: 2025-12-01
+Last updated: 2025-12-02
 
 ---
 
 ## Current Status
 
-**Version**: v1.20.0 (Email Verification, Password Reset & Backend Refactoring)
-**Phase**: Production Ready - Full Auth Flow with Email Verification
-**Blockers**: None - All 379 tests passing
+**Version**: v1.21.0 (AI Improvements, Security Hardening & Production DevOps)
+**Phase**: Production Ready - Full DevOps Infrastructure
+**Blockers**: None - All 258 tests passing, type-check clean
 
 ---
 
-## Recent Session (2025-12-01): Email Verification, Password Reset & Major Backend Refactoring
+## Recent Session (2025-12-02): AI Improvements, Security Fixes, Performance Optimizations & DevOps Infrastructure
+
+### Work Completed
+
+#### AI Recommendation Improvements
+- ✅ **Duplicate Prevention**: Added `extractAlreadyRecommendedRecipes()` to filter previously recommended recipes from MemMachine context
+- ✅ **Gap Handling**: Added section for "similar to X" requests when exact match not in user's collection
+- ✅ **Reasoning Chain**: Added requirements for AI to explain why recommendations fit the request
+- ✅ **Ingredient Context Awareness**: Added table showing ingredient availability for smarter suggestions
+- ✅ **Creative Recipe Crafting**: Enabled AI to craft new recipes using user's inventory (not just saved recipes)
+- ✅ **Context Relabeling**: Changed "RELEVANT CONTEXT FROM MEMORY" to "SEMANTIC SEARCH RESULTS"
+
+#### AI Cost Optimization (~64% token reduction)
+- ✅ **Compressed Inventory Format**: Single-line per item with ABV, Nose, Palate, Finish (removed Personal Notes)
+- ✅ **Compressed Recipe Format**: Name + category + ingredients only (removed Instructions, Glass)
+- ✅ **Dynamic Favorites Block**: Moved to dynamic section for better cache stability
+- ✅ **Estimated Savings**: ~70k tokens → ~25k tokens per context window
+
+#### Security Fixes (4 items)
+- ✅ **Express Vulnerability**: Updated to 4.22.0 (security patches)
+- ✅ **Schema Log Exposure**: Added production log suppression in `db.ts`
+- ✅ **Mass Assignment Risk**: Added field whitelist filter in `RecipeService.ts`
+- ✅ **Token Storage**: Documented httpOnly cookie migration plan in `createAuthSlice.ts`
+
+#### Performance Optimizations (4 items)
+- ✅ **Missing Memoization**: Added `useMemo`/`useCallback` to `dashboard/page.tsx`
+- ✅ **N+1 Query Pattern**: Implemented transaction batching in `RecipeService.ts` CSV import
+- ✅ **Missing DB Indexes**: Added 6 new indexes (token_blacklist, verification, composite)
+- ✅ **Unbounded Query Results**: Added LIMIT clauses to messages.ts (500/500/100)
+
+#### DevOps Infrastructure (8 items)
+- ✅ **Environment Validation**: Created `api/src/config/validateEnv.ts` with fail-fast validation
+- ✅ **Health Check Routes**: Created `api/src/routes/health.ts` with K8s probes (live/ready/startup)
+- ✅ **Rate Limiter Config**: Created `api/src/config/rateLimiter.ts` with 5 limiter presets
+- ✅ **Production Frontend Dockerfile**: Created `Dockerfile.prod` with multi-stage build
+- ✅ **API Dockerfile Update**: Enhanced with dumb-init, non-root user, health checks
+- ✅ **Production Docker Compose**: Created `docker-compose.prod.yml` with resource limits
+- ✅ **GitHub Actions CI/CD**: Created `.github/workflows/ci.yml` with lint, test, build jobs
+- ✅ **Next.js Standalone**: Enabled `output: 'standalone'` for optimized Docker builds
+
+### Components Modified
+
+**AI Files Modified**:
+- `api/src/routes/messages.ts` - Duplicate filtering, gap handling, reasoning chain, ingredient awareness, creative crafting, compressed formats
+- `api/src/services/MemoryService.ts` - Updated `formatContextForPrompt()` with `alreadyRecommended` parameter
+
+**New Files Created**:
+- `api/src/config/validateEnv.ts` - Environment variable validation with typed config
+- `api/src/config/rateLimiter.ts` - Rate limiter presets (api, auth, ai, import, password reset)
+- `api/src/routes/health.ts` - Kubernetes-compatible health probes
+- `Dockerfile.prod` - Production frontend Docker image
+- `docker-compose.prod.yml` - Production orchestration with resource limits
+- `.github/workflows/ci.yml` - GitHub Actions CI/CD pipeline
+
+**Files Modified**:
+- `api/package.json` - Express 4.22.0
+- `api/Dockerfile` - Production hardening (dumb-init, non-root, health checks)
+- `api/src/database/db.ts` - Production log suppression, 6 new indexes
+- `api/src/services/RecipeService.ts` - Mass assignment fix, N+1 query fix
+- `api/src/middleware/userRateLimit.ts` - Memory protection (MAX_TRACKED_USERS)
+- `api/src/utils/tokenBlacklist.ts` - Size limit (MAX_BLACKLIST_CACHE_SIZE)
+- `src/app/dashboard/page.tsx` - XSS fix (DOMPurify), memoization (useMemo/useCallback)
+- `src/lib/store/createAuthSlice.ts` - Security documentation for token storage
+- `next.config.js` - CSP headers, standalone output
+
+**Documentation Moved**:
+- `PRODUCTION_READINESS_ACTION_PLAN.md` → `Documentation/`
+- `REVIEW_SUMMARY.md` → `Documentation/`
+- `REVIEW_INDEX.md` → `Documentation/`
+- `INFRASTRUCTURE_REVIEW.md` → `Documentation/`
+- `DEVOPS_IMPLEMENTATION_GUIDE.md` → `Documentation/`
+
+### Key Issues Resolved
+
+**1. AI Duplicate Recommendations**
+- **Problem**: AI recommending same recipes (e.g., Negroni) multiple times in conversation
+- **Solution**: Extract already-recommended recipes from conversation history, filter from context
+
+**2. AI "Similar To" Requests Failing**
+- **Problem**: "Something like Last Word" returning random results when recipe not in collection
+- **Solution**: Added gap handling section instructing AI to explain alternatives
+
+**3. AI Ingredient Unawareness**
+- **Problem**: AI suggesting simple syrup for eggnog (already sweet)
+- **Solution**: Added ingredient context table with availability status
+
+**4. High API Token Costs**
+- **Problem**: ~70k tokens per context window
+- **Solution**: Compressed formats, removed redundant fields, ~64% reduction
+
+**5. XSS Vulnerability (CRITICAL)**
+- **Problem**: `dangerouslySetInnerHTML` without sanitization
+- **Solution**: Added DOMPurify sanitization with strict allowlist
+
+**6. Mass Assignment (HIGH)**
+- **Problem**: Recipe updates could potentially modify protected fields
+- **Solution**: Added ALLOWED_UPDATE_FIELDS whitelist, filter input before processing
+
+**7. N+1 Query Pattern (PERFORMANCE)**
+- **Problem**: CSV import inserted recipes one-by-one in a loop
+- **Solution**: Wrapped in db.transaction() with prepared statement reuse
+
+### Test Results
+
+- **Total Tests**: 258 (backend)
+- **All Tests Passing**: Yes
+- **TypeScript Compilation**: Clean (0 errors)
+
+### Next Priorities
+- [ ] Wire up health routes in server.ts
+- [ ] Wire up new rate limiters to routes
+- [ ] Integrate validateEnv into server startup
+- [ ] Test Docker builds locally
+- [ ] Deploy to staging environment
+
+---
+
+## Previous Session (2025-12-01): Email Verification, Password Reset & Major Backend Refactoring
 
 ### Work Completed
 

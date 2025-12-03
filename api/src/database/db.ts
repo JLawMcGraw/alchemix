@@ -173,7 +173,12 @@ db.pragma('foreign_keys = ON');
  * - Example: ALTER TABLE bottles ADD COLUMN updated_at
  */
 export function initializeDatabase() {
-  console.log('🔧 Initializing database schema...');
+  const isProduction = process.env.NODE_ENV === 'production';
+  const log = (msg: string) => {
+    if (!isProduction) console.log(msg);
+  };
+
+  log('🔧 Initializing database schema...');
 
   /**
    * Users Table
@@ -557,7 +562,7 @@ export function initializeDatabase() {
    */
   try {
     db.exec(`ALTER TABLE recipes ADD COLUMN collection_id INTEGER REFERENCES collections(id) ON DELETE SET NULL`);
-    console.log('✅ Added collection_id column to recipes table');
+    log('✅ Added collection_id column to recipes table');
   } catch (error: any) {
     // Column already exists, ignore error
     if (!error.message?.includes('duplicate column name')) {
@@ -577,7 +582,7 @@ export function initializeDatabase() {
     const tableCheck = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='bottles'`).get();
 
     if (tableCheck) {
-      console.log('🔄 Migrating bottles table to inventory_items...');
+      log('🔄 Migrating bottles table to inventory_items...');
 
       // Rename bottles to inventory_items
       db.exec(`ALTER TABLE bottles RENAME TO inventory_items`);
@@ -594,7 +599,7 @@ export function initializeDatabase() {
       db.exec(`ALTER TABLE inventory_items ADD COLUMN abv TEXT`);
       db.exec(`UPDATE inventory_items SET abv = "ABV (%)"`);
 
-      console.log('✅ Successfully migrated bottles to inventory_items');
+      log('✅ Successfully migrated bottles to inventory_items');
     }
   } catch (error: any) {
     if (error.message?.includes('no such table: bottles')) {
@@ -617,7 +622,7 @@ export function initializeDatabase() {
    */
   try {
     db.exec(`ALTER TABLE inventory_items ADD COLUMN tasting_notes TEXT`);
-    console.log('✅ Added tasting_notes column to inventory_items table');
+    log('✅ Added tasting_notes column to inventory_items table');
   } catch (error: any) {
     // Column already exists, ignore error
     if (!error.message?.includes('duplicate column name')) {
@@ -646,7 +651,7 @@ export function initializeDatabase() {
    */
   try {
     db.exec(`ALTER TABLE recipes ADD COLUMN memmachine_uuid TEXT`);
-    console.log('✅ Added memmachine_uuid column to recipes table');
+    log('✅ Added memmachine_uuid column to recipes table');
   } catch (error: any) {
     // Column already exists, ignore error
     if (!error.message?.includes('duplicate column name')) {
@@ -683,7 +688,7 @@ export function initializeDatabase() {
    */
   try {
     db.exec(`ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0`);
-    console.log('✅ Added token_version column to users table (security fix)');
+    log('✅ Added token_version column to users table (security fix)');
   } catch (error: any) {
     // Column already exists, ignore error
     if (!error.message?.includes('duplicate column name')) {
@@ -719,7 +724,7 @@ export function initializeDatabase() {
     const hasOldColumns = tableInfo.some(col => col.name === 'Stock Number');
 
     if (hasOldColumns) {
-      console.log('🔄 Migrating inventory_items columns from quoted names to snake_case...');
+      log('🔄 Migrating inventory_items columns from quoted names to snake_case...');
 
       // SQLite doesn't support ALTER TABLE RENAME COLUMN in older versions
       // Use the standard SQLite table rebuild approach
@@ -767,7 +772,7 @@ export function initializeDatabase() {
         ALTER TABLE inventory_items_new RENAME TO inventory_items;
       `);
 
-      console.log('✅ Successfully migrated inventory_items columns to snake_case');
+      log('✅ Successfully migrated inventory_items columns to snake_case');
     }
   } catch (error: any) {
     // Migration already complete or table doesn't have old columns
@@ -793,7 +798,7 @@ export function initializeDatabase() {
    */
   try {
     db.exec(`ALTER TABLE users ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0`);
-    console.log('✅ Added is_verified column to users table');
+    log('✅ Added is_verified column to users table');
   } catch (error: any) {
     if (!error.message?.includes('duplicate column name')) {
       console.error('Migration warning (is_verified):', error.message);
@@ -802,7 +807,7 @@ export function initializeDatabase() {
 
   try {
     db.exec(`ALTER TABLE users ADD COLUMN verification_token TEXT`);
-    console.log('✅ Added verification_token column to users table');
+    log('✅ Added verification_token column to users table');
   } catch (error: any) {
     if (!error.message?.includes('duplicate column name')) {
       console.error('Migration warning (verification_token):', error.message);
@@ -811,7 +816,7 @@ export function initializeDatabase() {
 
   try {
     db.exec(`ALTER TABLE users ADD COLUMN verification_token_expires DATETIME`);
-    console.log('✅ Added verification_token_expires column to users table');
+    log('✅ Added verification_token_expires column to users table');
   } catch (error: any) {
     if (!error.message?.includes('duplicate column name')) {
       console.error('Migration warning (verification_token_expires):', error.message);
@@ -834,7 +839,7 @@ export function initializeDatabase() {
    */
   try {
     db.exec(`ALTER TABLE users ADD COLUMN reset_token TEXT`);
-    console.log('✅ Added reset_token column to users table');
+    log('✅ Added reset_token column to users table');
   } catch (error: any) {
     if (!error.message?.includes('duplicate column name')) {
       console.error('Migration warning (reset_token):', error.message);
@@ -843,7 +848,7 @@ export function initializeDatabase() {
 
   try {
     db.exec(`ALTER TABLE users ADD COLUMN reset_token_expires DATETIME`);
-    console.log('✅ Added reset_token_expires column to users table');
+    log('✅ Added reset_token_expires column to users table');
   } catch (error: any) {
     if (!error.message?.includes('duplicate column name')) {
       console.error('Migration warning (reset_token_expires):', error.message);
@@ -851,6 +856,7 @@ export function initializeDatabase() {
   }
 
   db.exec(`
+    -- Core lookup indexes (user data isolation)
     CREATE INDEX IF NOT EXISTS idx_inventory_items_user_id ON inventory_items(user_id);
     CREATE INDEX IF NOT EXISTS idx_inventory_items_category ON inventory_items(category);
     CREATE INDEX IF NOT EXISTS idx_collections_user_id ON collections(user_id);
@@ -858,10 +864,21 @@ export function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_recipes_collection_id ON recipes(collection_id);
     CREATE INDEX IF NOT EXISTS idx_recipes_memmachine_uuid ON recipes(memmachine_uuid);
     CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites(user_id);
+
+    -- Token blacklist index (fast expiry lookups for cleanup)
+    CREATE INDEX IF NOT EXISTS idx_token_blacklist_expires ON token_blacklist(expires_at);
+
+    -- User verification/reset token indexes (fast token lookups)
+    CREATE INDEX IF NOT EXISTS idx_users_verification_token ON users(verification_token);
+    CREATE INDEX IF NOT EXISTS idx_users_reset_token ON users(reset_token);
+
+    -- Composite indexes for common query patterns
+    CREATE INDEX IF NOT EXISTS idx_recipes_user_category ON recipes(user_id, category);
+    CREATE INDEX IF NOT EXISTS idx_inventory_user_category ON inventory_items(user_id, category);
   `);
 
-  console.log('✅ Database schema initialized successfully!');
-  console.log(`📍 Database location: ${DB_FILE}`);
+  log('✅ Database schema initialized successfully!');
+  log(`📍 Database location: ${DB_FILE}`);
 }
 
 /**

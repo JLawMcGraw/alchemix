@@ -4123,7 +4123,7 @@ npm install  # Success!
 **Details**:
 ```env
 # C:\Users\jlawr\Desktop\DEV\cocktail-analysis\.env
-JWT_SECRET=ae97ffa0970760aad2777e5bc67c384e654a346f59c877d5852c468f08c62471
+JWT_SECRET=<your-secret-here>
 PORT=3000
 FRONTEND_URL=http://localhost:3001
 ```

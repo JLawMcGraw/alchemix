@@ -69,6 +69,13 @@ import { db } from '../database/db';
  *
  * Manages blacklisted tokens with automatic expiry cleanup.
  */
+/**
+ * Maximum number of tokens allowed in the in-memory blacklist cache.
+ * Prevents memory exhaustion attacks where attacker repeatedly logs out.
+ * Database persistence ensures tokens are still checked even if evicted from cache.
+ */
+const MAX_BLACKLIST_CACHE_SIZE = 10000;
+
 class TokenBlacklist {
   /**
    * Blacklist Storage
@@ -92,7 +99,7 @@ class TokenBlacklist {
    * - Expiry: 8 bytes (number)
    * - Map overhead: ~50 bytes
    * - Total per entry: ~258 bytes
-   * - 10,000 tokens: ~2.5MB
+   * - 10,000 tokens: ~2.5MB (capped at MAX_BLACKLIST_CACHE_SIZE)
    */
   private blacklist: Map<string, number>;
   private insertStmt: Database.Statement<[string, number]>;
@@ -195,6 +202,26 @@ class TokenBlacklist {
    * - If expiry is missing: Token won't be added (caller must provide expiry)
    */
   add(token: string, expiryTimestamp: number): void {
+    // Enforce cache size limit to prevent memory exhaustion
+    // Database still stores all tokens, cache is just for fast lookup
+    if (this.blacklist.size >= MAX_BLACKLIST_CACHE_SIZE) {
+      // Force cleanup of expired tokens first
+      this.cleanup();
+
+      // If still at limit after cleanup, evict oldest entries
+      if (this.blacklist.size >= MAX_BLACKLIST_CACHE_SIZE) {
+        const entriesToRemove = Math.floor(MAX_BLACKLIST_CACHE_SIZE * 0.1); // Remove 10%
+        const entries = Array.from(this.blacklist.entries())
+          .sort((a, b) => a[1] - b[1]) // Sort by expiry (oldest first)
+          .slice(0, entriesToRemove);
+
+        for (const [oldToken] of entries) {
+          this.blacklist.delete(oldToken);
+        }
+        console.log(`⚠️ Token blacklist cache at limit, evicted ${entriesToRemove} oldest entries`);
+      }
+    }
+
     this.blacklist.set(token, expiryTimestamp);
     this.insertStmt.run(token, expiryTimestamp);
     console.log(`🔒 Token blacklisted (expires: ${new Date(expiryTimestamp * 1000).toISOString()})`);

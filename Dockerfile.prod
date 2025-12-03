@@ -1,0 +1,101 @@
+# =============================================================================
+# AlcheMix Frontend - Production Dockerfile
+# =============================================================================
+# Multi-stage build for optimized production image
+#
+# Features:
+# - Multi-stage build (smaller final image)
+# - Non-root user (security)
+# - dumb-init for proper signal handling
+# - Health check for container orchestration
+# - OCI image labels for metadata
+#
+# Build: docker build -t alchemix-frontend:prod -f Dockerfile.prod .
+# Run:   docker run -p 3001:3001 alchemix-frontend:prod
+# =============================================================================
+
+# =============================================================================
+# STAGE 1: Dependencies
+# =============================================================================
+FROM node:20-alpine AS deps
+
+WORKDIR /app
+
+# Copy package files for dependency installation
+COPY package*.json ./
+
+# Install dependencies (including devDependencies for build)
+RUN npm ci
+
+# =============================================================================
+# STAGE 2: Builder
+# =============================================================================
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy dependencies from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copy source code
+COPY . .
+
+# Set production environment for build optimizations
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Build Next.js application
+RUN npm run build
+
+# =============================================================================
+# STAGE 3: Production Runtime
+# =============================================================================
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+# Install dumb-init for proper signal handling (PID 1 zombie prevention)
+RUN apk add --no-cache dumb-init
+
+# Create non-root user for security
+# UID 1001 is standard for Node.js applications in containers
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Set production environment
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3001
+
+# Copy only necessary files from builder
+# Next.js standalone output for minimal image size
+COPY --from=builder /app/public ./public
+
+# Copy the standalone build
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Add OCI image metadata
+LABEL org.opencontainers.image.title="AlcheMix Frontend"
+LABEL org.opencontainers.image.version="1.20.0"
+LABEL org.opencontainers.image.description="Modern Cocktail Lab Management UI"
+LABEL org.opencontainers.image.vendor="AlcheMix"
+LABEL org.opencontainers.image.source="https://github.com/yourusername/alchemix"
+LABEL org.opencontainers.image.licenses="MIT"
+
+# Switch to non-root user
+USER nextjs
+
+# Expose port
+EXPOSE 3001
+
+# Health check - verify Next.js is serving requests
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3001/ || exit 1
+
+# Use dumb-init as PID 1 to handle signals properly
+# This ensures graceful shutdown on SIGTERM
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start Next.js in production mode
+CMD ["node", "server.js"]

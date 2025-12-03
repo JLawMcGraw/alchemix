@@ -1,6 +1,24 @@
 /**
  * Auth Slice
  * Manages user authentication state and actions
+ *
+ * SECURITY NOTE: Token Storage
+ * Currently tokens are stored in localStorage which is accessible to JavaScript.
+ * This makes them vulnerable to XSS attacks - if an attacker can execute JavaScript
+ * on the page, they can steal the token.
+ *
+ * RECOMMENDED MIGRATION (Phase 3+):
+ * Move to httpOnly cookies for token storage:
+ * 1. Backend sets token in httpOnly cookie on login (not accessible to JS)
+ * 2. Backend reads token from cookie instead of Authorization header
+ * 3. Frontend removes localStorage token handling
+ * 4. Add CSRF protection since cookies are sent automatically
+ *
+ * Current mitigations in place:
+ * - Content Security Policy (CSP) headers to prevent XSS
+ * - Input sanitization with DOMPurify
+ * - Short token expiry (requires re-auth)
+ * - Token versioning for revocation
  */
 
 import { StateCreator } from 'zustand';
