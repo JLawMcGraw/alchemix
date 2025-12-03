@@ -1,17 +1,17 @@
 services:
   # Neo4j - Graph database for vector embeddings
   neo4j:
-    image: neo4j:5.15.0
+    image: neo4j:5.23-community
     container_name: alchemix-neo4j
     ports:
       - "7474:7474"  # HTTP
       - "7687:7687"  # Bolt
     environment:
       - NEO4J_AUTH=neo4j/alchemixpassword
-      - NEO4J_PLUGINS=["apoc"]
+      - NEO4J_PLUGINS=["apoc", "graph-data-science"]
       - NEO4J_apoc_export_file_enabled=true
       - NEO4J_apoc_import_file_enabled=true
-      - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*,gds.*
     volumes:
       - neo4j_data:/data
       - neo4j_logs:/logs
@@ -70,7 +70,7 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/v2/health || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 5

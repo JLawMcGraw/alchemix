@@ -31,12 +31,12 @@ vi.mock('../utils/tokenBlacklist', () => ({
 // Mock MemoryService - use inline functions since vi.mock is hoisted
 vi.mock('../services/MemoryService', () => ({
   memoryService: {
-    deleteUserRecipeByUuid: vi.fn().mockResolvedValue(undefined),
+    deleteUserRecipeByUid: vi.fn().mockResolvedValue(undefined),
     deleteUserRecipe: vi.fn().mockResolvedValue(undefined),
-    bulkDeleteUserRecipesByUuid: vi.fn().mockResolvedValue(undefined),
+    bulkDeleteUserRecipesByUid: vi.fn().mockResolvedValue(undefined),
     deleteUserRecipesBatch: vi.fn().mockResolvedValue(undefined),
     deleteAllRecipeMemories: vi.fn().mockResolvedValue(undefined),
-    storeUserRecipe: vi.fn().mockResolvedValue('mock-uuid-12345'),
+    storeUserRecipe: vi.fn().mockResolvedValue('mock-uid-12345'),
     storeUserRecipesBatch: vi.fn().mockResolvedValue(undefined),
     isEnabled: vi.fn().mockReturnValue(true),
     fullSyncUserRecipes: vi.fn().mockResolvedValue(undefined),
@@ -569,27 +569,27 @@ describe('Recipes Routes Integration Tests', () => {
 
   describe('MemMachine UUID Tracking', () => {
 
-    describe('Recipe with memmachine_uuid', () => {
-      it('should store memmachine_uuid in database', async () => {
+    describe('Recipe with memmachine_uid', () => {
+      it('should store memmachine_uid in database', async () => {
         // Create recipe with UUID
         const result = testDb.prepare(`
-          INSERT INTO recipes (user_id, name, ingredients, instructions, memmachine_uuid)
+          INSERT INTO recipes (user_id, name, ingredients, instructions, memmachine_uid)
           VALUES (?, ?, ?, ?, ?)
-        `).run(userId, 'UUID Recipe', JSON.stringify(['Ingredient']), 'Instructions', 'test-uuid-abc123');
+        `).run(userId, 'UUID Recipe', JSON.stringify(['Ingredient']), 'Instructions', 'test-uid-abc123');
 
         const recipeId = result.lastInsertRowid as number;
 
         // Verify UUID is stored
-        const recipe = testDb.prepare('SELECT memmachine_uuid FROM recipes WHERE id = ?').get(recipeId) as any;
-        expect(recipe.memmachine_uuid).toBe('test-uuid-abc123');
+        const recipe = testDb.prepare('SELECT memmachine_uid FROM recipes WHERE id = ?').get(recipeId) as any;
+        expect(recipe.memmachine_uid).toBe('test-uid-abc123');
       });
 
-      it('should return memmachine_uuid in GET response', async () => {
+      it('should return memmachine_uid in GET response', async () => {
         // Create recipe with UUID
         testDb.prepare(`
-          INSERT INTO recipes (user_id, name, ingredients, instructions, memmachine_uuid)
+          INSERT INTO recipes (user_id, name, ingredients, instructions, memmachine_uid)
           VALUES (?, ?, ?, ?, ?)
-        `).run(userId, 'UUID Recipe', JSON.stringify(['Ingredient']), 'Instructions', 'get-test-uuid');
+        `).run(userId, 'UUID Recipe', JSON.stringify(['Ingredient']), 'Instructions', 'get-test-uid');
 
         const response = await request(server!)
           .get('/api/recipes')
@@ -597,10 +597,10 @@ describe('Recipes Routes Integration Tests', () => {
           .expect(200);
 
         expect(response.body.success).toBe(true);
-        expect(response.body.data[0].memmachine_uuid).toBe('get-test-uuid');
+        expect(response.body.data[0].memmachine_uid).toBe('get-test-uid');
       });
 
-      it('should allow recipe without memmachine_uuid (null)', async () => {
+      it('should allow recipe without memmachine_uid (null)', async () => {
         testDb.prepare(`
           INSERT INTO recipes (user_id, name, ingredients, instructions)
           VALUES (?, ?, ?, ?)
@@ -612,16 +612,16 @@ describe('Recipes Routes Integration Tests', () => {
           .expect(200);
 
         expect(response.body.success).toBe(true);
-        // memmachine_uuid should be null or undefined for recipes without it
+        // memmachine_uid should be null or undefined for recipes without it
         const recipe = response.body.data[0];
-        expect(recipe.memmachine_uuid === null || recipe.memmachine_uuid === undefined).toBe(true);
+        expect(recipe.memmachine_uid === null || recipe.memmachine_uid === undefined).toBe(true);
       });
     });
 
     describe('DELETE with UUID tracking', () => {
       it('should delete recipe with UUID from database', async () => {
         const result = testDb.prepare(`
-          INSERT INTO recipes (user_id, name, ingredients, instructions, memmachine_uuid)
+          INSERT INTO recipes (user_id, name, ingredients, instructions, memmachine_uid)
           VALUES (?, ?, ?, ?, ?)
         `).run(userId, 'Delete UUID Recipe', JSON.stringify(['Ingredient']), 'Instructions', 'delete-uuid-123');
 
@@ -667,7 +667,7 @@ describe('Recipes Routes Integration Tests', () => {
         // Create recipes with UUIDs
         for (let i = 0; i < 3; i++) {
           const result = testDb.prepare(`
-            INSERT INTO recipes (user_id, name, ingredients, instructions, memmachine_uuid)
+            INSERT INTO recipes (user_id, name, ingredients, instructions, memmachine_uid)
             VALUES (?, ?, ?, ?, ?)
           `).run(userId, `UUID Recipe ${i}`, JSON.stringify(['Ingredient']), 'Instructions', `bulk-uuid-${i}`);
           ids.push(result.lastInsertRowid as number);
@@ -692,7 +692,7 @@ describe('Recipes Routes Integration Tests', () => {
 
         // Create recipe with UUID
         const result1 = testDb.prepare(`
-          INSERT INTO recipes (user_id, name, ingredients, instructions, memmachine_uuid)
+          INSERT INTO recipes (user_id, name, ingredients, instructions, memmachine_uid)
           VALUES (?, ?, ?, ?, ?)
         `).run(userId, 'With UUID', JSON.stringify(['Ingredient']), 'Instructions', 'mixed-uuid-1');
         ids.push(result1.lastInsertRowid as number);
@@ -706,7 +706,7 @@ describe('Recipes Routes Integration Tests', () => {
 
         // Create another recipe with UUID
         const result3 = testDb.prepare(`
-          INSERT INTO recipes (user_id, name, ingredients, instructions, memmachine_uuid)
+          INSERT INTO recipes (user_id, name, ingredients, instructions, memmachine_uid)
           VALUES (?, ?, ?, ?, ?)
         `).run(userId, 'With UUID 2', JSON.stringify(['Ingredient']), 'Instructions', 'mixed-uuid-2');
         ids.push(result3.lastInsertRowid as number);
@@ -755,7 +755,7 @@ describe('Recipes Routes Integration Tests', () => {
       it('should delete all recipes including those with UUIDs', async () => {
         // Create mix of recipes with and without UUIDs
         testDb.prepare(`
-          INSERT INTO recipes (user_id, name, ingredients, instructions, memmachine_uuid)
+          INSERT INTO recipes (user_id, name, ingredients, instructions, memmachine_uid)
           VALUES (?, ?, ?, ?, ?)
         `).run(userId, 'With UUID', JSON.stringify(['Ingredient']), 'Instructions', 'all-uuid-1');
 
@@ -765,7 +765,7 @@ describe('Recipes Routes Integration Tests', () => {
         `).run(userId, 'Without UUID', JSON.stringify(['Ingredient']), 'Instructions');
 
         testDb.prepare(`
-          INSERT INTO recipes (user_id, name, ingredients, instructions, memmachine_uuid)
+          INSERT INTO recipes (user_id, name, ingredients, instructions, memmachine_uid)
           VALUES (?, ?, ?, ?, ?)
         `).run(userId, 'With UUID 2', JSON.stringify(['Ingredient']), 'Instructions', 'all-uuid-2');
 
@@ -784,25 +784,25 @@ describe('Recipes Routes Integration Tests', () => {
     });
 
     describe('UUID Index', () => {
-      it('should be able to query by memmachine_uuid', async () => {
+      it('should be able to query by memmachine_uid', async () => {
         testDb.prepare(`
-          INSERT INTO recipes (user_id, name, ingredients, instructions, memmachine_uuid)
+          INSERT INTO recipes (user_id, name, ingredients, instructions, memmachine_uid)
           VALUES (?, ?, ?, ?, ?)
-        `).run(userId, 'Indexed Recipe', JSON.stringify(['Ingredient']), 'Instructions', 'index-test-uuid');
+        `).run(userId, 'Indexed Recipe', JSON.stringify(['Ingredient']), 'Instructions', 'index-test-uid');
 
         // Query by UUID (simulating MemMachine sync scenario)
-        const recipe = testDb.prepare('SELECT * FROM recipes WHERE memmachine_uuid = ?')
-          .get('index-test-uuid') as any;
+        const recipe = testDb.prepare('SELECT * FROM recipes WHERE memmachine_uid = ?')
+          .get('index-test-uid') as any;
 
         expect(recipe).toBeDefined();
         expect(recipe.name).toBe('Indexed Recipe');
-        expect(recipe.memmachine_uuid).toBe('index-test-uuid');
+        expect(recipe.memmachine_uid).toBe('index-test-uid');
       });
 
       it('should handle duplicate UUID prevention if needed', async () => {
         // First insert
         testDb.prepare(`
-          INSERT INTO recipes (user_id, name, ingredients, instructions, memmachine_uuid)
+          INSERT INTO recipes (user_id, name, ingredients, instructions, memmachine_uid)
           VALUES (?, ?, ?, ?, ?)
         `).run(userId, 'First Recipe', JSON.stringify(['Ingredient']), 'Instructions', 'unique-uuid-test');
 
@@ -811,7 +811,7 @@ describe('Recipes Routes Integration Tests', () => {
         // This test verifies the behavior is as expected
         const secondInsert = () => {
           testDb.prepare(`
-            INSERT INTO recipes (user_id, name, ingredients, instructions, memmachine_uuid)
+            INSERT INTO recipes (user_id, name, ingredients, instructions, memmachine_uid)
             VALUES (?, ?, ?, ?, ?)
           `).run(userId, 'Second Recipe', JSON.stringify(['Ingredient']), 'Instructions', 'unique-uuid-test');
         };
@@ -820,7 +820,7 @@ describe('Recipes Routes Integration Tests', () => {
         expect(secondInsert).not.toThrow();
 
         // Verify both recipes exist
-        const recipes = testDb.prepare('SELECT * FROM recipes WHERE memmachine_uuid = ?')
+        const recipes = testDb.prepare('SELECT * FROM recipes WHERE memmachine_uid = ?')
           .all('unique-uuid-test');
         expect(recipes).toHaveLength(2);
       });

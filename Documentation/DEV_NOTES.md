@@ -4,6 +4,96 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-12-03 - MemMachine v2 API Migration
+
+### Breaking API Changes (v1 → v2)
+
+**Identifier Change**: UUID → UID
+- v1 returned `{ uuid: "4a4531a2-..." }` (UUID v4 format)
+- v2 returns `{ results: [{ uid: "1" }] }` (sequential integer as string)
+- Database column renamed: `memmachine_uuid` → `memmachine_uid`
+
+**Session Model Change**: Headers → Body Parameters
+```typescript
+// v1: Headers-based session
+const headers = {
+  'user-id': `user_${userId}`,
+  'session-id': 'recipes',
+  'group-id': 'alchemix',
+};
+
+// v2: Body-based org/project model
+const request = {
+  org_id: 'alchemix',
+  project_id: `user_${userId}_recipes`,
+  messages: [{ content, producer, produced_for }],
+};
+```
+
+**Endpoint Changes**:
+| Operation | v1 | v2 |
+|-----------|----|----|
+| Add | `POST /v1/memories` | `POST /api/v2/memories` |
+| Search | `POST /v1/memories/search` | `POST /api/v2/memories/search` |
+| Delete | `DELETE /v1/memories/{uuid}` | `POST /api/v2/memories/episodic/delete` |
+| Health | `GET /health` | `GET /api/v2/health` |
+
+### Neo4j Vector Similarity Requirements
+
+**Problem**: Search returned 500 error with `Unknown function 'vector.similarity.cosine'`
+
+**Solution**: Upgraded Neo4j and added GDS plugin:
+```yaml
+neo4j:
+  image: neo4j:5.23-community  # Was 5.15.0
+  environment:
+    - NEO4J_PLUGINS=["apoc", "graph-data-science"]  # Added GDS
+    - NEO4J_dbms_security_procedures_unrestricted=apoc.*,gds.*
+```
+
+### Config Schema Change
+
+**v1 config** (old format):
+```yaml
+episodic:
+  llm_model: ...
+  embedder: ...
+```
+
+**v2 config** (new format):
+```yaml
+episodic_memory:
+  long_term_memory:
+    embedder: openai_embedder
+    reranker: identity_reranker
+    vector_graph_store: neo4j_storage
+  short_term_memory:
+    llm_model: openai_model
+
+semantic_memory:
+  llm_model: openai_model
+  embedding_model: openai_embedder
+
+session_manager:
+  database: profile_storage
+
+resources:
+  databases: { ... }
+  embedders: { ... }
+  language_models: { ... }
+  rerankers: { ... }
+```
+
+### Windows Git Bash Path Conversion Issue
+
+**Problem**: Docker environment variable `/app/configuration.yml` converted to `C:/Program Files/Git/app/configuration.yml`
+
+**Root Cause**: MSYS2/Git Bash automatically converts Unix paths to Windows paths
+
+**Workaround**: Run docker-compose from PowerShell instead of Git Bash terminal
+
+---
+
 ## 2025-12-01 - Backend Refactoring & Email Verification
 
 ### asyncHandler Pattern

@@ -1,88 +1,178 @@
 /**
- * MemMachine v1 API Type Definitions
+ * MemMachine v2 API Type Definitions
  *
- * Based on actual API testing (November 23, 2025)
- * These types match the REAL response structure from MemMachine v1
+ * Updated for MemMachine v2 API (December 2025)
+ * Key changes from v1:
+ * - UUID → UID for episode identifiers
+ * - Header-based sessions → Body-based org_id/project_id
+ * - profile_memory → semantic_memory
+ * - New project management endpoints
  */
 
+// ============================================================================
+// PROJECT MANAGEMENT
+// ============================================================================
+
 /**
- * New Episode Request
+ * Project Configuration
  *
- * Used for POST /v1/memories to store new episodic memories
+ * Configuration options for a MemMachine project
  */
-export interface NewEpisode {
-  /** Content of the memory episode (text or embeddings) */
-  episode_content: string | number[];
-  /** Identifier of entity producing the episode (e.g., "user_1", "alchemix-bartender") */
-  producer: string;
-  /** Identifier of entity for whom episode is produced */
-  produced_for: string;
+export interface ProjectConfig {
+  /** Embedder model name (e.g., "openai", "sentence-transformers") */
+  embedder?: string;
+  /** Reranker model name */
+  reranker?: string;
 }
 
 /**
- * Search Query Request
+ * Create Project Request
  *
- * Used for POST /v1/memories/search to find relevant memories
+ * Used for POST /api/v2/projects to create a new project
  */
-export interface SearchQuery {
+export interface CreateProjectRequest {
+  /** Organization identifier */
+  org_id: string;
+  /** Project identifier (unique within org) */
+  project_id: string;
+  /** Optional description */
+  description?: string;
+  /** Optional configuration */
+  config?: ProjectConfig;
+}
+
+/**
+ * Project Response
+ *
+ * Response from project operations
+ */
+export interface ProjectResponse {
+  /** Organization identifier */
+  org_id: string;
+  /** Project identifier */
+  project_id: string;
+  /** Project description */
+  description?: string;
+  /** Project configuration */
+  config?: ProjectConfig;
+}
+
+// ============================================================================
+// MEMORY OPERATIONS
+// ============================================================================
+
+/**
+ * Memory Message
+ *
+ * Individual message to be stored as memory
+ */
+export interface MemoryMessage {
+  /** Content of the memory */
+  content: string;
+  /** Producer identifier (who created this, e.g., "user_1") */
+  producer: string;
+  /** Produced for identifier (recipient, e.g., "user_1") */
+  produced_for: string;
+  /** Optional ISO timestamp (defaults to now) */
+  timestamp?: string;
+  /** Optional role (e.g., "user", "assistant") */
+  role?: string;
+  /** Optional metadata key-value pairs */
+  metadata?: Record<string, string>;
+}
+
+/**
+ * Add Memories Request
+ *
+ * Used for POST /api/v2/memories to add memories
+ */
+export interface AddMemoriesRequest {
+  /** Organization identifier */
+  org_id: string;
+  /** Project identifier */
+  project_id: string;
+  /** Messages to store */
+  messages: MemoryMessage[];
+}
+
+/**
+ * Add Memory Result
+ *
+ * Result for a single added memory
+ */
+export interface AddMemoryResult {
+  /** UID of the created episode */
+  uid: string;
+}
+
+/**
+ * Add Memories Response
+ *
+ * Response from POST /api/v2/memories
+ */
+export interface AddMemoriesResponse {
+  /** Results for each added memory */
+  results: AddMemoryResult[];
+}
+
+/**
+ * Search Memories Request
+ *
+ * Used for POST /api/v2/memories/search
+ */
+export interface SearchMemoriesRequest {
+  /** Organization identifier */
+  org_id: string;
+  /** Project identifier */
+  project_id: string;
   /** Search query text */
   query: string;
-  /** Maximum number of results to return (default: 10) */
-  limit?: number;
-  /** Optional filters for narrowing results */
-  filter?: Record<string, any>;
+  /** Maximum results to return (default: 10) */
+  top_k?: number;
+  /** Optional filter expression */
+  filter?: string;
+  /** Memory types to search (default: all) */
+  types?: MemoryType[];
 }
 
 /**
- * Create Episode Response
+ * Memory Type
  *
- * Response from POST /v1/memories when creating a new episode
+ * Types of memory that can be searched/added
  */
-export interface CreateEpisodeResponse {
-  /** Status code (0 = success) */
-  status: number;
-  /** Response content with UUID */
-  content: {
-    /** UUID of the created episode */
-    uuid: string;
-  };
-}
+export type MemoryType = 'Episodic' | 'Semantic';
 
 /**
- * Episodic Memory Episode
+ * Episodic Memory Episode (v2)
  *
  * Individual memory episode from episodic memory store
  */
 export interface EpisodicEpisode {
-  /** Unique identifier for this episode */
-  uuid: string;
-  /** Type of episode (e.g., "message", "observation") */
-  episode_type: string;
-  /** Content type (e.g., "string", "embedding") */
-  content_type: string;
+  /** Unique identifier for this episode (UID, not UUID) */
+  uid: string;
+  /** Episode type */
+  episode_type?: string;
+  /** Content type */
+  content_type?: string;
   /** Actual content of the episode */
   content: string;
   /** ISO timestamp when episode was created */
-  timestamp: string;
-  /** Group identifier (namespace) */
-  group_id: string;
-  /** Session identifier (conversation thread) */
-  session_id: string;
-  /** Producer identifier (who created this) */
-  producer_id: string;
-  /** Produced for identifier (who this was created for) */
-  produced_for_id: string;
-  /** Additional user-defined metadata */
-  user_metadata: Record<string, any>;
+  created_at?: string;
+  /** Producer identifier */
+  producer_id?: string;
+  /** Produced for identifier */
+  produced_for_id?: string;
+  /** Additional metadata */
+  metadata?: Record<string, any>;
 }
 
 /**
- * Profile Memory Entry
+ * Semantic Memory Entry (formerly Profile Memory)
  *
- * Extracted user preferences, facts, or patterns
+ * Extracted facts, preferences, or patterns
  */
-export interface ProfileMemory {
-  /** Content of the profile memory */
+export interface SemanticMemory {
+  /** Content of the semantic memory */
   content: string;
   /** Relevance score (0-1) */
   score?: number;
@@ -91,104 +181,131 @@ export interface ProfileMemory {
 }
 
 /**
- * Search Response from MemMachine v1
+ * Search Result Response
  *
- * ACTUAL response structure (verified via API testing)
+ * Response from POST /api/v2/memories/search
  */
-export interface MemMachineSearchResponse {
+export interface SearchResultResponse {
   /** Status code (0 = success) */
   status: number;
-  /** Response content */
+  /** Search results content */
   content: {
-    /** Episodic memory results (array of episode groups) */
-    episodic_memory: EpisodicEpisode[][];
-    /** Profile memory results */
-    profile_memory: ProfileMemory[];
+    /** Episodic memory results */
+    episodic_memory: EpisodicEpisode[];
+    /** Semantic memory results (formerly profile_memory) */
+    semantic_memory: SemanticMemory[];
   };
 }
 
 /**
- * Session Headers
+ * Delete Episodic Memory Request
  *
- * Required headers for all MemMachine v1 API calls
- * Extends Record<string, string> to be compatible with Axios headers
+ * Used for POST /api/v2/memories/episodic/delete
  */
-export interface SessionHeaders extends Record<string, string> {
-  /** User identifier (e.g., "user_1") */
-  'user-id': string;
-  /** Session identifier (conversation thread, e.g., "recipes", "chat-2025-11-23") */
-  'session-id': string;
-  /** Group identifier (namespace, e.g., "alchemix") */
-  'group-id': string;
-  /** Agent identifier (e.g., "alchemix-bartender") */
-  'agent-id': string;
+export interface DeleteEpisodicMemoryRequest {
+  /** Organization identifier */
+  org_id: string;
+  /** Project identifier */
+  project_id: string;
+  /** Episode UID to delete */
+  episodic_id: string;
 }
 
 /**
- * Delete Data Request
+ * Delete Semantic Memory Request
  *
- * Used for DELETE /v1/memories to remove memories
+ * Used for POST /api/v2/memories/semantic/delete
  */
-export interface DeleteDataRequest {
-  session?: {
-    /** User IDs to delete data for */
-    user_ids?: string[];
-    /** Session ID to delete */
-    session_id?: string;
-    /** Group ID to delete from */
-    group_id?: string;
-    /** Agent IDs to delete data for */
-    agent_ids?: string[];
-  };
+export interface DeleteSemanticMemoryRequest {
+  /** Organization identifier */
+  org_id: string;
+  /** Project identifier */
+  project_id: string;
+  /** Semantic memory ID to delete */
+  semantic_id: string;
 }
+
+/**
+ * Delete Project Request
+ *
+ * Used for POST /api/v2/projects/delete
+ */
+export interface DeleteProjectRequest {
+  /** Organization identifier */
+  org_id: string;
+  /** Project identifier */
+  project_id: string;
+}
+
+// ============================================================================
+// INTERNAL TYPES
+// ============================================================================
 
 /**
  * Normalized Search Result
  *
- * Internal format after processing MemMachineSearchResponse
- * This makes it easier to work with the episodic_memory array structure
+ * Internal format after processing SearchResultResponse
  */
 export interface NormalizedSearchResult {
-  /** Episodic memory episodes (flattened from nested arrays) */
+  /** Episodic memory episodes */
   episodic: EpisodicEpisode[];
-  /** Profile memory entries */
-  profile: ProfileMemory[];
+  /** Semantic memory entries (formerly profile) */
+  semantic: SemanticMemory[];
 }
 
-/**
- * Recipe Deletion with UUID Tracking
- *
- * OPTION A: Track UUIDs for granular deletion
- *
- * How it works:
- * 1. When recipe is stored in MemMachine, save the returned UUID
- * 2. Store UUID in AlcheMix database (recipes.memmachine_uuid column)
- * 3. When recipe is deleted from AlcheMix, also delete from MemMachine using UUID
- *
- * Future enhancement - requires DB migration:
- * ALTER TABLE recipes ADD COLUMN memmachine_uuid TEXT;
- *
- * For now, we'll accept that historical data remains in MemMachine.
- * This is acceptable because:
- * - User's current recipe list in AlcheMix is still accurate
- * - Old memories naturally age out over time
- * - MemMachine search prioritizes recent/relevant memories
- */
+// ============================================================================
+// CONSTANTS
+// ============================================================================
 
 /**
- * Constants for MemMachine Configuration
+ * Constants for MemMachine v2 Configuration
+ *
+ * v2 uses org_id/project_id model instead of header-based sessions
  */
 export const MEMMACHINE_CONSTANTS = {
-  /** Group ID for all AlcheMix memories */
-  GROUP_ID: 'alchemix',
-  /** Agent ID for AlcheMix bartender */
-  AGENT_ID: 'alchemix-bartender',
-  /** Session ID for recipe storage */
-  RECIPE_SESSION: 'recipes',
-  /** Session ID prefix for chat conversations (appends date: chat-2025-11-23) */
-  CHAT_SESSION_PREFIX: 'chat-',
+  /** Organization ID for all AlcheMix memories */
+  ORG_ID: 'alchemix',
+
+  /** Project ID for recipe storage (will be prefixed with user_X_) */
+  RECIPE_PROJECT_SUFFIX: 'recipes',
+
+  /** Project ID prefix for chat conversations (e.g., user_1_chat_2025-12-02) */
+  CHAT_PROJECT_SUFFIX: 'chat',
+
   /** Default search limit */
   DEFAULT_SEARCH_LIMIT: 10,
+
   /** Maximum recipes to include in AI prompt */
   MAX_PROMPT_RECIPES: 10,
 } as const;
+
+/**
+ * Helper function to build project ID for recipes
+ *
+ * @param userId - AlcheMix user ID
+ * @returns Project ID string (e.g., "user_1_recipes")
+ */
+export function buildRecipeProjectId(userId: number): string {
+  return `user_${userId}_${MEMMACHINE_CONSTANTS.RECIPE_PROJECT_SUFFIX}`;
+}
+
+/**
+ * Helper function to build project ID for chat
+ *
+ * @param userId - AlcheMix user ID
+ * @param date - Optional date string (YYYY-MM-DD), defaults to today
+ * @returns Project ID string (e.g., "user_1_chat_2025-12-02")
+ */
+export function buildChatProjectId(userId: number, date?: string): string {
+  const dateStr = date || new Date().toISOString().split('T')[0];
+  return `user_${userId}_${MEMMACHINE_CONSTANTS.CHAT_PROJECT_SUFFIX}_${dateStr}`;
+}
+
+// ============================================================================
+// LEGACY COMPATIBILITY (for gradual migration)
+// ============================================================================
+
+/**
+ * @deprecated Use SemanticMemory instead
+ */
+export type ProfileMemory = SemanticMemory;

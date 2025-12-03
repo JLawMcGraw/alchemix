@@ -631,30 +631,52 @@ export function initializeDatabase() {
   }
 
   /**
-   * Schema Migration: Add memmachine_uuid to recipes
+   * Schema Migration: Add memmachine_uid to recipes (v2 API)
    *
-   * Tracks MemMachine episode UUIDs for recipe deletion (Option A).
+   * Tracks MemMachine episode UIDs for recipe deletion.
    * Enables granular deletion of recipes from MemMachine memory system.
    *
-   * Why Option A (UUID Tracking)?
+   * v2 API Migration (December 2025):
+   * - Renamed from memmachine_uuid to memmachine_uid (v2 API uses UIDs)
+   * - If old column exists, rename it; otherwise create new column
+   *
+   * Why UID Tracking?
    * - Precise deletion: Remove exact recipe from MemMachine when deleted from AlcheMix
    * - No stale data: User's AI context stays synchronized with their actual recipe library
    * - Better UX: AI won't recommend deleted recipes
    * - Data integrity: Historical memory doesn't pollute current recommendations
    *
    * How it works:
-   * 1. Recipe created → MemMachine returns UUID → Store in this column
-   * 2. Recipe deleted → Use UUID to delete from MemMachine → CASCADE cleanup
-   * 3. Batch import → Store UUIDs during bulk upload → Enable mass deletion
+   * 1. Recipe created → MemMachine returns UID → Store in this column
+   * 2. Recipe deleted → Use UID to delete from MemMachine → CASCADE cleanup
+   * 3. Batch import → Store UIDs during bulk upload → Enable mass deletion
    *
-   * Safe to run multiple times (will fail silently if column exists).
+   * Safe to run multiple times (handles all migration scenarios).
    */
   try {
-    db.exec(`ALTER TABLE recipes ADD COLUMN memmachine_uuid TEXT`);
-    log('✅ Added memmachine_uuid column to recipes table');
+    // Check if old uuid column exists (migration from v1 to v2)
+    const hasOldColumn = db.prepare(
+      "SELECT COUNT(*) as count FROM pragma_table_info('recipes') WHERE name='memmachine_uuid'"
+    ).get() as { count: number };
+
+    const hasNewColumn = db.prepare(
+      "SELECT COUNT(*) as count FROM pragma_table_info('recipes') WHERE name='memmachine_uid'"
+    ).get() as { count: number };
+
+    if (hasOldColumn.count > 0 && hasNewColumn.count === 0) {
+      // Rename old column to new name (SQLite 3.25+)
+      db.exec(`ALTER TABLE recipes RENAME COLUMN memmachine_uuid TO memmachine_uid`);
+      log('✅ Renamed memmachine_uuid to memmachine_uid column (v2 API migration)');
+    } else if (hasNewColumn.count === 0) {
+      // Add new column if neither exists
+      db.exec(`ALTER TABLE recipes ADD COLUMN memmachine_uid TEXT`);
+      log('✅ Added memmachine_uid column to recipes table');
+    }
+    // If new column already exists, do nothing (already migrated)
   } catch (error: any) {
-    // Column already exists, ignore error
-    if (!error.message?.includes('duplicate column name')) {
+    // Handle edge cases
+    if (!error.message?.includes('duplicate column name') &&
+        !error.message?.includes('no such column')) {
       console.error('Migration warning:', error.message);
     }
   }
@@ -862,7 +884,7 @@ export function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_collections_user_id ON collections(user_id);
     CREATE INDEX IF NOT EXISTS idx_recipes_user_id ON recipes(user_id);
     CREATE INDEX IF NOT EXISTS idx_recipes_collection_id ON recipes(collection_id);
-    CREATE INDEX IF NOT EXISTS idx_recipes_memmachine_uuid ON recipes(memmachine_uuid);
+    CREATE INDEX IF NOT EXISTS idx_recipes_memmachine_uid ON recipes(memmachine_uid);
     CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites(user_id);
 
     -- Token blacklist index (fast expiry lookups for cleanup)

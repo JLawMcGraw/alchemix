@@ -1,40 +1,47 @@
 /**
- * MemMachine Memory Service Client (v1 API)
+ * MemMachine Memory Service Client (v2 API)
  *
- * Integrates AlcheMix with MemMachine v1 for AI memory capabilities:
+ * Integrates AlcheMix with MemMachine v2 for AI memory capabilities:
  * - Semantic search over user recipes (OpenAI embeddings)
  * - Conversation memory across sessions
  * - User preference storage and retrieval
  *
  * Architecture:
  * - MemMachine backend (port 8080): Core memory service (Docker)
- * - User isolation: Each user has separate namespace (user_1, user_2, etc.)
+ * - User isolation: Each user has their own project (user_X_recipes)
  * - No cross-user data leakage: User 1 cannot access User 2's recipes
- * - Session-based organization: recipes, chat-{date}, etc.
+ * - Project-based organization: org_id/project_id model
  *
- * Migration from legacy API → v1 API:
- * - Old: GET /memory?user_id=X&query=Y
- * - New: POST /v1/memories/search with headers + body
+ * Migration from v1 → v2 API:
+ * - Old: Header-based sessions (user-id, session-id, group-id, agent-id)
+ * - New: Body-based org_id/project_id params
+ * - Old: UUID for episode IDs
+ * - New: UID for episode IDs
+ * - Old: profile_memory
+ * - New: semantic_memory
  *
- * @version 2.0.0 (MemMachine v1 API)
- * @date November 23, 2025
+ * @version 3.0.0 (MemMachine v2 API)
+ * @date December 2, 2025
  */
 
 import axios, { AxiosInstance } from 'axios';
 import {
-  NewEpisode,
-  SearchQuery,
-  MemMachineSearchResponse,
-  NormalizedSearchResult,
-  SessionHeaders,
+  AddMemoriesRequest,
+  AddMemoriesResponse,
+  SearchMemoriesRequest,
+  SearchResultResponse,
+  DeleteEpisodicMemoryRequest,
+  DeleteProjectRequest,
+  CreateProjectRequest,
   EpisodicEpisode,
-  ProfileMemory,
-  CreateEpisodeResponse,
+  SemanticMemory,
+  NormalizedSearchResult,
   MEMMACHINE_CONSTANTS,
+  buildRecipeProjectId,
+  buildChatProjectId,
 } from '../types/memmachine';
 
-const { GROUP_ID, AGENT_ID, RECIPE_SESSION, CHAT_SESSION_PREFIX, DEFAULT_SEARCH_LIMIT, MAX_PROMPT_RECIPES } =
-  MEMMACHINE_CONSTANTS;
+const { ORG_ID, DEFAULT_SEARCH_LIMIT, MAX_PROMPT_RECIPES } = MEMMACHINE_CONSTANTS;
 
 /**
  * MemoryService Configuration
@@ -64,17 +71,18 @@ export interface CollectionData {
 }
 
 /**
- * MemoryService Client (v1 API)
+ * MemoryService Client (v2 API)
  *
- * Provides type-safe interface to MemMachine v1 API
+ * Provides type-safe interface to MemMachine v2 API
  */
 export class MemoryService {
   private client: AxiosInstance;
+  private projectCache: Set<string> = new Set(); // Cache of created projects
 
   constructor(config: MemoryServiceConfig) {
     this.client = axios.create({
       baseURL: config.baseURL,
-      timeout: config.timeout || 120000, // Increased to 120 seconds for batch operations
+      timeout: config.timeout || 120000, // 120 seconds for batch operations
       headers: {
         'Content-Type': 'application/json',
       },
@@ -82,39 +90,44 @@ export class MemoryService {
   }
 
   /**
-   * Build Session Headers
+   * Ensure Project Exists
    *
-   * Creates required headers for MemMachine v1 API calls
+   * Creates a project if it doesn't exist. Uses local cache to avoid
+   * unnecessary API calls.
    *
-   * @param userId - AlcheMix user ID (number)
-   * @param sessionId - Session identifier (default: "recipes")
-   * @returns SessionHeaders object
-   */
-  private buildHeaders(userId: number, sessionId: string = RECIPE_SESSION): SessionHeaders {
-    return {
-      'user-id': `user_${userId}`,
-      'session-id': sessionId,
-      'group-id': GROUP_ID,
-      'agent-id': AGENT_ID,
-    };
-  }
-
-  /**
-   * Build Episode Payload
-   *
-   * Creates episode object for storing memories
-   *
-   * @param content - Episode content (text)
    * @param userId - AlcheMix user ID
-   * @returns NewEpisode object
+   * @param projectType - Type of project ('recipes' or 'chat')
    */
-  private buildEpisode(content: string, userId: number): NewEpisode {
-    const userIdStr = `user_${userId}`;
-    return {
-      episode_content: content,
-      producer: userIdStr,
-      produced_for: userIdStr,
-    };
+  private async ensureProjectExists(userId: number, projectType: 'recipes' | 'chat', date?: string): Promise<string> {
+    const projectId = projectType === 'recipes'
+      ? buildRecipeProjectId(userId)
+      : buildChatProjectId(userId, date);
+
+    // Check local cache first
+    if (this.projectCache.has(projectId)) {
+      return projectId;
+    }
+
+    try {
+      const request: CreateProjectRequest = {
+        org_id: ORG_ID,
+        project_id: projectId,
+        description: `${projectType} for user ${userId}`,
+      };
+
+      await this.client.post('/api/v2/projects', request);
+      this.projectCache.add(projectId);
+      console.log(`📁 MemMachine: Created project ${projectId}`);
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 409) {
+        // 409 Conflict = project already exists, which is fine
+        this.projectCache.add(projectId);
+      } else {
+        throw error;
+      }
+    }
+
+    return projectId;
   }
 
   /**
@@ -162,10 +175,9 @@ export class MemoryService {
    * Prevents runtime errors from missing fields.
    *
    * @param response - Raw response from MemMachine API
-   * @returns Normalized search result with episodic and profile memories
-   * @throws Error if response structure is invalid
+   * @returns Normalized search result with episodic and semantic memories
    */
-  private validateAndNormalizeResponse(response: MemMachineSearchResponse): NormalizedSearchResult {
+  private validateAndNormalizeResponse(response: SearchResultResponse): NormalizedSearchResult {
     // Validate top-level structure
     if (!response || typeof response !== 'object') {
       throw new Error('Invalid response structure from MemMachine: response is not an object');
@@ -175,35 +187,18 @@ export class MemoryService {
       throw new Error('Invalid response structure from MemMachine: missing content field');
     }
 
-    const { episodic_memory, profile_memory } = response.content;
+    const { episodic_memory, semantic_memory } = response.content;
 
-    // Validate episodic_memory is array of arrays
-    if (!Array.isArray(episodic_memory)) {
-      console.warn('MemMachine response missing episodic_memory array, using empty array');
-    }
+    // v2 API returns flat arrays, not nested
+    const validatedEpisodic: EpisodicEpisode[] = Array.isArray(episodic_memory)
+      ? episodic_memory.filter((ep) => ep && typeof ep === 'object' && ep.content)
+      : [];
 
-    // Flatten episodic_memory (it's an array of episode groups)
-    // Filter out empty strings and null values
-    const flattenedEpisodic: EpisodicEpisode[] = [];
-    if (Array.isArray(episodic_memory)) {
-      for (const group of episodic_memory) {
-        if (Array.isArray(group)) {
-          for (const episode of group) {
-            // Skip empty strings, null, or invalid episodes
-            if (episode && typeof episode === 'object' && episode.content) {
-              flattenedEpisodic.push(episode as EpisodicEpisode);
-            }
-          }
-        }
-      }
-    }
-
-    // Validate profile_memory is array
-    const validatedProfile: ProfileMemory[] = Array.isArray(profile_memory) ? profile_memory : [];
+    const validatedSemantic: SemanticMemory[] = Array.isArray(semantic_memory) ? semantic_memory : [];
 
     return {
-      episodic: flattenedEpisodic,
-      profile: validatedProfile,
+      episodic: validatedEpisodic,
+      semantic: validatedSemantic,
     };
   }
 
@@ -211,30 +206,44 @@ export class MemoryService {
    * Store User Recipe
    *
    * Stores a user's recipe in MemMachine for semantic search and AI context.
-   * Recipe is stored in the "recipes" session for that user.
+   * Recipe is stored in the user's recipes project.
    *
-   * Option A Implementation - UUID Tracking:
-   * - Returns UUID from MemMachine response
-   * - Caller should store UUID in AlcheMix DB (recipes.memmachine_uuid column)
-   * - Use UUID for granular deletion
+   * UID Tracking:
+   * - Returns UID from MemMachine response
+   * - Caller should store UID in AlcheMix DB (recipes.memmachine_uid column)
+   * - Use UID for granular deletion
    *
    * @param userId - User ID
    * @param recipe - Recipe object with name, ingredients, instructions, etc.
-   * @returns UUID of the created episode (or null if storage failed)
+   * @returns UID of the created episode (or null if storage failed)
    */
   async storeUserRecipe(userId: number, recipe: RecipeData): Promise<string | null> {
     try {
+      const projectId = await this.ensureProjectExists(userId, 'recipes');
       const recipeText = this.formatRecipeForStorage(recipe);
-      const episode = this.buildEpisode(recipeText, userId);
-      const headers = this.buildHeaders(userId, RECIPE_SESSION);
 
-      const response = await this.client.post<{ uuid: string }>('/v1/memories', episode, { headers });
+      const request: AddMemoriesRequest = {
+        org_id: ORG_ID,
+        project_id: projectId,
+        messages: [
+          {
+            content: recipeText,
+            producer: `user_${userId}`,
+            produced_for: `user_${userId}`,
+          },
+        ],
+      };
 
-      // MemMachine v1 API now returns UUID in response body
-      // This UUID can be used for targeted deletion later
-      const uuid = response.data.uuid;
-      console.log(`✅ MemMachine: Stored recipe "${recipe.name}" for user ${userId} (UUID: ${uuid})`);
-      return uuid;
+      const response = await this.client.post<AddMemoriesResponse>('/api/v2/memories', request);
+
+      const uid = response.data.results?.[0]?.uid;
+      if (uid) {
+        console.log(`✅ MemMachine: Stored recipe "${recipe.name}" for user ${userId} (UID: ${uid})`);
+        return uid;
+      }
+
+      console.warn(`⚠️ MemMachine: No UID returned for recipe "${recipe.name}"`);
+      return null;
     } catch (error) {
       if (axios.isAxiosError(error)) {
         console.error(`❌ MemMachine: Failed to store recipe for user ${userId}:`, error.message);
@@ -254,11 +263,11 @@ export class MemoryService {
    * - Process recipes in batches of 10
    * - Wait 500ms between batches to prevent rate limiting
    * - Continue processing even if some recipes fail
-   * - Return UUIDs mapped to recipe names for database storage
+   * - Return UIDs mapped to recipe names for database storage
    *
    * @param userId - User ID
    * @param recipes - Array of recipe objects
-   * @returns Object with success/failure counts and UUID mapping
+   * @returns Object with success/failure counts and UID mapping
    */
   async storeUserRecipesBatch(
     userId: number,
@@ -267,16 +276,19 @@ export class MemoryService {
     success: number;
     failed: number;
     errors: string[];
-    uuidMap: Map<string, string>; // Map recipe name → UUID
+    uidMap: Map<string, string>; // Map recipe name → UID
   }> {
-    const batchSize = 10; // Process 10 recipes at a time
-    const delayBetweenBatches = 500; // 500ms delay between batches
+    const batchSize = 10;
+    const delayBetweenBatches = 500;
     let successCount = 0;
     let failedCount = 0;
     const errors: string[] = [];
-    const uuidMap = new Map<string, string>();
+    const uidMap = new Map<string, string>();
 
     console.log(`📦 MemMachine: Starting batch upload of ${recipes.length} recipes for user ${userId}`);
+
+    // Ensure project exists once
+    const projectId = await this.ensureProjectExists(userId, 'recipes');
 
     // Process recipes in batches
     for (let i = 0; i < recipes.length; i += batchSize) {
@@ -290,17 +302,24 @@ export class MemoryService {
       const batchPromises = batch.map(async (recipe) => {
         try {
           const recipeText = this.formatRecipeForStorage(recipe);
-          const episode = this.buildEpisode(recipeText, userId);
-          const headers = this.buildHeaders(userId, RECIPE_SESSION);
 
-          const response = await this.client.post<{ uuid: string }>('/v1/memories', episode, { headers });
+          const request: AddMemoriesRequest = {
+            org_id: ORG_ID,
+            project_id: projectId,
+            messages: [
+              {
+                content: recipeText,
+                producer: `user_${userId}`,
+                produced_for: `user_${userId}`,
+              },
+            ],
+          };
 
-          // MemMachine v1 API now returns UUID in response body
-          // This UUID can be used for targeted deletion later
-          const uuid = response.data.uuid;
+          const response = await this.client.post<AddMemoriesResponse>('/api/v2/memories', request);
+          const uid = response.data.results?.[0]?.uid;
 
-          console.log(`✅ MemMachine: Stored recipe "${recipe.name}" for user ${userId} (UUID: ${uuid})`);
-          return { success: true, recipe: recipe.name, uuid };
+          console.log(`✅ MemMachine: Stored recipe "${recipe.name}" for user ${userId} (UID: ${uid})`);
+          return { success: true, recipe: recipe.name, uid };
         } catch (error) {
           const errorMsg = axios.isAxiosError(error)
             ? error.message
@@ -308,20 +327,20 @@ export class MemoryService {
             ? error.message
             : 'Unknown error';
           console.error(`❌ MemMachine: Failed to store recipe "${recipe.name}" for user ${userId}:`, errorMsg);
-          return { success: false, recipe: recipe.name, uuid: null, error: errorMsg };
+          return { success: false, recipe: recipe.name, uid: null, error: errorMsg };
         }
       });
 
       // Wait for all recipes in this batch to complete
       const batchResults = await Promise.allSettled(batchPromises);
 
-      // Count successes and failures, collect UUIDs
+      // Count successes and failures, collect UIDs
       for (const result of batchResults) {
         if (result.status === 'fulfilled') {
           if (result.value.success) {
             successCount++;
-            if (result.value.uuid) {
-              uuidMap.set(result.value.recipe, result.value.uuid);
+            if (result.value.uid) {
+              uidMap.set(result.value.recipe, result.value.uid);
             }
           } else {
             failedCount++;
@@ -340,10 +359,10 @@ export class MemoryService {
     }
 
     console.log(
-      `✅ MemMachine: Batch upload complete - ${successCount} succeeded, ${failedCount} failed, ${uuidMap.size} UUIDs captured`
+      `✅ MemMachine: Batch upload complete - ${successCount} succeeded, ${failedCount} failed, ${uidMap.size} UIDs captured`
     );
 
-    return { success: successCount, failed: failedCount, errors, uuidMap };
+    return { success: successCount, failed: failedCount, errors, uidMap };
   }
 
   /**
@@ -354,33 +373,37 @@ export class MemoryService {
    *
    * @param userId - User ID
    * @param query - Natural language query (e.g., "rum cocktails with lime")
-   * @returns Normalized search results with episodic and profile memories
+   * @returns Normalized search results with episodic and semantic memories
    * @throws Error if API call fails
    */
   async queryUserProfile(userId: number, query: string): Promise<NormalizedSearchResult> {
     try {
-      const searchQuery: SearchQuery = {
-        query,
-        limit: DEFAULT_SEARCH_LIMIT,
-      };
-      const headers = this.buildHeaders(userId, RECIPE_SESSION);
+      const projectId = buildRecipeProjectId(userId);
 
-      const response = await this.client.post<MemMachineSearchResponse>(
-        '/v1/memories/search',
-        searchQuery,
-        { headers }
-      );
+      const searchRequest: SearchMemoriesRequest = {
+        org_id: ORG_ID,
+        project_id: projectId,
+        query,
+        top_k: DEFAULT_SEARCH_LIMIT,
+      };
+
+      const response = await this.client.post<SearchResultResponse>('/api/v2/memories/search', searchRequest);
 
       // Validate and normalize response structure
-      const normalizedResult = this.validateAndNormalizeResponse(response.data as MemMachineSearchResponse);
+      const normalizedResult = this.validateAndNormalizeResponse(response.data);
 
       console.log(
-        `🔍 MemMachine: Found ${normalizedResult.episodic.length} episodic + ${normalizedResult.profile.length} profile results for user ${userId}`
+        `🔍 MemMachine: Found ${normalizedResult.episodic.length} episodic + ${normalizedResult.semantic.length} semantic results for user ${userId}`
       );
 
       return normalizedResult;
     } catch (error) {
       if (axios.isAxiosError(error)) {
+        // 404 is expected if user has no recipes yet
+        if (error.response?.status === 404) {
+          console.log(`ℹ️ MemMachine: No project found for user ${userId} (new user)`);
+          return { episodic: [], semantic: [] };
+        }
         console.error(`❌ MemMachine: User profile query failed for user ${userId}:`, error.message);
         throw new Error(`Failed to query user profile: ${error.message}`);
       }
@@ -392,9 +415,9 @@ export class MemoryService {
    * Store Conversation Turn
    *
    * Stores a user message and AI response as episodic memory.
-   * Uses date-based session IDs for daily conversation threads.
+   * Uses date-based project IDs for daily conversation threads.
    *
-   * Session Strategy: chat-{YYYY-MM-DD}
+   * Project Strategy: user_{userId}_chat_{YYYY-MM-DD}
    * - All conversations on the same day are grouped together
    * - Easy to retrieve conversation history by date
    * - Natural conversation boundaries
@@ -405,50 +428,34 @@ export class MemoryService {
    */
   async storeConversationTurn(userId: number, userMessage: string, aiResponse: string): Promise<void> {
     try {
-      // Use date-based session IDs for daily conversation threads
-      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-      const sessionId = `${CHAT_SESSION_PREFIX}${today}`;
+      const today = new Date().toISOString().split('T')[0];
+      const projectId = await this.ensureProjectExists(userId, 'chat', today);
 
       const userIdStr = `user_${userId}`;
-      const agentIdStr = AGENT_ID;
 
-      // Store user message
-      await this.client.post(
-        '/v1/memories',
-        {
-          episode_content: `User: ${userMessage}`,
-          producer: userIdStr,
-          produced_for: agentIdStr,
-        },
-        {
-          headers: {
-            'user-id': userIdStr,
-            'session-id': sessionId,
-            'group-id': GROUP_ID,
-            'agent-id': agentIdStr,
+      // Store both messages in one request
+      const request: AddMemoriesRequest = {
+        org_id: ORG_ID,
+        project_id: projectId,
+        messages: [
+          {
+            content: `User: ${userMessage}`,
+            producer: userIdStr,
+            produced_for: 'alchemix-bartender',
+            role: 'user',
           },
-        }
-      );
-
-      // Store AI response
-      await this.client.post(
-        '/v1/memories',
-        {
-          episode_content: `Assistant: ${aiResponse}`,
-          producer: agentIdStr,
-          produced_for: userIdStr,
-        },
-        {
-          headers: {
-            'user-id': userIdStr,
-            'session-id': sessionId,
-            'group-id': GROUP_ID,
-            'agent-id': agentIdStr,
+          {
+            content: `Assistant: ${aiResponse}`,
+            producer: 'alchemix-bartender',
+            produced_for: userIdStr,
+            role: 'assistant',
           },
-        }
-      );
+        ],
+      };
 
-      console.log(`💬 MemMachine: Stored conversation turn for user ${userId} in session ${sessionId}`);
+      await this.client.post('/api/v2/memories', request);
+
+      console.log(`💬 MemMachine: Stored conversation turn for user ${userId} in project ${projectId}`);
     } catch (error) {
       if (axios.isAxiosError(error)) {
         console.error(`❌ MemMachine: Failed to store conversation for user ${userId}:`, error.message);
@@ -458,35 +465,44 @@ export class MemoryService {
   }
 
   /**
-   * Delete User Recipe by UUID
+   * Delete User Recipe by UID
    *
-   * OPTION A IMPLEMENTATION:
-   * Deletes a specific recipe from MemMachine using its UUID.
+   * Deletes a specific recipe from MemMachine using its UID.
    * This ensures the AI context stays synchronized with AlcheMix database.
    *
    * How it works:
-   * 1. Recipe is created → MemMachine returns UUID → Stored in recipes.memmachine_uuid
-   * 2. Recipe is deleted from AlcheMix → This method uses UUID to delete from MemMachine
+   * 1. Recipe is created → MemMachine returns UID → Stored in recipes.memmachine_uid
+   * 2. Recipe is deleted from AlcheMix → This method uses UID to delete from MemMachine
    * 3. AI context stays clean - no stale recipe recommendations
    *
    * @param userId - User ID
-   * @param uuid - MemMachine episode UUID (from recipes.memmachine_uuid)
+   * @param uid - MemMachine episode UID (from recipes.memmachine_uid)
    * @param recipeName - Recipe name (for logging only)
    * @returns True if deletion succeeded, false otherwise
    */
-  async deleteUserRecipeByUuid(userId: number, uuid: string, recipeName?: string): Promise<boolean> {
+  async deleteUserRecipeByUid(userId: number, uid: string, recipeName?: string): Promise<boolean> {
     try {
-      const headers = this.buildHeaders(userId, RECIPE_SESSION);
+      const projectId = buildRecipeProjectId(userId);
 
-      // Delete specific episode using UUID (path parameter)
-      await this.client.delete(`/v1/memories/${uuid}`, { headers });
+      const request: DeleteEpisodicMemoryRequest = {
+        org_id: ORG_ID,
+        project_id: projectId,
+        episodic_id: uid,
+      };
 
-      const logName = recipeName ? `"${recipeName}"` : `with UUID ${uuid}`;
+      await this.client.post('/api/v2/memories/episodic/delete', request);
+
+      const logName = recipeName ? `"${recipeName}"` : `with UID ${uid}`;
       console.log(`✅ MemMachine: Deleted recipe ${logName} for user ${userId}`);
       return true;
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        const logName = recipeName ? `"${recipeName}"` : `with UUID ${uuid}`;
+        const logName = recipeName ? `"${recipeName}"` : `with UID ${uid}`;
+        // 404 is acceptable - recipe might have already been deleted
+        if (error.response?.status === 404) {
+          console.log(`ℹ️ MemMachine: Recipe ${logName} not found (already deleted)`);
+          return true;
+        }
         console.error(`❌ MemMachine: Failed to delete recipe ${logName} for user ${userId}:`, error.message);
       }
       // Don't throw - deletion failures shouldn't break the app
@@ -495,57 +511,62 @@ export class MemoryService {
   }
 
   /**
-   * Delete User Recipe (Legacy - No UUID)
+   * Delete User Recipe (Legacy - No UID)
    *
-   * For recipes created before UUID tracking was implemented.
-   * These recipes don't have memmachine_uuid in the database.
+   * For recipes created before UID tracking was implemented.
+   * These recipes don't have memmachine_uid in the database.
    *
    * @param userId - User ID
    * @param recipeName - Name of recipe to delete
    */
   async deleteUserRecipe(userId: number, recipeName: string): Promise<void> {
     console.log(
-      `ℹ️  MemMachine: Recipe "${recipeName}" deleted from AlcheMix (legacy recipe without UUID - data remains in MemMachine)`
+      `ℹ️  MemMachine: Recipe "${recipeName}" deleted from AlcheMix (legacy recipe without UID - data remains in MemMachine)`
     );
   }
 
   /**
-   * Delete Multiple Recipes by UUID (Batch)
+   * Delete Multiple Recipes by UID (Batch)
    *
    * Efficiently deletes multiple recipes from MemMachine during bulk operations.
    * Uses same batching strategy as bulk upload.
    *
    * @param userId - User ID
-   * @param uuids - Array of MemMachine episode UUIDs
+   * @param uids - Array of MemMachine episode UIDs
    * @returns Object with success/failure counts
    */
-  async deleteUserRecipesBatch(
-    userId: number,
-    uuids: string[]
-  ): Promise<{ success: number; failed: number }> {
+  async deleteUserRecipesBatch(userId: number, uids: string[]): Promise<{ success: number; failed: number }> {
     const batchSize = 10;
     const delayBetweenBatches = 500;
     let successCount = 0;
     let failedCount = 0;
 
-    console.log(`🗑️ MemMachine: Starting batch deletion of ${uuids.length} recipes for user ${userId}`);
+    console.log(`🗑️ MemMachine: Starting batch deletion of ${uids.length} recipes for user ${userId}`);
 
-    for (let i = 0; i < uuids.length; i += batchSize) {
-      const batch = uuids.slice(i, i + batchSize);
+    const projectId = buildRecipeProjectId(userId);
+
+    for (let i = 0; i < uids.length; i += batchSize) {
+      const batch = uids.slice(i, i + batchSize);
       const batchNumber = Math.floor(i / batchSize) + 1;
-      const totalBatches = Math.ceil(uuids.length / batchSize);
+      const totalBatches = Math.ceil(uids.length / batchSize);
 
-      console.log(`🗑️ MemMachine: Processing deletion batch ${batchNumber}/${totalBatches} (${batch.length} UUIDs)`);
+      console.log(`🗑️ MemMachine: Processing deletion batch ${batchNumber}/${totalBatches} (${batch.length} UIDs)`);
 
-      const batchPromises = batch.map(async (uuid) => {
-        const headers = this.buildHeaders(userId, RECIPE_SESSION);
+      const batchPromises = batch.map(async (uid) => {
         try {
-          await this.client.delete('/v1/memories', {
-            headers,
-            data: { uuid },
-          });
+          const request: DeleteEpisodicMemoryRequest = {
+            org_id: ORG_ID,
+            project_id: projectId,
+            episodic_id: uid,
+          };
+
+          await this.client.post('/api/v2/memories/episodic/delete', request);
           return { success: true };
         } catch (error) {
+          // 404 is acceptable
+          if (axios.isAxiosError(error) && error.response?.status === 404) {
+            return { success: true };
+          }
           return { success: false };
         }
       });
@@ -560,14 +581,12 @@ export class MemoryService {
         }
       }
 
-      if (i + batchSize < uuids.length) {
+      if (i + batchSize < uids.length) {
         await new Promise((resolve) => setTimeout(resolve, delayBetweenBatches));
       }
     }
 
-    console.log(
-      `✅ MemMachine: Batch deletion complete - ${successCount} succeeded, ${failedCount} failed`
-    );
+    console.log(`✅ MemMachine: Batch deletion complete - ${successCount} succeeded, ${failedCount} failed`);
 
     return { success: successCount, failed: failedCount };
   }
@@ -575,36 +594,38 @@ export class MemoryService {
   /**
    * Delete All Recipe Memories for User
    *
-   * Nukes the entire "recipes" session for a user in MemMachine.
-   * Use this when you want to start fresh with UUID tracking.
+   * Deletes the entire recipes project for a user in MemMachine.
+   * Use this when you want to start fresh with UID tracking.
    *
    * WARNING: This deletes ALL recipes from MemMachine for this user.
-   * Only use when you plan to re-upload recipes with UUID tracking.
+   * Only use when you plan to re-upload recipes with UID tracking.
    *
    * @param userId - User ID
    * @returns True if deletion succeeded, false otherwise
    */
   async deleteAllRecipeMemories(userId: number): Promise<boolean> {
     try {
-      const userIdStr = `user_${userId}`;
-      const headers = this.buildHeaders(userId, RECIPE_SESSION);
+      const projectId = buildRecipeProjectId(userId);
 
-      // Delete entire session using session-based deletion
-      await this.client.delete('/v1/memories', {
-        headers,
-        data: {
-          session: {
-            user_ids: [userIdStr],
-            session_id: RECIPE_SESSION,
-            group_id: GROUP_ID,
-          },
-        },
-      });
+      const request: DeleteProjectRequest = {
+        org_id: ORG_ID,
+        project_id: projectId,
+      };
 
-      console.log(`🗑️ MemMachine: Deleted ALL recipe memories for user ${userId} (session: ${RECIPE_SESSION})`);
+      await this.client.post('/api/v2/projects/delete', request);
+
+      // Remove from cache so it can be recreated
+      this.projectCache.delete(projectId);
+
+      console.log(`🗑️ MemMachine: Deleted ALL recipe memories for user ${userId} (project: ${projectId})`);
       return true;
     } catch (error) {
       if (axios.isAxiosError(error)) {
+        // 404 is acceptable - project might not exist
+        if (error.response?.status === 404) {
+          console.log(`ℹ️ MemMachine: Project for user ${userId} not found (already deleted or never existed)`);
+          return true;
+        }
         console.error(`❌ MemMachine: Failed to delete all recipe memories for user ${userId}:`, error.message);
       }
       return false;
@@ -622,14 +643,25 @@ export class MemoryService {
    */
   async storeUserCollection(userId: number, collection: CollectionData): Promise<void> {
     try {
+      const projectId = await this.ensureProjectExists(userId, 'recipes');
+
       const collectionText =
         `User created a recipe collection named "${collection.name}"` +
         (collection.description ? ` with description: "${collection.description}"` : '');
 
-      const episode = this.buildEpisode(collectionText, userId);
-      const headers = this.buildHeaders(userId, RECIPE_SESSION);
+      const request: AddMemoriesRequest = {
+        org_id: ORG_ID,
+        project_id: projectId,
+        messages: [
+          {
+            content: collectionText,
+            producer: `user_${userId}`,
+            produced_for: `user_${userId}`,
+          },
+        ],
+      };
 
-      await this.client.post('/v1/memories', episode, { headers });
+      await this.client.post('/api/v2/memories', request);
 
       console.log(`📁 MemMachine: Stored collection "${collection.name}" for user ${userId}`);
     } catch (error) {
@@ -675,7 +707,7 @@ export class MemoryService {
    * 2. Already-recommended recipes (from conversation history)
    *
    * This solves two problems:
-   * - MemMachine UUID limitation: Filter deleted recipes when building AI context
+   * - MemMachine UID limitation: Filter deleted recipes when building AI context
    * - Duplicate recommendations: Hide recipes already suggested in this conversation
    *
    * @param searchResult - Normalized search result from MemMachine
@@ -692,7 +724,7 @@ export class MemoryService {
     limit: number = MAX_PROMPT_RECIPES,
     alreadyRecommended: Set<string> = new Set()
   ): string {
-    if (!searchResult || (!searchResult.episodic?.length && !searchResult.profile?.length)) {
+    if (!searchResult || (!searchResult.episodic?.length && !searchResult.semantic?.length)) {
       return '';
     }
 
@@ -710,8 +742,7 @@ export class MemoryService {
       // Filter for recipe-related content
       const recipeEpisodes = searchResult.episodic.filter(
         (result) =>
-          result.content &&
-          (result.content.includes('Recipe:') || result.content.startsWith('Recipe for'))
+          result.content && (result.content.includes('Recipe:') || result.content.startsWith('Recipe for'))
       );
 
       // Extract recipe names and cross-reference with database (if provided)
@@ -739,7 +770,7 @@ export class MemoryService {
 
             validRecipes.push(episode);
           } else {
-            // Can't extract name, include anyway (might be profile memory or other content)
+            // Can't extract name, include anyway (might be semantic memory or other content)
             validRecipes.push(episode);
           }
         }
@@ -769,11 +800,11 @@ export class MemoryService {
       }
     }
 
-    // Add profile memories (user preferences)
-    if (searchResult.profile?.length > 0) {
+    // Add semantic memories (user preferences) - renamed from profile
+    if (searchResult.semantic?.length > 0) {
       contextText += '\n### User Preferences & Patterns:\n';
-      const profiles = searchResult.profile.slice(0, 3); // Top 3 most relevant
-      profiles.forEach((result) => {
+      const semantics = searchResult.semantic.slice(0, 3); // Top 3 most relevant
+      semantics.forEach((result) => {
         contextText += `- ${result.content}\n`;
       });
     }
@@ -790,7 +821,7 @@ export class MemoryService {
    */
   async healthCheck(): Promise<boolean> {
     try {
-      const response = await axios.get(`${this.client.defaults.baseURL}/health`);
+      const response = await axios.get(`${this.client.defaults.baseURL}/api/v2/health`);
       return response.data.status === 'healthy';
     } catch (error) {
       return false;
@@ -802,7 +833,7 @@ export class MemoryService {
  * Singleton instance for application-wide use
  */
 const memMachineURL = process.env.MEMMACHINE_API_URL || 'http://localhost:8080';
-console.log(`🔧 MemMachine Service initialized (v1 API) with URL: ${memMachineURL}`);
+console.log(`🔧 MemMachine Service initialized (v2 API) with URL: ${memMachineURL}`);
 
 export const memoryService = new MemoryService({
   baseURL: memMachineURL,

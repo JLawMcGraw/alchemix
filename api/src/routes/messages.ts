@@ -528,7 +528,7 @@ async function buildContextAwarePrompt(
 
       // Add user's own recipes and preferences (with database filtering + duplicate filtering)
       if (userContext) {
-        console.log(`✅ MemMachine: Retrieved context - Episodic entries: ${userContext.episodic?.length || 0}, Profile entries: ${userContext.profile?.length || 0}`);
+        console.log(`✅ MemMachine: Retrieved context - Episodic entries: ${userContext.episodic?.length || 0}, Semantic entries: ${userContext.semantic?.length || 0}`);
         memoryContext += memoryService.formatContextForPrompt(userContext, userId, db, 10, alreadyRecommended); // Filter deleted + already recommended
         console.log(`📝 MemMachine: Added ${memoryContext.split('\n').length} lines of context to prompt (deleted + duplicates filtered out)`);
       } else {

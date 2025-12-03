@@ -372,8 +372,8 @@ export class RecipeService {
    */
   delete(recipeId: number, userId: number): { success: boolean; error?: string } {
     const recipe = db.prepare(
-      'SELECT id, name, memmachine_uuid FROM recipes WHERE id = ? AND user_id = ?'
-    ).get(recipeId, userId) as { id: number; name: string; memmachine_uuid: string | null } | undefined;
+      'SELECT id, name, memmachine_uid FROM recipes WHERE id = ? AND user_id = ?'
+    ).get(recipeId, userId) as { id: number; name: string; memmachine_uid: string | null } | undefined;
 
     if (!recipe) {
       return { success: false, error: 'Recipe not found or access denied' };
@@ -383,8 +383,8 @@ export class RecipeService {
     db.prepare('DELETE FROM recipes WHERE id = ?').run(recipeId);
 
     // Delete from MemMachine
-    if (recipe.memmachine_uuid) {
-      memoryService.deleteUserRecipeByUuid(userId, recipe.memmachine_uuid, recipe.name).catch(err => {
+    if (recipe.memmachine_uid) {
+      memoryService.deleteUserRecipeByUid(userId, recipe.memmachine_uid, recipe.name).catch(err => {
         console.error('Failed to delete recipe from MemMachine:', err);
       });
     } else {
@@ -412,13 +412,13 @@ export class RecipeService {
   bulkDelete(ids: number[], userId: number): number {
     const placeholders = ids.map(() => '?').join(', ');
 
-    // Get UUIDs before deletion
+    // Get UIDs before deletion
     const recipesToDelete = db.prepare(`
-      SELECT memmachine_uuid FROM recipes
-      WHERE user_id = ? AND id IN (${placeholders}) AND memmachine_uuid IS NOT NULL
-    `).all(userId, ...ids) as Array<{ memmachine_uuid: string }>;
+      SELECT memmachine_uid FROM recipes
+      WHERE user_id = ? AND id IN (${placeholders}) AND memmachine_uid IS NOT NULL
+    `).all(userId, ...ids) as Array<{ memmachine_uid: string }>;
 
-    const uuidsToDelete = recipesToDelete.map(r => r.memmachine_uuid).filter(Boolean);
+    const uidsToDelete = recipesToDelete.map(r => r.memmachine_uid).filter(Boolean);
 
     // Delete from database
     const result = db.prepare(`
@@ -428,8 +428,8 @@ export class RecipeService {
     // Handle MemMachine cleanup
     if (result.changes >= 10) {
       this.autoSyncMemMachine(userId, `bulk delete ${result.changes} recipes`);
-    } else if (uuidsToDelete.length > 0) {
-      memoryService.deleteUserRecipesBatch(userId, uuidsToDelete).catch(err => {
+    } else if (uidsToDelete.length > 0) {
+      memoryService.deleteUserRecipesBatch(userId, uidsToDelete).catch(err => {
         console.error('Failed to batch delete recipes from MemMachine:', err);
       });
     }
@@ -640,10 +640,10 @@ export class RecipeService {
       instructions: data.instructions || undefined,
       glass: data.glass || undefined,
       category: data.category || undefined,
-    }).then(uuid => {
-      if (uuid) {
-        db.prepare('UPDATE recipes SET memmachine_uuid = ? WHERE id = ?').run(uuid, recipeId);
-        console.log(`💾 Stored MemMachine UUID for recipe ${recipeId}: ${uuid}`);
+    }).then(uid => {
+      if (uid) {
+        db.prepare('UPDATE recipes SET memmachine_uid = ? WHERE id = ?').run(uid, recipeId);
+        console.log(`💾 Stored MemMachine UID for recipe ${recipeId}: ${uid}`);
       }
     }).catch(err => {
       console.error('Failed to store recipe in MemMachine (non-critical):', err);
@@ -655,21 +655,21 @@ export class RecipeService {
    */
   private batchStoreInMemMachine(userId: number, recipes: any[]): void {
     memoryService.storeUserRecipesBatch(userId, recipes).then(result => {
-      if (result.uuidMap.size > 0) {
-        console.log(`💾 Storing ${result.uuidMap.size} MemMachine UUIDs in database...`);
+      if (result.uidMap.size > 0) {
+        console.log(`💾 Storing ${result.uidMap.size} MemMachine UIDs in database...`);
 
-        const updateStmt = db.prepare('UPDATE recipes SET memmachine_uuid = ? WHERE user_id = ? AND name = ?');
+        const updateStmt = db.prepare('UPDATE recipes SET memmachine_uid = ? WHERE user_id = ? AND name = ?');
         const updateMany = db.transaction((entries: Array<[string, string]>) => {
-          for (const [recipeName, uuid] of entries) {
-            updateStmt.run(uuid, userId, recipeName);
+          for (const [recipeName, uid] of entries) {
+            updateStmt.run(uid, userId, recipeName);
           }
         });
 
         try {
-          updateMany(Array.from(result.uuidMap.entries()));
-          console.log(`✅ Stored all MemMachine UUIDs in database`);
+          updateMany(Array.from(result.uidMap.entries()));
+          console.log(`✅ Stored all MemMachine UIDs in database`);
         } catch (err) {
-          console.error('Failed to store MemMachine UUIDs in database:', err);
+          console.error('Failed to store MemMachine UIDs in database:', err);
         }
       }
     }).catch(err => {

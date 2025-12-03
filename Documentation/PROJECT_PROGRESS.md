@@ -1,18 +1,89 @@
 # Project Development Progress
 
-Last updated: 2025-12-02
+Last updated: 2025-12-03
 
 ---
 
 ## Current Status
 
-**Version**: v1.21.0 (AI Improvements, Security Hardening & Production DevOps)
-**Phase**: Production Ready - Full DevOps Infrastructure
-**Blockers**: None - All 258 tests passing, type-check clean
+**Version**: v1.22.0 (MemMachine v2 API Migration)
+**Phase**: Production Ready - MemMachine v2 Integration Complete
+**Blockers**: None - Docker containers healthy, v2 API verified
 
 ---
 
-## Recent Session (2025-12-02): AI Improvements, Security Fixes, Performance Optimizations & DevOps Infrastructure
+## Recent Session (2025-12-03): MemMachine v2 API Migration & Upstream Merge
+
+### Work Completed
+
+#### MemMachine Upstream Merge
+- ✅ **Merged 19 upstream commits** into fork (v1 → v2 API architecture)
+- ✅ **Resolved merge conflicts** - accepted upstream for Python, kept custom Dockerfile
+- ✅ **Removed sync command** - `memmachine-sync-profile-schema` no longer exists in upstream
+- ✅ **Pushed changes** to origin/main
+
+#### AlcheMix v2 API Migration
+- ✅ **Complete types rewrite** - `memmachine.ts` updated for v2 API (UID instead of UUID)
+- ✅ **MemoryService rewrite** - All endpoints changed from `/v1/*` to `/api/v2/*`
+- ✅ **Database migration** - Column renamed `memmachine_uuid` → `memmachine_uid`
+- ✅ **RecipeService update** - All UUID references changed to UID
+- ✅ **Clear script enhanced** - Added `--resync` and `--all` flags for bulk operations
+
+#### Docker Infrastructure Updates
+- ✅ **Neo4j upgraded** - 5.15.0 → 5.23-community with GDS plugin for vector similarity
+- ✅ **New config format** - Updated `config.yaml.template` for v2 API schema
+- ✅ **Health check updated** - `/health` → `/api/v2/health`
+- ✅ **All containers healthy** - Neo4j, Postgres, MemMachine, Bar Server running
+
+#### API Verification
+- ✅ **Health endpoint** - `/api/v2/health` returns healthy
+- ✅ **Create project** - `/api/v2/projects` working
+- ✅ **Add memories** - `/api/v2/memories` returns UID
+- ✅ **Search memories** - `/api/v2/memories/search` with vector similarity
+- ✅ **Delete episodic** - `/api/v2/memories/episodic/delete` working
+
+### Components Modified
+
+**MemMachine Fork**:
+- `Dockerfile` - Removed sync command, kept custom entrypoint
+- All Python conflicts - Accepted upstream v2 architecture
+
+**AlcheMix Backend**:
+- `api/src/types/memmachine.ts` - Complete rewrite for v2 API
+- `api/src/services/MemoryService.ts` - v2 endpoints, org/project model
+- `api/src/services/RecipeService.ts` - uuid → uid references
+- `api/src/database/db.ts` - Column rename migration
+- `api/src/routes/messages.ts` - profile → semantic memory
+- `api/scripts/clear-memmachine.ts` - Enhanced with --resync --all
+
+**Docker Config**:
+- `docker-compose.yml` - Neo4j 5.23, GDS plugin, v2 health check
+- `docker/memmachine/config.yaml.template` - v2 API format
+
+### Key API Changes (v1 → v2)
+
+| Aspect | v1 API | v2 API |
+|--------|--------|--------|
+| Base Path | `/v1/memories/*` | `/api/v2/*` |
+| Identifier | `uuid` | `uid` |
+| Session Model | Headers (`user-id`, `session-id`) | Body (`org_id`, `project_id`) |
+| Add Memory | Returns `{ uuid }` | Returns `{ results: [{ uid }] }` |
+| Delete | `DELETE /v1/memories/{uuid}` | `POST /api/v2/memories/episodic/delete` |
+| Profile Memory | `profile_memory` | `semantic_memory` |
+
+### Database State
+- **Recipes**: 371 total (memmachine_uid cleared for fresh sync)
+- **Users**: 3 accounts
+- **MemMachine**: Clean slate (volumes recreated)
+
+### Next Steps
+- [ ] Re-sync recipes to MemMachine (`npm run clear-memmachine -- --all --resync`)
+- [ ] Test AI bartender with v2 context retrieval
+- [ ] Monitor UID tracking on new recipe creation
+
+---
+
+## Previous Session (2025-12-02): AI Improvements, Security Fixes, Performance Optimizations & DevOps Infrastructure
 
 ### Work Completed
 
