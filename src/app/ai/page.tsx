@@ -291,19 +291,19 @@ export default function AIPage() {
                     onClick={() => setInput("What can I make with whiskey?")}
                     className={styles.suggestionBtn}
                   >
-                    "What can I make with whiskey?"
+                    &quot;What can I make with whiskey?&quot;
                   </button>
                   <button
                     onClick={() => setInput("Suggest a refreshing summer cocktail")}
                     className={styles.suggestionBtn}
                   >
-                    "Suggest a refreshing summer cocktail"
+                    &quot;Suggest a refreshing summer cocktail&quot;
                   </button>
                   <button
                     onClick={() => setInput("What cocktails use gin?")}
                     className={styles.suggestionBtn}
                   >
-                    "What cocktails use gin?"
+                    &quot;What cocktails use gin?&quot;
                   </button>
                 </div>
               </div>

@@ -143,7 +143,7 @@ export default function FavoritesPage() {
                 <Star size={64} className={styles.emptyIcon} strokeWidth={1.5} />
                 <h3 className={styles.emptyTitle}>No favorites yet</h3>
                 <p className={styles.emptyText}>
-                  Your lab's waiting for its next experiment. Save recipes to see them here!
+                  Your lab&apos;s waiting for its next experiment. Save recipes to see them here!
                 </p>
                 <Button
                   variant="primary"

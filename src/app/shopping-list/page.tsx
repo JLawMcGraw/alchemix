@@ -573,7 +573,7 @@ export default function ShoppingListPage() {
             <h3 className={styles.infoTitle}>How It Works</h3>
             <p className={styles.infoText}>
               Our smart algorithm analyzes your current bar inventory against your entire
-              recipe collection to identify "near miss" cocktails—recipes you're missing
+              recipe collection to identify &quot;near miss&quot; cocktails—recipes you&apos;re missing
               just <strong>one ingredient</strong> from making.
             </p>
             <p className={styles.infoText}>

@@ -45,10 +45,10 @@ export default function ForgotPasswordPage() {
             <CheckCircle className={styles.successIcon} size={64} />
             <h1 className={styles.title}>Check Your Email</h1>
             <p className={styles.subtitle}>
-              If an account exists with <strong>{email}</strong>, we've sent a password reset link.
+              If an account exists with <strong>{email}</strong>, we&apos;ve sent a password reset link.
             </p>
             <p className={styles.note}>
-              The link will expire in 1 hour. If you don't see the email, check your spam folder.
+              The link will expire in 1 hour. If you don&apos;t see the email, check your spam folder.
             </p>
             <Link href="/login">
               <Button variant="outline" size="lg" className={styles.backButton}>
@@ -63,7 +63,7 @@ export default function ForgotPasswordPage() {
               <Mail className={styles.headerIcon} size={48} />
               <h1 className={styles.title}>Forgot Password?</h1>
               <p className={styles.subtitle}>
-                Enter your email address and we'll send you a link to reset your password.
+                Enter your email address and we&apos;ll send you a link to reset your password.
               </p>
             </div>
 

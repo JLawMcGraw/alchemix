@@ -454,7 +454,7 @@ export function ItemDetailModal({
                     rows={4}
                   />
                   <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginTop: '4px', fontStyle: 'italic' }}>
-                    Adding notes will improve your Lab Assistant's recommendations.
+                    Adding notes will improve your Lab Assistant&apos;s recommendations.
                   </p>
                 </>
               ) : (

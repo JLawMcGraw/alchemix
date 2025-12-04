@@ -274,7 +274,7 @@ export default function DashboardPage() {
             <div className={styles.cardHeader}>
               <h3 className={styles.cardTitle}>
                 <Sparkles size={20} style={{ marginRight: '8px' }} />
-                Lab Assistant's Notebook
+                Lab Assistant&apos;s Notebook
               </h3>
             </div>
             <div className={styles.cardContent}>
