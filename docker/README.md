@@ -6,6 +6,13 @@ This directory contains Docker-related configuration files for AlcheMix services
 
 ```
 docker/
+├── docker-compose.yml          # Main Docker Compose config
+├── docker-compose.dev.yml      # Development overrides
+├── docker-compose.prod.yml     # Production overrides
+├── docker-compose.test.yml     # Test overrides
+├── Dockerfile.dev              # Development frontend Dockerfile
+├── Dockerfile.prod             # Production frontend Dockerfile
+├── docker-start.sh             # Startup script
 ├── bar-server/
 │   ├── Dockerfile              # Bar Server container config
 │   ├── health_endpoint.py      # Health check endpoint
@@ -78,9 +85,15 @@ The MemMachine Dockerfile build context is also set to the **parent directory** 
 
 ## Important Notes
 
-1. **Build Context**: Both services use `..` (parent directory) as build context
-   - This requires `alchemix` and `MemMachine` to be sibling directories
-   - Docker Compose runs from the `alchemix/` directory
+1. **Build Context**: The memmachine service uses `../..` (grandparent directory) as build context
+   - This requires `alchemix` and `memmachine` to be sibling directories
+   - Expected structure:
+     ```
+     DEV Work/
+     ├── alchemix/      # This repo
+     └── memmachine/    # MemMachine repo (github.com/JLawMcGraw/memmachine)
+     ```
+   - Docker Compose runs from the `alchemix/docker/` directory
 
 2. **Environment Variables**: All sensitive values should be in `.env` file
    - Never commit API keys or passwords to git
@@ -100,17 +113,19 @@ The MemMachine Dockerfile build context is also set to the **parent directory** 
 When making changes to these files:
 
 ```bash
+# From project root:
+
 # Rebuild specific service
-docker-compose build memmachine
-docker-compose build bar-server
+docker-compose -f docker/docker-compose.yml build memmachine
+docker-compose -f docker/docker-compose.yml build bar-server
 
 # Rebuild and restart
-docker-compose up --build -d
+docker-compose -f docker/docker-compose.yml up --build -d
 
 # Force clean rebuild
-docker-compose down
-docker-compose build --no-cache memmachine
-docker-compose up -d
+docker-compose -f docker/docker-compose.yml down
+docker-compose -f docker/docker-compose.yml build --no-cache memmachine
+docker-compose -f docker/docker-compose.yml up -d
 ```
 
 ## Debugging
@@ -124,7 +139,7 @@ docker run --rm alchemix-bar-server:latest ls -la /app/
 curl http://localhost:8080/health  # MemMachine
 curl http://localhost:8001/health  # Bar Server
 
-# View environment variables
-docker-compose run --rm memmachine env | grep MEMORY
-docker-compose run --rm bar-server env | grep PORT
+# View environment variables (from project root)
+docker-compose -f docker/docker-compose.yml run --rm memmachine env | grep MEMORY
+docker-compose -f docker/docker-compose.yml run --rm bar-server env | grep PORT
 ```

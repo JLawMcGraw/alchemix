@@ -42,3 +42,6 @@ next-env.d.ts
 *.db-shm
 *.db-wal
 docker-credential-ecr-login
+
+# Docker
+/docker/.env

@@ -6,7 +6,7 @@
 
 Modern cocktail inventory and recipe management system with AI-powered bartender recommendations.
 
-**Version:** v1.23.0 | **Last Updated:** December 2, 2025
+**Version:** v1.25.0 | **Last Updated:** December 3, 2025
 
 ## Features
 
@@ -61,7 +61,16 @@ alchemix/
 │   │   ├── middleware/    # Auth, error handling
 │   │   └── database/      # SQLite setup
 │   └── .env               # Environment configuration
-└── Documentation/          # Project docs
+├── docker/                 # Docker configuration
+│   ├── docker-compose.yml # Main compose file
+│   ├── Dockerfile.*       # Frontend/backend Dockerfiles
+│   ├── memmachine/        # MemMachine config templates
+│   └── .env.example       # Docker env template
+├── Documentation/          # Project docs
+│   ├── railway-deployment/ # Railway deployment guide
+│   ├── PROJECT_PROGRESS.md
+│   └── DEV_NOTES.md
+└── railway/                # Railway deployment configs
 ```
 
 ## API Endpoints
@@ -114,8 +123,9 @@ MEMMACHINE_API_URL=http://localhost:8080
 npm run type-check          # Frontend
 cd api && npm run type-check # Backend
 
-# Run tests (462 tests)
-cd api && npm test
+# Run tests (548 tests: 466 backend + 82 frontend)
+cd api && npm test          # Backend
+npm run test:ui -- --run    # Frontend
 
 # Build
 npm run build              # Frontend
@@ -128,10 +138,10 @@ The AI Bartender requires MemMachine (semantic memory) which runs in Docker alon
 
 ```bash
 # Start all services (Neo4j, Postgres, MemMachine, API, Frontend)
-docker compose up
+docker compose -f docker/docker-compose.yml up
 
 # Or infrastructure only (for local dev with hot reload)
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+docker compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml up -d
 npm run dev:all
 ```
 
@@ -142,7 +152,6 @@ npm run dev:all
 | Neo4j | 7474, 7687 | Graph database for vector embeddings |
 | Postgres | 5432 | Profile storage for MemMachine |
 | MemMachine | 8080 | Semantic memory API (v2) |
-| Bar Server | 8001 | Query constructor |
 | API | 3000 | Express backend |
 | Frontend | 3001 | Next.js frontend |
 
@@ -157,7 +166,9 @@ AlcheMix uses MemMachine v2 API for semantic recipe search and AI context:
 
 - `Documentation/PROJECT_PROGRESS.md` - Session history and progress
 - `Documentation/DEV_NOTES.md` - Technical decisions and gotchas
+- `Documentation/railway-deployment/` - Railway deployment guide
 - `api/.env.example` - Full environment variable reference
+- `docker/.env.example` - Docker environment template
 
 ## License
 

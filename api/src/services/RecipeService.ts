@@ -481,6 +481,7 @@ export class RecipeService {
     let imported = 0;
     const errors: Array<{ row: number; error: string }> = [];
     const recipesForMemMachine: Array<{
+      id: number;
       name: string;
       ingredients: string[];
       instructions: string | null;
@@ -531,7 +532,7 @@ export class RecipeService {
       const insertMany = this.db.transaction((recipes: typeof validatedRecipes) => {
         for (const recipe of recipes) {
           try {
-            insertStmt.run(
+            const result = insertStmt.run(
               userId,
               collectionId,
               recipe.name,
@@ -540,8 +541,10 @@ export class RecipeService {
               recipe.glass,
               recipe.category
             );
+            const recipeId = Number(result.lastInsertRowid);
             imported++;
             recipesForMemMachine.push({
+              id: recipeId,
               name: recipe.name,
               ingredients: recipe.ingredients,
               instructions: recipe.instructions,
@@ -692,8 +695,18 @@ export class RecipeService {
 
   /**
    * Batch store recipes in MemMachine
+   * Uses recipe ID for UID storage to handle duplicate recipe names correctly
    */
-  private batchStoreInMemMachine(userId: number, recipes: Array<{ name: string; ingredients: string[]; instructions: string | null; glass: string | null; category: string | null }>): void {
+  private batchStoreInMemMachine(userId: number, recipes: Array<{ id: number; name: string; ingredients: string[]; instructions: string | null; glass: string | null; category: string | null }>): void {
+    // Build a map of recipe name -> id for UID storage
+    // For duplicate names, we'll use the order they appear in the array
+    const recipeNameToIds = new Map<string, number[]>();
+    for (const r of recipes) {
+      const ids = recipeNameToIds.get(r.name) || [];
+      ids.push(r.id);
+      recipeNameToIds.set(r.name, ids);
+    }
+
     // Transform null to undefined for MemMachine API compatibility
     const recipesForApi = recipes.map(r => ({
       name: r.name,
@@ -702,20 +715,38 @@ export class RecipeService {
       glass: r.glass ?? undefined,
       category: r.category ?? undefined,
     }));
+
+    // Track which index we're at for each recipe name
+    const nameIndexTracker = new Map<string, number>();
+
     this.memoryService.storeUserRecipesBatch(userId, recipesForApi).then(result => {
       if (result.uidMap.size > 0) {
         console.log(`💾 Storing ${result.uidMap.size} MemMachine UIDs in database...`);
 
-        const updateStmt = this.db.prepare('UPDATE recipes SET memmachine_uid = ? WHERE user_id = ? AND name = ?');
-        const updateMany = this.db.transaction((entries: Array<[string, string]>) => {
-          for (const [recipeName, uid] of entries) {
-            updateStmt.run(uid, userId, recipeName);
+        const updateStmt = this.db.prepare('UPDATE recipes SET memmachine_uid = ? WHERE id = ?');
+        const updates: Array<{ id: number; uid: string }> = [];
+
+        // Match UIDs to recipe IDs
+        for (const [recipeName, uid] of result.uidMap.entries()) {
+          const ids = recipeNameToIds.get(recipeName);
+          if (ids && ids.length > 0) {
+            const currentIndex = nameIndexTracker.get(recipeName) || 0;
+            if (currentIndex < ids.length) {
+              updates.push({ id: ids[currentIndex], uid });
+              nameIndexTracker.set(recipeName, currentIndex + 1);
+            }
+          }
+        }
+
+        const updateMany = this.db.transaction((entries: typeof updates) => {
+          for (const { id, uid } of entries) {
+            updateStmt.run(uid, id);
           }
         });
 
         try {
-          updateMany(Array.from(result.uidMap.entries()));
-          console.log(`✅ Stored all MemMachine UIDs in database`);
+          updateMany(updates);
+          console.log(`✅ Stored ${updates.length} MemMachine UIDs in database`);
         } catch (err) {
           console.error('Failed to store MemMachine UIDs in database:', err);
         }

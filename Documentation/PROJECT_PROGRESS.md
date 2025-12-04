@@ -6,13 +6,91 @@ Last updated: 2025-12-04
 
 ## Current Status
 
-**Version**: v1.24.0 (Railway Deployment & Testing)
-**Phase**: Beta Launch Ready - Railway Full Stack Deployment Configured
-**Blockers**: None - All 548 tests passing (466 backend + 82 frontend)
+**Version**: v1.25.0 (Project Cleanup & Docker Reorganization)
+**Phase**: Beta Launch Ready - Clean project structure, Docker ready
+**Blockers**: None - All tests passing, Docker validated
 
 ---
 
-## Recent Session (2025-12-04): Service Layer Testing, Performance, Railway Deployment
+## Recent Session (2025-12-04): Project Cleanup & Docker Reorganization
+
+### Work Completed
+
+#### Project Root Cleanup
+- ✅ **Deleted obsolete documentation** - Removed old readiness reports, deployment guides superseded by Railway
+  - `00_READ_ME_FIRST.md`, `00_START_HERE.txt`, `DEPLOYMENT_*.md`, `PRODUCTION_*.md`
+  - `DOCKER_SETUP.md`, `QUICK_FIX_REFERENCE.md`, `REVIEW_*.txt`
+- ✅ **Deleted obsolete Documentation/ files** - `DEVOPS_IMPLEMENTATION_GUIDE.md`, `INFRASTRUCTURE_REVIEW.md`, etc.
+- ✅ **Created Documentation/railway-deployment/** - Moved `RAILWAY_DEPLOYMENT.md` to dedicated folder
+- ✅ **Removed Windows artifacts** - Deleted `nul` file
+
+#### Docker Folder Reorganization
+- ✅ **Moved all Docker files to docker/** - `docker-compose*.yml`, `Dockerfile.*`, `docker-start.sh`
+- ✅ **Updated docker-compose.yml** - Fixed memmachine build context to use sibling repo (`../..`)
+- ✅ **Updated docker-compose.prod.yml** - Fixed api/web context paths for new folder structure
+- ✅ **Removed obsolete `version` attribute** - From docker-compose.dev.yml and docker-compose.prod.yml
+- ✅ **Created docker/.env.example** - Template for Docker environment variables
+- ✅ **Deleted .env.docker from root** - Moved to docker/.env.example
+- ✅ **Updated .gitignore** - Added `/docker/.env` to ignore secrets
+
+#### Path Reference Updates
+- ✅ **README.md** - Updated docker compose commands to use `docker/` path
+- ✅ **package.json** - Updated `test:api:docker` script path
+- ✅ **CI workflow** - Updated Dockerfile.prod path in `.github/workflows/ci.yml`
+- ✅ **docker-start.sh** - Updated memmachine repo path check and .env.example reference
+- ✅ **docker/README.md** - Updated directory structure and all command examples
+- ✅ **.claude/SESSION_START.md** - Updated docker compose commands
+
+#### Dependabot PR Cleanup
+- ✅ **Merged 4 valid PRs** - docker/build-push-action v6, codecov-action v5, lucide-react 0.555, tsx 4.21.0
+- ✅ **Deleted 3 invalid branches** - Node 25 (doesn't exist), actions/checkout v6 (doesn't exist)
+
+#### Bug Fixes
+- ✅ **Fixed entrypoint.sh line endings** - Rewrote with Unix line endings for Docker compatibility
+- ✅ **Fixed duplicate MemMachine UIDs** - RecipeService now uses recipe ID instead of name for UID storage
+  - Prevents duplicate UIDs when same recipe name exists in different collections (e.g., different versions)
+  - Changed `batchStoreInMemMachine` to track recipe IDs and update by ID instead of name
+
+### Files Deleted
+- Root: `00_READ_ME_FIRST.md`, `00_START_HERE.txt`, `DEPLOYMENT_*.md`, `PRODUCTION_*.md`, `DOCKER_SETUP.md`, `QUICK_FIX_REFERENCE.md`, `REVIEW_*.txt`, `.env.docker`, `nul`
+- Documentation/: `DEVOPS_IMPLEMENTATION_GUIDE.md`, `INFRASTRUCTURE_REVIEW.md`, `PRODUCTION_READINESS_ACTION_PLAN.md`, `REVIEW_INDEX.md`, `REVIEW_SUMMARY.md`
+
+### Files Moved
+- `docker-compose*.yml` → `docker/`
+- `Dockerfile.*` → `docker/`
+- `docker-start.sh` → `docker/`
+- `RAILWAY_DEPLOYMENT.md` → `Documentation/railway-deployment/`
+
+### Files Created/Modified
+- `docker/.env.example` - Docker env template
+- `Documentation/railway-deployment/RAILWAY_DEPLOYMENT.md` - Moved
+- `.gitignore` - Added docker/.env
+- `api/src/services/RecipeService.ts` - Fixed UID storage to use recipe ID
+- Multiple files updated with new docker paths
+
+### Docker Setup (New Structure)
+```
+docker/
+├── docker-compose.yml          # Main config
+├── docker-compose.dev.yml      # Dev overrides
+├── docker-compose.prod.yml     # Prod overrides
+├── docker-compose.test.yml     # Test overrides
+├── Dockerfile.dev
+├── Dockerfile.prod
+├── docker-start.sh
+├── .env.example               # Template (committed)
+├── .env                       # Secrets (gitignored)
+├── bar-server/
+└── memmachine/
+```
+
+### Next Steps
+1. Deploy to Railway
+2. Test MemMachine semantic search with fresh data
+
+---
+
+## Previous Session (2025-12-04): Service Layer Testing, Performance, Railway Deployment
 
 ### Work Completed
 

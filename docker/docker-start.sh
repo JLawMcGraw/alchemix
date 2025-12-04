@@ -16,8 +16,8 @@ fi
 # Check if .env exists
 if [ ! -f .env ]; then
     echo "⚠️  No .env file found"
-    echo "Copying .env.docker to .env..."
-    cp .env.docker .env
+    echo "Copying .env.example to .env..."
+    cp .env.example .env
     echo ""
     echo "⚠️  IMPORTANT: Edit .env and add your API keys:"
     echo "   - OPENAI_API_KEY"
@@ -27,14 +27,14 @@ if [ ! -f .env ]; then
     read -p "Press Enter after updating .env to continue..."
 fi
 
-# Check if MemMachine directory exists
-if [ ! -d "../MemMachine" ]; then
-    echo "❌ Error: MemMachine directory not found"
-    echo "Expected: ../MemMachine"
+# Check if memmachine directory exists (sibling repo)
+if [ ! -d "../../memmachine" ]; then
+    echo "❌ Error: memmachine directory not found"
+    echo "Expected: ../../memmachine (sibling to alchemix)"
     echo ""
-    echo "Please clone MemMachine fork:"
-    echo "  cd .."
-    echo "  git clone https://github.com/JLawMcGraw/MemMachine.git MemMachine"
+    echo "Please clone memmachine fork:"
+    echo "  cd ../.."
+    echo "  git clone https://github.com/JLawMcGraw/memmachine.git memmachine"
     exit 1
 fi
 

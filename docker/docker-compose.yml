@@ -44,9 +44,11 @@ services:
       - alchemix-network
 
   # MemMachine Backend - Core memory service
+  # Requires memmachine repo cloned as sibling: ../memmachine
+  # Build context is parent of both repos to access both memmachine/ and alchemix/
   memmachine:
     build:
-      context: ..  # Use parent directory
+      context: ../..
       dockerfile: memmachine/Dockerfile
     container_name: alchemix-memmachine
     ports:

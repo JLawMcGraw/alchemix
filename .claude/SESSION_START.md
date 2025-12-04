@@ -90,11 +90,11 @@ npm run lint
 
 ```bash
 # Hybrid: Docker infrastructure + local dev
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+docker compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml up -d
 npm run dev:all
 
 # Full Docker
-docker compose up --build
+docker compose -f docker/docker-compose.yml up --build
 ```
 
 ---

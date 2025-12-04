@@ -4,8 +4,6 @@
 #
 # Then run your API and Frontend locally with: npm run dev:all
 
-version: '3.8'
-
 services:
   # Disable api service (run locally instead)
   api:
