@@ -1,9 +1,27 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { tokenBlacklist } from './tokenBlacklist';
+import { describe, it, expect, beforeEach, afterEach, vi, beforeAll } from 'vitest';
+import { createTestDatabase, cleanupTestDatabase } from '../tests/setup';
+import type Database from 'better-sqlite3';
+
+// We need to mock the database module before importing tokenBlacklist
+let testDb: Database.Database;
+
+// Mock the database module
+vi.mock('../database/db', () => {
+  return {
+    get db() {
+      return testDb;
+    }
+  };
+});
 
 describe('tokenBlacklist', () => {
   // Store original console.log to restore later
   const originalConsoleLog = console.log;
+
+  beforeAll(() => {
+    // Create test database before all tests
+    testDb = createTestDatabase();
+  });
 
   beforeEach(() => {
     // Mock console.log to avoid cluttering test output
@@ -13,10 +31,24 @@ describe('tokenBlacklist', () => {
   afterEach(() => {
     // Restore console.log
     console.log = originalConsoleLog;
+    // Clear the blacklist table between tests
+    testDb.exec('DELETE FROM token_blacklist');
   });
 
+  afterEach(() => {
+    // Reset the module cache to get a fresh tokenBlacklist instance
+    vi.resetModules();
+  });
+
+  // Import tokenBlacklist dynamically after mock is set up
+  async function getTokenBlacklist() {
+    const module = await import('./tokenBlacklist');
+    return module.tokenBlacklist;
+  }
+
   describe('add and isBlacklisted', () => {
-    it('should add token to blacklist', () => {
+    it('should add token to blacklist', async () => {
+      const tokenBlacklist = await getTokenBlacklist();
       const token = 'test-token-123';
       const expiry = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
 
@@ -24,12 +56,14 @@ describe('tokenBlacklist', () => {
       expect(tokenBlacklist.isBlacklisted(token)).toBe(true);
     });
 
-    it('should return false for tokens not in blacklist', () => {
+    it('should return false for tokens not in blacklist', async () => {
+      const tokenBlacklist = await getTokenBlacklist();
       const token = 'non-existent-token';
       expect(tokenBlacklist.isBlacklisted(token)).toBe(false);
     });
 
-    it('should handle multiple tokens', () => {
+    it('should handle multiple tokens', async () => {
+      const tokenBlacklist = await getTokenBlacklist();
       const token1 = 'token-1';
       const token2 = 'token-2';
       const token3 = 'token-3';
@@ -43,7 +77,8 @@ describe('tokenBlacklist', () => {
       expect(tokenBlacklist.isBlacklisted(token3)).toBe(false);
     });
 
-    it('should overwrite existing token with new expiry', () => {
+    it('should overwrite existing token with new expiry', async () => {
+      const tokenBlacklist = await getTokenBlacklist();
       const token = 'test-token';
       const expiry1 = Math.floor(Date.now() / 1000) + 1000;
       const expiry2 = Math.floor(Date.now() / 1000) + 2000;
@@ -54,7 +89,8 @@ describe('tokenBlacklist', () => {
       expect(tokenBlacklist.isBlacklisted(token)).toBe(true);
     });
 
-    it('should handle long JWT-like tokens', () => {
+    it('should handle long JWT-like tokens', async () => {
+      const tokenBlacklist = await getTokenBlacklist();
       const jwtLikeToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSIsImlhdCI6MTYzOTk5OTk5OSwiZXhwIjoxNjQwNTg2Mzk5fQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
       const expiry = Math.floor(Date.now() / 1000) + 3600;
 
@@ -62,7 +98,8 @@ describe('tokenBlacklist', () => {
       expect(tokenBlacklist.isBlacklisted(jwtLikeToken)).toBe(true);
     });
 
-    it('should handle empty string token', () => {
+    it('should handle empty string token', async () => {
+      const tokenBlacklist = await getTokenBlacklist();
       const token = '';
       const expiry = Math.floor(Date.now() / 1000) + 3600;
 
@@ -70,7 +107,8 @@ describe('tokenBlacklist', () => {
       expect(tokenBlacklist.isBlacklisted(token)).toBe(true);
     });
 
-    it('should treat already-expired tokens as not blacklisted', () => {
+    it('should treat already-expired tokens as not blacklisted', async () => {
+      const tokenBlacklist = await getTokenBlacklist();
       const token = 'expired-token';
       const expiry = Math.floor(Date.now() / 1000) - 3600; // 1 hour ago
 
@@ -80,7 +118,8 @@ describe('tokenBlacklist', () => {
   });
 
   describe('size', () => {
-    it('should return 0 for empty blacklist', () => {
+    it('should return 0 for empty blacklist', async () => {
+      const tokenBlacklist = await getTokenBlacklist();
       // Note: This test assumes a fresh blacklist
       // In practice, the blacklist is a singleton and may contain tokens from other tests
       const initialSize = tokenBlacklist.size();
@@ -88,7 +127,8 @@ describe('tokenBlacklist', () => {
       expect(initialSize).toBeGreaterThanOrEqual(0);
     });
 
-    it('should increment size when tokens are added', () => {
+    it('should increment size when tokens are added', async () => {
+      const tokenBlacklist = await getTokenBlacklist();
       const initialSize = tokenBlacklist.size();
       const token = `test-token-${Date.now()}`;
       const expiry = Math.floor(Date.now() / 1000) + 3600;
@@ -97,7 +137,8 @@ describe('tokenBlacklist', () => {
       expect(tokenBlacklist.size()).toBe(initialSize + 1);
     });
 
-    it('should not increment size when same token is added twice', () => {
+    it('should not increment size when same token is added twice', async () => {
+      const tokenBlacklist = await getTokenBlacklist();
       const token = `duplicate-token-${Date.now()}`;
       const expiry = Math.floor(Date.now() / 1000) + 3600;
 
@@ -113,7 +154,8 @@ describe('tokenBlacklist', () => {
   });
 
   describe('cleanup behavior', () => {
-    it('should track tokens with future expiry', () => {
+    it('should track tokens with future expiry', async () => {
+      const tokenBlacklist = await getTokenBlacklist();
       const token = `future-token-${Date.now()}`;
       const expiry = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
 
@@ -121,7 +163,8 @@ describe('tokenBlacklist', () => {
       expect(tokenBlacklist.isBlacklisted(token)).toBe(true);
     });
 
-    it('should immediately purge tokens with past expiry', () => {
+    it('should immediately purge tokens with past expiry', async () => {
+      const tokenBlacklist = await getTokenBlacklist();
       const token = `past-token-${Date.now()}`;
       const expiry = Math.floor(Date.now() / 1000) - 1; // already expired
 
@@ -131,7 +174,8 @@ describe('tokenBlacklist', () => {
   });
 
   describe('integration scenarios', () => {
-    it('should handle typical logout flow', () => {
+    it('should handle typical logout flow', async () => {
+      const tokenBlacklist = await getTokenBlacklist();
       // Simulate a user logout
       const userId = 123;
       const token = `bearer-token-user-${userId}-${Date.now()}`;
@@ -144,8 +188,9 @@ describe('tokenBlacklist', () => {
       expect(tokenBlacklist.isBlacklisted(token)).toBe(true);
     });
 
-    it('should handle multiple concurrent logouts', () => {
-      const tokens = [];
+    it('should handle multiple concurrent logouts', async () => {
+      const tokenBlacklist = await getTokenBlacklist();
+      const tokens: string[] = [];
       const expiry = Math.floor(Date.now() / 1000) + 3600;
 
       // Simulate 10 concurrent logouts
@@ -161,8 +206,9 @@ describe('tokenBlacklist', () => {
       });
     });
 
-    it('should handle security event requiring mass token revocation', () => {
-      const userTokens = [];
+    it('should handle security event requiring mass token revocation', async () => {
+      const tokenBlacklist = await getTokenBlacklist();
+      const userTokens: string[] = [];
       const expiry = Math.floor(Date.now() / 1000) + 3600;
 
       // Simulate revoking all tokens for a compromised user
@@ -178,7 +224,8 @@ describe('tokenBlacklist', () => {
       });
     });
 
-    it('should handle token refresh scenario', () => {
+    it('should handle token refresh scenario', async () => {
+      const tokenBlacklist = await getTokenBlacklist();
       const oldToken = `old-token-${Date.now()}`;
       const newToken = `new-token-${Date.now()}`;
       const expiry = Math.floor(Date.now() / 1000) + 3600;
@@ -193,7 +240,8 @@ describe('tokenBlacklist', () => {
   });
 
   describe('edge cases', () => {
-    it('should handle very large expiry timestamps', () => {
+    it('should handle very large expiry timestamps', async () => {
+      const tokenBlacklist = await getTokenBlacklist();
       const token = `far-future-token-${Date.now()}`;
       const expiry = Math.floor(Date.now() / 1000) + 315360000; // ~10 years
 
@@ -201,7 +249,8 @@ describe('tokenBlacklist', () => {
       expect(tokenBlacklist.isBlacklisted(token)).toBe(true);
     });
 
-    it('should treat zero expiry timestamp as not blacklisted', () => {
+    it('should treat zero expiry timestamp as not blacklisted', async () => {
+      const tokenBlacklist = await getTokenBlacklist();
       const token = `zero-expiry-token-${Date.now()}`;
       const expiry = 0;
 
@@ -209,7 +258,8 @@ describe('tokenBlacklist', () => {
       expect(tokenBlacklist.isBlacklisted(token)).toBe(false);
     });
 
-    it('should treat negative expiry timestamp as not blacklisted', () => {
+    it('should treat negative expiry timestamp as not blacklisted', async () => {
+      const tokenBlacklist = await getTokenBlacklist();
       const token = `negative-expiry-token-${Date.now()}`;
       const expiry = -1000;
 
@@ -217,7 +267,8 @@ describe('tokenBlacklist', () => {
       expect(tokenBlacklist.isBlacklisted(token)).toBe(false);
     });
 
-    it('should handle special characters in token', () => {
+    it('should handle special characters in token', async () => {
+      const tokenBlacklist = await getTokenBlacklist();
       const token = 'token-with-special!@#$%^&*()_+-={}[]|:;"<>?,./';
       const expiry = Math.floor(Date.now() / 1000) + 3600;
 
@@ -225,7 +276,8 @@ describe('tokenBlacklist', () => {
       expect(tokenBlacklist.isBlacklisted(token)).toBe(true);
     });
 
-    it('should handle Unicode characters in token', () => {
+    it('should handle Unicode characters in token', async () => {
+      const tokenBlacklist = await getTokenBlacklist();
       const token = 'token-with-unicode-你好世界-🔒';
       const expiry = Math.floor(Date.now() / 1000) + 3600;
 
@@ -235,7 +287,8 @@ describe('tokenBlacklist', () => {
   });
 
   describe('performance characteristics', () => {
-    it('should handle adding many tokens efficiently', () => {
+    it('should handle adding many tokens efficiently', async () => {
+      const tokenBlacklist = await getTokenBlacklist();
       const startTime = Date.now();
       const expiry = Math.floor(Date.now() / 1000) + 3600;
 
@@ -251,8 +304,9 @@ describe('tokenBlacklist', () => {
       expect(duration).toBeLessThan(15000);
     });
 
-    it('should handle checking many tokens efficiently', () => {
-      const tokens = [];
+    it('should handle checking many tokens efficiently', async () => {
+      const tokenBlacklist = await getTokenBlacklist();
+      const tokens: string[] = [];
       const expiry = Math.floor(Date.now() / 1000) + 3600;
 
       // Add 100 tokens
