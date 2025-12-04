@@ -4,12 +4,19 @@
  * Business logic for user's inventory items (spirits, mixers, garnishes, etc.).
  * Extracted from routes/inventoryItems.ts for testability and reusability.
  *
- * @version 1.0.0
+ * @version 1.1.0 - Added dependency injection for testability
  * @date December 2025
  */
 
-import { db } from '../database/db';
+import { db as defaultDb } from '../database/db';
 import { InventoryItem } from '../types';
+import type Database from 'better-sqlite3';
+
+/**
+ * Database type for dependency injection
+ * Uses the actual better-sqlite3 Database type for full compatibility
+ */
+export type IDatabase = Database.Database;
 
 /**
  * Valid inventory categories
@@ -101,8 +108,19 @@ export interface ImportResult {
  * Inventory Service
  *
  * Handles all inventory business logic independent of HTTP layer.
+ * Supports dependency injection for testability.
  */
 export class InventoryService {
+  private db: IDatabase;
+
+  /**
+   * Create an InventoryService instance
+   * @param database - Database instance (defaults to production db)
+   */
+  constructor(database?: IDatabase) {
+    this.db = database || defaultDb;
+  }
+
   /**
    * Get paginated inventory items with optional category filter
    */
@@ -117,14 +135,14 @@ export class InventoryService {
     const queryParams = category ? [userId, category] : [userId];
 
     // Get total count
-    const countResult = db.prepare(
+    const countResult = this.db.prepare(
       `SELECT COUNT(*) as total FROM inventory_items ${whereClause}`
     ).get(...queryParams) as { total: number };
 
     const total = countResult.total;
 
     // Get items
-    const items = db.prepare(`
+    const items = this.db.prepare(`
       SELECT * FROM inventory_items
       ${whereClause}
       ORDER BY created_at DESC
@@ -152,12 +170,12 @@ export class InventoryService {
    */
   getCategoryCounts(userId: number): CategoryCounts {
     // Get total count
-    const totalResult = db.prepare(
+    const totalResult = this.db.prepare(
       'SELECT COUNT(*) as total FROM inventory_items WHERE user_id = ?'
     ).get(userId) as { total: number };
 
     // Get category breakdown
-    const categoryResults = db.prepare(`
+    const categoryResults = this.db.prepare(`
       SELECT category, COUNT(*) as count
       FROM inventory_items
       WHERE user_id = ?
@@ -191,7 +209,7 @@ export class InventoryService {
    * Get a single item by ID (with ownership check)
    */
   getById(itemId: number, userId: number): InventoryItem | null {
-    const item = db.prepare(
+    const item = this.db.prepare(
       'SELECT * FROM inventory_items WHERE id = ? AND user_id = ?'
     ).get(itemId, userId) as InventoryItem | undefined;
 
@@ -202,7 +220,7 @@ export class InventoryService {
    * Check if an item exists and belongs to user
    */
   exists(itemId: number, userId: number): boolean {
-    const result = db.prepare(
+    const result = this.db.prepare(
       'SELECT id FROM inventory_items WHERE id = ? AND user_id = ?'
     ).get(itemId, userId);
 
@@ -218,7 +236,7 @@ export class InventoryService {
       ? null
       : data.stock_number;
 
-    const result = db.prepare(`
+    const result = this.db.prepare(`
       INSERT INTO inventory_items (
         user_id, name, category, type, abv,
         stock_number, spirit_classification, distillation_method,
@@ -242,7 +260,7 @@ export class InventoryService {
       data.finish || null
     );
 
-    return db.prepare(
+    return this.db.prepare(
       'SELECT * FROM inventory_items WHERE id = ?'
     ).get(result.lastInsertRowid) as InventoryItem;
   }
@@ -262,7 +280,7 @@ export class InventoryService {
       ? null
       : data.stock_number;
 
-    db.prepare(`
+    this.db.prepare(`
       UPDATE inventory_items SET
         name = ?,
         category = ?,
@@ -296,7 +314,7 @@ export class InventoryService {
       userId
     );
 
-    return db.prepare(
+    return this.db.prepare(
       'SELECT * FROM inventory_items WHERE id = ?'
     ).get(itemId) as InventoryItem;
   }
@@ -311,7 +329,7 @@ export class InventoryService {
       return false;
     }
 
-    db.prepare('DELETE FROM inventory_items WHERE id = ? AND user_id = ?')
+    this.db.prepare('DELETE FROM inventory_items WHERE id = ? AND user_id = ?')
       .run(itemId, userId);
 
     return true;
@@ -325,7 +343,7 @@ export class InventoryService {
   bulkDelete(ids: number[], userId: number): number {
     const placeholders = ids.map(() => '?').join(',');
 
-    const result = db.prepare(`
+    const result = this.db.prepare(`
       DELETE FROM inventory_items
       WHERE id IN (${placeholders}) AND user_id = ?
     `).run(...ids, userId);

@@ -57,11 +57,20 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
   };
 
   return (
-    <div className={`${styles.toast} ${styles[toast.type]}`}>
-      <div className={styles.toastIcon}>{icons[toast.type]}</div>
+    <div
+      className={`${styles.toast} ${styles[toast.type]}`}
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    >
+      <div className={styles.toastIcon} aria-hidden="true">{icons[toast.type]}</div>
       <div className={styles.toastMessage}>{toast.message}</div>
-      <button className={styles.toastClose} onClick={onClose}>
-        <X size={18} />
+      <button
+        className={styles.toastClose}
+        onClick={onClose}
+        aria-label="Close notification"
+      >
+        <X size={18} aria-hidden="true" />
       </button>
     </div>
   );

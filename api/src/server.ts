@@ -692,10 +692,12 @@ function gracefulShutdown(signal: string) {
     try {
       db.close();
       logger.info('Database connection closed successfully');
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : undefined;
       logger.error('Error closing database connection', {
-        error: error.message,
-        stack: error.stack
+        error: message,
+        stack
       });
     }
 

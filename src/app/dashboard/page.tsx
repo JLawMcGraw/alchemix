@@ -342,6 +342,9 @@ export default function DashboardPage() {
                             key={category}
                             className={styles.categoryItem}
                             onClick={() => router.push(`/bar?category=${category}`)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/bar?category=${category}`); } }}
+                            tabIndex={0}
+                            role="button"
                             style={{ cursor: 'pointer' }}
                           >
                             <span className={styles.categoryLabel}>
@@ -391,6 +394,9 @@ export default function DashboardPage() {
                           <li
                             className={styles.masteryItem}
                             onClick={() => router.push('/recipes?filter=craftable')}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/recipes?filter=craftable'); } }}
+                            tabIndex={0}
+                            role="button"
                             style={{ cursor: 'pointer' }}
                           >
                             <span className={styles.masteryLabel}>
@@ -402,6 +408,9 @@ export default function DashboardPage() {
                           <li
                             className={styles.masteryItem}
                             onClick={() => router.push('/recipes?filter=almost')}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/recipes?filter=almost'); } }}
+                            tabIndex={0}
+                            role="button"
                             style={{ cursor: 'pointer' }}
                           >
                             <span className={styles.masteryLabel}>
@@ -413,6 +422,9 @@ export default function DashboardPage() {
                           <li
                             className={styles.masteryItem}
                             onClick={() => router.push('/recipes?filter=need-few')}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/recipes?filter=need-few'); } }}
+                            tabIndex={0}
+                            role="button"
                             style={{ cursor: 'pointer' }}
                           >
                             <span className={styles.masteryLabel}>
@@ -424,6 +436,9 @@ export default function DashboardPage() {
                           <li
                             className={styles.masteryItem}
                             onClick={() => router.push('/recipes?filter=major-gaps')}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/recipes?filter=major-gaps'); } }}
+                            tabIndex={0}
+                            role="button"
                             style={{ cursor: 'pointer' }}
                           >
                             <span className={styles.masteryLabel}>
@@ -464,6 +479,9 @@ export default function DashboardPage() {
                           key={collection.id}
                           className={styles.collectionItem}
                           onClick={() => router.push(`/recipes?collection=${collection.id}`)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/recipes?collection=${collection.id}`); } }}
+                          tabIndex={0}
+                          role="button"
                           style={{ cursor: 'pointer' }}
                         >
                           <span className={styles.collectionName}>{collection.name}</span>

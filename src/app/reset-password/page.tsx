@@ -64,11 +64,14 @@ function ResetPasswordContent() {
       setTimeout(() => {
         router.push('/login');
       }, 3000);
-    } catch (err: any) {
-      setError(
-        err.response?.data?.error ||
-        'Failed to reset password. The link may be invalid or expired.'
-      );
+    } catch (err: unknown) {
+      // Handle axios-style errors or standard errors
+      let errorMessage = 'Failed to reset password. The link may be invalid or expired.';
+      if (err && typeof err === 'object' && 'response' in err) {
+        const axiosErr = err as { response?: { data?: { error?: string } } };
+        errorMessage = axiosErr.response?.data?.error || errorMessage;
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

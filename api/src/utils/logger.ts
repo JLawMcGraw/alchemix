@@ -29,6 +29,71 @@ import winston from 'winston';
 import path from 'path';
 import fs from 'fs';
 
+/**
+ * Sensitive field names that should be redacted from logs.
+ * These patterns are checked case-insensitively against object keys.
+ */
+const SENSITIVE_FIELDS = [
+  'password',
+  'password_hash',
+  'token',
+  'secret',
+  'authorization',
+  'cookie',
+  'api_key',
+  'apikey',
+  'jwt',
+  'credential',
+  'private_key',
+  'privatekey',
+  'access_token',
+  'refresh_token',
+  'csrf',
+  'session',
+];
+
+/**
+ * Recursively filters sensitive data from objects before logging.
+ * Replaces sensitive field values with '[REDACTED]'.
+ *
+ * @param obj - Object to filter
+ * @param depth - Current recursion depth (max 10 to prevent infinite loops)
+ * @returns Filtered object safe for logging
+ */
+export function filterSensitiveData(obj: Record<string, unknown>, depth = 0): Record<string, unknown> {
+  // Prevent infinite recursion
+  if (depth > 10) {
+    return { _truncated: 'Max depth exceeded' };
+  }
+
+  const filtered: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(obj)) {
+    const lowerKey = key.toLowerCase();
+
+    // Check if key contains any sensitive field name
+    const isSensitive = SENSITIVE_FIELDS.some(field => lowerKey.includes(field));
+
+    if (isSensitive) {
+      filtered[key] = '[REDACTED]';
+    } else if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      // Recursively filter nested objects
+      filtered[key] = filterSensitiveData(value as Record<string, unknown>, depth + 1);
+    } else if (Array.isArray(value)) {
+      // Filter arrays of objects
+      filtered[key] = value.map(item =>
+        item !== null && typeof item === 'object'
+          ? filterSensitiveData(item as Record<string, unknown>, depth + 1)
+          : item
+      );
+    } else {
+      filtered[key] = value;
+    }
+  }
+
+  return filtered;
+}
+
 // Ensure logs directory exists
 const logsDir = path.join(__dirname, '../../logs');
 if (!fs.existsSync(logsDir)) {
@@ -98,48 +163,60 @@ if (process.env.NODE_ENV !== 'production') {
 
 /**
  * Helper function to log HTTP errors with context
+ * Automatically filters sensitive data from context to prevent credential leaks.
  *
  * @param error - Error object
  * @param context - Additional context (requestId, userId, route, etc.)
  */
-export function logError(error: Error, context: Record<string, any> = {}): void {
+export function logError(error: Error, context: Record<string, unknown> = {}): void {
+  // Filter sensitive data from context before logging
+  const safeContext = filterSensitiveData(context);
+
   logger.error(error.message, {
     error: {
       name: error.name,
       message: error.message,
       stack: error.stack,
     },
-    ...context,
+    ...safeContext,
   });
 }
 
 /**
  * Helper function to log security events
- * Security events are always logged at 'warn' level for visibility
+ * Security events are always logged at 'warn' level for visibility.
+ * Automatically filters sensitive data from context.
  *
  * @param event - Security event description
  * @param context - Security context (userId, ip, reason, etc.)
  */
-export function logSecurityEvent(event: string, context: Record<string, any> = {}): void {
+export function logSecurityEvent(event: string, context: Record<string, unknown> = {}): void {
+  // Filter sensitive data from context before logging
+  const safeContext = filterSensitiveData(context);
+
   logger.warn(`[SECURITY] ${event}`, {
     category: 'security',
-    ...context,
+    ...safeContext,
   });
 }
 
 /**
  * Helper function to log performance metrics
+ * Automatically filters sensitive data from context.
  *
  * @param metric - Metric name (e.g., 'request_duration')
  * @param value - Metric value
  * @param context - Additional context
  */
-export function logMetric(metric: string, value: number, context: Record<string, any> = {}): void {
+export function logMetric(metric: string, value: number, context: Record<string, unknown> = {}): void {
+  // Filter sensitive data from context before logging
+  const safeContext = filterSensitiveData(context);
+
   logger.info(`[METRIC] ${metric}`, {
     category: 'metric',
     metric,
     value,
-    ...context,
+    ...safeContext,
   });
 }
 

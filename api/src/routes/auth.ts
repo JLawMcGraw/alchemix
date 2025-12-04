@@ -36,7 +36,7 @@ import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { db } from '../database/db';
-import { generateToken, authMiddleware, getTokenVersion, generateJTI, incrementTokenVersion } from '../middleware/auth';
+import { generateToken, authMiddleware, getTokenVersion, generateJTI } from '../middleware/auth';
 import { validatePassword } from '../utils/passwordValidator';
 import { tokenBlacklist } from '../utils/tokenBlacklist';
 import { emailService } from '../services/EmailService';
@@ -1076,13 +1076,23 @@ router.post('/reset-password', asyncHandler(async (req: Request, res: Response) 
   // Hash new password
   const password_hash = await bcrypt.hash(password, 10);
 
-  // Update password, clear reset token, and increment token_version (logs out all devices)
-  db.prepare(
-    'UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?'
-  ).run(password_hash, user.id);
+  // Atomic transaction: Update password, clear reset token, and increment token_version
+  // This ensures all operations succeed or none do (prevents partial state)
+  const resetPasswordTransaction = db.transaction(() => {
+    // Update password and clear reset token
+    db.prepare(
+      'UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?'
+    ).run(password_hash, user.id);
 
-  // Increment token version to invalidate all existing sessions
-  incrementTokenVersion(user.id);
+    // Increment token version to invalidate all existing sessions (inline for atomicity)
+    const currentVersion = getTokenVersion(user.id);
+    const newVersion = currentVersion + 1;
+    db.prepare('UPDATE users SET token_version = ? WHERE id = ?').run(newVersion, user.id);
+
+    console.log(`🔐 Token version incremented for user ${user.id}: ${currentVersion} → ${newVersion}`);
+  });
+
+  resetPasswordTransaction();
 
   console.log(`✅ Password reset for user ${user.email} (ID: ${user.id}) - all sessions invalidated`);
 

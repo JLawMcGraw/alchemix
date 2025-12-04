@@ -102,8 +102,9 @@ export default function LoginPage() {
         await login({ email, password });
       }
       // Redirect happens via useEffect when isAuthenticated changes
-    } catch (err: any) {
-      setFormError(err.message || 'Authentication failed');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Authentication failed';
+      setFormError(message);
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, Suspense } from 'react';
+import React, { useEffect, useState, Suspense, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
@@ -172,8 +172,8 @@ function RecipesPageContent() {
     }
   };
 
-  // Get unique spirit types
-  const spiritTypes: Array<SpiritCategory | 'all'> = [
+  // Get unique spirit types - memoized to avoid re-computation on every render
+  const spiritTypes: Array<SpiritCategory | 'all'> = useMemo(() => [
     'all',
     ...new Set(
       recipesArray
@@ -190,58 +190,61 @@ function RecipesPageContent() {
         })
         .filter((v): v is SpiritCategory => Boolean(v))
     ),
-  ];
+  ], [recipesArray]);
 
   // Filter recipes based on mastery level, active collection, search, and spirit
-  const filteredRecipes = recipesArray.filter((recipe) => {
-    const ingredientsArray = parseIngredients(recipe.ingredients);
-    const ingredientsText = ingredientsArray.join(' ').toLowerCase();
+  // Memoized to avoid expensive re-computation on every render
+  const filteredRecipes = useMemo(() => {
+    return recipesArray.filter((recipe) => {
+      const ingredientsArray = parseIngredients(recipe.ingredients);
+      const ingredientsText = ingredientsArray.join(' ').toLowerCase();
 
-    const matchesSearch = searchQuery
-      ? recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ingredientsText.includes(searchQuery.toLowerCase())
-      : true;
-    const matchesSpirit =
-      filterSpirit === 'all' ||
-      matchesSpiritCategory(recipe.spirit_type, filterSpirit as SpiritCategory);
+      const matchesSearch = searchQuery
+        ? recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          ingredientsText.includes(searchQuery.toLowerCase())
+        : true;
+      const matchesSpirit =
+        filterSpirit === 'all' ||
+        matchesSpiritCategory(recipe.spirit_type, filterSpirit as SpiritCategory);
 
-    // Apply mastery filter if set - use data from shopping list API
-    if (masteryFilter) {
-      const matchesList = (list: Array<{ id?: number; name: string }> = []) => {
-        return list.some(entry => {
-          if (recipe.id && entry.id) {
-            return entry.id === recipe.id;
-          }
-          return entry.name === recipe.name;
-        });
-      };
+      // Apply mastery filter if set - use data from shopping list API
+      if (masteryFilter) {
+        const matchesList = (list: Array<{ id?: number; name: string }> = []) => {
+          return list.some(entry => {
+            if (recipe.id && entry.id) {
+              return entry.id === recipe.id;
+            }
+            return entry.name === recipe.name;
+          });
+        };
 
-      // Use the recipe lists from the shopping list API
-      switch (masteryFilter) {
-        case 'craftable':
-          // Check if recipe is in craftableRecipes list
-          // craftableRecipes is an array of objects with {id, name, ingredients}
-          return matchesSearch && matchesSpirit && matchesList(craftableRecipes);
-        case 'almost':
-          // Check if recipe is in nearMissRecipes list (missing exactly 1 ingredient)
-          return matchesSearch && matchesSpirit && matchesList(nearMissRecipes);
-        case 'need-few':
-          // Check if recipe is in needFewRecipes list (missing 2-3 ingredients)
-          return matchesSearch && matchesSpirit && matchesList(needFewRecipes);
-        case 'major-gaps':
-          // Check if recipe is in majorGapsRecipes list (missing 4+ ingredients)
-          return matchesSearch && matchesSpirit && matchesList(majorGapsRecipes);
+        // Use the recipe lists from the shopping list API
+        switch (masteryFilter) {
+          case 'craftable':
+            // Check if recipe is in craftableRecipes list
+            // craftableRecipes is an array of objects with {id, name, ingredients}
+            return matchesSearch && matchesSpirit && matchesList(craftableRecipes);
+          case 'almost':
+            // Check if recipe is in nearMissRecipes list (missing exactly 1 ingredient)
+            return matchesSearch && matchesSpirit && matchesList(nearMissRecipes);
+          case 'need-few':
+            // Check if recipe is in needFewRecipes list (missing 2-3 ingredients)
+            return matchesSearch && matchesSpirit && matchesList(needFewRecipes);
+          case 'major-gaps':
+            // Check if recipe is in majorGapsRecipes list (missing 4+ ingredients)
+            return matchesSearch && matchesSpirit && matchesList(majorGapsRecipes);
+        }
       }
-    }
 
-    // If viewing a collection, show only recipes in that collection
-    // Otherwise, show only uncategorized recipes
-    const matchesCollection = activeCollection
-      ? recipe.collection_id === activeCollection.id
-      : !recipe.collection_id;
+      // If viewing a collection, show only recipes in that collection
+      // Otherwise, show only uncategorized recipes
+      const matchesCollection = activeCollection
+        ? recipe.collection_id === activeCollection.id
+        : !recipe.collection_id;
 
-    return matchesSearch && matchesSpirit && matchesCollection;
-  });
+      return matchesSearch && matchesSpirit && matchesCollection;
+    });
+  }, [recipesArray, searchQuery, filterSpirit, masteryFilter, activeCollection, craftableRecipes, nearMissRecipes, needFewRecipes, majorGapsRecipes]);
 
   // Pagination for collection view (client-side so we can show all but paginate display)
   const COLLECTION_PAGE_SIZE = 24;
@@ -707,11 +710,13 @@ function RecipesPageContent() {
                     size="sm"
                     onClick={selectAllRecipes}
                     style={{ padding: '8px', minWidth: 'auto' }}
+                    aria-label={selectedRecipes.size === displayedRecipes.length && displayedRecipes.length > 0 ? 'Deselect all recipes' : 'Select all recipes'}
+                    aria-pressed={selectedRecipes.size === displayedRecipes.length && displayedRecipes.length > 0}
                   >
                     {selectedRecipes.size === displayedRecipes.length && displayedRecipes.length > 0 ? (
-                      <CheckSquare size={20} />
+                      <CheckSquare size={20} aria-hidden="true" />
                     ) : (
-                      <Square size={20} />
+                      <Square size={20} aria-hidden="true" />
                     )}
                   </Button>
                   <input
@@ -789,6 +794,8 @@ function RecipesPageContent() {
                               e.stopPropagation();
                               toggleRecipeSelection(recipe.id!);
                             }}
+                            aria-label={selectedRecipes.has(recipe.id!) ? `Deselect ${recipe.name}` : `Select ${recipe.name}`}
+                            aria-pressed={selectedRecipes.has(recipe.id!)}
                             style={{
                               background: 'none',
                               border: 'none',
@@ -799,9 +806,9 @@ function RecipesPageContent() {
                             }}
                           >
                             {selectedRecipes.has(recipe.id!) ? (
-                              <CheckSquare size={20} />
+                              <CheckSquare size={20} aria-hidden="true" />
                             ) : (
-                              <Square size={20} />
+                              <Square size={20} aria-hidden="true" />
                             )}
                           </button>
                           <h3 className={styles.recipeName} style={{ flex: 1 }}>{recipe.name}</h3>
@@ -887,11 +894,13 @@ function RecipesPageContent() {
                 size="sm"
                 onClick={selectAllRecipes}
                 style={{ padding: '8px', minWidth: 'auto' }}
+                aria-label={selectedRecipes.size === displayedRecipes.length && displayedRecipes.length > 0 ? 'Deselect all recipes' : 'Select all recipes'}
+                aria-pressed={selectedRecipes.size === displayedRecipes.length && displayedRecipes.length > 0}
               >
                 {selectedRecipes.size === displayedRecipes.length && displayedRecipes.length > 0 ? (
-                  <CheckSquare size={20} />
+                  <CheckSquare size={20} aria-hidden="true" />
                 ) : (
-                  <Square size={20} />
+                  <Square size={20} aria-hidden="true" />
                 )}
               </Button>
               <input
@@ -1000,6 +1009,8 @@ function RecipesPageContent() {
                         e.stopPropagation();
                         toggleRecipeSelection(recipe.id!);
                       }}
+                      aria-label={selectedRecipes.has(recipe.id!) ? `Deselect ${recipe.name}` : `Select ${recipe.name}`}
+                      aria-pressed={selectedRecipes.has(recipe.id!)}
                       style={{
                         background: 'none',
                         border: 'none',
@@ -1010,9 +1021,9 @@ function RecipesPageContent() {
                       }}
                     >
                       {selectedRecipes.has(recipe.id!) ? (
-                        <CheckSquare size={20} />
+                        <CheckSquare size={20} aria-hidden="true" />
                       ) : (
-                        <Square size={20} />
+                        <Square size={20} aria-hidden="true" />
                       )}
                     </button>
                     <h3 className={styles.recipeName} style={{ flex: 1 }}>{recipe.name}</h3>
@@ -1021,7 +1032,7 @@ function RecipesPageContent() {
                       className={`${styles.favoriteBtn} ${
                         isFavorited(recipe.id!) ? styles.favorited : ''
                       }`}
-                      title={isFavorited(recipe.id!) ? 'Remove from favorites' : 'Add to favorites'}
+                      aria-label={isFavorited(recipe.id!) ? 'Remove from favorites' : 'Add to favorites'}
                     >
                       <Star
                         size={20}

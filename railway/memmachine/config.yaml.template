@@ -1,0 +1,65 @@
+# AlcheMix MemMachine Configuration for Railway
+# Environment variables are substituted at container startup
+
+logging:
+  path: /tmp/memory_log
+  level: info
+
+episode_store:
+  database: profile_storage
+
+episodic_memory:
+  long_term_memory:
+    embedder: openai_embedder
+    reranker: identity_reranker
+    vector_graph_store: neo4j_storage
+  short_term_memory:
+    llm_model: openai_model
+    message_capacity: 500
+
+semantic_memory:
+  llm_model: openai_model
+  embedding_model: openai_embedder
+  database: profile_storage
+
+session_manager:
+  database: profile_storage
+
+prompt:
+  profile:
+    - profile_prompt
+
+resources:
+  databases:
+    profile_storage:
+      provider: postgres
+      config:
+        host: ${POSTGRES_HOST}
+        port: ${POSTGRES_PORT}
+        user: ${POSTGRES_USER}
+        password: ${POSTGRES_PASSWORD}
+        db_name: ${POSTGRES_DB}
+    neo4j_storage:
+      provider: neo4j
+      config:
+        uri: '${NEO4J_URI}'
+        username: ${NEO4J_USER}
+        password: ${NEO4J_PASSWORD}
+  embedders:
+    openai_embedder:
+      provider: openai
+      config:
+        model: "text-embedding-3-small"
+        api_key: ${OPENAI_API_KEY}
+        base_url: "https://api.openai.com/v1"
+        dimensions: 1536
+  language_models:
+    openai_model:
+      provider: openai-responses
+      config:
+        model: "gpt-4o-mini"
+        api_key: ${OPENAI_API_KEY}
+        base_url: "https://api.openai.com/v1"
+  rerankers:
+    identity_reranker:
+      provider: "identity"

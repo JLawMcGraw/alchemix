@@ -1,0 +1,51 @@
+# MemMachine Dockerfile for Railway Deployment
+# This file should be copied to the memmachine repository
+
+FROM python:3.12-slim AS builder
+
+RUN apt-get update && \
+    apt-get install -y curl gettext-base && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN python -m pip install --upgrade pip
+
+COPY --from=ghcr.io/astral-sh/uv:0.8.15 /uv /uvx /usr/local/bin/
+
+WORKDIR /app
+
+COPY pyproject.toml uv.lock ./
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-install-project --no-editable --no-dev
+
+COPY . .
+
+# Copy Railway-specific config and entrypoint
+COPY railway/config.yaml.template /app/config.yaml.template
+COPY railway/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-editable --no-dev
+
+FROM python:3.12-slim AS final
+
+RUN apt-get update && \
+    apt-get install -y curl gettext-base && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /app/config.yaml.template /app/config.yaml.template
+COPY --from=builder /app/entrypoint.sh /app/entrypoint.sh
+
+ENV PATH="/app/.venv/bin:$PATH"
+
+RUN python -c "import nltk; nltk.download('punkt_tab'); nltk.download('stopwords')"
+
+EXPOSE 8080
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["memmachine-server"]

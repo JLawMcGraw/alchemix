@@ -96,14 +96,19 @@ export default function AIPage() {
       console.log('🚀 Sending message to AI:', userMessage);
       await sendMessage(userMessage);
       console.log('✅ AI response received');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Failed to send message:', error);
-      console.error('Error details:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status
-      });
-      setErrorMessage(error.message || 'Failed to send message. Check console for details.');
+      const message = error instanceof Error ? error.message : 'Failed to send message. Check console for details.';
+      // Log additional details for axios errors
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosErr = error as { response?: { data?: unknown; status?: number } };
+        console.error('Error details:', {
+          message,
+          response: axiosErr.response?.data,
+          status: axiosErr.response?.status
+        });
+      }
+      setErrorMessage(message);
     } finally {
       setLoading(false);
     }

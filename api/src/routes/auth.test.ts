@@ -14,6 +14,7 @@ vi.mock('../database/db', () => ({
   db: {
     prepare: (sql: string) => testDb.prepare(sql),
     pragma: (pragma: string, options?: any) => testDb.pragma(pragma, options),
+    transaction: <T>(fn: () => T) => testDb.transaction(fn),
   },
 }));
 

@@ -4,14 +4,33 @@
  * Business logic for user's cocktail recipe collection.
  * Extracted from routes/recipes.ts for testability and reusability.
  *
- * @version 1.0.0
+ * @version 1.1.0 - Added dependency injection for testability
  * @date December 2025
  */
 
-import { db } from '../database/db';
+import { db as defaultDb } from '../database/db';
 import { sanitizeString } from '../utils/inputValidator';
 import { Recipe } from '../types';
-import { memoryService } from './MemoryService';
+import { memoryService as defaultMemoryService } from './MemoryService';
+import type Database from 'better-sqlite3';
+
+/**
+ * Database type for dependency injection
+ * Uses the actual better-sqlite3 Database type for full compatibility
+ */
+export type IDatabase = Database.Database;
+
+/**
+ * MemoryService interface for dependency injection
+ */
+export interface IMemoryService {
+  storeUserRecipe(userId: number, recipe: { name: string; ingredients: string[] | string; instructions?: string; glass?: string; category?: string }): Promise<string | null>;
+  storeUserRecipesBatch(userId: number, recipes: Array<{ name: string; ingredients: string[] | string; instructions?: string; glass?: string; category?: string }>): Promise<{ success: number; failed: number; uidMap: Map<string, string> }>;
+  deleteUserRecipe(userId: number, recipeName: string): Promise<void>;
+  deleteUserRecipeByUid(userId: number, uid: string, recipeName?: string): Promise<boolean>;
+  deleteUserRecipesBatch(userId: number, uids: string[]): Promise<{ success: number; failed: number }>;
+  deleteAllRecipeMemories(userId: number): Promise<boolean>;
+}
 
 /**
  * Pagination options
@@ -124,8 +143,22 @@ export interface SyncStats {
  * Recipe Service
  *
  * Handles all recipe business logic independent of HTTP layer.
+ * Supports dependency injection for testability.
  */
 export class RecipeService {
+  private db: IDatabase;
+  private memoryService: IMemoryService;
+
+  /**
+   * Create a RecipeService instance
+   * @param database - Database instance (defaults to production db)
+   * @param memService - MemoryService instance (defaults to production memoryService)
+   */
+  constructor(database?: IDatabase, memService?: IMemoryService) {
+    this.db = database || defaultDb;
+    this.memoryService = memService || defaultMemoryService;
+  }
+
   /**
    * Get paginated recipes for a user
    */
@@ -134,14 +167,14 @@ export class RecipeService {
     const offset = (page - 1) * limit;
 
     // Get total count
-    const countResult = db.prepare(
+    const countResult = this.db.prepare(
       'SELECT COUNT(*) as total FROM recipes WHERE user_id = ?'
     ).get(userId) as { total: number };
 
     const total = countResult.total;
 
     // Get recipes
-    const recipes = db.prepare(`
+    const recipes = this.db.prepare(`
       SELECT * FROM recipes
       WHERE user_id = ?
       ORDER BY created_at DESC
@@ -171,7 +204,7 @@ export class RecipeService {
    * Get a single recipe by ID (with ownership check)
    */
   getById(recipeId: number, userId: number): Recipe | null {
-    const recipe = db.prepare(
+    const recipe = this.db.prepare(
       'SELECT * FROM recipes WHERE id = ? AND user_id = ?'
     ).get(recipeId, userId) as Recipe | undefined;
 
@@ -184,7 +217,7 @@ export class RecipeService {
    * Check if a recipe exists and belongs to user
    */
   exists(recipeId: number, userId: number): boolean {
-    const result = db.prepare(
+    const result = this.db.prepare(
       'SELECT id FROM recipes WHERE id = ? AND user_id = ?'
     ).get(recipeId, userId);
 
@@ -195,7 +228,7 @@ export class RecipeService {
    * Validate collection belongs to user
    */
   validateCollection(collectionId: number, userId: number): boolean {
-    const collection = db.prepare(
+    const collection = this.db.prepare(
       'SELECT id FROM collections WHERE id = ? AND user_id = ?'
     ).get(collectionId, userId);
 
@@ -245,7 +278,7 @@ export class RecipeService {
    * Create a new recipe
    */
   create(userId: number, data: SanitizedRecipeData): Recipe {
-    const result = db.prepare(`
+    const result = this.db.prepare(`
       INSERT INTO recipes (
         user_id, collection_id, name, ingredients, instructions, glass, category
       ) VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -264,7 +297,7 @@ export class RecipeService {
     // Store in MemMachine (fire-and-forget)
     this.storeInMemMachine(userId, recipeId, data);
 
-    const recipe = db.prepare(
+    const recipe = this.db.prepare(
       'SELECT * FROM recipes WHERE id = ?'
     ).get(recipeId) as Recipe;
 
@@ -361,7 +394,7 @@ export class RecipeService {
 
     // Execute update
     values.push(recipeId);
-    db.prepare(`UPDATE recipes SET ${fieldsToUpdate.join(', ')} WHERE id = ?`).run(...values);
+    this.db.prepare(`UPDATE recipes SET ${fieldsToUpdate.join(', ')} WHERE id = ?`).run(...values);
 
     const recipe = this.getById(recipeId, userId);
     return { success: true, recipe: recipe! };
@@ -371,7 +404,7 @@ export class RecipeService {
    * Delete a single recipe
    */
   delete(recipeId: number, userId: number): { success: boolean; error?: string } {
-    const recipe = db.prepare(
+    const recipe = this.db.prepare(
       'SELECT id, name, memmachine_uid FROM recipes WHERE id = ? AND user_id = ?'
     ).get(recipeId, userId) as { id: number; name: string; memmachine_uid: string | null } | undefined;
 
@@ -380,15 +413,15 @@ export class RecipeService {
     }
 
     // Delete from database
-    db.prepare('DELETE FROM recipes WHERE id = ?').run(recipeId);
+    this.db.prepare('DELETE FROM recipes WHERE id = ?').run(recipeId);
 
     // Delete from MemMachine
     if (recipe.memmachine_uid) {
-      memoryService.deleteUserRecipeByUid(userId, recipe.memmachine_uid, recipe.name).catch(err => {
+      this.memoryService.deleteUserRecipeByUid(userId, recipe.memmachine_uid, recipe.name).catch(err => {
         console.error('Failed to delete recipe from MemMachine:', err);
       });
     } else {
-      memoryService.deleteUserRecipe(userId, recipe.name);
+      this.memoryService.deleteUserRecipe(userId, recipe.name);
     }
 
     return { success: true };
@@ -398,7 +431,7 @@ export class RecipeService {
    * Delete all recipes for a user
    */
   deleteAll(userId: number): number {
-    const result = db.prepare('DELETE FROM recipes WHERE user_id = ?').run(userId);
+    const result = this.db.prepare('DELETE FROM recipes WHERE user_id = ?').run(userId);
 
     // Trigger auto-sync in background
     this.autoSyncMemMachine(userId, 'delete all recipes');
@@ -413,7 +446,7 @@ export class RecipeService {
     const placeholders = ids.map(() => '?').join(', ');
 
     // Get UIDs before deletion
-    const recipesToDelete = db.prepare(`
+    const recipesToDelete = this.db.prepare(`
       SELECT memmachine_uid FROM recipes
       WHERE user_id = ? AND id IN (${placeholders}) AND memmachine_uid IS NOT NULL
     `).all(userId, ...ids) as Array<{ memmachine_uid: string }>;
@@ -421,7 +454,7 @@ export class RecipeService {
     const uidsToDelete = recipesToDelete.map(r => r.memmachine_uid).filter(Boolean);
 
     // Delete from database
-    const result = db.prepare(`
+    const result = this.db.prepare(`
       DELETE FROM recipes WHERE user_id = ? AND id IN (${placeholders})
     `).run(userId, ...ids);
 
@@ -429,7 +462,7 @@ export class RecipeService {
     if (result.changes >= 10) {
       this.autoSyncMemMachine(userId, `bulk delete ${result.changes} recipes`);
     } else if (uidsToDelete.length > 0) {
-      memoryService.deleteUserRecipesBatch(userId, uidsToDelete).catch(err => {
+      this.memoryService.deleteUserRecipesBatch(userId, uidsToDelete).catch(err => {
         console.error('Failed to batch delete recipes from MemMachine:', err);
       });
     }
@@ -490,12 +523,12 @@ export class RecipeService {
 
     // Phase 2: Batch insert using transaction (single query instead of N queries)
     if (validatedRecipes.length > 0) {
-      const insertStmt = db.prepare(`
+      const insertStmt = this.db.prepare(`
         INSERT INTO recipes (user_id, collection_id, name, ingredients, instructions, glass, category)
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `);
 
-      const insertMany = db.transaction((recipes: typeof validatedRecipes) => {
+      const insertMany = this.db.transaction((recipes: typeof validatedRecipes) => {
         for (const recipe of recipes) {
           try {
             insertStmt.run(
@@ -538,14 +571,14 @@ export class RecipeService {
    */
   async syncMemMachine(userId: number): Promise<SyncStats> {
     // Clear MemMachine
-    const cleared = await memoryService.deleteAllRecipeMemories(userId);
+    const cleared = await this.memoryService.deleteAllRecipeMemories(userId);
 
     if (!cleared) {
       throw new Error('Failed to clear MemMachine memories');
     }
 
     // Fetch recipes
-    const recipes = db.prepare(`
+    const recipes = this.db.prepare(`
       SELECT name, ingredients, instructions, glass, category
       FROM recipes WHERE user_id = ? ORDER BY created_at DESC
     `).all(userId) as Array<{ name: string; ingredients: string; instructions: string | null; glass: string | null; category: string | null }>;
@@ -563,7 +596,7 @@ export class RecipeService {
       category: recipe.category || undefined,
     }));
 
-    const uploadResult = await memoryService.storeUserRecipesBatch(userId, recipesForUpload);
+    const uploadResult = await this.memoryService.storeUserRecipesBatch(userId, recipesForUpload);
 
     return {
       cleared: true,
@@ -577,7 +610,7 @@ export class RecipeService {
    * Clear all MemMachine memories for user
    */
   async clearMemMachine(userId: number): Promise<boolean> {
-    return memoryService.deleteAllRecipeMemories(userId);
+    return this.memoryService.deleteAllRecipeMemories(userId);
   }
 
   // ============ Private Helper Methods ============
@@ -641,7 +674,7 @@ export class RecipeService {
    * Store recipe in MemMachine (fire-and-forget)
    */
   private storeInMemMachine(userId: number, recipeId: number, data: SanitizedRecipeData): void {
-    memoryService.storeUserRecipe(userId, {
+    this.memoryService.storeUserRecipe(userId, {
       name: data.name,
       ingredients: JSON.parse(data.ingredientsStr),
       instructions: data.instructions || undefined,
@@ -649,7 +682,7 @@ export class RecipeService {
       category: data.category || undefined,
     }).then(uid => {
       if (uid) {
-        db.prepare('UPDATE recipes SET memmachine_uid = ? WHERE id = ?').run(uid, recipeId);
+        this.db.prepare('UPDATE recipes SET memmachine_uid = ? WHERE id = ?').run(uid, recipeId);
         console.log(`💾 Stored MemMachine UID for recipe ${recipeId}: ${uid}`);
       }
     }).catch(err => {
@@ -669,12 +702,12 @@ export class RecipeService {
       glass: r.glass ?? undefined,
       category: r.category ?? undefined,
     }));
-    memoryService.storeUserRecipesBatch(userId, recipesForApi).then(result => {
+    this.memoryService.storeUserRecipesBatch(userId, recipesForApi).then(result => {
       if (result.uidMap.size > 0) {
         console.log(`💾 Storing ${result.uidMap.size} MemMachine UIDs in database...`);
 
-        const updateStmt = db.prepare('UPDATE recipes SET memmachine_uid = ? WHERE user_id = ? AND name = ?');
-        const updateMany = db.transaction((entries: Array<[string, string]>) => {
+        const updateStmt = this.db.prepare('UPDATE recipes SET memmachine_uid = ? WHERE user_id = ? AND name = ?');
+        const updateMany = this.db.transaction((entries: Array<[string, string]>) => {
           for (const [recipeName, uid] of entries) {
             updateStmt.run(uid, userId, recipeName);
           }

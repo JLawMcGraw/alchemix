@@ -4,6 +4,63 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-12-04 - Dependency Injection for Service Layer Testing
+
+### Why Dependency Injection
+
+The original services used module-level imports for database and external services:
+```typescript
+// OLD: Hard to test, requires vi.mock()
+import { db } from '../database/db';
+export class RecipeService {
+  getAll() { return db.prepare(...).all(); }
+}
+```
+
+This made testing difficult because vi.mock() had timing issues with better-sqlite3.
+
+**Solution**: Constructor-based dependency injection:
+```typescript
+// NEW: Testable with injected dependencies
+import { db as defaultDb } from '../database/db';
+export type IDatabase = Database.Database;
+
+export class RecipeService {
+  private db: IDatabase;
+  constructor(database?: IDatabase) {
+    this.db = database || defaultDb;
+  }
+}
+```
+
+### Type-Safe Approach (No `any`)
+
+Initially tried creating an `interface IDatabase` but this caused type mismatches with better-sqlite3's complex transaction types. Solution: use type alias to actual type:
+
+```typescript
+// This preserves full type compatibility
+export type IDatabase = Database.Database;
+```
+
+### Railway Deployment Architecture
+
+MemMachine requires Neo4j + PostgreSQL, making Railway deployment more complex than a simple API deploy:
+
+```
+Railway Project
+├── Neo4j (plugin) - Graph database for memory relationships
+├── PostgreSQL (plugin) - Vector embeddings storage
+├── MemMachine (custom Docker) - AI memory service
+└── AlcheMix API (custom Docker) - Express backend
+
+Vercel
+└── AlcheMix Web (Next.js)
+```
+
+Key insight: MemMachine's Dockerfile expects files from both repos. For Railway, we created a `railway/` folder with self-contained config that gets copied to the memmachine repo.
+
+---
+
 ## 2025-12-02 - HttpOnly Cookie Authentication & Security Hardening
 
 ### Breaking Change: JWT Storage Migration

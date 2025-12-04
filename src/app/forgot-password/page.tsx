@@ -27,9 +27,10 @@ export default function ForgotPasswordPage() {
     try {
       await authApi.forgotPassword(email);
       setSubmitted(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       // API always returns success to prevent email enumeration
       // But handle network errors
+      void err; // Intentionally unused - we show generic error
       setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);

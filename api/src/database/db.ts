@@ -563,10 +563,11 @@ export function initializeDatabase() {
   try {
     db.exec(`ALTER TABLE recipes ADD COLUMN collection_id INTEGER REFERENCES collections(id) ON DELETE SET NULL`);
     log('✅ Added collection_id column to recipes table');
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Column already exists, ignore error
-    if (!error.message?.includes('duplicate column name')) {
-      console.error('Migration warning:', error.message);
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes('duplicate column name')) {
+      console.error('Migration warning:', message);
     }
   }
 
@@ -601,13 +602,14 @@ export function initializeDatabase() {
 
       log('✅ Successfully migrated bottles to inventory_items');
     }
-  } catch (error: any) {
-    if (error.message?.includes('no such table: bottles')) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('no such table: bottles')) {
       // Table already migrated or doesn't exist, ignore
-    } else if (error.message?.includes('duplicate column name')) {
+    } else if (message.includes('duplicate column name')) {
       // Column already exists, ignore
     } else {
-      console.error('Migration warning:', error.message);
+      console.error('Migration warning:', message);
     }
   }
 
@@ -623,10 +625,11 @@ export function initializeDatabase() {
   try {
     db.exec(`ALTER TABLE inventory_items ADD COLUMN tasting_notes TEXT`);
     log('✅ Added tasting_notes column to inventory_items table');
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Column already exists, ignore error
-    if (!error.message?.includes('duplicate column name')) {
-      console.error('Migration warning:', error.message);
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes('duplicate column name')) {
+      console.error('Migration warning:', message);
     }
   }
 
@@ -673,11 +676,12 @@ export function initializeDatabase() {
       log('✅ Added memmachine_uid column to recipes table');
     }
     // If new column already exists, do nothing (already migrated)
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Handle edge cases
-    if (!error.message?.includes('duplicate column name') &&
-        !error.message?.includes('no such column')) {
-      console.error('Migration warning:', error.message);
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes('duplicate column name') &&
+        !message.includes('no such column')) {
+      console.error('Migration warning:', message);
     }
   }
 
@@ -711,10 +715,11 @@ export function initializeDatabase() {
   try {
     db.exec(`ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0`);
     log('✅ Added token_version column to users table (security fix)');
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Column already exists, ignore error
-    if (!error.message?.includes('duplicate column name')) {
-      console.error('Migration warning:', error.message);
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes('duplicate column name')) {
+      console.error('Migration warning:', message);
     }
   }
 
@@ -796,10 +801,11 @@ export function initializeDatabase() {
 
       log('✅ Successfully migrated inventory_items columns to snake_case');
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Migration already complete or table doesn't have old columns
-    if (!error.message?.includes('no such column') && !error.message?.includes('no such table')) {
-      console.error('Column rename migration warning:', error.message);
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes('no such column') && !message.includes('no such table')) {
+      console.error('Column rename migration warning:', message);
     }
   }
 
@@ -821,27 +827,30 @@ export function initializeDatabase() {
   try {
     db.exec(`ALTER TABLE users ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0`);
     log('✅ Added is_verified column to users table');
-  } catch (error: any) {
-    if (!error.message?.includes('duplicate column name')) {
-      console.error('Migration warning (is_verified):', error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes('duplicate column name')) {
+      console.error('Migration warning (is_verified):', message);
     }
   }
 
   try {
     db.exec(`ALTER TABLE users ADD COLUMN verification_token TEXT`);
     log('✅ Added verification_token column to users table');
-  } catch (error: any) {
-    if (!error.message?.includes('duplicate column name')) {
-      console.error('Migration warning (verification_token):', error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes('duplicate column name')) {
+      console.error('Migration warning (verification_token):', message);
     }
   }
 
   try {
     db.exec(`ALTER TABLE users ADD COLUMN verification_token_expires DATETIME`);
     log('✅ Added verification_token_expires column to users table');
-  } catch (error: any) {
-    if (!error.message?.includes('duplicate column name')) {
-      console.error('Migration warning (verification_token_expires):', error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes('duplicate column name')) {
+      console.error('Migration warning (verification_token_expires):', message);
     }
   }
 
@@ -862,18 +871,20 @@ export function initializeDatabase() {
   try {
     db.exec(`ALTER TABLE users ADD COLUMN reset_token TEXT`);
     log('✅ Added reset_token column to users table');
-  } catch (error: any) {
-    if (!error.message?.includes('duplicate column name')) {
-      console.error('Migration warning (reset_token):', error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes('duplicate column name')) {
+      console.error('Migration warning (reset_token):', message);
     }
   }
 
   try {
     db.exec(`ALTER TABLE users ADD COLUMN reset_token_expires DATETIME`);
     log('✅ Added reset_token_expires column to users table');
-  } catch (error: any) {
-    if (!error.message?.includes('duplicate column name')) {
-      console.error('Migration warning (reset_token_expires):', error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes('duplicate column name')) {
+      console.error('Migration warning (reset_token_expires):', message);
     }
   }
 

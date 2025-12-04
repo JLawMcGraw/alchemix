@@ -1,18 +1,81 @@
 # Project Development Progress
 
-Last updated: 2025-12-03
+Last updated: 2025-12-04
 
 ---
 
 ## Current Status
 
-**Version**: v1.23.0 (Security & Infrastructure)
-**Phase**: Production Ready - HttpOnly Cookie Auth Complete
-**Blockers**: None - All 462 tests passing (380 backend + 82 frontend)
+**Version**: v1.24.0 (Railway Deployment & Testing)
+**Phase**: Beta Launch Ready - Railway Full Stack Deployment Configured
+**Blockers**: None - All 548 tests passing (466 backend + 82 frontend)
 
 ---
 
-## Recent Session (2025-12-03): HttpOnly Cookie Auth, DevOps Infrastructure, UI Components
+## Recent Session (2025-12-04): Service Layer Testing, Performance, Railway Deployment
+
+### Work Completed
+
+#### Service Layer Refactoring & Testing
+- ✅ **Dependency injection for InventoryService** - Accepts `IDatabase` via constructor for testability
+- ✅ **Dependency injection for RecipeService** - Accepts `IDatabase` and `IMemoryService` via constructor
+- ✅ **InventoryService.test.ts** - 41 comprehensive tests covering all CRUD operations
+- ✅ **RecipeService.test.ts** - 45 tests with mock MemoryService for AI features
+- ✅ **Type-safe DI pattern** - Uses `type IDatabase = Database.Database` (no `any` types)
+
+#### Accessibility Improvements
+- ✅ **ARIA labels on recipe checkboxes** - `aria-label`, `aria-pressed`, `aria-hidden` attributes
+- ✅ **Keyboard support for dashboard items** - `tabIndex`, `onKeyDown`, `role="button"`
+- ✅ **Toast component accessibility** - Proper ARIA roles and labels
+
+#### Performance Optimization
+- ✅ **Memoized filteredRecipes** - `useMemo` prevents expensive re-filtering on every render
+- ✅ **Memoized spiritTypes** - Avoids redundant array processing
+
+#### Security: Atomic Password Reset
+- ✅ **Transaction-wrapped password reset** - All DB operations atomic (password update + token clear + version increment)
+- ✅ **Updated auth.test.ts mock** - Added `transaction` method to db mock
+
+#### Railway Full Stack Deployment Configuration
+- ✅ **railway.json** - AlcheMix API deployment config
+- ✅ **RAILWAY_DEPLOYMENT.md** - Complete step-by-step deployment guide
+- ✅ **MemMachine Railway files** - Dockerfile.railway, config.yaml.template, entrypoint.sh
+- ✅ **Files copied to memmachine repo** - Ready for Railway deployment
+
+### Files Created
+- `api/src/services/InventoryService.test.ts` - 41 tests
+- `api/src/services/RecipeService.test.ts` - 45 tests
+- `railway.json` - Railway deployment config
+- `RAILWAY_DEPLOYMENT.md` - Deployment guide
+- `railway/memmachine/Dockerfile.railway` - MemMachine Railway Dockerfile
+- `railway/memmachine/config.yaml.template` - MemMachine config with env vars
+- `railway/memmachine/entrypoint.sh` - Startup script
+- `railway/memmachine/railway.json` - MemMachine Railway config
+
+### Files Modified
+- `api/src/services/InventoryService.ts` - DI constructor pattern
+- `api/src/services/RecipeService.ts` - DI constructor pattern
+- `api/src/routes/auth.ts` - Atomic password reset transaction
+- `api/src/routes/auth.test.ts` - Added transaction mock
+- `src/app/recipes/page.tsx` - useMemo, ARIA labels
+- `src/app/dashboard/page.tsx` - Keyboard support
+- `src/components/ui/Toast.tsx` - ARIA improvements
+
+### Test Coverage
+- **Backend**: 466 tests passing (added 86 service layer tests)
+- **Frontend**: 82 tests passing
+- **Total**: 548 tests
+
+### Next Steps
+1. Commit changes to alchemix repo
+2. Commit Railway files to memmachine repo
+3. Deploy to Railway following RAILWAY_DEPLOYMENT.md
+4. Deploy frontend to Vercel
+5. Configure environment variables and test
+
+---
+
+## Previous Session (2025-12-03): HttpOnly Cookie Auth, DevOps Infrastructure, UI Components
 
 ### Work Completed
 
