@@ -9,6 +9,7 @@
     "dev:all:nonadmin": "concurrently \"cd api && set PORT=5000 && npm run dev\" \"npm run dev -- -p 5001\" --names \"API,WEB\" --prefix-colors \"cyan,magenta\"",
     "dev:clean": "kill-ports.bat && npm run dev:all",
     "build": "next build && cd api && npm run build",
+    "build:frontend": "next build",
     "build:api": "cd api && npm run build",
     "start": "next start -p 3001",
     "start:api": "cd api && npm start",
