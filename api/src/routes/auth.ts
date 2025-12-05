@@ -1103,6 +1103,469 @@ router.post('/reset-password', asyncHandler(async (req: Request, res: Response) 
 }));
 
 /**
+ * POST /auth/change-password - Change Password (Authenticated)
+ *
+ * Allows authenticated users to change their password.
+ * Requires current password verification.
+ *
+ * Request Body:
+ * {
+ *   "currentPassword": "OldPassword123!",
+ *   "newPassword": "NewSecurePassword456!"
+ * }
+ *
+ * Response (200 OK):
+ * {
+ *   "success": true,
+ *   "message": "Password changed successfully"
+ * }
+ *
+ * Error Responses:
+ * - 400: Missing fields, weak password
+ * - 401: Current password incorrect
+ * - 500: Server error
+ *
+ * Security:
+ * - Requires authentication
+ * - Verifies current password before allowing change
+ * - Validates new password strength
+ * - Increments token_version (logs out all other sessions)
+ */
+router.post('/change-password', authMiddleware, asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  const { currentPassword, newPassword } = req.body;
+
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized'
+    });
+  }
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({
+      success: false,
+      error: 'Current password and new password are required'
+    });
+  }
+
+  // Get user with password hash
+  const user = db.prepare(
+    'SELECT id, email, password_hash FROM users WHERE id = ?'
+  ).get(userId) as User | undefined;
+
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      error: 'User not found'
+    });
+  }
+
+  // Verify current password
+  const isValidPassword = await bcrypt.compare(currentPassword, user.password_hash!);
+  if (!isValidPassword) {
+    return res.status(401).json({
+      success: false,
+      error: 'Current password is incorrect'
+    });
+  }
+
+  // Validate new password strength
+  const passwordValidation = validatePassword(newPassword);
+  if (!passwordValidation.isValid) {
+    return res.status(400).json({
+      success: false,
+      error: 'New password does not meet security requirements',
+      details: passwordValidation.errors
+    });
+  }
+
+  // Hash new password
+  const password_hash = await bcrypt.hash(newPassword, 10);
+
+  // Atomic transaction: Update password and increment token_version
+  const changePasswordTransaction = db.transaction(() => {
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(password_hash, userId);
+
+    // Increment token version to invalidate all existing sessions
+    const currentVersion = getTokenVersion(userId);
+    const newVersion = currentVersion + 1;
+    db.prepare('UPDATE users SET token_version = ? WHERE id = ?').run(newVersion, userId);
+
+    console.log(`🔐 Password changed for user ${userId}, token version: ${currentVersion} → ${newVersion}`);
+  });
+
+  changePasswordTransaction();
+
+  // Clear cookies to force re-login
+  res.clearCookie('auth_token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/',
+  });
+  res.clearCookie('csrf_token', {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/',
+  });
+
+  res.json({
+    success: true,
+    message: 'Password changed successfully. Please login with your new password.'
+  });
+}));
+
+/**
+ * DELETE /auth/account - Delete User Account
+ *
+ * Permanently deletes the user's account and all associated data.
+ * Requires password confirmation for security.
+ *
+ * Request Body:
+ * {
+ *   "password": "CurrentPassword123!"
+ * }
+ *
+ * Response (200 OK):
+ * {
+ *   "success": true,
+ *   "message": "Account deleted successfully"
+ * }
+ *
+ * Error Responses:
+ * - 400: Missing password
+ * - 401: Password incorrect
+ * - 500: Server error
+ *
+ * Security:
+ * - Requires authentication
+ * - Requires password confirmation
+ * - Deletes all user data (inventory, recipes, favorites, collections)
+ * - Uses database transactions for data integrity
+ */
+router.delete('/account', authMiddleware, asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  const { password } = req.body;
+
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized'
+    });
+  }
+
+  if (!password) {
+    return res.status(400).json({
+      success: false,
+      error: 'Password is required to delete account'
+    });
+  }
+
+  // Get user with password hash
+  const user = db.prepare(
+    'SELECT id, email, password_hash FROM users WHERE id = ?'
+  ).get(userId) as User | undefined;
+
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      error: 'User not found'
+    });
+  }
+
+  // Verify password
+  const isValidPassword = await bcrypt.compare(password, user.password_hash!);
+  if (!isValidPassword) {
+    return res.status(401).json({
+      success: false,
+      error: 'Password is incorrect'
+    });
+  }
+
+  // Atomic transaction: Delete all user data
+  const deleteAccountTransaction = db.transaction(() => {
+    // Delete favorites
+    db.prepare('DELETE FROM favorites WHERE user_id = ?').run(userId);
+    // Delete recipes
+    db.prepare('DELETE FROM recipes WHERE user_id = ?').run(userId);
+    // Delete collections
+    db.prepare('DELETE FROM collections WHERE user_id = ?').run(userId);
+    // Delete inventory items
+    db.prepare('DELETE FROM inventory_items WHERE user_id = ?').run(userId);
+    // Delete user
+    db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+
+    console.log(`🗑️ Account deleted for user ${user.email} (ID: ${userId})`);
+  });
+
+  deleteAccountTransaction();
+
+  // Clear cookies
+  res.clearCookie('auth_token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/',
+  });
+  res.clearCookie('csrf_token', {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/',
+  });
+
+  res.json({
+    success: true,
+    message: 'Account deleted successfully'
+  });
+}));
+
+/**
+ * GET /auth/export - Export All User Data
+ *
+ * Downloads all user data as JSON file.
+ *
+ * Response (200 OK):
+ * {
+ *   "success": true,
+ *   "data": {
+ *     "user": { ... },
+ *     "inventory": [ ... ],
+ *     "recipes": [ ... ],
+ *     "favorites": [ ... ],
+ *     "collections": [ ... ],
+ *     "exportedAt": "2025-01-15T12:00:00Z"
+ *   }
+ * }
+ *
+ * Security:
+ * - Requires authentication
+ * - Only exports data belonging to the authenticated user
+ */
+router.get('/export', authMiddleware, asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized'
+    });
+  }
+
+  // Get user info (without sensitive fields)
+  const user = db.prepare(
+    'SELECT id, email, created_at, is_verified FROM users WHERE id = ?'
+  ).get(userId) as User | undefined;
+
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      error: 'User not found'
+    });
+  }
+
+  // Get all user data
+  const inventory = db.prepare('SELECT * FROM inventory_items WHERE user_id = ?').all(userId);
+  const recipes = db.prepare('SELECT * FROM recipes WHERE user_id = ?').all(userId);
+  const favorites = db.prepare('SELECT * FROM favorites WHERE user_id = ?').all(userId);
+  const collections = db.prepare('SELECT * FROM collections WHERE user_id = ?').all(userId);
+
+  const exportData = {
+    user: {
+      id: user.id,
+      email: user.email,
+      created_at: user.created_at,
+      is_verified: Boolean(user.is_verified)
+    },
+    inventory,
+    recipes,
+    favorites,
+    collections,
+    exportedAt: new Date().toISOString()
+  };
+
+  res.json({
+    success: true,
+    data: exportData
+  });
+}));
+
+/**
+ * POST /auth/import - Import User Data
+ *
+ * Imports user data from a previously exported JSON file.
+ * Supports importing inventory, recipes, favorites, and collections.
+ *
+ * Request Body:
+ * {
+ *   "data": {
+ *     "inventory": [...],
+ *     "recipes": [...],
+ *     "favorites": [...],
+ *     "collections": [...]
+ *   },
+ *   "options": {
+ *     "overwrite": false  // If true, clears existing data before import
+ *   }
+ * }
+ *
+ * Response (200 OK):
+ * {
+ *   "success": true,
+ *   "imported": {
+ *     "inventory": 10,
+ *     "recipes": 5,
+ *     "favorites": 3,
+ *     "collections": 2
+ *   }
+ * }
+ *
+ * Security:
+ * - Requires authentication
+ * - Only imports data for the authenticated user
+ * - Validates data structure before import
+ */
+router.post('/import', authMiddleware, asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  const { data, options } = req.body;
+
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized'
+    });
+  }
+
+  if (!data) {
+    return res.status(400).json({
+      success: false,
+      error: 'No data provided for import'
+    });
+  }
+
+  const overwrite = options?.overwrite === true;
+  const imported = {
+    inventory: 0,
+    recipes: 0,
+    favorites: 0,
+    collections: 0
+  };
+
+  // Use transaction for atomicity
+  const importTransaction = db.transaction(() => {
+    // If overwrite, clear existing data first
+    if (overwrite) {
+      db.prepare('DELETE FROM favorites WHERE user_id = ?').run(userId);
+      db.prepare('DELETE FROM recipes WHERE user_id = ?').run(userId);
+      db.prepare('DELETE FROM collections WHERE user_id = ?').run(userId);
+      db.prepare('DELETE FROM inventory_items WHERE user_id = ?').run(userId);
+    }
+
+    // Import collections first (recipes may reference them)
+    if (Array.isArray(data.collections)) {
+      const insertCollection = db.prepare(
+        'INSERT INTO collections (user_id, name, description) VALUES (?, ?, ?)'
+      );
+      for (const collection of data.collections) {
+        if (collection.name) {
+          insertCollection.run(userId, collection.name, collection.description || null);
+          imported.collections++;
+        }
+      }
+    }
+
+    // Import inventory items
+    if (Array.isArray(data.inventory)) {
+      const insertInventory = db.prepare(`
+        INSERT INTO inventory_items (
+          user_id, name, category, type, abv, stock_number,
+          spirit_classification, distillation_method, distillery_location,
+          age_statement, additional_notes, profile_nose, palate, finish
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      for (const item of data.inventory) {
+        if (item.name && item.category) {
+          insertInventory.run(
+            userId,
+            item.name,
+            item.category,
+            item.type || null,
+            item.abv || null,
+            item.stock_number || null,
+            item.spirit_classification || null,
+            item.distillation_method || null,
+            item.distillery_location || null,
+            item.age_statement || null,
+            item.additional_notes || null,
+            item.profile_nose || null,
+            item.palate || null,
+            item.finish || null
+          );
+          imported.inventory++;
+        }
+      }
+    }
+
+    // Import recipes
+    if (Array.isArray(data.recipes)) {
+      const insertRecipe = db.prepare(`
+        INSERT INTO recipes (user_id, name, ingredients, instructions, glass, category)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `);
+      for (const recipe of data.recipes) {
+        if (recipe.name && recipe.ingredients) {
+          const ingredients = typeof recipe.ingredients === 'string'
+            ? recipe.ingredients
+            : JSON.stringify(recipe.ingredients);
+          insertRecipe.run(
+            userId,
+            recipe.name,
+            ingredients,
+            recipe.instructions || null,
+            recipe.glass || null,
+            recipe.category || null
+          );
+          imported.recipes++;
+        }
+      }
+    }
+
+    // Import favorites
+    if (Array.isArray(data.favorites)) {
+      const insertFavorite = db.prepare(
+        'INSERT INTO favorites (user_id, recipe_name) VALUES (?, ?)'
+      );
+      for (const favorite of data.favorites) {
+        const recipeName = favorite.recipe_name || favorite.name;
+        if (recipeName) {
+          insertFavorite.run(userId, recipeName);
+          imported.favorites++;
+        }
+      }
+    }
+  });
+
+  try {
+    importTransaction();
+    console.log(`✅ Data imported for user ${userId}:`, imported);
+
+    res.json({
+      success: true,
+      message: 'Data imported successfully',
+      imported
+    });
+  } catch (error) {
+    console.error('Import error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to import data'
+    });
+  }
+}));
+
+/**
  * Export Authentication Router
  *
  * This router is mounted at /auth in server.ts:
@@ -1114,5 +1577,9 @@ router.post('/reset-password', asyncHandler(async (req: Request, res: Response) 
  * - POST /auth/resend-verification
  * - POST /auth/forgot-password
  * - POST /auth/reset-password
+ * - POST /auth/change-password
+ * - DELETE /auth/account
+ * - GET /auth/export
+ * - POST /auth/import
  */
 export default router;

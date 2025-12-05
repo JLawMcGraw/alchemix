@@ -335,7 +335,7 @@ export default function DashboardPage() {
                       };
 
                       return Object.entries(categoryCounts)
-                        .filter(([, count]) => count > 0)
+                        .filter(([category, count]) => category !== 'all' && count > 0)
                         .sort(([, a], [, b]) => b - a)
                         .map(([category, count]) => (
                           <li

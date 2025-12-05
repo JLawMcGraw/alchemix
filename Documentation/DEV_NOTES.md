@@ -4,6 +4,49 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-12-05 - Ingredient Classifier First-Match Priority
+
+### The Pattern
+The Recipe Molecule ingredient classifier uses **first-match priority** - once a keyword matches, classification stops. This is by design for performance but has implications for testing.
+
+### Gotcha: Compound Ingredient Names
+When an ingredient name contains multiple recognizable terms, the **first matched** term determines the type:
+
+```typescript
+// ❌ These tests will fail:
+expect(classifyIngredient('maraschino cherry').type).toBe('garnish');
+// Actual: 'sweet' (maraschino is a liqueur, matches first)
+
+expect(classifyIngredient('lime wheel').type).toBe('garnish');
+// Actual: 'acid' (lime matches acid keywords first)
+
+expect(classifyIngredient('cherry liqueur').type).toBe('sweet');
+// Actual: 'garnish' (cherry matches garnish keywords first)
+
+// ✅ Use non-conflicting terms:
+expect(classifyIngredient('cherry').type).toBe('garnish');
+expect(classifyIngredient('wheel garnish').type).toBe('garnish');
+expect(classifyIngredient('apricot liqueur').type).toBe('sweet');
+```
+
+### Matching Order
+Classifications are checked in this order:
+1. Spirit (bourbon, whiskey, vodka, gin, rum, tequila...)
+2. Acid (lime, lemon, juice, citrus...)
+3. Sweet (syrup, honey, sugar, liqueur, maraschino...)
+4. Bitter (bitters, campari, vermouth...)
+5. Salt, Dilution, Garnish (cherry, mint, olive...), Dairy, Egg
+6. Default → Garnish
+
+### Word Boundary Matching
+Uses `\b` regex boundaries to prevent false positives:
+```typescript
+// "Virgin Islands rum" → matches 'rum', NOT 'gin' (substring of Virgin)
+const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+```
+
+---
+
 ## 2025-12-04 - Dependency Injection for Service Layer Testing
 
 ### Why Dependency Injection

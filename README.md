@@ -6,15 +6,17 @@
 
 Modern cocktail inventory and recipe management system with AI-powered bartender recommendations.
 
-**Version:** v1.25.0 | **Last Updated:** December 3, 2025
+**Version:** v1.28.0 | **Last Updated:** December 5, 2025
 
 ## Features
 
 - **My Bar** - Category-organized inventory with 9 tabs, card grid layout, CSV import
 - **Recipe Management** - Full CRUD, collections/folders, bulk operations, CSV import
+- **Recipe Molecule Visualization** - Chemical bond-style molecular diagrams for cocktail recipes
 - **Smart Shopping List** - Near-miss algorithm, ingredient recommendations, 6 recipe buckets
 - **AI Bartender** - Claude-powered assistant with MemMachine semantic memory
 - **Secure Auth** - HttpOnly cookie JWT with CSRF protection (XSS-resistant)
+- **Account Settings** - Change password, delete account, data export/import
 - **Email Verification** - Secure signup flow with verification tokens
 - **Password Reset** - Secure reset flow with email delivery
 
@@ -50,7 +52,7 @@ npm run dev:all
 ```
 alchemix/
 ├── src/                    # Next.js frontend
-│   ├── app/               # Pages (login, dashboard, bar, recipes, ai, etc.)
+│   ├── app/               # Pages (login, dashboard, bar, recipes, ai, settings, etc.)
 │   ├── components/        # UI components and modals
 │   ├── hooks/             # Custom hooks (useAuthGuard, useVerificationGuard)
 │   └── lib/               # API client, store, utilities
@@ -61,6 +63,9 @@ alchemix/
 │   │   ├── middleware/    # Auth, error handling
 │   │   └── database/      # SQLite setup
 │   └── .env               # Environment configuration
+├── packages/               # Shared packages
+│   └── recipe-molecule/   # Chemical bond-style recipe visualization
+│       └── src/core/      # Parser, classifier, layout engine
 ├── docker/                 # Docker configuration
 │   ├── docker-compose.yml # Main compose file
 │   ├── Dockerfile.*       # Frontend/backend Dockerfiles
@@ -84,6 +89,10 @@ alchemix/
 - `POST /auth/resend-verification` - Resend verification email
 - `POST /auth/forgot-password` - Request password reset
 - `POST /auth/reset-password` - Reset password with token
+- `POST /auth/change-password` - Change password (authenticated)
+- `DELETE /auth/account` - Delete account and all data
+- `GET /auth/export` - Export all user data as JSON
+- `POST /auth/import` - Import user data from JSON
 
 ### Resources
 - `GET/POST/PUT/DELETE /api/inventory` - Inventory management
@@ -123,13 +132,28 @@ MEMMACHINE_API_URL=http://localhost:8080
 npm run type-check          # Frontend
 cd api && npm run type-check # Backend
 
-# Run tests (548 tests: 466 backend + 82 frontend)
-cd api && npm test          # Backend
-npm run test:ui -- --run    # Frontend
-
 # Build
 npm run build              # Frontend
 cd api && npm run build    # Backend
+```
+
+## Testing
+
+The project has comprehensive test coverage using Vitest:
+
+| Suite | Tests | Description |
+|-------|-------|-------------|
+| Frontend | 99 | API client, store, UI components (Button, Input, Modal) |
+| Backend | 488 | Auth, inventory, recipes, collections, favorites, messages, shopping list |
+| Recipe Molecule | 124 | Ingredient parser, classifier, layout engine |
+| **Total** | **711** | |
+
+```bash
+# Run all tests
+npm test && cd api && npm test && cd ../packages/recipe-molecule && npm test
+
+# Run with coverage
+cd api && npm test -- --coverage
 ```
 
 ## Docker (Required for AI Features)

@@ -110,6 +110,23 @@
   background-color: rgba(0, 0, 0, 0.08);
 }
 
+.danger {
+  background-color: var(--color-danger, #e74c3c);
+  color: white;
+  border-color: var(--color-danger, #e74c3c);
+}
+
+.danger:hover:not(:disabled) {
+  background-color: #c0392b;
+  border-color: #c0392b;
+  box-shadow: var(--shadow-md);
+}
+
+.danger:active:not(:disabled) {
+  background-color: #a93226;
+  transform: translateY(1px);
+}
+
 /* Full Width */
 .fullWidth {
   width: 100%;

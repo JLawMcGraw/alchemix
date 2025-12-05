@@ -1139,4 +1139,545 @@ describe('Auth Routes Integration Tests', () => {
       expect(response.body.data).toHaveProperty('is_verified', true);
     });
   });
+
+  // =========================================================================
+  // Phase 2/3 Features: Change Password, Delete Account, Export, Import
+  // =========================================================================
+
+  describe('POST /auth/change-password', () => {
+    let authCookies: string;
+    let csrfToken: string;
+
+    beforeEach(async () => {
+      // Create and login a user
+      const hashedPassword = await bcrypt.hash('OldPassword123!', 10);
+      testDb.prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)')
+        .run('changepass@example.com', hashedPassword);
+
+      const loginResponse = await request(app)
+        .post('/auth/login')
+        .send({
+          email: 'changepass@example.com',
+          password: 'OldPassword123!',
+        });
+
+      authCookies = extractCookies(loginResponse);
+      csrfToken = extractCsrfToken(loginResponse);
+    });
+
+    it('should change password with valid current password', async () => {
+      const response = await request(app)
+        .post('/auth/change-password')
+        .set('Cookie', authCookies)
+        .set('X-CSRF-Token', csrfToken)
+        .send({
+          currentPassword: 'OldPassword123!',
+          newPassword: 'NewPassword456!',
+        })
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('message');
+
+      // Verify new password works
+      const loginResponse = await request(app)
+        .post('/auth/login')
+        .send({
+          email: 'changepass@example.com',
+          password: 'NewPassword456!',
+        })
+        .expect(200);
+
+      expect(loginResponse.body).toHaveProperty('success', true);
+    });
+
+    it('should reject with incorrect current password', async () => {
+      const response = await request(app)
+        .post('/auth/change-password')
+        .set('Cookie', authCookies)
+        .set('X-CSRF-Token', csrfToken)
+        .send({
+          currentPassword: 'WrongPassword123!',
+          newPassword: 'NewPassword456!',
+        })
+        .expect(401);
+
+      expect(response.body).toHaveProperty('success', false);
+      expect(response.body.error).toContain('incorrect');
+    });
+
+    it('should reject weak new password', async () => {
+      const response = await request(app)
+        .post('/auth/change-password')
+        .set('Cookie', authCookies)
+        .set('X-CSRF-Token', csrfToken)
+        .send({
+          currentPassword: 'OldPassword123!',
+          newPassword: 'weak',
+        })
+        .expect(400);
+
+      expect(response.body).toHaveProperty('success', false);
+    });
+
+    it('should reject without authentication', async () => {
+      const response = await request(app)
+        .post('/auth/change-password')
+        .send({
+          currentPassword: 'OldPassword123!',
+          newPassword: 'NewPassword456!',
+        })
+        .expect(401);
+
+      expect(response.body).toHaveProperty('success', false);
+    });
+
+    it('should reject with missing fields', async () => {
+      const response = await request(app)
+        .post('/auth/change-password')
+        .set('Cookie', authCookies)
+        .set('X-CSRF-Token', csrfToken)
+        .send({
+          currentPassword: 'OldPassword123!',
+        })
+        .expect(400);
+
+      expect(response.body).toHaveProperty('success', false);
+    });
+
+    it('should invalidate existing sessions after password change', async () => {
+      // Change password
+      await request(app)
+        .post('/auth/change-password')
+        .set('Cookie', authCookies)
+        .set('X-CSRF-Token', csrfToken)
+        .send({
+          currentPassword: 'OldPassword123!',
+          newPassword: 'NewPassword456!',
+        })
+        .expect(200);
+
+      // Old cookies should no longer work
+      const response = await request(app)
+        .get('/auth/me')
+        .set('Cookie', authCookies)
+        .expect(401);
+
+      expect(response.body).toHaveProperty('success', false);
+    });
+  });
+
+  describe('DELETE /auth/account', () => {
+    let authCookies: string;
+    let csrfToken: string;
+    let userId: number;
+
+    beforeEach(async () => {
+      // Create and login a user with data
+      const hashedPassword = await bcrypt.hash('DeleteMe123!', 10);
+      const userResult = testDb.prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)')
+        .run('deleteaccount@example.com', hashedPassword);
+      userId = Number(userResult.lastInsertRowid);
+
+      // Add some user data
+      testDb.prepare('INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)')
+        .run(userId, 'Test Whiskey', 'spirit');
+      testDb.prepare('INSERT INTO collections (user_id, name) VALUES (?, ?)')
+        .run(userId, 'Test Collection');
+      testDb.prepare('INSERT INTO recipes (user_id, name, ingredients) VALUES (?, ?, ?)')
+        .run(userId, 'Test Recipe', '2 oz Whiskey');
+      testDb.prepare('INSERT INTO favorites (user_id, recipe_name) VALUES (?, ?)')
+        .run(userId, 'Test Recipe');
+
+      const loginResponse = await request(app)
+        .post('/auth/login')
+        .send({
+          email: 'deleteaccount@example.com',
+          password: 'DeleteMe123!',
+        });
+
+      authCookies = extractCookies(loginResponse);
+      csrfToken = extractCsrfToken(loginResponse);
+    });
+
+    it('should delete account with correct password', async () => {
+      const response = await request(app)
+        .delete('/auth/account')
+        .set('Cookie', authCookies)
+        .set('X-CSRF-Token', csrfToken)
+        .send({
+          password: 'DeleteMe123!',
+        })
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('message');
+
+      // Verify user is deleted
+      const user = testDb.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+      expect(user).toBeUndefined();
+    });
+
+    it('should delete all user data (cascade)', async () => {
+      await request(app)
+        .delete('/auth/account')
+        .set('Cookie', authCookies)
+        .set('X-CSRF-Token', csrfToken)
+        .send({
+          password: 'DeleteMe123!',
+        })
+        .expect(200);
+
+      // Verify all user data is deleted
+      const inventory = testDb.prepare('SELECT * FROM inventory_items WHERE user_id = ?').all(userId);
+      const collections = testDb.prepare('SELECT * FROM collections WHERE user_id = ?').all(userId);
+      const recipes = testDb.prepare('SELECT * FROM recipes WHERE user_id = ?').all(userId);
+      const favorites = testDb.prepare('SELECT * FROM favorites WHERE user_id = ?').all(userId);
+
+      expect(inventory).toHaveLength(0);
+      expect(collections).toHaveLength(0);
+      expect(recipes).toHaveLength(0);
+      expect(favorites).toHaveLength(0);
+    });
+
+    it('should reject with incorrect password', async () => {
+      const response = await request(app)
+        .delete('/auth/account')
+        .set('Cookie', authCookies)
+        .set('X-CSRF-Token', csrfToken)
+        .send({
+          password: 'WrongPassword123!',
+        })
+        .expect(401);
+
+      expect(response.body).toHaveProperty('success', false);
+
+      // User should still exist
+      const user = testDb.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+      expect(user).toBeDefined();
+    });
+
+    it('should reject without authentication', async () => {
+      const response = await request(app)
+        .delete('/auth/account')
+        .send({
+          password: 'DeleteMe123!',
+        })
+        .expect(401);
+
+      expect(response.body).toHaveProperty('success', false);
+    });
+
+    it('should reject without password', async () => {
+      const response = await request(app)
+        .delete('/auth/account')
+        .set('Cookie', authCookies)
+        .set('X-CSRF-Token', csrfToken)
+        .send({})
+        .expect(400);
+
+      expect(response.body).toHaveProperty('success', false);
+    });
+
+    it('should clear auth cookies after account deletion', async () => {
+      const response = await request(app)
+        .delete('/auth/account')
+        .set('Cookie', authCookies)
+        .set('X-CSRF-Token', csrfToken)
+        .send({
+          password: 'DeleteMe123!',
+        })
+        .expect(200);
+
+      // Verify cookies are cleared
+      const cookies = getSetCookies(response);
+      expect(cookies.some((c: string) => c.includes('auth_token=;') || c.includes('auth_token=deleted') || c.includes('Max-Age=0'))).toBe(true);
+    });
+  });
+
+  describe('GET /auth/export', () => {
+    let authCookies: string;
+    let userId: number;
+
+    beforeEach(async () => {
+      // Create and login a user with data
+      const hashedPassword = await bcrypt.hash('ExportMe123!', 10);
+      const userResult = testDb.prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)')
+        .run('export@example.com', hashedPassword);
+      userId = Number(userResult.lastInsertRowid);
+
+      // Add user data
+      testDb.prepare('INSERT INTO inventory_items (user_id, name, category, type) VALUES (?, ?, ?, ?)')
+        .run(userId, 'Bourbon', 'spirit', 'whiskey');
+      testDb.prepare('INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)')
+        .run(userId, 'Simple Syrup', 'syrup');
+
+      const collectionResult = testDb.prepare('INSERT INTO collections (user_id, name, description) VALUES (?, ?, ?)')
+        .run(userId, 'Classics', 'Classic cocktails');
+      const collectionId = Number(collectionResult.lastInsertRowid);
+
+      const recipeResult = testDb.prepare('INSERT INTO recipes (user_id, collection_id, name, ingredients, instructions) VALUES (?, ?, ?, ?, ?)')
+        .run(userId, collectionId, 'Old Fashioned', '2 oz Bourbon, Sugar, Bitters', 'Muddle and stir');
+      const recipeId = Number(recipeResult.lastInsertRowid);
+
+      testDb.prepare('INSERT INTO favorites (user_id, recipe_name, recipe_id) VALUES (?, ?, ?)')
+        .run(userId, 'Old Fashioned', recipeId);
+
+      const loginResponse = await request(app)
+        .post('/auth/login')
+        .send({
+          email: 'export@example.com',
+          password: 'ExportMe123!',
+        });
+
+      authCookies = extractCookies(loginResponse);
+    });
+
+    it('should export all user data', async () => {
+      const response = await request(app)
+        .get('/auth/export')
+        .set('Cookie', authCookies)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data');
+
+      const data = response.body.data;
+      expect(data).toHaveProperty('user');
+      expect(data).toHaveProperty('inventory');
+      expect(data).toHaveProperty('recipes');
+      expect(data).toHaveProperty('favorites');
+      expect(data).toHaveProperty('collections');
+      expect(data).toHaveProperty('exportedAt');
+
+      // Verify user data (no sensitive fields)
+      expect(data.user).toHaveProperty('email', 'export@example.com');
+      expect(data.user).not.toHaveProperty('password_hash');
+
+      // Verify inventory
+      expect(data.inventory).toHaveLength(2);
+      expect(data.inventory.some((i: any) => i.name === 'Bourbon')).toBe(true);
+
+      // Verify collections
+      expect(data.collections).toHaveLength(1);
+      expect(data.collections[0].name).toBe('Classics');
+
+      // Verify recipes
+      expect(data.recipes).toHaveLength(1);
+      expect(data.recipes[0].name).toBe('Old Fashioned');
+
+      // Verify favorites
+      expect(data.favorites).toHaveLength(1);
+      expect(data.favorites[0].recipe_name).toBe('Old Fashioned');
+    });
+
+    it('should reject without authentication', async () => {
+      const response = await request(app)
+        .get('/auth/export')
+        .expect(401);
+
+      expect(response.body).toHaveProperty('success', false);
+    });
+
+    it('should return empty arrays for user with no data', async () => {
+      // Create user with no data
+      const hashedPassword = await bcrypt.hash('NoData123!', 10);
+      testDb.prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)')
+        .run('nodata@example.com', hashedPassword);
+
+      const loginResponse = await request(app)
+        .post('/auth/login')
+        .send({
+          email: 'nodata@example.com',
+          password: 'NoData123!',
+        });
+
+      const response = await request(app)
+        .get('/auth/export')
+        .set('Cookie', extractCookies(loginResponse))
+        .expect(200);
+
+      expect(response.body.data.inventory).toHaveLength(0);
+      expect(response.body.data.recipes).toHaveLength(0);
+      expect(response.body.data.favorites).toHaveLength(0);
+      expect(response.body.data.collections).toHaveLength(0);
+    });
+  });
+
+  describe('POST /auth/import', () => {
+    let authCookies: string;
+    let csrfToken: string;
+    let userId: number;
+
+    beforeEach(async () => {
+      // Create and login a user
+      const hashedPassword = await bcrypt.hash('ImportMe123!', 10);
+      const userResult = testDb.prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)')
+        .run('import@example.com', hashedPassword);
+      userId = Number(userResult.lastInsertRowid);
+
+      const loginResponse = await request(app)
+        .post('/auth/login')
+        .send({
+          email: 'import@example.com',
+          password: 'ImportMe123!',
+        });
+
+      authCookies = extractCookies(loginResponse);
+      csrfToken = extractCsrfToken(loginResponse);
+    });
+
+    it('should import data successfully', async () => {
+      const importData = {
+        data: {
+          inventory: [
+            { name: 'Imported Whiskey', category: 'spirit', type: 'bourbon' },
+            { name: 'Imported Syrup', category: 'syrup' },
+          ],
+          collections: [
+            { name: 'Imported Collection', description: 'Test collection' },
+          ],
+          recipes: [
+            { name: 'Imported Recipe', ingredients: '2 oz Whiskey', instructions: 'Mix well' },
+          ],
+          favorites: [
+            { recipe_name: 'Imported Favorite' },
+          ],
+        },
+      };
+
+      const response = await request(app)
+        .post('/auth/import')
+        .set('Cookie', authCookies)
+        .set('X-CSRF-Token', csrfToken)
+        .send(importData)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('imported');
+      expect(response.body.imported).toHaveProperty('inventory', 2);
+      expect(response.body.imported).toHaveProperty('collections', 1);
+      expect(response.body.imported).toHaveProperty('recipes', 1);
+      expect(response.body.imported).toHaveProperty('favorites', 1);
+
+      // Verify data was imported
+      const inventory = testDb.prepare('SELECT * FROM inventory_items WHERE user_id = ?').all(userId);
+      expect(inventory).toHaveLength(2);
+    });
+
+    it('should merge data by default (no overwrite)', async () => {
+      // Add existing data
+      testDb.prepare('INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)')
+        .run(userId, 'Existing Item', 'spirit');
+
+      const importData = {
+        data: {
+          inventory: [
+            { name: 'New Item', category: 'mixer' },
+          ],
+        },
+      };
+
+      await request(app)
+        .post('/auth/import')
+        .set('Cookie', authCookies)
+        .set('X-CSRF-Token', csrfToken)
+        .send(importData)
+        .expect(200);
+
+      // Should have both existing and new items
+      const inventory = testDb.prepare('SELECT * FROM inventory_items WHERE user_id = ?').all(userId);
+      expect(inventory).toHaveLength(2);
+    });
+
+    it('should overwrite data when overwrite option is true', async () => {
+      // Add existing data
+      testDb.prepare('INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)')
+        .run(userId, 'Existing Item', 'spirit');
+
+      const importData = {
+        data: {
+          inventory: [
+            { name: 'New Item', category: 'mixer' },
+          ],
+        },
+        options: {
+          overwrite: true,
+        },
+      };
+
+      await request(app)
+        .post('/auth/import')
+        .set('Cookie', authCookies)
+        .set('X-CSRF-Token', csrfToken)
+        .send(importData)
+        .expect(200);
+
+      // Should only have the new item
+      const inventory = testDb.prepare('SELECT * FROM inventory_items WHERE user_id = ?').all(userId) as any[];
+      expect(inventory).toHaveLength(1);
+      expect(inventory[0].name).toBe('New Item');
+    });
+
+    it('should reject without authentication', async () => {
+      const response = await request(app)
+        .post('/auth/import')
+        .send({
+          data: {
+            inventory: [],
+          },
+        })
+        .expect(401);
+
+      expect(response.body).toHaveProperty('success', false);
+    });
+
+    it('should handle empty import data', async () => {
+      const response = await request(app)
+        .post('/auth/import')
+        .set('Cookie', authCookies)
+        .set('X-CSRF-Token', csrfToken)
+        .send({
+          data: {},
+        })
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body.imported.inventory).toBe(0);
+      expect(response.body.imported.recipes).toBe(0);
+    });
+
+    it('should handle missing data field', async () => {
+      const response = await request(app)
+        .post('/auth/import')
+        .set('Cookie', authCookies)
+        .set('X-CSRF-Token', csrfToken)
+        .send({})
+        .expect(400);
+
+      expect(response.body).toHaveProperty('success', false);
+    });
+
+    it('should skip invalid inventory items', async () => {
+      const importData = {
+        data: {
+          inventory: [
+            { name: 'Valid Item', category: 'spirit' },
+            { category: 'spirit' }, // Missing name - should be skipped
+            { name: 'Missing Category' }, // Missing category - should be skipped
+          ],
+        },
+      };
+
+      const response = await request(app)
+        .post('/auth/import')
+        .set('Cookie', authCookies)
+        .set('X-CSRF-Token', csrfToken)
+        .send(importData)
+        .expect(200);
+
+      // Only valid item should be imported (name + category required)
+      expect(response.body.imported.inventory).toBe(1);
+    });
+  });
 });

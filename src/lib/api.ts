@@ -157,6 +157,44 @@ export const authApi = {
   async resetPassword(token: string, password: string): Promise<{ message: string }> {
     return request<{ message: string }>('post', '/auth/reset-password', { token, password });
   },
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<{ message: string }> {
+    return request<{ message: string }>('post', '/auth/change-password', { currentPassword, newPassword });
+  },
+
+  async deleteAccount(password: string): Promise<{ message: string }> {
+    return request<{ message: string }>('delete', '/auth/account', { password });
+  },
+
+  async exportData(): Promise<{
+    user: User;
+    inventory: InventoryItem[];
+    recipes: Recipe[];
+    favorites: Favorite[];
+    collections: Collection[];
+    exportedAt: string;
+  }> {
+    return request('get', '/auth/export');
+  },
+
+  async importData(
+    data: {
+      inventory?: InventoryItem[];
+      recipes?: Recipe[];
+      favorites?: Favorite[];
+      collections?: Collection[];
+    },
+    options?: { overwrite?: boolean }
+  ): Promise<{
+    imported: {
+      inventory: number;
+      recipes: number;
+      favorites: number;
+      collections: number;
+    };
+  }> {
+    return request('post', '/auth/import', { data, options });
+  },
 };
 
 export interface InventoryPagination {

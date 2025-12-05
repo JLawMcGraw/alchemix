@@ -1,0 +1,369 @@
+/* Account Page Styles */
+
+.account {
+  min-height: calc(100vh - 72px);
+  background-color: var(--color-ui-bg);
+  padding: var(--space-6) var(--space-4);
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.loading {
+  text-align: center;
+  padding: var(--space-8);
+  color: var(--color-text-muted);
+}
+
+/* Header */
+.header {
+  margin-bottom: var(--space-6);
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  color: var(--color-text-heading);
+  margin: 0 0 var(--space-2) 0;
+}
+
+.subtitle {
+  font-size: var(--text-base);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+/* Sections */
+.section {
+  margin-bottom: var(--space-6);
+}
+
+.sectionTitle {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--color-text-heading);
+  margin: 0 0 var(--space-3) 0;
+}
+
+/* Profile Card */
+.profileCard {
+  background-color: var(--color-ui-bg-surface);
+}
+
+.profileHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+}
+
+.profileInfo {
+  flex: 1;
+}
+
+.profileName {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--color-text-heading);
+  margin: 0 0 var(--space-1) 0;
+  text-transform: capitalize;
+}
+
+.memberBadge {
+  display: inline-block;
+  padding: 2px 10px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-primary);
+  background-color: rgba(61, 214, 193, 0.1);
+  border-radius: var(--radius-full);
+}
+
+.profileDetails {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.detailRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.detailIcon {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.detailLabel {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  width: 120px;
+  flex-shrink: 0;
+}
+
+.detailValue {
+  font-size: var(--text-sm);
+  color: var(--color-text-body);
+  font-weight: 500;
+}
+
+.verified {
+  color: var(--color-semantic-success);
+}
+
+.unverified {
+  color: var(--color-semantic-warning);
+}
+
+/* Stats Grid */
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+}
+
+.statCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.statCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.statIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.statContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.statNumber {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--color-text-heading);
+  line-height: 1;
+}
+
+.statLabel {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.statArrow {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+/* Actions Card */
+.actionsCard {
+  display: flex;
+  flex-direction: column;
+}
+
+.actionItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--color-text-body);
+  text-align: left;
+  transition: background-color var(--transition-fast);
+}
+
+.actionItem:hover:not(:disabled) {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.actionItem:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.actionText {
+  flex: 1;
+}
+
+.actionBadge {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  background-color: var(--color-ui-bg);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.actionDivider {
+  height: 1px;
+  background-color: var(--color-border);
+}
+
+.dangerAction {
+  color: var(--color-danger, #e74c3c);
+}
+
+.dangerAction:hover:not(:disabled) {
+  background-color: rgba(231, 76, 60, 0.05);
+}
+
+/* Back Link */
+.backLink {
+  text-align: center;
+  margin-top: var(--space-4);
+}
+
+/* Action Arrow */
+.actionArrow {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+/* Modal Styles */
+.modalContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.modalDescription {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.formLabel {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-body);
+}
+
+.passwordInputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.passwordInputWrapper input {
+  padding-right: 40px;
+}
+
+.passwordToggle {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.passwordToggle:hover {
+  color: var(--color-text-body);
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.errorMessage {
+  background-color: rgba(231, 76, 60, 0.1);
+  color: var(--color-danger, #e74c3c);
+  padding: var(--space-2);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+}
+
+.dangerWarning {
+  display: flex;
+  gap: var(--space-2);
+  background-color: rgba(231, 76, 60, 0.1);
+  color: var(--color-danger, #e74c3c);
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+}
+
+.dangerWarning svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.dangerWarning p {
+  margin: 0;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .account {
+    padding: var(--space-4) var(--space-3);
+  }
+
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .detailRow {
+    flex-wrap: wrap;
+  }
+
+  .detailLabel {
+    width: 100%;
+    margin-bottom: var(--space-1);
+  }
+
+  .detailValue {
+    margin-left: calc(18px + var(--space-3));
+  }
+}

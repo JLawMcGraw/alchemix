@@ -15,7 +15,7 @@ import React, { forwardRef } from 'react';
 import styles from './Button.module.css';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'outline' | 'text' | 'ghost';
+  variant?: 'primary' | 'outline' | 'text' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   fullWidth?: boolean;
   /** Show loading spinner and disable interactions */
