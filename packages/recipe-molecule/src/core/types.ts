@@ -17,12 +17,15 @@ export type IngredientType =
   | 'dilution'  // Water, ice, soda
   | 'garnish'   // Herbs, peels, olives, cherries
   | 'dairy'     // Cream, milk
-  | 'egg';      // Egg white, yolk
+  | 'egg'       // Egg white, yolk
+  | 'junction'; // Invisible connection point (phantom node)
 
 export type BondType =
-  | 'single'    // ──── Combined/mixed ingredients
-  | 'double'    // ════ Technique bond (shaken, muddled)
-  | 'dashed';   // ╌╌╌╌ Garnish/optional
+  | 'single'      // ──── Standard ingredients
+  | 'double'      // ════ Spirit-to-spirit backbone
+  | 'dashed'      // ╌╌╌╌ Optional/accent ingredients
+  | 'wedge'       // ▲▲▲▲ Solid wedge - garnishes (stereochem "in front")
+  | 'dashedWedge'; // ◁╌╌ Dashed wedge - bitters (stereochem "behind")
 
 // ═══════════════════════════════════════════════════════════════
 // COLOR PALETTE (Design Tokens)
@@ -39,11 +42,39 @@ export const TYPE_COLORS: Record<IngredientType, TypeStyle> = {
   sweet:    { fill: '#ffcc80', legend: 'Sweet' },
   bitter:   { fill: '#ffab91', legend: 'Bitter' },
   salt:     { fill: '#ef9a9a', legend: 'Salt' },
-  dilution: { fill: '#81d4fa', legend: 'Liqueur' },
+  dilution: { fill: '#81d4fa', legend: 'Mixer' },
   garnish:  { fill: '#a5d6a7', legend: 'Garnish' },
   dairy:    { fill: '#f3e5f5', legend: 'Dairy' },
   egg:      { fill: '#fff8e1', legend: 'Egg' },
+  junction: { fill: 'transparent', legend: '' }, // Invisible - not shown in legend
 };
+
+/**
+ * Determines if an ingredient type is terminal (bond ends here) or inline (bonds pass through)
+ *
+ * INLINE (bonds pass through, chain continues):
+ *   - acid: Core flavor component
+ *   - sweet: Balance element
+ *   - dilution: Modifier/mixer
+ *
+ * TERMINAL (bond ends here):
+ *   - garnish: Finishing touches
+ *   - bitter: Small accent (wedge bond)
+ *   - salt: Final accent
+ *   - dairy: Final texture
+ *   - egg: Final texture
+ *   - spirit: Handled separately with benzene ring
+ *   - junction: Always inline by definition
+ */
+export function isTerminalType(type: IngredientType): boolean {
+  const terminalTypes: IngredientType[] = ['garnish', 'bitter', 'salt', 'dairy', 'egg'];
+  return terminalTypes.includes(type);
+}
+
+export function isInlineType(type: IngredientType): boolean {
+  const inlineTypes: IngredientType[] = ['acid', 'sweet', 'dilution', 'junction'];
+  return inlineTypes.includes(type);
+}
 
 // ═══════════════════════════════════════════════════════════════
 // PARSED & CLASSIFIED INGREDIENTS
@@ -74,6 +105,9 @@ export interface MoleculeNode extends ClassifiedIngredient {
   label: string;            // Display name (short)
   sublabel?: string;        // Secondary text (e.g., "blanco", "fresh")
   parentId?: string;        // ID of parent node this was chained from (for bond generation)
+  isInline?: boolean;       // If true, bonds pass through this node (not terminal)
+  outgoingAngle?: number;   // Angle for outgoing bond (when inline)
+  branchCount?: number;     // For junction nodes: how many branches have been created
 }
 
 export interface MoleculeBond {
@@ -112,8 +146,8 @@ export interface LayoutOptions {
 }
 
 export const DEFAULT_LAYOUT_OPTIONS: LayoutOptions = {
-  width: 520,
-  height: 420,
+  width: 400,
+  height: 300,
   chaos: 0.5,
   iterations: 300,
   minRadius: 6,

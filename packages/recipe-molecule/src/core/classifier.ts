@@ -21,8 +21,8 @@ const CLASSIFICATION_RULES: Record<IngredientType, string[]> = {
     // Whiskey family
     'bourbon', 'whiskey', 'whisky', 'rye', 'scotch', 'irish whiskey',
     // Clear spirits
-    'vodka', 'gin', 'tequila', 'mezcal', 'rum', 'white rum', 'dark rum',
-    'aged rum', 'overproof', 'cachaca', 'pisco',
+    'vodka', 'gin', 'tequila', 'mezcal', 'rum', 'rhum', 'rhum agricole',
+    'white rum', 'dark rum', 'aged rum', 'overproof', 'cachaca', 'pisco',
     // Brandy family
     'brandy', 'cognac', 'armagnac', 'calvados', 'applejack',
     // Other
@@ -35,7 +35,7 @@ const CLASSIFICATION_RULES: Record<IngredientType, string[]> = {
     'grapefruit', 'orange juice', 'yuzu', 'citrus',
     // Other acids
     'vinegar', 'shrub', 'verjus', 'sour mix', 'lemon-lime',
-    'passion fruit', 'pineapple juice', 'cranberry',
+    'passion fruit juice', 'pineapple juice', 'cranberry',
   ],
 
   sweet: [
@@ -43,15 +43,16 @@ const CLASSIFICATION_RULES: Record<IngredientType, string[]> = {
     'simple syrup', 'syrup', 'sugar syrup', 'rich syrup', 'demerara syrup',
     'honey syrup', 'honey', 'agave', 'agave syrup', 'maple syrup', 'maple',
     'grenadine', 'orgeat', 'falernum', 'gum syrup', 'gomme',
+    'passion fruit syrup', 'passionfruit syrup',
     // Sugar
     'sugar', 'sugar cube', 'brown sugar', 'demerara', 'turbinado',
     // Sweet liqueurs
-    'triple sec', 'cointreau', 'grand marnier', 'curacao', 'blue curacao',
+    'triple sec', 'cointreau', 'grand marnier', 'curacao', 'curaçao',
+    'blue curacao', 'dry curacao', 'pierre ferrand',
     'maraschino', 'luxardo', 'amaretto', 'frangelico', 'kahlua', 'kahlúa',
     'baileys', 'cream liqueur', 'licor 43', 'st germain', 'elderflower',
-    'chambord', 'midori', 'creme de', 'crème de',
-    // Vermouths (sweet)
-    'sweet vermouth', 'vermouth rosso', 'carpano', 'antica formula',
+    'chambord', 'midori', 'creme de', 'crème de', 'cherry heering', 'heering',
+    'allspice dram', 'st elizabeth', 'velvet falernum', 'pimento dram',
   ],
 
   bitter: [
@@ -61,8 +62,9 @@ const CLASSIFICATION_RULES: Record<IngredientType, string[]> = {
     // Amari
     'campari', 'aperol', 'cynar', 'fernet', 'fernet-branca', 'averna',
     'montenegro', 'nonino', 'amaro', 'amaretto', 'ramazotti',
-    // Dry/bitter vermouths
-    'dry vermouth', 'blanc vermouth', 'lillet', 'cocchi',
+    // Vermouths (all types)
+    'vermouth', 'dry vermouth', 'sweet vermouth', 'blanc vermouth',
+    'vermouth rosso', 'carpano', 'antica formula', 'lillet', 'cocchi',
     // Coffee/bitter flavors
     'espresso', 'coffee', 'cold brew',
   ],
@@ -89,6 +91,8 @@ const CLASSIFICATION_RULES: Record<IngredientType, string[]> = {
   ],
 
   garnish: [
+    // Garnish indicators
+    'garnish', 'pinch',
     // Citrus garnishes
     'peel', 'twist', 'zest', 'wheel', 'wedge', 'slice',
     'orange peel', 'lemon peel', 'lime wheel', 'grapefruit twist',
@@ -103,7 +107,7 @@ const CLASSIFICATION_RULES: Record<IngredientType, string[]> = {
     // Other
     'cucumber', 'celery', 'nutmeg', 'cinnamon', 'cinnamon stick',
     'star anise', 'coffee beans', 'cocoa', 'chocolate',
-    'umbrella', 'flag', 'skewer',
+    'umbrella', 'flag', 'skewer', 'napkin',
   ],
 
   dairy: [
@@ -115,6 +119,8 @@ const CLASSIFICATION_RULES: Record<IngredientType, string[]> = {
   egg: [
     'egg', 'egg white', 'egg yolk', 'whole egg', 'aquafaba',
   ],
+
+  junction: [], // Internal type for layout - no keywords match
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -145,15 +151,26 @@ export function classifyIngredients(
 }
 
 /**
+ * Check if a keyword matches as a word boundary (not as substring of another word)
+ * e.g., "gin" should match "gin" but not "virgin"
+ */
+function matchesKeyword(text: string, keyword: string): boolean {
+  // Escape special regex characters in keyword
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+  return regex.test(text);
+}
+
+/**
  * Determine ingredient type from name
  */
 function determineType(name: string): IngredientType {
   const lower = name.toLowerCase();
 
-  // Check each type's keywords
+  // Check each type's keywords using word boundary matching
   for (const [type, keywords] of Object.entries(CLASSIFICATION_RULES)) {
     for (const keyword of keywords) {
-      if (lower.includes(keyword)) {
+      if (matchesKeyword(lower, keyword)) {
         return type as IngredientType;
       }
     }
@@ -199,29 +216,73 @@ function fuzzyMatch(name: string): IngredientType | null {
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * Type abbreviation labels - short labels for visual cleanliness
+ * Type abbreviation labels - periodic table style (second letter lowercase)
+ * Used for non-spirit ingredients
  */
 const TYPE_LABELS: Record<IngredientType, string> = {
-  spirit: 'SP',
-  acid: 'AC',
-  sweet: 'SW',
-  bitter: 'BT',
-  salt: 'SA',
-  dilution: 'LQ',  // Liqueur
-  garnish: 'GA',
-  dairy: 'DA',
-  egg: 'EG',
+  spirit: 'Sp',   // Fallback - spirits use actual spirit name
+  acid: 'Ac',
+  sweet: 'Sw',
+  bitter: 'Bt',
+  salt: 'Na',     // Sodium - actual salt element!
+  dilution: 'Mx',
+  garnish: 'Ga',
+  dairy: 'Da',    // Dairy
+  egg: 'Eg',
+  junction: '',   // Invisible
 };
 
 /**
- * Get display label based on ingredient type (abbreviated)
- * Returns type abbreviation for clean visual display
+ * Spirit name mapping - extracts the spirit type from ingredient name
+ * Returns uppercase spirit name for display (RUM, GIN, WHISKEY, etc.)
+ */
+const SPIRIT_KEYWORDS = [
+  'bourbon', 'whiskey', 'whisky', 'rye', 'scotch',
+  'vodka', 'gin', 'tequila', 'mezcal', 'rum', 'rhum',
+  'brandy', 'cognac', 'armagnac', 'calvados',
+  'absinthe', 'aquavit', 'cachaca', 'pisco', 'sake', 'soju'
+];
+
+function getSpiritName(name: string): string {
+  const lower = name.toLowerCase();
+
+  for (const keyword of SPIRIT_KEYWORDS) {
+    if (matchesKeyword(lower, keyword)) {
+      // Special cases for display
+      if (keyword === 'whisky' || keyword === 'bourbon' || keyword === 'rye' || keyword === 'scotch') {
+        return 'WHISKEY';
+      }
+      if (keyword === 'cognac' || keyword === 'armagnac' || keyword === 'calvados') {
+        return 'BRANDY';
+      }
+      if (keyword === 'cachaca') {
+        return 'CACHAÇA';
+      }
+      if (keyword === 'rhum') {
+        return 'RUM';
+      }
+      return keyword.toUpperCase();
+    }
+  }
+
+  // Fallback to generic
+  return 'SPIRIT';
+}
+
+/**
+ * Get display label based on ingredient type
+ * Spirits: Full spirit name (RUM, GIN, WHISKEY, etc.)
+ * Others: Abbreviated type (Ac, Sw, Bt, Ga, etc.)
  */
 export function getDisplayLabel(name: string): { label: string; sublabel?: string } {
-  // Determine type from name
   const type = determineType(name);
 
-  // Return abbreviated type label
+  // Spirits get their full spirit name
+  if (type === 'spirit') {
+    return { label: getSpiritName(name) };
+  }
+
+  // Other ingredients get abbreviated type label
   return { label: TYPE_LABELS[type] };
 }
 
@@ -239,6 +300,7 @@ export function getTypeName(type: IngredientType): string {
     garnish: 'Garnish',
     dairy: 'Dairy',
     egg: 'Egg',
+    junction: '', // Internal type - not displayed
   };
   return names[type];
 }

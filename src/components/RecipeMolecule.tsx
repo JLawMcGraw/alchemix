@@ -23,10 +23,14 @@ interface RecipeMoleculeProps {
   className?: string;
 }
 
-// Size configurations
-const SIZE_CONFIG = {
-  thumbnail: { width: 280, height: 180 },
-  full: { width: 480, height: 380 },
+// Layout is always computed at this size for consistent molecule proportions
+const LAYOUT_SIZE = { width: 400, height: 300 };
+
+// Display sizes for different contexts
+// Thumbnail uses explicit dimensions for proper centering (4:3 aspect ratio matching viewBox)
+const DISPLAY_CONFIG = {
+  thumbnail: { width: 300, height: 225 },
+  full: { width: 440, height: 320 },
 };
 
 export function RecipeMolecule({
@@ -37,7 +41,6 @@ export function RecipeMolecule({
   className,
 }: RecipeMoleculeProps) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const { width, height } = SIZE_CONFIG[size];
 
   // Parse ingredients from recipe
   const ingredients = useMemo(() => {
@@ -51,7 +54,7 @@ export function RecipeMolecule({
     }
   }, [recipe.ingredients]);
 
-  // Transform recipe to molecule format
+  // Transform recipe to molecule format - always use consistent layout size
   const moleculeRecipe = useMemo(() => {
     if (ingredients.length === 0) return null;
 
@@ -63,9 +66,9 @@ export function RecipeMolecule({
         glass: recipe.glass,
         category: recipe.category,
       },
-      { width, height }
+      LAYOUT_SIZE
     );
-  }, [recipe, ingredients, width, height]);
+  }, [recipe, ingredients]);
 
   // Handle export
   const handleExportPNG = async () => {
@@ -78,14 +81,16 @@ export function RecipeMolecule({
     exportSVG(svgRef.current, `${recipe.name.replace(/\s+/g, '-').toLowerCase()}-molecule.svg`);
   };
 
+  const displaySize = DISPLAY_CONFIG[size];
+
   // If no ingredients, show placeholder
   if (!moleculeRecipe || moleculeRecipe.nodes.length === 0) {
     return (
       <div
         className={className}
         style={{
-          width,
-          height,
+          width: displaySize.width,
+          height: displaySize.height,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -102,13 +107,18 @@ export function RecipeMolecule({
   }
 
   return (
-    <div className={className}>
+    <div
+      className={className}
+    >
       <Molecule
         recipe={moleculeRecipe}
-        width={width}
-        height={height}
+        width={LAYOUT_SIZE.width}
+        height={LAYOUT_SIZE.height}
         showLegend={size === 'full' && showLegend}
+        tightViewBox={size === 'full'}
         svgRef={svgRef}
+        displayWidth={displaySize.width}
+        displayHeight={displaySize.height}
       />
 
       {showExport && size === 'full' && (

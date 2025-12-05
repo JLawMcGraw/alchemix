@@ -72,6 +72,8 @@ function RecipesPageContent() {
     hasNextPage: false,
     hasPreviousPage: false
   });
+  // Track last loaded filter/collection to avoid redundant reloads
+  const [lastLoadedParams, setLastLoadedParams] = useState<{ filter: string | null; collection: string | null } | null>(null);
 
   const loadRecipes = async (page: number = 1, loadAll: boolean = false) => {
     try {
@@ -116,6 +118,16 @@ function RecipesPageContent() {
     const filter = searchParams.get('filter');
     const collectionId = searchParams.get('collection');
 
+    // Check if params actually changed to avoid redundant reloads (e.g., when opening modal)
+    const paramsChanged = !lastLoadedParams ||
+      lastLoadedParams.filter !== filter ||
+      lastLoadedParams.collection !== collectionId;
+
+    if (!paramsChanged) return;
+
+    // Update tracked params
+    setLastLoadedParams({ filter, collection: collectionId });
+
     if (filter) {
       setMasteryFilter(filter);
       setActiveCollection(null); // Clear collection when mastery filter is active
@@ -138,7 +150,7 @@ function RecipesPageContent() {
       setShowCollectionsPanel(false);
       loadRecipes(1, false);
     }
-  }, [searchParams, collections, isAuthenticated, isValidating]);
+  }, [searchParams, collections, isAuthenticated, isValidating, lastLoadedParams]);
 
   useEffect(() => {
     if (isAuthenticated && !isValidating) {
@@ -1157,6 +1169,7 @@ function RecipesPageContent() {
               handleToggleFavorite(selectedRecipe);
             }
           }}
+          onRecipeUpdated={(updatedRecipe) => setSelectedRecipe(updatedRecipe)}
         />
 
         {/* Delete All Confirmation Modal */}

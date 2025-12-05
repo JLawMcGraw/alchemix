@@ -1,15 +1,15 @@
 /**
  * Node Component
  *
- * Renders a single ingredient as a colored circle with label
- * Three layers:
- *   1. Circle (pastel background)
- *   2. Label (ingredient name)
- *   3. Sublabel (optional: variant/modifier)
+ * Renders a single ingredient as a text label (academic/monochrome style)
+ * Pure black text - no colored circles, like real organic chemistry structures
  */
 
 import type { MoleculeNode } from '../core/types';
 import styles from '../styles/molecule.module.css';
+
+// Monochrome black for all text labels
+const TEXT_COLOR = '#333';
 
 interface NodeProps {
   node: MoleculeNode;
@@ -24,11 +24,46 @@ export function Node({
   onMouseMove,
   onMouseLeave,
 }: NodeProps) {
-  const { x, y, radius, color, label, sublabel } = node;
+  const { x, y, label, sublabel, type } = node;
 
-  // Adjust text position based on whether we have a sublabel
-  const labelY = sublabel ? y - 4 : y + 4;
-  const sublabelY = y + 10;
+  // Junction nodes are invisible - render nothing
+  if (type === 'junction') {
+    return null;
+  }
+
+  // Spirit nodes render label at center of benzene ring
+  if (type === 'spirit') {
+    return (
+      <g
+        className={styles.nodeGroup}
+        onMouseEnter={(e) => onMouseEnter?.(e, node)}
+        onMouseMove={(e) => onMouseMove?.(e, node)}
+        onMouseLeave={onMouseLeave}
+      >
+        {/* Invisible hit area for hover - covers the benzene ring */}
+        <circle
+          cx={x}
+          cy={y}
+          r={30}
+          fill="transparent"
+          className={styles.nodeHitArea}
+        />
+        {/* Spirit label (RUM, GIN, etc.) at center - smaller font to fit hexagon */}
+        <text
+          x={x}
+          y={y + 3}
+          fill={TEXT_COLOR}
+          className={styles.spiritLabel}
+        >
+          {label}
+        </text>
+      </g>
+    );
+  }
+
+  // Position label at node center, sublabel below
+  const labelY = sublabel ? y + 4 : y + 5;
+  const sublabelY = y + 16;
 
   return (
     <g
@@ -37,19 +72,20 @@ export function Node({
       onMouseMove={(e) => onMouseMove?.(e, node)}
       onMouseLeave={onMouseLeave}
     >
-      {/* Pastel circle background */}
+      {/* Invisible hit area for hover */}
       <circle
         cx={x}
         cy={y}
-        r={radius}
-        fill={color}
-        className={styles.nodeCircle}
+        r={14}
+        fill="transparent"
+        className={styles.nodeHitArea}
       />
 
-      {/* Main label */}
+      {/* Text label (abbreviated type: Ac, Sw, Bt, etc.) */}
       <text
         x={x}
         y={labelY}
+        fill={TEXT_COLOR}
         className={styles.nodeLabel}
       >
         {label}
@@ -60,6 +96,7 @@ export function Node({
         <text
           x={x}
           y={sublabelY}
+          fill={TEXT_COLOR}
           className={styles.nodeSublabel}
         >
           {sublabel}

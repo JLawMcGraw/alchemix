@@ -14,7 +14,7 @@ import { Legend } from './Legend';
 import styles from '../styles/molecule.module.css';
 
 // Hexagon radius - same for spirit hexagon and honeycomb grid
-const HEX_RADIUS = 30;
+const HEX_RADIUS = 22;
 
 // Rotation so flat edges face top/bottom
 const ROTATION = Math.PI / 6;
@@ -51,6 +51,7 @@ function getHoneycombPositions(cx: number, cy: number, radius: number) {
 
 /**
  * Renders a benzene-style hexagon ring with alternating single/double bonds
+ * Pure black lines for academic/monochrome style
  */
 function BenzeneRing({ cx, cy, radius }: { cx: number; cy: number; radius: number }) {
   const edges: JSX.Element[] = [];
@@ -66,7 +67,7 @@ function BenzeneRing({ cx, cy, radius }: { cx: number; cy: number; radius: numbe
     const x2 = cx + radius * Math.cos(angle2);
     const y2 = cy + radius * Math.sin(angle2);
 
-    // Outer edge
+    // Outer edge - pure black
     edges.push(
       <line
         key={`outer-${i}`}
@@ -76,7 +77,6 @@ function BenzeneRing({ cx, cy, radius }: { cx: number; cy: number; radius: numbe
         y2={y2}
         stroke="#333"
         strokeWidth={1.5}
-        opacity={0.5}
       />
     );
 
@@ -96,7 +96,6 @@ function BenzeneRing({ cx, cy, radius }: { cx: number; cy: number; radius: numbe
           y2={iy2}
           stroke="#333"
           strokeWidth={1.5}
-          opacity={0.5}
         />
       );
     }
@@ -205,16 +204,24 @@ function UnifiedHoneycombSkeleton({
 interface MoleculeProps {
   /** The molecule recipe data to render */
   recipe: MoleculeRecipe;
-  /** SVG width in pixels */
+  /** ViewBox width (coordinate system) */
   width?: number;
-  /** SVG height in pixels */
+  /** ViewBox height (coordinate system) */
   height?: number;
+  /** Display width (rendered size) - can be number or string like '100%' */
+  displayWidth?: number | string;
+  /** Display height (rendered size) - can be number or string like '100%' */
+  displayHeight?: number | string;
   /** Whether to show the color legend */
   showLegend?: boolean;
+  /** Use tight viewBox cropped to actual content (reduces whitespace) */
+  tightViewBox?: boolean;
   /** Optional CSS class for the container */
   className?: string;
   /** Ref to the SVG element for export */
   svgRef?: React.RefObject<SVGSVGElement>;
+  /** Optional inline styles for the container */
+  style?: React.CSSProperties;
 }
 
 interface TooltipState {
@@ -226,12 +233,19 @@ interface TooltipState {
 
 export function Molecule({
   recipe,
-  width = 520,
-  height = 420,
+  width = 400,
+  height = 300,
+  displayWidth,
+  displayHeight,
   showLegend = true,
+  tightViewBox = false,
   className,
   svgRef,
+  style,
 }: MoleculeProps) {
+  // Use display dimensions if provided, otherwise use viewBox dimensions
+  const renderWidth = displayWidth ?? width;
+  const renderHeight = displayHeight ?? height;
   const containerRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<TooltipState>({
     node: null,
@@ -239,6 +253,38 @@ export function Molecule({
     y: 0,
     visible: false,
   });
+
+  // Compute actual bounding box of molecule content for tight viewBox
+  const contentBounds = useMemo(() => {
+    if (recipe.nodes.length === 0) {
+      return { minX: 0, minY: 0, maxX: width, maxY: height };
+    }
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+    recipe.nodes.forEach(node => {
+      // Account for node radius and label space
+      // Text labels need more vertical space (especially above for text baseline)
+      const extentX = node.type === 'spirit' ? HEX_RADIUS + 10 : 20;
+      const extentY = node.type === 'spirit' ? HEX_RADIUS + 10 : 25; // More vertical for text
+      minX = Math.min(minX, node.x - extentX);
+      minY = Math.min(minY, node.y - extentY);
+      maxX = Math.max(maxX, node.x + extentX);
+      maxY = Math.max(maxY, node.y + extentY);
+    });
+
+    // Add padding around content (more at top for text labels)
+    const paddingX = 20;
+    const paddingTop = 40; // Extra space at top for text labels
+    const paddingBottom = 20;
+    // Don't clamp to 0 - allow viewBox to extend if needed
+    minX = minX - paddingX;
+    minY = minY - paddingTop;
+    maxX = maxX + paddingX;
+    maxY = maxY + paddingBottom;
+
+    return { minX, minY, maxX, maxY };
+  }, [recipe.nodes, width, height]);
 
   // Create node lookup map for bonds
   const nodeMap = useCallback(() => {
@@ -288,24 +334,19 @@ export function Molecule({
     <div
       ref={containerRef}
       className={`${styles.container} ${className || ''}`}
+      style={style}
     >
       <svg
         ref={svgRef}
-        viewBox={`0 0 ${width} ${height}`}
-        width={width}
-        height={height}
+        viewBox={tightViewBox
+          ? `${contentBounds.minX} ${contentBounds.minY} ${contentBounds.maxX - contentBounds.minX} ${contentBounds.maxY - contentBounds.minY}`
+          : `0 0 ${width} ${height}`
+        }
+        width={renderWidth}
+        height={renderHeight}
         className={styles.svg}
+        preserveAspectRatio="xMidYMid meet"
       >
-        {/* Layer 0: Unified honeycomb skeleton (shows grid structure) */}
-        <g>
-          <UnifiedHoneycombSkeleton
-            spiritCenters={recipe.nodes
-              .filter(node => node.type === 'spirit')
-              .map(spirit => ({ x: spirit.x, y: spirit.y }))}
-            radius={HEX_RADIUS}
-          />
-        </g>
-
         {/* Layer 1: Benzene rings around spirit nodes */}
         <g>
           {recipe.nodes

@@ -1,18 +1,122 @@
 # Project Development Progress
 
-Last updated: 2025-12-04
+Last updated: 2025-12-05
 
 ---
 
 ## Current Status
 
-**Version**: v1.26.0 (Recipe Molecule Visualization - Session 1)
-**Phase**: Beta Launch Ready - Molecule visualization in progress
+**Version**: v1.27.0 (Recipe Molecule Visualization - Session 2)
+**Phase**: Beta Launch Ready - Molecule visualization refinements complete
 **Blockers**: None
 
 ---
 
-## Recent Session (2025-12-04): Recipe Molecule Visualization - Session 1
+## Recent Session (2025-12-05): Recipe Molecule Visualization - Session 2
+
+### Summary
+Extended molecule visualization with ingredient classification improvements, layout collision detection, and V-shape multi-spirit overlap fixes. Focused on the Jaguar cocktail (3-spirit V-shape with BRANDY, RUM, GIN) as the primary test case.
+
+### Work Completed
+
+#### 1. Ingredient Classification Improvements
+
+**Word Boundary Matching**
+- **Problem**: "Virgin Islands rum" was incorrectly classified as "gin" because "Virgin" contains "gin" as a substring
+- **Solution**: Added `matchesKeyword()` function using regex word boundaries (`\b`)
+- **Code**: `const regex = new RegExp(\`\\b${escaped}\\b\`, 'i');`
+- Prevents false positives from substring matches
+
+**Vermouth Reclassification**
+- Moved all vermouth types from "sweet" to "bitter" category
+- Consolidated entries: `'vermouth'`, `'dry vermouth'`, `'sweet vermouth'`, `'blanc vermouth'`, `'vermouth rosso'`, `'carpano'`, `'antica formula'`
+- More accurate for cocktail chemistry visualization
+
+**Junction Type Support**
+- Added missing `junction: []` to `CLASSIFICATION_RULES` Record
+- Added `junction: ''` to `getTypeName()` function
+- Fixed TypeScript errors for internal layout type
+
+#### 2. Layout Engine Collision Detection
+
+**Global Position Tracking**
+- Added `usedPositions` array to track all placed node positions
+- Added `MIN_DISTANCE = chainBondLength * 0.8` threshold
+- Added `isPositionTooClose(x, y)` function for collision checking
+- Added `registerPosition(x, y)` function to track positions
+- Spirit nodes now register their positions on creation
+- Ingredient nodes check for collisions before placement and register after
+
+**Sweet Distribution Logic**
+- Added `sweetsPlacedPerSpirit` counter to track sweets per spirit
+- After 2 sweets on same corner, forces finding a new corner
+- Prefers left corners `[4, 5, 3, 0, 1, 2]` for variety
+- Prevents all sweets from crowding a single corner
+
+**Garnish Collision Avoidance**
+- Garnishes now try all corners `[4, 3, 5, 0, 1, 2]` when finding first position
+- Falls back to any corner if collision detected at preferred position
+- Second+ garnishes try alternative corners if junction branch collides
+
+#### 3. V-Shape Layout Overlap Fix
+
+**Problem Identified (Screenshot Analysis)**
+- In 3-spirit V-shape (Jaguar: BRANDY, RUM, GIN):
+  - BRANDY's corner 0 (upper-right at -60°) pointed toward center-top
+  - GIN's corner 5 (upper-left at -120°) also pointed toward center-top
+  - Both spirits were connecting ingredients to the SAME position
+  - Resulted in overlapping "Sw" nodes with multiple ingredients stacked
+
+**Solution: Restricted Corner Availability**
+- Spirit 1 (upper-left/BRANDY): Now uses corners `[3, 4, 5]` only (removed corner 0)
+- Spirit 2 (upper-right/GIN): Now uses corners `[0, 1, 2]` only (removed corner 5)
+- Each spirit now has exclusive territory preventing overlap
+
+#### 4. UI Adjustments
+
+**RecipeDetailModal Margin**
+- Changed molecule container margin from `-90px` to `-100px`
+- Better vertical positioning of molecule visualization
+
+### Technical Notes
+
+**Position Tracking Order**
+- Position tracking functions MUST be defined before spirit node creation
+- Moving declarations fixed `ReferenceError: can't access lexical declaration 'registerPosition' before initialization`
+
+**Junction Position Registration (Not Implemented)**
+- Attempted to register junction positions for cross-spirit collision detection
+- Reverted because it broke legitimate ingredient branching from junctions
+- Junction nodes need ingredients to attach to them, so they can't be in collision list
+
+### Files Modified
+- `packages/recipe-molecule/src/core/classifier.ts`
+  - Word boundary matching with `matchesKeyword()`
+  - Junction type in CLASSIFICATION_RULES and getTypeName
+  - Vermouth moved from sweet to bitter
+
+- `packages/recipe-molecule/src/core/layout.ts`
+  - Global position tracking infrastructure
+  - V-shape corner restrictions for spirits 1 and 2
+  - Sweet distribution with per-spirit counters
+  - Garnish collision avoidance logic
+
+- `src/components/modals/RecipeDetailModal.tsx`
+  - Margin adjustment (-90px → -100px)
+
+### Errors Encountered & Fixed
+1. **ReferenceError**: Position tracking functions used before declaration → moved declarations earlier
+2. **TypeScript missing junction**: Added junction to Record types
+3. **Recipes disappearing**: Cleared .next cache and restarted dev server multiple times
+
+### Next Priority
+- Test molecule visualization with additional complex multi-spirit recipes
+- Consider visual indicator when ingredients overflow available corners
+- Potential future: Cross-spirit junction collision detection (needs different approach)
+
+---
+
+## Previous Session (2025-12-04): Recipe Molecule Visualization - Session 1
 
 ### Design Vision
 Creating a chemical bond-style molecular visualization for cocktail recipes, inspired by organic chemistry structural formulas. Each recipe is represented as a "molecule" where:

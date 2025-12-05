@@ -14,6 +14,7 @@ interface RecipeDetailModalProps {
   recipe: Recipe | null;
   isFavorited: boolean;
   onToggleFavorite: () => void;
+  onRecipeUpdated?: (updatedRecipe: Recipe) => void;
 }
 
 export function RecipeDetailModal({
@@ -21,14 +22,15 @@ export function RecipeDetailModal({
   onClose,
   recipe,
   isFavorited,
-  onToggleFavorite
+  onToggleFavorite,
+  onRecipeUpdated
 }: RecipeDetailModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editedRecipe, setEditedRecipe] = useState<Partial<Recipe>>({});
   const [showCollectionSelect, setShowCollectionSelect] = useState(false);
   const [selectedCollectionId, setSelectedCollectionId] = useState<number | null>(null);
-  const { updateRecipe, deleteRecipe, fetchRecipes, collections, fetchCollections, fetchShoppingList } = useStore();
+  const { updateRecipe, deleteRecipe, collections, fetchCollections, fetchShoppingList } = useStore();
   const { showToast } = useToast();
 
   // Helper function to parse ingredients
@@ -76,7 +78,17 @@ export function RecipeDetailModal({
         ...editedRecipe,
         ingredients: filteredIngredients
       });
-      await fetchRecipes();
+
+      // Create the updated recipe object and notify parent
+      const updatedRecipe: Recipe = {
+        ...recipe,
+        ...editedRecipe,
+        ingredients: filteredIngredients
+      };
+
+      // Notify parent to update selectedRecipe state
+      onRecipeUpdated?.(updatedRecipe);
+
       setIsEditMode(false);
       showToast('success', 'Recipe updated successfully');
     } catch (error) {
@@ -95,7 +107,6 @@ export function RecipeDetailModal({
 
     try {
       await deleteRecipe(recipe.id);
-      await fetchRecipes();
       // Refresh shopping list stats to update Total Recipes, Craftable, Near Misses
       await fetchShoppingList();
       showToast('success', 'Recipe deleted successfully');
@@ -112,8 +123,15 @@ export function RecipeDetailModal({
 
     try {
       await updateRecipe(recipe.id, { collection_id: selectedCollectionId || undefined });
-      await fetchRecipes();
       await fetchCollections(); // Refresh collection counts
+
+      // Update displayed recipe
+      const updatedRecipe: Recipe = {
+        ...recipe,
+        collection_id: selectedCollectionId || undefined
+      };
+      onRecipeUpdated?.(updatedRecipe);
+
       setShowCollectionSelect(false);
       const collectionName = selectedCollectionId
         ? collections.find((c) => c.id === selectedCollectionId)?.name || 'collection'
@@ -281,9 +299,8 @@ export function RecipeDetailModal({
         <div className={styles.content}>
           {/* Molecule Visualization (View Mode Only) */}
           {!isEditMode && ingredientsArray.length > 0 && (
-            <section className={styles.section}>
-              <h3 className={styles.sectionTitle}>Recipe Structure</h3>
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
+            <section className={styles.section} style={{ marginTop: '-100px' }}>
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
                 <RecipeMolecule
                   recipe={recipe}
                   size="full"

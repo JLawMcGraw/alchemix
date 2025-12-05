@@ -14,7 +14,7 @@ import type {
   LayoutOptions,
   MoleculeBackbone,
 } from './types';
-import { DEFAULT_LAYOUT_OPTIONS } from './types';
+import { DEFAULT_LAYOUT_OPTIONS, isInlineType, isTerminalType, TYPE_COLORS } from './types';
 import { getDisplayLabel } from './classifier';
 
 // ═══════════════════════════════════════════════════════════════
@@ -82,13 +82,22 @@ export function computeLayout(
   const random = seededRandom(seed);
 
   // Hexagon parameters - all equal for perfect hexagonal honeycomb grid
-  // Must match BENZENE_RADIUS in Molecule.tsx and Bond.tsx (30)
-  const hexRadius = 30; // Benzene ring radius
-  const bondLength = 30; // Same as hexRadius for perfect hexagonal grid structure
+  // Must match BENZENE_RADIUS in Molecule.tsx and Bond.tsx (22)
+  const hexRadius = 22; // Benzene ring radius
+  const TEXT_RADIUS = 8; // Must match Bond.tsx - visual "radius" of text labels
 
-  // Center positioning
-  const centerX = width * 0.4;
-  const centerY = height * 0.45;
+  // Target visual bond length (the line you actually see after shortening)
+  // Should be proportional to hexRadius (22px) - using 18px for balanced look
+  const targetVisualBondLength = 18;
+
+  // All visual bond lengths should be uniform
+  // For chained ingredients (text-to-text), bonds are shortened by TEXT_RADIUS from both ends
+  // So center-to-center distance = targetVisualBondLength + 2*TEXT_RADIUS
+  const chainBondLength = targetVisualBondLength + TEXT_RADIUS * 2; // 34px center-to-center → 18px visual
+
+  // True center of viewBox - spirit centroid will be placed here
+  const viewCenterX = width * 0.5;
+  const viewCenterY = height * 0.5;
 
   // Hexagon CORNER angles (vertices) - rotated 30° so flat edges face top/bottom
   // Starting from upper-right, going clockwise
@@ -108,10 +117,13 @@ export function computeLayout(
     // First, get the hexagon corner position
     const cornerX = cx + Math.cos(angle) * hexRadius;
     const cornerY = cy + Math.sin(angle) * hexRadius;
-    // Then place ingredient at bondLength distance from the corner (same direction)
+    // Place ingredient so that visual bond = targetVisualBondLength
+    // Bond is drawn from corner to text center, shortened by TEXT_RADIUS at text end
+    // So distance from corner = targetVisualBondLength + TEXT_RADIUS
+    const distFromCorner = targetVisualBondLength + TEXT_RADIUS;
     return {
-      x: cornerX + Math.cos(angle) * bondLength,
-      y: cornerY + Math.sin(angle) * bondLength,
+      x: cornerX + Math.cos(angle) * distFromCorner,
+      y: cornerY + Math.sin(angle) * distFromCorner,
     };
   };
 
@@ -120,6 +132,28 @@ export function computeLayout(
   const others = ingredients.filter(i => i.type !== 'spirit');
 
   const nodes: MoleculeNode[] = [];
+
+  // Global position tracking to avoid collisions across spirits
+  const usedPositions: { x: number; y: number }[] = [];
+  const MIN_DISTANCE = chainBondLength * 0.8; // Minimum distance between nodes
+
+  // Check if a position is too close to any already-placed position
+  const isPositionTooClose = (x: number, y: number): boolean => {
+    for (const pos of usedPositions) {
+      const dx = x - pos.x;
+      const dy = y - pos.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < MIN_DISTANCE) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // Register a position as used
+  const registerPosition = (x: number, y: number) => {
+    usedPositions.push({ x, y });
+  };
 
   // Honeycomb grid spacing: distance between adjacent hex centers sharing an edge
   // For flat-top hexagons, this is radius * sqrt(3)
@@ -155,93 +189,124 @@ export function computeLayout(
   const allSameSpiritType = spirits.length > 1 && firstSpiritBase !== null &&
     spirits.every(s => getBaseSpiritType(s.name) === firstSpiritBase);
 
+  // Calculate spirit positions relative to origin (0, 0) first
+  // Then find centroid and offset to place centroid at viewCenter
+  const spiritPositions: { x: number; y: number }[] = [];
+
   if (spirits.length === 1) {
-    nodes.push(createNode(spirits[0], nodes.length, centerX, centerY, opts));
+    spiritPositions.push({ x: 0, y: 0 });
   } else if (spirits.length === 2) {
     // Two spirits: place vertically adjacent on honeycomb grid
-    // For vertical stack with edge sharing: use 90° (top) and 270° (bottom)
-    nodes.push(createNode(spirits[0], nodes.length, centerX, centerY - hexGridSpacing / 2, opts));
-    nodes.push(createNode(spirits[1], nodes.length, centerX, centerY + hexGridSpacing / 2, opts));
+    spiritPositions.push({ x: 0, y: -hexGridSpacing / 2 });
+    spiritPositions.push({ x: 0, y: hexGridSpacing / 2 });
   } else if (spirits.length === 3) {
     if (allSameSpiritType) {
-      // Same spirit type: compact triangle where all three hexagons touch each other
-      // For flat-top hexagons on honeycomb grid (SVG coords where Y+ is down):
-      // - Spirit 0: left position (anchor)
-      // - Spirit 1: 30° from Spirit 0 → cos(30°)=+0.866, sin(30°)=+0.5 → lower-right in SVG
-      // - Spirit 2: 330° from Spirit 0 → cos(330°)=+0.866, sin(330°)=-0.5 → upper-right in SVG
-      // Spirit 1 and Spirit 2 share a vertical edge (Spirit 2 above Spirit 1)
-
-      const angle30 = Math.PI / 6;    // 30° - lower-right direction in SVG
-      const angle330 = Math.PI * 11 / 6; // 330° - upper-right direction in SVG
-
-      // Left spirit (anchor)
-      nodes.push(createNode(spirits[0], nodes.length, centerX, centerY, opts));
-
-      // Lower-right spirit (30° from left spirit in SVG coords)
-      nodes.push(createNode(spirits[1], nodes.length,
-        centerX + Math.cos(angle30) * hexGridSpacing,
-        centerY + Math.sin(angle30) * hexGridSpacing,
-        opts));
-
-      // Upper-right spirit (330° from left spirit in SVG coords)
-      // This will also be at 90° (directly above) from lower-right spirit
-      nodes.push(createNode(spirits[2], nodes.length,
-        centerX + Math.cos(angle330) * hexGridSpacing,
-        centerY + Math.sin(angle330) * hexGridSpacing,
-        opts));
+      // Same spirit type: compact triangle
+      const angle30 = Math.PI / 6;
+      const angle330 = Math.PI * 11 / 6;
+      spiritPositions.push({ x: 0, y: 0 }); // Left spirit (anchor)
+      spiritPositions.push({
+        x: Math.cos(angle30) * hexGridSpacing,
+        y: Math.sin(angle30) * hexGridSpacing
+      }); // Lower-right
+      spiritPositions.push({
+        x: Math.cos(angle330) * hexGridSpacing,
+        y: Math.sin(angle330) * hexGridSpacing
+      }); // Upper-right
     } else {
-      // Different spirit types: V-shape where they connect through a central point
-      // Top spirit at center, bottom two offset by hexGridSpacing in 210° and 330° directions
-      nodes.push(createNode(spirits[0], nodes.length, centerX, centerY, opts));
-      // Bottom-left: 210° from top spirit
+      // Different spirit types: V-shape
       const angle1 = Math.PI * 7 / 6; // 210°
-      nodes.push(createNode(spirits[1], nodes.length,
-        centerX + Math.cos(angle1) * hexGridSpacing,
-        centerY + Math.sin(angle1) * hexGridSpacing,
-        opts));
-      // Bottom-right: 330° from top spirit
       const angle2 = Math.PI * 11 / 6; // 330°
-      nodes.push(createNode(spirits[2], nodes.length,
-        centerX + Math.cos(angle2) * hexGridSpacing,
-        centerY + Math.sin(angle2) * hexGridSpacing,
-        opts));
+      spiritPositions.push({ x: 0, y: 0 }); // Top spirit
+      spiritPositions.push({
+        x: Math.cos(angle1) * hexGridSpacing,
+        y: Math.sin(angle1) * hexGridSpacing
+      }); // Bottom-left
+      spiritPositions.push({
+        x: Math.cos(angle2) * hexGridSpacing,
+        y: Math.sin(angle2) * hexGridSpacing
+      }); // Bottom-right
     }
   } else {
-    // 4+ spirits: vertical stack with proper honeycomb spacing
-    const startY = centerY - ((spirits.length - 1) * hexGridSpacing) / 2;
-    spirits.forEach((spirit, i) => {
-      nodes.push(createNode(spirit, nodes.length, centerX, startY + i * hexGridSpacing, opts));
+    // 4+ spirits: vertical stack
+    const startY = -((spirits.length - 1) * hexGridSpacing) / 2;
+    spirits.forEach((_, i) => {
+      spiritPositions.push({ x: 0, y: startY + i * hexGridSpacing });
     });
   }
 
-  if (spirits.length === 0) return nodes;
+  // Calculate centroid of spirit positions
+  const centroidX = spiritPositions.reduce((sum, p) => sum + p.x, 0) / spiritPositions.length;
+  const centroidY = spiritPositions.reduce((sum, p) => sum + p.y, 0) / spiritPositions.length;
 
-  // Categorize other ingredients
-  const acids = others.filter(i => i.type === 'acid');
-  const sweets = others.filter(i => i.type === 'sweet');
-  const bitters = others.filter(i => i.type === 'bitter');
-  const garnishes = others.filter(i => i.type === 'garnish');
-  const remaining = others.filter(i =>
+  // Offset to place centroid at view center
+  const offsetX = viewCenterX - centroidX;
+  const offsetY = viewCenterY - centroidY;
+
+  // Create spirit nodes with offset applied
+  spirits.forEach((spirit, i) => {
+    const x = spiritPositions[i].x + offsetX;
+    const y = spiritPositions[i].y + offsetY;
+    nodes.push(createNode(spirit, nodes.length, x, y, opts));
+    registerPosition(x, y); // Track spirit positions for collision detection
+  });
+
+  // Handle spirit-less recipes (mocktails, mixers) by using main liquid as center
+  let effectiveSpiritCount = spirits.length;
+  let mainIngredientUsed: ClassifiedIngredient | null = null;
+  if (spirits.length === 0) {
+    if (others.length === 0) return nodes; // No ingredients at all
+
+    // Find the main liquid ingredient to use as center (first acid, sweet, or dilution)
+    const mainIngredient = others.find(i =>
+      i.type === 'acid' || i.type === 'sweet' || i.type === 'dilution'
+    ) || others[0]; // Fallback to first ingredient
+
+    mainIngredientUsed = mainIngredient;
+
+    // Place main ingredient at view center as the "spirit" equivalent
+    nodes.push(createNode(
+      mainIngredient,
+      nodes.length,
+      viewCenterX,
+      viewCenterY,
+      opts
+    ));
+    registerPosition(viewCenterX, viewCenterY); // Track position for collision detection
+    // Treat as having 1 spirit for layout purposes
+    effectiveSpiritCount = 1;
+  }
+
+  // Categorize other ingredients (exclude main ingredient if used as center for spirit-less recipes)
+  const othersToPlace = mainIngredientUsed
+    ? others.filter(i => i !== mainIngredientUsed)
+    : others;
+  const acids = othersToPlace.filter(i => i.type === 'acid');
+  const sweets = othersToPlace.filter(i => i.type === 'sweet');
+  const bitters = othersToPlace.filter(i => i.type === 'bitter');
+  const garnishes = othersToPlace.filter(i => i.type === 'garnish');
+  const remaining = othersToPlace.filter(i =>
     !['acid', 'sweet', 'bitter', 'garnish'].includes(i.type)
   );
 
   // Track used corners per spirit: [spiritIndex][cornerIndex] = true if used
-  const usedCorners: boolean[][] = spirits.map(() => Array(6).fill(false));
+  // Use effectiveSpiritCount to handle spirit-less recipes with virtual center
+  const usedCorners: boolean[][] = Array(effectiveSpiritCount).fill(null).map(() => Array(6).fill(false));
 
   // Get available corners for a spirit (avoid corners pointing to other spirits)
   // With rotated hexagon: 0=upper-right, 1=right, 2=lower-right, 3=lower-left, 4=left, 5=upper-left
   // Edge directions (to adjacent hexes): 30°, 90°, 150°, 210°, 270°, 330°
   const getAvailableCorners = (spiritIdx: number): number[] => {
-    if (spirits.length === 1) {
+    if (effectiveSpiritCount === 1) {
       return [0, 1, 2, 3, 4, 5];
     }
-    if (spirits.length === 2) {
+    if (effectiveSpiritCount === 2) {
       // Vertical stack: spirit 0 on top, spirit 1 on bottom
       // Top spirit avoids lower corners (2, 3), bottom spirit avoids upper corners (0, 5)
       if (spiritIdx === 0) return [0, 1, 5, 4]; // top spirit: upper-right, right, upper-left, left
       return [1, 2, 3, 4]; // bottom spirit: right, lower-right, lower-left, left
     }
-    if (spirits.length === 3) {
+    if (effectiveSpiritCount === 3) {
       if (allSameSpiritType) {
         // Same-type triangle (SVG coords, Y+ is down):
         // - Spirit 0: Left (anchor)
@@ -286,73 +351,139 @@ export function computeLayout(
         //
         // Spirit 1 (upper-left): neighbor at 30° (Spirit 0 below-right)
         //   - 30° edge: corners 1-2
-        //   - Available: 0, 3, 4, 5 (away from Spirit 0)
+        //   - Corner 0 points toward Spirit 2 - EXCLUDED to avoid overlap
+        //   - Available: 3, 4, 5 (away from Spirit 0 and Spirit 2)
         //
         // Spirit 2 (upper-right): neighbor at 150° (Spirit 0 below-left)
         //   - 150° edge: corners 3-4
-        //   - Available: 0, 1, 2, 5 (away from Spirit 0)
+        //   - Corner 5 points toward Spirit 1 - EXCLUDED to avoid overlap
+        //   - Available: 0, 1, 2 (away from Spirit 0 and Spirit 1)
         if (spiritIdx === 0) return [2, 3]; // bottom spirit
-        if (spiritIdx === 1) return [0, 3, 4, 5]; // upper-left spirit
-        return [0, 1, 2, 5]; // upper-right spirit
+        if (spiritIdx === 1) return [3, 4, 5]; // upper-left spirit (no corner 0)
+        return [0, 1, 2]; // upper-right spirit (no corner 5)
       }
     }
     // 4+ vertical
     if (spiritIdx === 0) return [0, 1, 4, 5];
-    if (spiritIdx === spirits.length - 1) return [1, 2, 3, 4];
+    if (spiritIdx === effectiveSpiritCount - 1) return [1, 2, 3, 4];
     return [1, 4]; // middle spirits only use left and right
   };
 
   // Track the last placed node and position for each corner (for chaining)
-  const lastNodeAtCorner: Record<string, { id: string; x: number; y: number; chainStep: number }> = {};
+  // Now includes incomingAngle to calculate proper 120° zig-zag
+  // cornerIdx tracks which corner this chain is from (for special zig-zag patterns)
+  const lastNodeAtCorner: Record<string, { id: string; x: number; y: number; chainStep: number; incomingAngle: number; cornerIdx: number }> = {};
+
+  // Maximum chain length before requiring a new corner
+  const MAX_CHAIN_LENGTH = 4;
+
+  // Check if a corner's chain has reached max length
+  const isCornerAtMaxLength = (spiritIdx: number, cornerIdx: number): boolean => {
+    const cornerKey = `${spiritIdx}-${cornerIdx}`;
+    const lastNode = lastNodeAtCorner[cornerKey];
+    return lastNode !== undefined && lastNode.chainStep >= MAX_CHAIN_LENGTH;
+  };
 
   // Place ingredient at a spirit's hexagon corner
-  // When chaining (chainOffset > 0), follow hexagon edge directions in zig-zag pattern to stay on honeycomb vertices
+  // Inline ingredients (acid, sweet, dilution) have bonds passing through at 120° angles
+  // Terminal ingredients (garnish, bitter, salt, dairy, egg) are endpoints
   const placeAtCorner = (
     ing: ClassifiedIngredient,
     spiritIdx: number,
     cornerIdx: number,
-    chainOffset: number = 0
+    chainOffset: number = 0,
+    useJunction: boolean = false
   ): boolean => {
     const spirit = nodes[spiritIdx];
     const cornerKey = `${spiritIdx}-${cornerIdx}`;
     let parentId: string | undefined;
     let finalX: number;
     let finalY: number;
+    let incomingAngle: number;
 
     const radialAngle = CORNER_ANGLES[cornerIdx];
 
     if (chainOffset === 0) {
-      // First ingredient at this corner: place at the corner position
+      // First ingredient at this corner
       const basePos = getCornerPosition(spirit.x, spirit.y, cornerIdx);
-      finalX = basePos.x;
-      finalY = basePos.y;
-      parentId = spirit.id;
+
+      // Insert junction between spirit and ingredient when needed for branching
+      if (useJunction && !cornerJunctions[cornerKey]) {
+        // Create junction at distance from spirit center
+        // Junction is placed so spirit-corner-to-junction visual bond = targetVisualBondLength
+        // Bond goes from hex corner to junction center (junction has no radius)
+        const junctionDist = hexRadius + targetVisualBondLength;
+        const junctionX = spirit.x + Math.cos(radialAngle) * junctionDist;
+        const junctionY = spirit.y + Math.sin(radialAngle) * junctionDist;
+        const junction = createJunctionNode(junctionX, junctionY, spirit.id);
+        junction.branchCount = 0; // Track how many branches from this junction
+        nodes.push(junction);
+        cornerJunctions[cornerKey] = junction;
+
+        // Place ingredient at 60° angle from junction (hexagonal zig-zag)
+        // Junction has no visual radius, text label shortened by TEXT_RADIUS
+        // So center-to-center = targetVisualBondLength + TEXT_RADIUS
+        // For lower-right corner (60°), branch east (0°) instead of southwest
+        // This makes chains spread horizontally first, then zig-zag
+        const branchAngle = (cornerIdx === 2)
+          ? radialAngle - (Math.PI / 3)  // -60° → horizontal east for lower-right corner
+          : radialAngle + (Math.PI / 3); // +60° for other corners
+        const junctionToBranchLength = targetVisualBondLength + TEXT_RADIUS; // 26px → 18px visual
+        finalX = junctionX + Math.cos(branchAngle) * junctionToBranchLength;
+        finalY = junctionY + Math.sin(branchAngle) * junctionToBranchLength;
+        parentId = junction.id;
+        incomingAngle = branchAngle;
+        junction.branchCount = 1;
+
+        // Initialize the chain tracking from junction
+        lastNodeAtCorner[cornerKey] = { id: junction.id, x: junctionX, y: junctionY, chainStep: 0, incomingAngle: radialAngle, cornerIdx };
+      } else if (cornerJunctions[cornerKey]) {
+        // Junction already exists at this corner, connect from it
+        const junction = cornerJunctions[cornerKey];
+        // Alternate branch direction: first branch +60°, second branch -60°
+        const branchNum = junction.branchCount || 0;
+        const branchAngle = radialAngle + (branchNum % 2 === 0 ? (Math.PI / 3) : -(Math.PI / 3));
+        // Junction has no visual radius, text label shortened by TEXT_RADIUS
+        const junctionToBranchLength = targetVisualBondLength + TEXT_RADIUS; // 26px to match first branch
+        finalX = junction.x + Math.cos(branchAngle) * junctionToBranchLength;
+        finalY = junction.y + Math.sin(branchAngle) * junctionToBranchLength;
+        parentId = junction.id;
+        incomingAngle = branchAngle;
+        junction.branchCount = (junction.branchCount || 0) + 1;
+      } else {
+        // No junction - direct connection from spirit
+        finalX = basePos.x;
+        finalY = basePos.y;
+        parentId = spirit.id;
+        incomingAngle = radialAngle;
+      }
     } else {
-      // Chained ingredient: start from previous node and follow hex edge
+      // Chained ingredient: continue from previous node at 60° angle
       const lastNode = lastNodeAtCorner[cornerKey];
       if (lastNode) {
-        // For zig-zag chain on honeycomb, alternate between two directions
-        // that are 60° apart and both go generally outward
-        //
-        // The first step goes at radialAngle + 60° (clockwise outward edge)
-        // The second step goes at radialAngle (straight out along radial)
-        // The third step goes at radialAngle + 60° again
-        // This creates a zig-zag: right-down, right, right-down, right, etc.
-
+        // Calculate outgoing angle: incoming angle + 60° (or -60° alternating for zig-zag)
+        // This creates the gentle hexagonal zig-zag pattern matching the benzene ring
         const stepNum = lastNode.chainStep;
-        const edgeAngle = stepNum % 2 === 0
-          ? radialAngle + Math.PI / 3  // First, third, fifth steps: +60°
-          : radialAngle;                // Second, fourth steps: radial direction
+        // Alternate between +60° and -60° to create zig-zag
+        // For corner 2 (lower-right), invert the pattern since we started with -60°
+        const isCorner2 = lastNode.cornerIdx === 2;
+        const angleOffset = isCorner2
+          ? (stepNum % 2 === 0 ? -(Math.PI / 3) : (Math.PI / 3))  // Inverted for corner 2
+          : (stepNum % 2 === 0 ? (Math.PI / 3) : -(Math.PI / 3)); // Normal pattern
+        const outAngle = lastNode.incomingAngle + angleOffset;
 
-        finalX = lastNode.x + Math.cos(edgeAngle) * bondLength;
-        finalY = lastNode.y + Math.sin(edgeAngle) * bondLength;
+        // Use chainBondLength for text-to-text connections to account for shortening at both ends
+        finalX = lastNode.x + Math.cos(outAngle) * chainBondLength;
+        finalY = lastNode.y + Math.sin(outAngle) * chainBondLength;
         parentId = lastNode.id;
+        incomingAngle = outAngle;
       } else {
         // Fallback: shouldn't happen, but place at corner
         const basePos = getCornerPosition(spirit.x, spirit.y, cornerIdx);
         finalX = basePos.x;
         finalY = basePos.y;
         parentId = spirit.id;
+        incomingAngle = radialAngle;
       }
     }
 
@@ -361,12 +492,32 @@ export function computeLayout(
     finalX = Math.max(padding, Math.min(width - padding, finalX));
     finalY = Math.max(padding, Math.min(height - padding, finalY));
 
-    const node = createNode(ing, nodes.length, finalX, finalY, opts, parentId);
+    // Check for collision with existing positions
+    if (isPositionTooClose(finalX, finalY)) {
+      return false; // Collision detected - caller should try another corner
+    }
+
+    // Determine if this ingredient is inline (chain continues) or terminal (chain ends)
+    const isInline = isInlineType(ing.type);
+
+    const node = createNode(ing, nodes.length, finalX, finalY, opts, parentId, isInline, incomingAngle);
     nodes.push(node);
 
+    // Register this position to prevent future collisions
+    registerPosition(finalX, finalY);
+
     // Update the last node at this corner for future chaining
+    // Only inline nodes can have chains continue through them
     const prevChainStep = lastNodeAtCorner[cornerKey]?.chainStep ?? -1;
-    lastNodeAtCorner[cornerKey] = { id: node.id, x: finalX, y: finalY, chainStep: prevChainStep + 1 };
+    const prevCornerIdx = lastNodeAtCorner[cornerKey]?.cornerIdx ?? cornerIdx;
+    lastNodeAtCorner[cornerKey] = {
+      id: node.id,
+      x: finalX,
+      y: finalY,
+      chainStep: prevChainStep + 1,
+      incomingAngle: incomingAngle,
+      cornerIdx: prevCornerIdx
+    };
 
     return true;
   };
@@ -401,101 +552,284 @@ export function computeLayout(
     bitter: {},
   };
 
-  // Place acids at upper-right (corner 0), chain outward
+  // Calculate counts per type to determine when branching junctions are needed
+  const totalIngredients = others.length;
+
+  // Count how many ingredients will share each corner direction
+  // Junctions only needed when multiple ingredients branch from same point
+  const acidCount = acids.length;
+  const sweetCount = sweets.length;
+  const bitterCount = bitters.length;
+  const garnishCount = garnishes.length;
+
+  // Junction node creation helper
+  let junctionCounter = 0;
+  const createJunctionNode = (
+    x: number,
+    y: number,
+    parentId?: string
+  ): MoleculeNode => {
+    const id = `junction-${junctionCounter++}`;
+    return {
+      id,
+      raw: '',
+      name: '',
+      amount: null,
+      unit: null,
+      modifiers: [],
+      type: 'junction',
+      color: 'transparent',
+      x,
+      y,
+      radius: 0, // Invisible
+      label: '',
+      parentId,
+    };
+  };
+
+  // Track junctions created at each corner for reuse
+  const cornerJunctions: Record<string, MoleculeNode> = {};
+
+  // Determine which spirit each type should attach to based on spirit count
+  // Strategy: Balance the visual by distributing ingredient types across spirits
+  //
+  // For 2 spirits (vertical stack): top=0, bottom=1
+  //   - Top spirit: Acids (sour) and Sweets (balance) - the "flavor core"
+  //   - Bottom spirit: Bitters (accent) and Garnishes (finish) - the "finishing touches"
+  //
+  // For 3 spirits (triangle or V-shape):
+  //   - Spirit 0 (anchor): Acids and first sweet
+  //   - Spirit 1: Remaining sweets and bitters
+  //   - Spirit 2: Garnishes and remaining ingredients
+  //
+  // For 4+ spirits: Distribute by type groupings
+  const getTypeSpirit = (type: 'acid' | 'sweet' | 'bitter' | 'garnish', index: number): number => {
+    // For spirit-less recipes or single spirit, everything goes to index 0
+    if (effectiveSpiritCount === 1) return 0;
+
+    if (effectiveSpiritCount === 2) {
+      // Top spirit (0) gets acids and sweets (flavor core)
+      // Bottom spirit (1) gets bitters and garnishes (finishing touches)
+      if (type === 'acid' || type === 'sweet') return 0;
+      return 1;
+    }
+
+    if (effectiveSpiritCount === 3) {
+      // Distribute by ingredient type to balance visual
+      if (type === 'acid') return 0; // Acids on anchor spirit
+      if (type === 'sweet') return index === 0 ? 0 : 1; // First sweet with acids, rest on spirit 1
+      if (type === 'bitter') return 1; // Bitters on spirit 1
+      if (type === 'garnish') return 2; // Garnishes on spirit 2
+      return index % 3;
+    }
+
+    // 4+ spirits: group by type, then distribute within groups
+    if (type === 'acid') return 0; // All acids on first spirit
+    if (type === 'sweet') return Math.min(1, effectiveSpiritCount - 1); // Sweets on second spirit
+    if (type === 'bitter') return Math.min(2, effectiveSpiritCount - 1); // Bitters on third
+    if (type === 'garnish') return effectiveSpiritCount - 1; // Garnishes on last spirit
+    return index % effectiveSpiritCount;
+  };
+
+  // Place acids - chain them together
+  // Junction only if multiple acids OR acids+sweets share same corner (sour pairing)
   acids.forEach((ing, i) => {
-    const spiritIdx = i % spirits.length;
+    const spiritIdx = getTypeSpirit('acid', i);
+    // Need junction if: multiple acids, OR acid+sweet will share corner
+    const needsJunction = acidCount > 1 || (acidCount > 0 && sweetCount > 0);
 
     if (typeCornerMap.acid[spiritIdx] === undefined) {
-      // First acid for this spirit - find a corner
-      const corner = findBestCorner(spiritIdx, [0, 5, 1]);
+      // Prefer right/east corners for acids (1=right, 0=upper-right, 2=lower-right)
+      const corner = findBestCorner(spiritIdx, [1, 0, 2]);
       if (corner !== null) {
         typeCornerMap.acid[spiritIdx] = corner;
         usedCorners[spiritIdx][corner] = true;
-        placeAtCorner(ing, spiritIdx, corner, 0);
+        // Only use junction if branching is needed
+        placeAtCorner(ing, spiritIdx, corner, 0, needsJunction);
       } else {
-        // No corners available, chain from any corner
         const corners = getAvailableCorners(spiritIdx);
-        placeAtCorner(ing, spiritIdx, corners[0], 1);
+        placeAtCorner(ing, spiritIdx, corners[0], 1, false);
       }
     } else {
-      // Chain from previous acid
       const corner = typeCornerMap.acid[spiritIdx];
-      placeAtCorner(ing, spiritIdx, corner, Math.floor(i / spirits.length));
+      // Check if corner chain is at max length - if so, find a new corner
+      if (isCornerAtMaxLength(spiritIdx, corner)) {
+        const newCorner = findBestCorner(spiritIdx, [0, 2, 5, 3]); // Try other corners
+        if (newCorner !== null) {
+          typeCornerMap.acid[spiritIdx] = newCorner;
+          usedCorners[spiritIdx][newCorner] = true;
+          placeAtCorner(ing, spiritIdx, newCorner, 0, false);
+        } else {
+          // Fallback: continue chaining even if at max (better than not placing)
+          placeAtCorner(ing, spiritIdx, corner, i, false);
+        }
+      } else {
+        // Chain acids together - each one is 1 bond further out
+        placeAtCorner(ing, spiritIdx, corner, i, false);
+      }
     }
   });
 
-  // Place sweets at right (corner 1)
+  // Place sweets - chain them, potentially branching from acids for sour pairing
+  // Track how many sweets placed per spirit for proper distribution
+  const sweetsPlacedPerSpirit: Record<number, number> = {};
+
   sweets.forEach((ing, i) => {
-    const spiritIdx = i % spirits.length;
+    const spiritIdx = getTypeSpirit('sweet', i);
+    sweetsPlacedPerSpirit[spiritIdx] = (sweetsPlacedPerSpirit[spiritIdx] || 0);
+    const sweetNumOnSpirit = sweetsPlacedPerSpirit[spiritIdx];
 
-    if (typeCornerMap.sweet[spiritIdx] === undefined) {
-      const corner = findBestCorner(spiritIdx, [1, 2, 0]);
-      if (corner !== null) {
-        typeCornerMap.sweet[spiritIdx] = corner;
-        usedCorners[spiritIdx][corner] = true;
-        placeAtCorner(ing, spiritIdx, corner, 0);
-      } else {
-        const corners = getAvailableCorners(spiritIdx);
-        placeAtCorner(ing, spiritIdx, corners[0], 1);
+    // Need junction only if multiple sweets on their own corner
+    const needsJunction = sweetCount > 1;
+
+    // If we have acids on the same spirit and this is the first sweet, branch from the last acid
+    // This creates the classic acid-sweet "sour" branch
+    if (sweetNumOnSpirit === 0 && acids.length > 0 && typeCornerMap.acid[spiritIdx] !== undefined) {
+      const acidCorner = typeCornerMap.acid[spiritIdx];
+      // Place sweet as a branch from the acid chain
+      placeAtCorner(ing, spiritIdx, acidCorner, acids.length, false);
+      typeCornerMap.sweet[spiritIdx] = acidCorner;
+      sweetsPlacedPerSpirit[spiritIdx]++;
+    } else if (typeCornerMap.sweet[spiritIdx] === undefined) {
+      // First sweet at this spirit (no acids) - find a corner
+      const allCorners = [1, 2, 0, 3, 4, 5];
+      for (const corner of allCorners) {
+        const available = getAvailableCorners(spiritIdx);
+        if (available.includes(corner) && !usedCorners[spiritIdx][corner]) {
+          if (placeAtCorner(ing, spiritIdx, corner, 0, needsJunction)) {
+            typeCornerMap.sweet[spiritIdx] = corner;
+            usedCorners[spiritIdx][corner] = true;
+            sweetsPlacedPerSpirit[spiritIdx]++;
+            break;
+          }
+        }
       }
     } else {
-      const corner = typeCornerMap.sweet[spiritIdx];
-      placeAtCorner(ing, spiritIdx, corner, Math.floor(i / spirits.length));
+      // After first 2 sweets on this spirit, find a NEW corner for better distribution
+      if (sweetNumOnSpirit >= 2) {
+        const preferLeft = [4, 5, 3, 0, 1, 2]; // Prefer left corners for variety
+        let placed = false;
+        for (const altCorner of preferLeft) {
+          const currentCorner = typeCornerMap.sweet[spiritIdx];
+          if (altCorner !== currentCorner) {
+            const available = getAvailableCorners(spiritIdx);
+            if (available.includes(altCorner) && !usedCorners[spiritIdx][altCorner]) {
+              if (placeAtCorner(ing, spiritIdx, altCorner, 0, false)) {
+                usedCorners[spiritIdx][altCorner] = true;
+                typeCornerMap.sweet[spiritIdx] = altCorner;
+                sweetsPlacedPerSpirit[spiritIdx]++;
+                placed = true;
+                break;
+              }
+            }
+          }
+        }
+        // Fallback: chain from current corner
+        if (!placed) {
+          const corner = typeCornerMap.sweet[spiritIdx];
+          placeAtCorner(ing, spiritIdx, corner, sweetNumOnSpirit, false);
+          sweetsPlacedPerSpirit[spiritIdx]++;
+        }
+      } else {
+        // Chain from current corner (sweets 1-2)
+        const corner = typeCornerMap.sweet[spiritIdx];
+        placeAtCorner(ing, spiritIdx, corner, sweetNumOnSpirit, false);
+        sweetsPlacedPerSpirit[spiritIdx]++;
+      }
     }
   });
 
-  // Place garnishes at upper-left (corner 5)
-  garnishes.forEach((ing, i) => {
-    const spiritIdx = i % spirits.length;
-
-    if (typeCornerMap.garnish[spiritIdx] === undefined) {
-      const corner = findBestCorner(spiritIdx, [5, 4, 0]);
-      if (corner !== null) {
-        typeCornerMap.garnish[spiritIdx] = corner;
-        usedCorners[spiritIdx][corner] = true;
-        placeAtCorner(ing, spiritIdx, corner, 0);
-      } else {
-        const corners = getAvailableCorners(spiritIdx);
-        placeAtCorner(ing, spiritIdx, corners[0], 1);
-      }
-    } else {
-      const corner = typeCornerMap.garnish[spiritIdx];
-      placeAtCorner(ing, spiritIdx, corner, Math.floor(i / spirits.length));
-    }
-  });
-
-  // Place bitters at left (corner 4)
+  // Place bitters - these get their own branch
+  // Junction only if multiple bitters
   bitters.forEach((ing, i) => {
-    const spiritIdx = i % spirits.length;
+    const spiritIdx = getTypeSpirit('bitter', i);
+    const needsJunction = bitterCount > 1;
 
     if (typeCornerMap.bitter[spiritIdx] === undefined) {
-      const corner = findBestCorner(spiritIdx, [4, 3, 5]);
+      // Prefer left/west corners for bitters (4=left, 5=upper-left, 3=lower-left)
+      const corner = findBestCorner(spiritIdx, [4, 5, 3]);
       if (corner !== null) {
         typeCornerMap.bitter[spiritIdx] = corner;
         usedCorners[spiritIdx][corner] = true;
-        placeAtCorner(ing, spiritIdx, corner, 0);
+        // Only use junction if multiple bitters
+        placeAtCorner(ing, spiritIdx, corner, 0, needsJunction);
       } else {
         const corners = getAvailableCorners(spiritIdx);
-        placeAtCorner(ing, spiritIdx, corners[0], 1);
+        placeAtCorner(ing, spiritIdx, corners[0], 1, false);
       }
     } else {
       const corner = typeCornerMap.bitter[spiritIdx];
-      placeAtCorner(ing, spiritIdx, corner, Math.floor(i / spirits.length));
+      placeAtCorner(ing, spiritIdx, corner, i, false);
     }
   });
 
-  // Place remaining at any available corner
+  // Place garnishes - separate branch
+  // Junction only if multiple garnishes
+  garnishes.forEach((ing, i) => {
+    const spiritIdx = getTypeSpirit('garnish', i);
+    const needsJunction = garnishCount > 1;
+
+    if (typeCornerMap.garnish[spiritIdx] === undefined) {
+      // First garnish - find a corner that doesn't collide
+      const preferredCorners = [4, 3, 5, 0, 1, 2]; // Try all corners
+      let placed = false;
+
+      for (const corner of preferredCorners) {
+        const available = getAvailableCorners(spiritIdx);
+        if (available.includes(corner) && !usedCorners[spiritIdx][corner]) {
+          if (placeAtCorner(ing, spiritIdx, corner, 0, needsJunction)) {
+            typeCornerMap.garnish[spiritIdx] = corner;
+            usedCorners[spiritIdx][corner] = true;
+            placed = true;
+            break;
+          }
+        }
+      }
+
+      // Fallback: try any corner even if marked used
+      if (!placed) {
+        for (const corner of preferredCorners) {
+          if (placeAtCorner(ing, spiritIdx, corner, 0, false)) {
+            typeCornerMap.garnish[spiritIdx] = corner;
+            placed = true;
+            break;
+          }
+        }
+      }
+    } else {
+      // Second+ garnish - try branching from junction, but find open position
+      const corner = typeCornerMap.garnish[spiritIdx];
+      if (!placeAtCorner(ing, spiritIdx, corner, 0, false)) {
+        // Collision at junction branch - try a completely different corner
+        const allCorners = [0, 1, 2, 3, 4, 5];
+        for (const altCorner of allCorners) {
+          if (altCorner !== corner) {
+            const available = getAvailableCorners(spiritIdx);
+            if (available.includes(altCorner) && !usedCorners[spiritIdx][altCorner]) {
+              if (placeAtCorner(ing, spiritIdx, altCorner, 0, false)) {
+                usedCorners[spiritIdx][altCorner] = true;
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // Place remaining at any available corner with spacing - distribute across spirits
+  // No junctions for remaining - direct connections
   remaining.forEach((ing, i) => {
-    const spiritIdx = i % spirits.length;
+    const spiritIdx = i % effectiveSpiritCount;
     const corner = findBestCorner(spiritIdx, [2, 3, 1, 0, 4, 5]);
 
     if (corner !== null) {
       usedCorners[spiritIdx][corner] = true;
-      placeAtCorner(ing, spiritIdx, corner, 0);
+      // Direct connection, no junction
+      placeAtCorner(ing, spiritIdx, corner, 0, false);
     } else {
-      // All corners used, chain from first available
       const corners = getAvailableCorners(spiritIdx);
-      placeAtCorner(ing, spiritIdx, corners[0], 1 + Math.floor(i / corners.length));
+      placeAtCorner(ing, spiritIdx, corners[0], 1 + Math.floor(i / corners.length), false);
     }
   });
 
@@ -519,7 +853,9 @@ function createNode(
   x: number,
   y: number,
   options: LayoutOptions,
-  parentId?: string
+  parentId?: string,
+  isInline?: boolean,
+  outgoingAngle?: number
 ): MoleculeNode {
   const { label, sublabel } = getDisplayLabel(ingredient.name);
   const radius = calculateRadius(ingredient, options);
@@ -533,6 +869,8 @@ function createNode(
     label,
     sublabel,
     parentId,
+    isInline,
+    outgoingAngle,
   };
 }
 

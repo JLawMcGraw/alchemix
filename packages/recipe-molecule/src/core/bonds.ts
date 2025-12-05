@@ -27,45 +27,8 @@ export function generateBonds(nodes: MoleculeNode[]): MoleculeBond[] {
   const spirits = nodes.filter(n => n.type === 'spirit');
   const others = nodes.filter(n => n.type !== 'spirit');
 
-  // Connect spirits together - only if they actually touch (share an edge)
-  // hexGridSpacing = radius * sqrt(3) ≈ 51.96 for radius 30
-  // Spirits touching have distance = hexGridSpacing
-  // Allow some tolerance for floating point
-  const hexGridSpacing = 30 * Math.sqrt(3); // ~51.96
-  const touchThreshold = hexGridSpacing * 1.1; // Allow 10% tolerance
-
-  if (spirits.length > 1) {
-    if (spirits.length === 2) {
-      // Two spirits: connect if they touch
-      if (getDistance(spirits[0], spirits[1]) <= touchThreshold) {
-        bonds.push({ from: spirits[0].id, to: spirits[1].id, type: 'double' });
-      }
-    } else if (spirits.length === 3) {
-      // Three spirits: only connect pairs that actually touch
-      // In same-type triangle, all 3 touch. In V-shape, only 0-1 and 0-2 touch.
-      if (getDistance(spirits[0], spirits[1]) <= touchThreshold) {
-        bonds.push({ from: spirits[0].id, to: spirits[1].id, type: 'double' });
-      }
-      if (getDistance(spirits[1], spirits[2]) <= touchThreshold) {
-        bonds.push({ from: spirits[1].id, to: spirits[2].id, type: 'double' });
-      }
-      if (getDistance(spirits[2], spirits[0]) <= touchThreshold) {
-        bonds.push({ from: spirits[2].id, to: spirits[0].id, type: 'double' });
-      }
-    } else {
-      // 4+: connect in sequence by Y position (only adjacent ones)
-      const sortedSpirits = [...spirits].sort((a, b) => a.y - b.y);
-      for (let i = 0; i < sortedSpirits.length - 1; i++) {
-        if (getDistance(sortedSpirits[i], sortedSpirits[i + 1]) <= touchThreshold) {
-          bonds.push({
-            from: sortedSpirits[i].id,
-            to: sortedSpirits[i + 1].id,
-            type: 'double',
-          });
-        }
-      }
-    }
-  }
+  // Spirit-to-spirit connections: No bonds needed - benzene rings already share edges visually
+  // The fused ring structure creates the connection implicitly
 
   const bondSet = new Set<string>();
 
@@ -99,28 +62,84 @@ export function generateBonds(nodes: MoleculeNode[]): MoleculeBond[] {
 // BOND TYPE DETERMINATION
 // ═══════════════════════════════════════════════════════════════
 
+/**
+ * Mixer keywords that get dashed bonds
+ * These are carbonated/fizzy additions to cocktails
+ * Note: Ice/water are assumed and rarely appear in recipes
+ */
+const MIXER_KEYWORDS = [
+  'ginger beer', 'ginger ale', 'tonic', 'tonic water',
+  'seltzer', 'club soda', 'soda water', 'sparkling',
+  'cola', 'coke', 'sprite', '7up', 'seven up', 'lemonade',
+];
+
+/**
+ * Check if ingredient is a mixer (gets dashed bond)
+ */
+function isMixer(node: MoleculeNode): boolean {
+  const raw = node.raw?.toLowerCase() || '';
+  const name = node.name?.toLowerCase() || '';
+  return MIXER_KEYWORDS.some(keyword => raw.includes(keyword) || name.includes(keyword));
+}
+
 function determineBondType(from: MoleculeNode, to: MoleculeNode): BondType {
-  // Garnishes get dashed bonds
+  // Junction nodes: determine bond type based on what's NOT a junction
+  if (from.type === 'junction' || to.type === 'junction') {
+    // Find the non-junction node to determine bond style
+    const realNode = from.type === 'junction' ? to : from;
+
+    // Garnish chains get solid wedge (stereochemistry "in front of plane")
+    if (realNode.type === 'garnish') {
+      return 'wedge';
+    }
+    // Bitter chains get dashed wedge (stereochemistry "behind plane")
+    if (realNode.type === 'bitter') {
+      return 'dashedWedge';
+    }
+    // Check for dash/drop in raw text - these are bitters-like
+    const rawText = realNode.raw?.toLowerCase() || '';
+    if (rawText.includes('dash') || rawText.includes('drop')) {
+      return 'dashedWedge';
+    }
+    // Mixers get straight dashed bonds
+    if (isMixer(realNode)) {
+      return 'dashed';
+    }
+    // Default junction bonds are single
+    return 'single';
+  }
+
+  // Garnishes get solid wedge bonds (stereochemistry "in front of plane")
   if (to.type === 'garnish' || from.type === 'garnish') {
-    return 'dashed';
+    return 'wedge';
   }
 
-  // Dilution gets dashed
-  if (to.type === 'dilution' || from.type === 'dilution') {
-    return 'dashed';
+  // Bitters get dashed wedge bonds (stereochemistry "behind plane")
+  // Also check for "dash" or "drop" in the raw ingredient text
+  if (to.type === 'bitter' || from.type === 'bitter') {
+    return 'dashedWedge';
   }
 
-  // Egg white gets double bond (dry shake technique)
-  if (to.type === 'egg' || from.type === 'egg') {
+  // Check for dash/drop quantities (bitters-like usage)
+  const toRaw = to.raw?.toLowerCase() || '';
+  const fromRaw = from.raw?.toLowerCase() || '';
+  if (toRaw.includes('dash') || toRaw.includes('drop') ||
+      fromRaw.includes('dash') || fromRaw.includes('drop')) {
+    return 'dashedWedge';
+  }
+
+  // Acid ↔ Sweet connection gets double bond (classic "sour" balance)
+  if ((from.type === 'acid' && to.type === 'sweet') ||
+      (from.type === 'sweet' && to.type === 'acid')) {
     return 'double';
   }
 
-  // Bitter with spirit gets double bond
-  if ((from.type === 'spirit' && to.type === 'bitter') ||
-      (to.type === 'spirit' && from.type === 'bitter')) {
-    return 'double';
+  // Mixers get straight dashed bonds (carbonated additions)
+  if (isMixer(from) || isMixer(to)) {
+    return 'dashed';
   }
 
+  // Everything else is single (standard ingredients)
   return 'single';
 }
 
@@ -212,6 +231,7 @@ export function getDoubleBondLines(
 
 /**
  * Shorten bond line to stop at node edge
+ * No extra padding - layout.ts already accounts for exact distances
  */
 export function shortenBondToEdge(
   x1: number,
@@ -219,8 +239,7 @@ export function shortenBondToEdge(
   x2: number,
   y2: number,
   r1: number,
-  r2: number,
-  padding: number = 2
+  r2: number
 ): { x1: number; y1: number; x2: number; y2: number } {
   const dx = x2 - x1;
   const dy = y2 - y1;
@@ -232,9 +251,9 @@ export function shortenBondToEdge(
   const uy = dy / len;
 
   return {
-    x1: x1 + ux * (r1 + padding),
-    y1: y1 + uy * (r1 + padding),
-    x2: x2 - ux * (r2 + padding),
-    y2: y2 - uy * (r2 + padding),
+    x1: x1 + ux * r1,
+    y1: y1 + uy * r1,
+    x2: x2 - ux * r2,
+    y2: y2 - uy * r2,
   };
 }
