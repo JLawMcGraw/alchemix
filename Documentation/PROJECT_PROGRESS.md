@@ -6,13 +6,191 @@ Last updated: 2025-12-04
 
 ## Current Status
 
-**Version**: v1.25.0 (Project Cleanup & Docker Reorganization)
-**Phase**: Beta Launch Ready - Clean project structure, Docker ready
-**Blockers**: None - All tests passing, Docker validated
+**Version**: v1.26.0 (Recipe Molecule Visualization - Session 1)
+**Phase**: Beta Launch Ready - Molecule visualization in progress
+**Blockers**: None
 
 ---
 
-## Recent Session (2025-12-04): Project Cleanup & Docker Reorganization
+## Recent Session (2025-12-04): Recipe Molecule Visualization - Session 1
+
+### Design Vision
+Creating a chemical bond-style molecular visualization for cocktail recipes, inspired by organic chemistry structural formulas. Each recipe is represented as a "molecule" where:
+- **Spirits** = Core benzene-style hexagonal rings (the backbone)
+- **Ingredients** = Atoms attached at hexagon vertices
+- **Relationships** = Chemical bonds (single, double, dashed)
+- **Layout** = Honeycomb grid ensuring all elements align to a unified hexagonal structure
+
+### Visual Design Elements
+
+#### Benzene Ring Spirits
+- Spirit nodes rendered as benzene-style hexagonal rings with alternating single/double bonds
+- Larger radius (18px) compared to ingredient nodes (8px)
+- Gray fill with darker stroke for visual prominence
+- Multiple spirits share edges when they "touch" on the honeycomb grid
+
+#### Honeycomb Background Grid
+- Unified hexagonal grid skeleton visible behind the molecule
+- Light gray strokes (opacity 0.4) showing the underlying structure
+- Grid expands 2 rings out from each spirit position via BFS
+- Creates cohesive visual showing how ingredients fit into the chemical structure
+
+#### Node Types & Colors
+- **SP (Spirit)**: Gray benzene ring - the core/backbone
+- **AC (Acid)**: Yellow - citrus, vinegar, etc.
+- **SW (Sweet)**: Orange - syrups, liqueurs, etc.
+- **BT (Bitter)**: Coral/pink - bitters, amari
+- **GA (Garnish)**: Green - herbs, fruit garnishes
+- **LQ (Liqueur)**: Blue - modifying spirits
+
+#### Bond Types
+- **Double bonds**: Between touching spirits (parallel lines)
+- **Single bonds**: Standard ingredient connections
+- **Dashed bonds**: Garnishes and dilution (optional elements)
+
+### Technical Implementation
+
+#### Geometry Constants
+```
+hexRadius = 30          // Benzene ring radius
+bondLength = 30         // Same as hexRadius for perfect grid
+hexGridSpacing = 30 * sqrt(3) ≈ 51.96  // Distance between adjacent hex centers
+ROTATION = 30°          // Flat-top hexagon orientation
+```
+
+#### Corner Angles (Flat-Top Hexagon)
+```
+Corner 0: -60° (upper-right)
+Corner 1:   0° (right)
+Corner 2:  60° (lower-right)
+Corner 3: 120° (lower-left)
+Corner 4: 180° (left)
+Corner 5: -120° (upper-left)
+```
+
+#### Edge Normal Angles (To Adjacent Hexes)
+```
+30°  → lower-right neighbor (edge between corners 1-2)
+90°  → bottom neighbor (edge between corners 2-3)
+150° → lower-left neighbor (edge between corners 3-4)
+210° → upper-left neighbor (edge between corners 4-5)
+270° → top neighbor (edge between corners 5-0)
+330° → upper-right neighbor (edge between corners 0-1)
+```
+
+### Layout Engine
+
+#### Single Spirit
+- Centered in viewport
+- All 6 corners available for ingredients
+
+#### Two Spirits (Vertical Stack)
+- Stacked vertically, sharing horizontal edge
+- Top spirit: corners 0, 1, 4, 5 available
+- Bottom spirit: corners 1, 2, 3, 4 available
+
+#### Three Spirits - Same Type (Compact Triangle)
+For recipes with 3 of the same spirit type (e.g., 3 rums in Grog):
+- Spirit 0: Left anchor at center
+- Spirit 1: Lower-right (30° from Spirit 0)
+- Spirit 2: Upper-right (330° from Spirit 0)
+- All three hexagons share edges forming tight triangle
+- Available corners calculated to avoid shared edges and junction points:
+  - Spirit 0: corners 3, 4, 5
+  - Spirit 1: corners 1, 2, 3
+  - Spirit 2: corners 0, 5
+
+#### Three Spirits - Different Types (V-Shape)
+For recipes with different spirit types:
+- Spirit 0: Bottom center (anchor)
+- Spirit 1: Upper-left (210° from Spirit 0)
+- Spirit 2: Upper-right (330° from Spirit 0)
+- Only Spirit 0 touches both others; Spirits 1 & 2 don't touch each other
+- Available corners:
+  - Spirit 0: corners 2, 3 (bottom only)
+  - Spirit 1: corners 0, 3, 4, 5
+  - Spirit 2: corners 0, 1, 2, 5
+
+#### Four+ Spirits (Vertical Chain)
+- Stacked vertically with proper honeycomb spacing
+- Each spirit connects to adjacent spirits only
+
+### Ingredient Placement
+
+#### Corner Position Calculation
+```typescript
+getCornerPosition(cx, cy, cornerIndex) {
+  // Get hexagon corner
+  cornerX = cx + cos(angle) * hexRadius
+  cornerY = cy + sin(angle) * hexRadius
+  // Place ingredient at bondLength distance outward
+  return {
+    x: cornerX + cos(angle) * bondLength,
+    y: cornerY + sin(angle) * bondLength
+  }
+}
+```
+
+#### Preferred Corners by Type
+- **Acids**: corners 0, 5, 1 (upper area)
+- **Sweets**: corners 1, 2, 0 (right area)
+- **Garnishes**: corners 5, 4, 0 (upper-left)
+- **Bitters**: corners 4, 3, 5 (left area)
+
+#### Chain Zig-Zag Pattern
+When multiple ingredients of same type chain from one corner:
+```typescript
+// Alternating angles for zig-zag on hex grid
+edgeAngle = stepNum % 2 === 0
+  ? radialAngle + 60°  // Odd steps: clockwise
+  : radialAngle        // Even steps: straight out
+```
+This keeps chained nodes (e.g., SW→SW→SW) on honeycomb vertices.
+
+#### Collision Prevention
+- `usedCorners[][]` tracks which corners are taken per spirit
+- `typeCornerMap` tracks which corner each ingredient type uses
+- `findBestCorner()` finds available corners checking both availability and usage
+- Falls back to chaining when all corners used
+
+### Bond Generation
+
+#### Spirit-to-Spirit Bonds
+- Only drawn between spirits that actually touch
+- Uses distance check: `distance <= hexGridSpacing * 1.1`
+- Prevents erroneous bonds in V-shape layouts
+
+#### Parent-Child Tracking
+- Each node stores `parentId` set during layout
+- Bonds generated by following parent chain
+- Ensures proper connections for chained ingredients
+
+### Files Modified
+- `packages/recipe-molecule/src/core/layout.ts` - Complete layout engine
+- `packages/recipe-molecule/src/core/bonds.ts` - Distance-based spirit bond logic
+- `packages/recipe-molecule/src/core/types.ts` - Added `parentId` to MoleculeNode
+- `packages/recipe-molecule/src/components/Molecule.tsx` - Rendering with UnifiedHoneycombSkeleton
+- `packages/recipe-molecule/src/components/Bond.tsx` - Bond line rendering
+- `packages/recipe-molecule/src/components/Node.tsx` - Node circle rendering
+
+### Tested Recipes
+- **Prince Edward** - Single spirit with chained SW (3 sweets)
+- **Grog** - 3 same-type rums forming compact triangle
+- **Scorpion Bowl (sb)** - 3 different spirits in V-shape
+- **CG** - 3-spirit layout with multiple ingredient types
+- **Pupule** - Complex multi-ingredient layout
+
+### Next Steps (Session 2)
+1. Visual refinements for more authentic chemical bond aesthetics
+2. Consider atom-style circles vs current filled circles
+3. Explore subscript notation for quantities
+4. Label positioning improvements
+5. Possible animation for interactive exploration
+6. Export options (SVG, PNG)
+
+---
+
+## Previous Session (2025-12-04): Project Cleanup & Docker Reorganization
 
 ### Work Completed
 

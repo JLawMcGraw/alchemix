@@ -23,7 +23,9 @@
       "@/components/*": ["./src/components/*"],
       "@/styles/*": ["./src/styles/*"],
       "@/lib/*": ["./src/lib/*"],
-      "@/types/*": ["./src/types/*"]
+      "@/types/*": ["./src/types/*"],
+      "@alchemix/recipe-molecule": ["./packages/recipe-molecule/src/index.ts"],
+      "@alchemix/recipe-molecule/*": ["./packages/recipe-molecule/src/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

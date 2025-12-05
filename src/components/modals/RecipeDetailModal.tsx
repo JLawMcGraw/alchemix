@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { X, Star, Martini, Edit2, Save, Trash2, FolderOpen, Plus } from 'lucide-react';
 import { Button, useToast } from '@/components/ui';
 import { useStore } from '@/lib/store';
+import { RecipeMolecule } from '@/components/RecipeMolecule';
 import type { Recipe, Collection } from '@/types';
 import styles from './RecipeDetailModal.module.css';
 
@@ -278,6 +279,21 @@ export function RecipeDetailModal({
 
         {/* Content */}
         <div className={styles.content}>
+          {/* Molecule Visualization (View Mode Only) */}
+          {!isEditMode && ingredientsArray.length > 0 && (
+            <section className={styles.section}>
+              <h3 className={styles.sectionTitle}>Recipe Structure</h3>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
+                <RecipeMolecule
+                  recipe={recipe}
+                  size="full"
+                  showLegend={true}
+                  showExport={true}
+                />
+              </div>
+            </section>
+          )}
+
           {/* Category (Edit Mode Only) */}
           {isEditMode && (
             <section className={styles.section}>

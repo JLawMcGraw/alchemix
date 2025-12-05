@@ -8,6 +8,7 @@ import { Button, useToast, Spinner } from '@/components/ui';
 import { Card } from '@/components/ui/Card';
 import { BookOpen, Upload, Star, Martini, ChevronLeft, ChevronRight, Trash2, FolderOpen, Plus, Edit, Trash, CheckSquare, Square, ShoppingCart, CheckCircle, AlertCircle, Wine } from 'lucide-react';
 import { CSVUploadModal, RecipeDetailModal, DeleteConfirmModal, CollectionModal, AddRecipeModal } from '@/components/modals';
+import { RecipeMolecule } from '@/components/RecipeMolecule';
 import { recipeApi } from '@/lib/api';
 import type { Recipe, Collection } from '@/types';
 import { matchesSpiritCategory, SpiritCategory } from '@/lib/spirits';
@@ -996,9 +997,13 @@ function RecipesPageContent() {
                 hover
                 className={styles.recipeCard}
               >
-                {/* Recipe Image Placeholder */}
+                {/* Recipe Molecule Thumbnail */}
                 <div className={styles.recipeImage}>
-                  <Martini size={48} className={styles.recipeImageIcon} strokeWidth={1.5} />
+                  <RecipeMolecule
+                    recipe={recipe}
+                    size="thumbnail"
+                    showLegend={false}
+                  />
                 </div>
 
                 {/* Recipe Content */}

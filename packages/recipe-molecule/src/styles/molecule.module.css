@@ -1,0 +1,140 @@
+/**
+ * Recipe Molecule Styles
+ *
+ * Three-layer z-index system:
+ *   1. Bottom: Pastel circles (categorization)
+ *   2. Middle: Bond lines (structure)
+ *   3. Top: Text labels (data)
+ */
+
+.container {
+  position: relative;
+  display: inline-block;
+}
+
+.svg {
+  display: block;
+  overflow: visible;
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* BACKBONE                                                        */
+/* ═══════════════════════════════════════════════════════════════ */
+
+.backbone {
+  fill: none;
+  stroke: #333;
+  stroke-width: 1.5;
+  opacity: 0.25;
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* BONDS                                                           */
+/* ═══════════════════════════════════════════════════════════════ */
+
+.bond {
+  stroke: #333;
+  stroke-width: 2;
+  fill: none;
+}
+
+.bondDashed {
+  stroke: #333;
+  stroke-width: 2;
+  stroke-dasharray: 6, 4;
+  fill: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* NODES                                                           */
+/* ═══════════════════════════════════════════════════════════════ */
+
+.nodeGroup {
+  cursor: pointer;
+}
+
+.nodeGroup:hover .nodeCircle {
+  opacity: 1;
+  filter: brightness(1.05);
+}
+
+.nodeCircle {
+  opacity: 0.85;
+  transition: opacity 0.15s ease, filter 0.15s ease;
+}
+
+.nodeLabel {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  fill: #333;
+  text-anchor: middle;
+  pointer-events: none;
+  user-select: none;
+}
+
+.nodeSublabel {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 9px;
+  font-weight: 400;
+  fill: #666;
+  text-anchor: middle;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* TOOLTIP                                                         */
+/* ═══════════════════════════════════════════════════════════════ */
+
+.tooltip {
+  position: absolute;
+  background: #222;
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  white-space: nowrap;
+  transform: translate(-50%, -100%);
+  margin-top: -8px;
+}
+
+.tooltipVisible {
+  opacity: 1;
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* LEGEND                                                          */
+/* ═══════════════════════════════════════════════════════════════ */
+
+.legend {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 1rem;
+  max-width: 100%;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 11px;
+  color: #666;
+}
+
+.legendDot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
