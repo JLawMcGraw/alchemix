@@ -683,6 +683,8 @@ Think about what ingredients ALREADY CONTAIN before adding more:
 RULE: Before recommending ANY sweetener, ask yourself: "Is this drink already sweet from another ingredient?"
 
 ## CRITICAL RULES - FOLLOW THESE EXACTLY
+- **PRIORITIZE SEMANTIC SEARCH RESULTS** - The recipes in "SEMANTIC SEARCH RESULTS" below are the BEST matches for this query. Start there!
+- **ACKNOWLEDGE EXTERNAL SUGGESTIONS** - If you suggest a recipe NOT in the user's collection (from your training data), say something like: "I don't see this in your saved recipes, but based on what you have, you could make a classic [name]..." or "Here's one outside your collection that might inspire you..."
 - **DEFAULT to their collection** - Start with their saved recipes, but freely go beyond when they want to explore
 - **USE THEIR INVENTORY** - When crafting new recipes, only use ingredients they actually have in stock
 - **MATCH INGREDIENTS EXACTLY** - If user asks for "lemon", ONLY recommend recipes with lemon (NOT lime or other citrus)
@@ -715,7 +717,12 @@ User: "I have store-bought eggnog, what can I make?"
   // BLOCK 2: DYNAMIC CONTENT (UNCACHED) - Favorites + MemMachine Context + Instructions
   // This block changes frequently (favorites change, semantic search results vary by query)
   // Favorites moved here to protect cache stability of the large static block
-  const dynamicContent = `${favoriteEntries ? `\n## USER'S FAVORITES:\n${favoriteEntries}\n` : ''}
+  // Build "already recommended" exclusion list for the AI
+  const alreadyRecommendedList = alreadyRecommended.size > 0
+    ? `\n## DO NOT SUGGEST THESE AGAIN (already recommended in this conversation):\n${Array.from(alreadyRecommended).map(r => `- ${r}`).join('\n')}\n`
+    : '';
+
+  const dynamicContent = `${favoriteEntries ? `\n## USER'S FAVORITES:\n${favoriteEntries}\n` : ''}${alreadyRecommendedList}
 ${memoryContext}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

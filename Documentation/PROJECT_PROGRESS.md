@@ -6,13 +6,53 @@ Last updated: 2025-12-05
 
 ## Current Status
 
-**Version**: v1.28.0 (Unit Tests & Data Import)
-**Phase**: Beta Launch Ready - Comprehensive test coverage added
+**Version**: v1.29.0 (AI Bartender MemMachine v2 Fix)
+**Phase**: Beta Launch Ready - AI Bartender fully functional with semantic search
 **Blockers**: None
 
 ---
 
-## Recent Session (2025-12-05): Unit Tests & Phase 3 Data Import
+## Recent Session (2025-12-05): AI Bartender MemMachine v2 Integration Fix
+
+### Summary
+Fixed critical bug in AI Bartender where MemMachine v2 API responses were not being parsed correctly, resulting in 0 semantic search results. Also added duplicate recommendation prevention and training data acknowledgment rules.
+
+### Work Completed
+
+#### 1. MemMachine v2 API Response Parsing Fix
+- **Root Cause**: v2 API returns nested structure (`episodic_memory.long_term_memory.episodes`) but code expected flat array
+- **Updated Types** (`api/src/types/memmachine.ts`):
+  - Added `LongTermMemory`, `ShortTermMemory`, `EpisodicMemoryContainer` interfaces
+  - Updated `SearchResultResponse` to use nested structure
+  - Increased `DEFAULT_SEARCH_LIMIT` from 10 to 20
+  - Increased `MAX_PROMPT_RECIPES` from 10 to 20
+- **Fixed Parsing** (`api/src/services/MemoryService.ts`):
+  - Updated `validateAndNormalizeResponse()` to extract episodes from nested `long_term_memory` and `short_term_memory`
+
+#### 2. Duplicate Recommendation Prevention
+- Added `alreadyRecommendedList` variable in `messages.ts` to track previously recommended recipes
+- Integrated into `dynamicContent` template to pass exclusion list to AI prompt
+- AI now receives "DO NOT SUGGEST THESE AGAIN" section with list of already-recommended recipes
+
+#### 3. Training Data Acknowledgment Rule
+- Added prompt rule: "ACKNOWLEDGE EXTERNAL SUGGESTIONS - If you suggest a recipe NOT in the user's collection, acknowledge it"
+- Added "PRIORITIZE SEMANTIC SEARCH RESULTS" rule to emphasize using MemMachine results first
+
+### Files Changed
+- `api/src/types/memmachine.ts` - New v2 interfaces and updated constants
+- `api/src/services/MemoryService.ts` - Fixed response parsing for nested structure
+- `api/src/routes/messages.ts` - Added duplicate prevention and prompt rules
+
+### Testing
+- Verified MemMachine now returns 20 episodic results (previously 0)
+- TypeScript compilation passes with no errors
+
+### Next Priority
+- Test AI Bartender with multiple conversation turns to verify no repeated recommendations
+
+---
+
+## Session (2025-12-05): Unit Tests & Phase 3 Data Import
 
 ### Summary
 Completed Phase 3 Data Import feature and created comprehensive unit tests for all new features including Account/Settings pages (Phase 2/3 backend routes), Modal component, and Recipe Molecule Visualization package. Total of ~180 new tests added across 4 test files.

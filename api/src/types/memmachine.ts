@@ -181,6 +181,40 @@ export interface SemanticMemory {
 }
 
 /**
+ * Long-term Memory Container
+ *
+ * Contains episodes stored in long-term memory
+ */
+export interface LongTermMemory {
+  /** Array of episodic episodes */
+  episodes: EpisodicEpisode[];
+}
+
+/**
+ * Short-term Memory Container
+ *
+ * Contains recent episodes and summaries
+ */
+export interface ShortTermMemory {
+  /** Recent episodes */
+  episodes: EpisodicEpisode[];
+  /** AI-generated summaries of conversations */
+  episode_summary?: string[];
+}
+
+/**
+ * Episodic Memory Container (v2 nested structure)
+ *
+ * v2 API returns episodic memory split into long-term and short-term
+ */
+export interface EpisodicMemoryContainer {
+  /** Long-term stored episodes (recipes, facts) */
+  long_term_memory: LongTermMemory;
+  /** Short-term recent episodes */
+  short_term_memory: ShortTermMemory;
+}
+
+/**
  * Search Result Response
  *
  * Response from POST /api/v2/memories/search
@@ -190,8 +224,8 @@ export interface SearchResultResponse {
   status: number;
   /** Search results content */
   content: {
-    /** Episodic memory results */
-    episodic_memory: EpisodicEpisode[];
+    /** Episodic memory results (nested structure with long_term/short_term) */
+    episodic_memory: EpisodicMemoryContainer;
     /** Semantic memory results (formerly profile_memory) */
     semantic_memory: SemanticMemory[];
   };
@@ -273,10 +307,10 @@ export const MEMMACHINE_CONSTANTS = {
   CHAT_PROJECT_SUFFIX: 'chat',
 
   /** Default search limit */
-  DEFAULT_SEARCH_LIMIT: 10,
+  DEFAULT_SEARCH_LIMIT: 20,
 
   /** Maximum recipes to include in AI prompt */
-  MAX_PROMPT_RECIPES: 10,
+  MAX_PROMPT_RECIPES: 20,
 } as const;
 
 /**

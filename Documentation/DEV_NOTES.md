@@ -4,6 +4,49 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-12-05 - MemMachine v2 API Response Structure
+
+### The Gotcha
+MemMachine v2 API returns a **nested structure** for episodic memory, not a flat array. This caused the AI Bartender to receive 0 results despite data existing.
+
+### v1 vs v2 Response Structure
+```typescript
+// v1 (old - what code expected):
+{
+  content: {
+    episodic_memory: Episode[],  // Flat array
+    profile_memory: ProfileEntry[]
+  }
+}
+
+// v2 (current - actual API response):
+{
+  content: {
+    episodic_memory: {
+      long_term_memory: { episodes: Episode[] },
+      short_term_memory: { episodes: Episode[], episode_summary?: string[] }
+    },
+    semantic_memory: SemanticEntry[]  // Renamed from profile_memory
+  }
+}
+```
+
+### Correct Parsing
+```typescript
+// Extract from nested structure:
+const longTerm = response.content.episodic_memory.long_term_memory?.episodes || [];
+const shortTerm = response.content.episodic_memory.short_term_memory?.episodes || [];
+const allEpisodes = [...longTerm, ...shortTerm];
+```
+
+### Key Changes in v2
+- `UUID` → `uid` for episode identifiers
+- `profile_memory` → `semantic_memory`
+- Header-based sessions → Body-based `org_id`/`project_id`
+- Nested episodic memory structure (long_term + short_term)
+
+---
+
 ## 2025-12-05 - Ingredient Classifier First-Match Priority
 
 ### The Pattern

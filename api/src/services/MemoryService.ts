@@ -190,10 +190,26 @@ export class MemoryService {
 
     const { episodic_memory, semantic_memory } = response.content;
 
-    // v2 API returns flat arrays, not nested
-    const validatedEpisodic: EpisodicEpisode[] = Array.isArray(episodic_memory)
-      ? episodic_memory.filter((ep) => ep && typeof ep === 'object' && ep.content)
-      : [];
+    // v2 API returns nested structure: episodic_memory.long_term_memory.episodes
+    // Extract episodes from long-term memory (recipes, stored facts)
+    let validatedEpisodic: EpisodicEpisode[] = [];
+    
+    if (episodic_memory && typeof episodic_memory === 'object') {
+      // Extract from long_term_memory
+      if (episodic_memory.long_term_memory?.episodes && Array.isArray(episodic_memory.long_term_memory.episodes)) {
+        validatedEpisodic = episodic_memory.long_term_memory.episodes.filter(
+          (ep) => ep && typeof ep === 'object' && ep.content
+        );
+      }
+      
+      // Also include short_term_memory episodes if present
+      if (episodic_memory.short_term_memory?.episodes && Array.isArray(episodic_memory.short_term_memory.episodes)) {
+        const shortTermEpisodes = episodic_memory.short_term_memory.episodes.filter(
+          (ep) => ep && typeof ep === 'object' && ep.content
+        );
+        validatedEpisodic = [...validatedEpisodic, ...shortTermEpisodes];
+      }
+    }
 
     const validatedSemantic: SemanticMemory[] = Array.isArray(semantic_memory) ? semantic_memory : [];
 
