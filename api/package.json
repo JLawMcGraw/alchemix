@@ -44,7 +44,7 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.11",
-    "winston": "^3.18.3"
+    "winston": "^3.19.0"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
