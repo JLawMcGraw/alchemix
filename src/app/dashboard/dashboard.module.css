@@ -30,16 +30,17 @@
 }
 
 .greeting {
-  font-family: var(--font-display);
-  font-size: var(--text-2xl);
+  font-family: var(--font-sans);
+  font-size: 1.5rem;
   font-weight: 600;
+  letter-spacing: -0.02em;
   color: var(--color-text-body);
   margin: 0 0 var(--space-1) 0;
 }
 
 .stats {
-  font-family: var(--font-body);
-  font-size: var(--text-base);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
   color: var(--color-text-muted);
   margin: 0;
   max-width: 600px;
@@ -47,7 +48,7 @@
 }
 
 .stats strong {
-  color: var(--color-semantic-info);
+  color: var(--color-primary);
   font-weight: 600;
 }
 
@@ -63,7 +64,7 @@
 }
 
 .primaryAction {
-  font-size: var(--text-base);
+  font-size: 0.9375rem;
   width: auto; /* Allow button to size itself */
   flex-grow: 0; /* Don't force it to grow */
 }
@@ -90,9 +91,9 @@
 }
 
 .overviewCard:hover {
-  border-color: var(--color-secondary);
+  border-color: var(--color-border-emphasis);
   transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-hover);
 }
 
 /* Special styling for the AI Notebook Card */
@@ -102,8 +103,8 @@
 }
 
 .insightText {
-  font-family: var(--font-body);
-  font-size: var(--text-base);
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
   color: var(--color-text-body);
   line-height: 1.7;
   text-align: center;
@@ -125,9 +126,10 @@
 }
 
 .cardTitle {
-  font-family: var(--font-display);
-  font-size: var(--text-lg);
+  font-family: var(--font-sans);
+  font-size: 1rem;
   font-weight: 600;
+  letter-spacing: -0.01em;
   color: var(--color-text-body);
   margin: 0;
   display: flex;
@@ -138,8 +140,8 @@
   background: none;
   border: none;
   color: var(--color-primary);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
   font-weight: 500;
   cursor: pointer;
   transition: color var(--transition-fast);
@@ -155,7 +157,8 @@
 
 .emptyState {
   color: var(--color-text-muted);
-  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
   font-style: italic;
   text-align: center;
   padding: var(--space-3) 0;
@@ -193,7 +196,7 @@
 .categoryItem:hover,
 .masteryItem:hover,
 .collectionItem:hover {
-  background-color: rgba(61, 214, 193, 0.05);
+  background-color: var(--selected-bg);
 }
 .bottleItem:first-child,
 .recipeItem:first-child,
@@ -219,30 +222,30 @@
 .favoriteName,
 .categoryLabel,
 .collectionName {
-  font-family: var(--font-body);
-  font-size: var(--text-base);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
   font-weight: 500;
   color: var(--color-text-body);
 }
 
 .bottleType,
 .recipeIngredients {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
   color: var(--color-text-muted);
 }
 
 .collectionCount {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
   font-weight: 500;
   color: var(--color-text-muted);
   white-space: nowrap;
 }
 
 .categoryCount {
-  font-family: var(--font-body);
-  font-size: var(--text-lg);
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--color-primary);
   background-color: var(--color-ui-bg-base);
@@ -277,8 +280,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-family: var(--font-body);
-  font-size: var(--text-base);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
   font-weight: 500;
   color: var(--color-text-body);
 }
@@ -291,8 +294,8 @@
 }
 
 .masteryCount {
-  font-family: var(--font-body);
-  font-size: var(--text-lg);
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--color-text-body);
   background-color: var(--color-ui-bg-base);

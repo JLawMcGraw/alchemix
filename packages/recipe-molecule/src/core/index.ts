@@ -34,3 +34,9 @@ export {
   getDoubleBondLines,
   shortenBondToEdge,
 } from './bonds';
+
+// Formula
+export {
+  generateFormula,
+  generateCompactFormula,
+} from './formula';

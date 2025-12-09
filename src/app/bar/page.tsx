@@ -1,16 +1,18 @@
 'use client';
 
-import React, { useEffect, useState, Suspense } from 'react';
+import React, { useEffect, useState, Suspense, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { Button, useToast } from '@/components/ui';
 import { Card } from '@/components/ui/Card';
-import { Wine, Upload, Plus, Martini, X, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { Wine, Upload, Plus, Martini, X, ChevronLeft, ChevronRight, Trash2, Grid3X3, List, FlaskConical } from 'lucide-react';
 import { CSVUploadModal, AddBottleModal, ItemDetailModal } from '@/components/modals';
+import { PeriodicTable } from '@/components/PeriodicTable';
 import { inventoryApi } from '@/lib/api';
 import type { InventoryCategory, InventoryItem, InventoryItemInput } from '@/types';
 import { categorizeSpirit, matchesSpiritCategory, SpiritCategory } from '@/lib/spirits';
+import { type PeriodicElement, countInventoryForElement } from '@/lib/periodicTable';
 import styles from './bar.module.css';
 
 type CategoryTab = {
@@ -42,6 +44,11 @@ function BarPageContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const [spiritTypeFilter, setSpiritTypeFilter] = useState<SpiritCategory | null>(null);
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
+
+  // View mode: 'periodic' (periodic table) or 'list' (traditional list)
+  const [viewMode, setViewMode] = useState<'periodic' | 'list'>('periodic');
+  // Selected element from periodic table for filtering
+  const [selectedElement, setSelectedElement] = useState<PeriodicElement | null>(null);
 
   // Selection state for bulk operations
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -84,19 +91,56 @@ function BarPageContent() {
     }
   }, [isAuthenticated, isValidating, currentPage, activeCategory]);
 
-  if (isValidating || !isAuthenticated) {
-    return null;
-  }
-
-  // Ensure inventoryItems is always an array
+  // Ensure inventoryItems is always an array - must be before useMemo hooks
   const itemsArray = Array.isArray(inventoryItems) ? inventoryItems : [];
 
-  // Apply client-side spirit type filter only (category filtering is server-side)
-  let filteredItems = itemsArray;
-  if (spiritTypeFilter) {
-    filteredItems = filteredItems.filter(item =>
-      matchesSpiritCategory(item.type, spiritTypeFilter)
-    );
+  // Apply client-side filters (category filtering is server-side)
+  // useMemo must be called before any conditional returns
+  const filteredItems = useMemo(() => {
+    let items = itemsArray;
+
+    // Filter by spirit type if set
+    if (spiritTypeFilter) {
+      items = items.filter(item =>
+        matchesSpiritCategory(item.type, spiritTypeFilter)
+      );
+    }
+
+    // Filter by selected periodic element
+    if (selectedElement) {
+      items = items.filter(item => {
+        const count = countInventoryForElement(selectedElement, [{ name: item.name, type: item.type }]);
+        return count > 0;
+      });
+    }
+
+    return items;
+  }, [itemsArray, spiritTypeFilter, selectedElement]);
+
+  // Inventory items formatted for periodic table
+  const periodicTableItems = useMemo(() =>
+    itemsArray.map(item => ({ name: item.name, type: item.type })),
+    [itemsArray]
+  );
+
+  // Handler for element click
+  const handleElementClick = (element: PeriodicElement) => {
+    if (selectedElement?.symbol === element.symbol) {
+      // Clicking same element clears selection
+      setSelectedElement(null);
+    } else {
+      setSelectedElement(element);
+    }
+  };
+
+  // Clear element selection
+  const handleClearElement = () => {
+    setSelectedElement(null);
+  };
+
+  // Early return after all hooks have been called
+  if (isValidating || !isAuthenticated) {
+    return null;
   }
 
   // Get category count from fetched counts
@@ -205,44 +249,68 @@ function BarPageContent() {
         <div className={styles.header}>
           <div>
             <h1 className={styles.title}>
-              <Wine size={32} style={{ marginRight: '12px', verticalAlign: 'middle' }} />
+              <FlaskConical size={28} className={styles.titleIcon} />
               My Bar
             </h1>
             <div className={styles.subtitleContainer}>
               <p className={styles.subtitle}>
                 {filteredItems.length} {filteredItems.length === 1 ? 'item' : 'items'}
-                {spiritTypeFilter
+                {selectedElement
+                  ? ` in ${selectedElement.name}`
+                  : spiritTypeFilter
                   ? ` - ${spiritTypeFilter}`
                   : activeCategory !== 'all' && ` in ${CATEGORIES.find(c => c.id === activeCategory)?.label}`
                 }
               </p>
-              {spiritTypeFilter && (
+              {(spiritTypeFilter || selectedElement) && (
                 <button
                   className={styles.clearFilterBtn}
-                  onClick={() => setSpiritTypeFilter(null)}
+                  onClick={() => {
+                    setSpiritTypeFilter(null);
+                    setSelectedElement(null);
+                  }}
                   title="Clear filter"
                 >
-                  <X size={16} />
-                  Clear Filter
+                  <X size={14} />
+                  Clear
                 </button>
               )}
             </div>
           </div>
           <div className={styles.actions}>
+            {/* View Toggle */}
+            <div className={styles.viewToggle}>
+              <button
+                type="button"
+                className={`${styles.viewToggleBtn} ${viewMode === 'periodic' ? styles.viewToggleActive : ''}`}
+                onClick={() => setViewMode('periodic')}
+                title="Periodic Table View"
+              >
+                <Grid3X3 size={16} />
+              </button>
+              <button
+                type="button"
+                className={`${styles.viewToggleBtn} ${viewMode === 'list' ? styles.viewToggleActive : ''}`}
+                onClick={() => setViewMode('list')}
+                title="List View"
+              >
+                <List size={16} />
+              </button>
+            </div>
+
             {selectedIds.size > 0 && (
               <>
                 <Button
-                  variant="outline"
+                  variant="danger"
                   size="md"
                   onClick={handleBulkDelete}
                   disabled={isDeleting}
-                  className={styles.deleteButton}
                 >
-                  <Trash2 size={18} />
-                  Delete Selected ({selectedIds.size})
+                  <Trash2 size={16} />
+                  Delete ({selectedIds.size})
                 </Button>
                 <Button
-                  variant="text"
+                  variant="ghost"
                   size="sm"
                   onClick={() => setSelectedIds(new Set())}
                 >
@@ -253,17 +321,97 @@ function BarPageContent() {
             {selectedIds.size === 0 && (
               <>
                 <Button variant="outline" size="md" onClick={() => setCsvModalOpen(true)}>
-                  <Upload size={18} />
-                  Import CSV
+                  <Upload size={16} />
+                  Import
                 </Button>
                 <Button variant="primary" size="md" onClick={() => setAddModalOpen(true)}>
-                  <Plus size={18} />
+                  <Plus size={16} />
                   Add Item
                 </Button>
               </>
             )}
           </div>
         </div>
+
+        {/* Periodic Table View */}
+        {viewMode === 'periodic' && (
+          <PeriodicTable
+            inventoryItems={periodicTableItems}
+            selectedElement={selectedElement}
+            onElementClick={handleElementClick}
+            onClearSelection={handleClearElement}
+            showLegend={true}
+            compact={false}
+          />
+        )}
+
+        {/* List View - Category Tabs */}
+        {viewMode === 'list' && (
+          <>
+            <div className={styles.tabs}>
+              {CATEGORIES.map((category) => {
+                const count = getCategoryCount(category.id);
+                return (
+                  <button
+                    key={category.id}
+                    className={`${styles.tab} ${activeCategory === category.id ? styles.tabActive : ''}`}
+                    onClick={() => {
+                      setActiveCategory(category.id);
+                      setCurrentPage(1);
+                      setSpiritTypeFilter(null);
+                      setSelectedElement(null);
+                    }}
+                  >
+                    {category.label}
+                    <span className={styles.tabCount}>{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Spirit Distribution - Show on "All" tab and when filtering spirits */}
+            {(activeCategory === 'all' || activeCategory === 'spirit') && itemsArray.length > 0 && (() => {
+              const spiritItems = itemsArray.filter(item => item.category === 'spirit');
+              if (spiritItems.length === 0) return null;
+
+              const spiritCounts = spiritItems.reduce((acc, item) => {
+                const category = categorizeSpirit(item.type);
+                acc[category] = (acc[category] || 0) + 1;
+                return acc;
+              }, {} as Record<SpiritCategory, number>);
+
+              const sortedSpirits = Object.entries(spiritCounts)
+                .sort(([, a], [, b]) => b - a)
+                .slice(0, 6);
+
+              const handleSpiritClick = (spiritType: string) => {
+                setActiveCategory('spirit');
+                setSpiritTypeFilter(spiritType as SpiritCategory);
+              };
+
+              return (
+                <Card padding="md" className={styles.spiritDistribution}>
+                  <h3 className={styles.spiritDistributionTitle}>
+                    <Wine size={16} />
+                    Spirit Distribution
+                  </h3>
+                  <div className={styles.spiritGrid}>
+                    {sortedSpirits.map(([spirit, count]) => (
+                      <button
+                        key={spirit}
+                        className={styles.spiritItem}
+                        onClick={() => handleSpiritClick(spirit)}
+                      >
+                        <span className={styles.spiritName}>{spirit}</span>
+                        <span className={styles.spiritCount}>{count}</span>
+                      </button>
+                    ))}
+                  </div>
+                </Card>
+              );
+            })()}
+          </>
+        )}
 
         {/* Bulk Selection Controls */}
         {filteredItems.length > 0 && (
@@ -275,83 +423,14 @@ function BarPageContent() {
                 onChange={toggleSelectAll}
                 className={styles.checkbox}
               />
-              <span>
+              <span className={styles.selectAllText}>
                 {selectedIds.size === filteredItems.length && filteredItems.length > 0
-                  ? `All ${filteredItems.length} items selected`
+                  ? `All ${filteredItems.length} selected`
                   : 'Select all'}
               </span>
             </label>
           </div>
         )}
-
-        {/* Category Tabs */}
-        <div className={styles.tabs}>
-          {CATEGORIES.map((category) => {
-            const count = getCategoryCount(category.id);
-            return (
-              <button
-                key={category.id}
-                className={`${styles.tab} ${activeCategory === category.id ? styles.tabActive : ''}`}
-                onClick={() => {
-                  setActiveCategory(category.id);
-                  setCurrentPage(1); // Reset to page 1 when changing category
-                  setSpiritTypeFilter(null); // Clear spirit filter when changing tabs
-                }}
-              >
-                {category.label}
-                <span className={styles.tabCount}>{count}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Spirit Distribution - Show on "All" tab and when filtering spirits */}
-        {(activeCategory === 'all' || activeCategory === 'spirit') && itemsArray.length > 0 && (() => {
-          // Get spirit items only
-          const spiritItems = itemsArray.filter(item => item.category === 'spirit');
-
-          if (spiritItems.length === 0) return null;
-
-          // Base spirit categories for fuzzy matching
-          // Count by categorized spirit type
-          const spiritCounts = spiritItems.reduce((acc, item) => {
-            const category = categorizeSpirit(item.type);
-            acc[category] = (acc[category] || 0) + 1;
-            return acc;
-          }, {} as Record<SpiritCategory, number>);
-
-          // Sort by count descending
-          const sortedSpirits = Object.entries(spiritCounts)
-            .sort(([, a], [, b]) => b - a)
-            .slice(0, 6); // Top 6 spirit categories
-
-          // Handler to filter by spirit type
-          const handleSpiritClick = (spiritType: string) => {
-            setActiveCategory('spirit'); // Switch to Spirits tab
-            setSpiritTypeFilter(spiritType as SpiritCategory); // Set the spirit type filter
-          };
-
-          return (
-            <Card padding="md" className={styles.spiritDistribution}>
-              <h3 className={styles.spiritDistributionTitle}>
-                <Wine size={18} style={{ marginRight: '8px' }} />
-                Spirit Distribution
-              </h3>
-              <div className={styles.spiritGrid}>
-                {sortedSpirits.map(([spirit, count]) => (
-                  <button
-                    key={spirit}
-                    className={styles.spiritItem}
-                    onClick={() => handleSpiritClick(spirit)}
-                  >
-                    <span className={styles.spiritName}>{spirit}</span>
-                    <span className={styles.spiritCount}>{count}</span>
-                  </button>
-                ))}
-              </div>
-            </Card>
-          );
-        })()}
 
         {/* Items Grid */}
         {filteredItems.length === 0 ? (

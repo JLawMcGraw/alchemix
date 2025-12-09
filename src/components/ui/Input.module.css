@@ -1,4 +1,4 @@
-/* Input Styles */
+/* Input Styles - Molecular Mixology Theme */
 
 .wrapper {
   display: flex;
@@ -11,39 +11,66 @@
 }
 
 .label {
-  font-size: var(--text-sm);
+  font-size: 0.6875rem;
   font-weight: 500;
-  color: var(--color-text-body);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* Input container for prefix support */
+.inputContainer {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Terminal prefix character */
+.inputPrefix {
+  position: absolute;
+  left: 12px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-primary);
+  pointer-events: none;
+  user-select: none;
 }
 
 .input {
   width: 100%;
-  padding: 10px var(--space-2);
-  font-family: var(--font-body);
-  font-size: var(--text-base);
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: 13px;
   color: var(--color-text-body);
   background-color: var(--color-ui-bg-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-input);
   transition: all var(--transition-fast);
 }
 
+/* Input with prefix - add left padding */
+.inputWithPrefix {
+  padding-left: 28px;
+}
+
 .input::placeholder {
-  color: var(--color-text-muted);
+  color: var(--color-text-tertiary);
+  font-style: italic;
 }
 
 .input:hover:not(:disabled) {
-  border-color: var(--color-primary);
+  border-color: var(--color-border-emphasis);
 }
 
 .input:focus {
   outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(61, 214, 193, 0.1);
+  border-color: var(--focus-ring);
+  box-shadow: var(--ring-focus);
 }
 
 .input:disabled {
-  opacity: 0.6;
+  opacity: 0.4;
   cursor: not-allowed;
   background-color: var(--color-ui-bg-base);
 }
@@ -53,19 +80,38 @@
 }
 
 .input.error:focus {
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+  box-shadow: 0 0 0 2px var(--color-ui-bg-base), 0 0 0 4px var(--color-error);
 }
 
 .errorText {
-  font-size: var(--text-sm);
+  font-size: 0.75rem;
   color: var(--color-error);
 }
 
 .helperText {
-  font-size: var(--text-sm);
+  font-size: 0.75rem;
   color: var(--color-text-muted);
 }
 
 .required {
   color: var(--color-error);
+}
+
+/* Textarea variant */
+.textarea {
+  min-height: 100px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+/* Search input variant */
+.searchInput {
+  padding-left: 36px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  color: var(--color-text-muted);
+  pointer-events: none;
 }

@@ -57,7 +57,8 @@
 
 .toastMessage {
   flex: 1;
-  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
   font-weight: 500;
   line-height: 1.4;
 }

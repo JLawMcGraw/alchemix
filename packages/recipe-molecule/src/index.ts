@@ -45,6 +45,10 @@ export {
   getDoubleBondLines,
   shortenBondToEdge,
 } from './core/bonds';
+export {
+  generateFormula,
+  generateCompactFormula,
+} from './core/formula';
 
 // Adapter
 export { transformRecipe, transformRecipes } from './adapter';

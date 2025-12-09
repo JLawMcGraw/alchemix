@@ -846,7 +846,7 @@ function RecipesPageContent() {
                           {(() => {
                             const ingredientsArray = parseIngredients(recipe.ingredients);
                             if (ingredientsArray.length === 0) return 'No ingredients listed';
-                            const displayIngredients = ingredientsArray.slice(0, 3).join(', ');
+                            const displayIngredients = ingredientsArray.slice(0, 3).join(' · ');
                             return ingredientsArray.length > 3 ? `${displayIngredients}...` : displayIngredients;
                           })()}
                         </p>
@@ -1066,7 +1066,7 @@ function RecipesPageContent() {
                     {(() => {
                       const ingredientsArray = parseIngredients(recipe.ingredients);
                       if (ingredientsArray.length === 0) return 'No ingredients listed';
-                      const displayIngredients = ingredientsArray.slice(0, 3).join(', ');
+                      const displayIngredients = ingredientsArray.slice(0, 3).join(' · ');
                       return ingredientsArray.length > 3 ? `${displayIngredients}...` : displayIngredients;
                     })()}
                   </p>

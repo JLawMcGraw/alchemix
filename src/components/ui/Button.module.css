@@ -1,13 +1,16 @@
-/* Button Styles */
+/* Button Styles - Molecular Mixology Theme */
 
 .button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-1);
-  font-family: var(--font-body);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
   font-weight: 500;
-  border-radius: var(--radius);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: var(--radius-button);
   border: 1px solid transparent;
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -16,35 +19,35 @@
 }
 
 .button:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .button:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--ring-focus);
 }
 
 /* Sizes */
 .sm {
-  font-size: var(--text-sm);
   padding: 6px 12px;
-  height: 32px;
+  height: 28px;
 }
 
 .md {
-  font-size: var(--text-base);
-  padding: 10px var(--space-2);
-  height: 40px;
+  padding: 10px 16px;
+  height: 36px;
 }
 
 .lg {
-  font-size: var(--text-lg);
-  padding: 12px var(--space-3);
-  height: 48px;
+  padding: 12px 20px;
+  height: 44px;
+  font-size: 0.75rem;
 }
 
 /* Variants */
+
+/* Primary - Filled ink black */
 .primary {
   background-color: var(--color-primary);
   color: white;
@@ -52,49 +55,48 @@
 }
 
 .primary:hover:not(:disabled) {
-  background-color: #2AC4B0;
-  border-color: #2AC4B0;
-  box-shadow: var(--shadow-md);
+  background-color: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
 }
 
 .primary:active:not(:disabled) {
-  background-color: #24B09E;
+  filter: brightness(0.95);
   transform: translateY(1px);
 }
 
+/* Secondary - Outlined */
+.secondary {
+  background-color: transparent;
+  color: var(--color-text-body);
+  border-color: var(--color-border-default);
+}
+
+.secondary:hover:not(:disabled) {
+  border-color: var(--color-text-body);
+}
+
+.secondary:active:not(:disabled) {
+  background-color: var(--hover-overlay);
+  transform: translateY(1px);
+}
+
+/* Outline - Same as secondary for backwards compat */
 .outline {
   background-color: transparent;
   color: var(--color-text-body);
-  border-color: var(--color-border);
+  border-color: var(--color-border-default);
 }
 
 .outline:hover:not(:disabled) {
-  background-color: rgba(242, 164, 75, 0.08);
-  border-color: var(--color-secondary);
-  color: var(--color-secondary);
+  border-color: var(--color-text-body);
 }
 
 .outline:active:not(:disabled) {
-  background-color: rgba(242, 164, 75, 0.15);
+  background-color: var(--hover-overlay);
   transform: translateY(1px);
 }
 
-.text {
-  background-color: transparent;
-  color: var(--color-primary);
-  border-color: transparent;
-  padding: var(--space-1) var(--space-2);
-}
-
-.text:hover:not(:disabled) {
-  background-color: rgba(242, 164, 75, 0.1);
-  color: var(--color-secondary);
-}
-
-.text:active:not(:disabled) {
-  background-color: rgba(242, 164, 75, 0.2);
-}
-
+/* Ghost - No border */
 .ghost {
   background-color: transparent;
   border-color: transparent;
@@ -102,7 +104,7 @@
 }
 
 .ghost:hover:not(:disabled) {
-  background-color: rgba(0, 0, 0, 0.04);
+  background-color: var(--hover-overlay);
   color: var(--color-text-body);
 }
 
@@ -110,20 +112,36 @@
   background-color: rgba(0, 0, 0, 0.08);
 }
 
+/* Text - Link style (uses accent color) */
+.text {
+  background-color: transparent;
+  color: var(--color-accent);
+  border-color: transparent;
+  padding: var(--space-0) var(--space-1);
+}
+
+.text:hover:not(:disabled) {
+  background-color: var(--hover-overlay);
+}
+
+.text:active:not(:disabled) {
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+/* Danger - Outlined red */
 .danger {
-  background-color: var(--color-danger, #e74c3c);
-  color: white;
-  border-color: var(--color-danger, #e74c3c);
+  background-color: transparent;
+  color: var(--color-error);
+  border-color: var(--color-error);
 }
 
 .danger:hover:not(:disabled) {
-  background-color: #c0392b;
-  border-color: #c0392b;
-  box-shadow: var(--shadow-md);
+  background-color: var(--color-error);
+  color: white;
 }
 
 .danger:active:not(:disabled) {
-  background-color: #a93226;
+  filter: brightness(0.9);
   transform: translateY(1px);
 }
 

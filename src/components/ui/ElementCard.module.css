@@ -1,0 +1,183 @@
+/* Element Card - Periodic Table Style */
+
+.elementCard {
+  position: relative;
+  aspect-ratio: 1;
+  min-width: 72px;
+  max-width: 88px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1);
+  background: var(--color-ui-bg-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-card);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+/* Top accent border for group color */
+.elementCard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--element-color, var(--color-primary));
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+}
+
+/* Hover state */
+.elementCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+  border-color: var(--element-color, var(--color-primary));
+}
+
+/* Active/Selected state */
+.elementCard.active {
+  border-color: var(--element-color, var(--color-primary));
+  box-shadow: 0 0 0 2px var(--element-color, var(--color-primary));
+}
+
+/* Has inventory indicator */
+.elementCard.hasInventory {
+  background: var(--color-ui-bg-surface);
+}
+
+.elementCard.hasInventory::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  background: var(--element-color, var(--color-primary));
+  border-radius: var(--radius-full);
+}
+
+/* Empty state - user has no items */
+.elementCard.empty {
+  opacity: 0.5;
+}
+
+.elementCard.empty:hover {
+  opacity: 0.8;
+}
+
+/* Atomic number */
+.atomicNumber {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  font-weight: 400;
+  color: var(--color-text-muted);
+  line-height: 1;
+}
+
+/* Element symbol */
+.symbol {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.05em;
+  color: var(--color-text-body);
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+/* Element name */
+.name {
+  font-family: var(--font-sans);
+  font-size: 0.5rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  text-align: center;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Inventory count badge */
+.count {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  font-weight: 600;
+  color: white;
+  background: var(--element-color, var(--color-primary));
+  border-radius: var(--radius-full);
+  line-height: 1;
+}
+
+/* Size variants */
+.elementCard.sm {
+  min-width: 56px;
+  max-width: 64px;
+  padding: 2px;
+}
+
+.elementCard.sm .symbol {
+  font-size: 1rem;
+}
+
+.elementCard.sm .name {
+  font-size: 0.4375rem;
+}
+
+.elementCard.sm .atomicNumber {
+  font-size: 0.5rem;
+  top: 4px;
+  left: 4px;
+}
+
+.elementCard.lg {
+  min-width: 88px;
+  max-width: 100px;
+  padding: var(--space-2);
+}
+
+.elementCard.lg .symbol {
+  font-size: 1.75rem;
+}
+
+.elementCard.lg .name {
+  font-size: 0.5625rem;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .elementCard {
+    min-width: 56px;
+    max-width: 72px;
+  }
+
+  .symbol {
+    font-size: 1.25rem;
+  }
+
+  .name {
+    font-size: 0.4375rem;
+  }
+
+  .atomicNumber {
+    font-size: 0.5rem;
+  }
+}

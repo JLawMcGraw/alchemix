@@ -5,8 +5,10 @@
 **Immediately read in order:**
 1. `README.md` - Current status, features, tech stack, quick start
 2. `Documentation/PROJECT_PROGRESS.md` - Active tasks, session history, implementation status
+3. `Documentation/REDESIGN_PLAN.md` - **ACTIVE** Visual redesign phases, progress, next steps
 
 **Read when needed:**
+- `alchemix-design-system.md` - Full "Molecular Mixology" design specification
 - `Documentation/DEV_NOTES.md` - Technical decisions, gotchas, lessons learned
 - `CHANGELOG.md` - Version history and changes
 - `MONOREPO_SETUP.md` - Development workflow details
@@ -20,10 +22,20 @@
 | Field | Value |
 |-------|-------|
 | Version | v1.19.0 |
-| Phase | Production Ready - True AI Memory Deletion |
-| Last Updated | November 27, 2025 |
+| Phase | Visual Redesign - "Molecular Mixology" |
+| Last Updated | December 8, 2025 |
 | Blockers | None |
 | Tests | 318/318 passing |
+| Active Branch | `feature/recipe-molecule` |
+
+### Current Focus: Visual Redesign
+
+The app is undergoing a visual redesign transforming from warm cocktail bar aesthetic to clinical, scientific "Molecular Mixology" interface. See `Documentation/REDESIGN_PLAN.md` for full details.
+
+**Redesign Progress**:
+- Phase 1 (Foundation): **Complete** - Colors, fonts, CSS variables
+- Phase 2 (Typography): **60%** - Font system migrated, utility classes pending
+- Phase 3-10: Pending
 
 ### Tech Stack
 
@@ -121,11 +133,23 @@ docker compose -f docker/docker-compose.yml up --build
 - Never use `--force` or `--amend` without explicit permission
 
 ### Design System (in `src/styles/globals.css`)
-- **Primary**: `#3DD6C1` (teal)
-- **Secondary**: `#F2A74B` (orange)
-- **Background**: `#F8F5EB` (warm beige)
-- **Fonts**: Space Grotesk (headings), Inter (body)
+
+**NEW "Molecular Mixology" Design** (see `alchemix-design-system.md`):
+- **Primary**: `#0D9488` (teal - `--bond-agave`)
+- **Secondary**: `#D97706` (amber - `--bond-grain`)
+- **Background**: `#F8F9FA` (paper white - clinical)
+- **Fonts**: Inter (`--font-sans`), JetBrains Mono (`--font-mono`)
 - **Spacing**: 8px grid system
+
+**Element Group Colors** (ingredient categories):
+- `--bond-agave`: Tequila, Mezcal
+- `--bond-grain`: Whiskey, Bourbon, Rye
+- `--bond-cane`: Rum, Cachaça
+- `--bond-juniper`: Gin
+- `--bond-grape`: Brandy, Cognac
+- `--bond-botanical`: Amaro, Vermouth, Bitters
+- `--bond-acid`: Citrus
+- `--bond-sugar`: Syrups, Liqueurs
 
 ---
 
@@ -163,9 +187,20 @@ NEXT_PUBLIC_API_URL=http://localhost:3000
 ## After Reading This
 
 1. Read `README.md` and `Documentation/PROJECT_PROGRESS.md`
-2. Ask what specific task to work on
-3. Load additional docs based on task (DEV_NOTES.md for gotchas, specific route files for API work)
-4. Wait for task specification before making changes
+2. Read `Documentation/REDESIGN_PLAN.md` for current redesign status
+3. Ask what specific task to work on
+4. Load additional docs based on task:
+   - `alchemix-design-system.md` for design/CSS work
+   - `DEV_NOTES.md` for technical gotchas
+   - Specific route files for API work
+5. Wait for task specification before making changes
+
+### Current Redesign Priority
+
+**Next Tasks** (in order):
+1. Finish Phase 2 - Create typography utility classes, leading zeros formatter
+2. Phase 3 - Update border radius to 2px, flatten shadows
+3. Phase 4 - Restyle buttons/inputs, create StepperInput & TerminalCard
 
 ---
 

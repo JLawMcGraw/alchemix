@@ -400,7 +400,7 @@ export default function DashboardPage() {
                             style={{ cursor: 'pointer' }}
                           >
                             <span className={styles.masteryLabel}>
-                              <span className={styles.masteryIcon} style={{ backgroundColor: 'var(--color-semantic-success)' }}></span>
+                              <span className={styles.masteryIcon} style={{ backgroundColor: 'var(--bond-cane)' }}></span>
                               Craftable Now
                             </span>
                             <span className={styles.masteryCount}>{craftable}</span>
@@ -414,7 +414,7 @@ export default function DashboardPage() {
                             style={{ cursor: 'pointer' }}
                           >
                             <span className={styles.masteryLabel}>
-                              <span className={styles.masteryIcon} style={{ backgroundColor: 'var(--color-semantic-warning)' }}></span>
+                              <span className={styles.masteryIcon} style={{ backgroundColor: 'var(--bond-juniper)' }}></span>
                               Almost There (1 away)
                             </span>
                             <span className={styles.masteryCount}>{almostThere}</span>
@@ -428,7 +428,7 @@ export default function DashboardPage() {
                             style={{ cursor: 'pointer' }}
                           >
                             <span className={styles.masteryLabel}>
-                              <span className={styles.masteryIcon} style={{ backgroundColor: 'var(--color-semantic-info)' }}></span>
+                              <span className={styles.masteryIcon} style={{ backgroundColor: 'var(--bond-grain)' }}></span>
                               Need 2-3 Items
                             </span>
                             <span className={styles.masteryCount}>{needFew}</span>
@@ -442,7 +442,7 @@ export default function DashboardPage() {
                             style={{ cursor: 'pointer' }}
                           >
                             <span className={styles.masteryLabel}>
-                              <span className={styles.masteryIcon} style={{ backgroundColor: 'var(--color-text-muted)' }}></span>
+                              <span className={styles.masteryIcon} style={{ backgroundColor: 'var(--bond-botanical)' }}></span>
                               Major Gaps (4+)
                             </span>
                             <span className={styles.masteryCount}>{majorGaps}</span>

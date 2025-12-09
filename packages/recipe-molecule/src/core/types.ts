@@ -36,17 +36,21 @@ export interface TypeStyle {
   legend: string;
 }
 
+/**
+ * Color palette aligned with AlcheMix design system --bond-* tokens
+ * Using direct hex values for standalone package compatibility
+ */
 export const TYPE_COLORS: Record<IngredientType, TypeStyle> = {
-  spirit:   { fill: '#e8e8e8', legend: 'Spirit' },
-  acid:     { fill: '#fff59d', legend: 'Acid' },
-  sweet:    { fill: '#ffcc80', legend: 'Sweet' },
-  bitter:   { fill: '#ffab91', legend: 'Bitter' },
-  salt:     { fill: '#ef9a9a', legend: 'Salt' },
-  dilution: { fill: '#81d4fa', legend: 'Mixer' },
-  garnish:  { fill: '#a5d6a7', legend: 'Garnish' },
-  dairy:    { fill: '#f3e5f5', legend: 'Dairy' },
-  egg:      { fill: '#fff8e1', legend: 'Egg' },
-  junction: { fill: 'transparent', legend: '' }, // Invisible - not shown in legend
+  spirit:   { fill: '#64748B', legend: 'Spirit' },     // --bond-neutral (slate)
+  acid:     { fill: '#F59E0B', legend: 'Acid' },       // --bond-acid (yellow/amber)
+  sweet:    { fill: '#6366F1', legend: 'Sweet' },      // --bond-sugar (indigo)
+  bitter:   { fill: '#EC4899', legend: 'Bitter' },     // --bond-botanical (pink)
+  salt:     { fill: '#EF4444', legend: 'Salt' },       // Red accent for spice/heat
+  dilution: { fill: '#A1A1AA', legend: 'Mixer' },      // --bond-carbonation (silver)
+  garnish:  { fill: '#10B981', legend: 'Garnish' },    // Emerald green for herbs/garnishes
+  dairy:    { fill: '#F5F5F4', legend: 'Dairy' },      // --bond-dairy (cream)
+  egg:      { fill: '#FDE68A', legend: 'Egg' },        // Warm yellow for egg
+  junction: { fill: 'transparent', legend: '' },       // Invisible - not shown in legend
 };
 
 /**

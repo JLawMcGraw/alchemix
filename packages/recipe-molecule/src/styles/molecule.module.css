@@ -1,8 +1,9 @@
 /**
  * Recipe Molecule Styles
  *
+ * Scientific lab aesthetic with monospace typography
  * Three-layer z-index system:
- *   1. Bottom: Pastel circles (categorization)
+ *   1. Bottom: Color-coded circles (categorization)
  *   2. Middle: Bond lines (structure)
  *   3. Top: Text labels (data)
  */
@@ -25,9 +26,9 @@
 
 .backbone {
   fill: none;
-  stroke: #333;
+  stroke: #27272A;
   stroke-width: 1.5;
-  opacity: 0.25;
+  opacity: 0.2;
 }
 
 /* ═══════════════════════════════════════════════════════════════ */
@@ -35,20 +36,20 @@
 /* ═══════════════════════════════════════════════════════════════ */
 
 .bond {
-  stroke: #333;
-  stroke-width: 2;
+  stroke: #27272A;
+  stroke-width: 1.5;
   fill: none;
 }
 
 .bondDashed {
-  stroke: #333;
-  stroke-width: 2;
+  stroke: #27272A;
+  stroke-width: 1.5;
   stroke-dasharray: 3, 2;
   fill: none;
 }
 
 .bondWedge {
-  fill: #333;
+  fill: #27272A;
   stroke: none;
 }
 
@@ -70,9 +71,10 @@
 }
 
 .nodeLabel {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  font-size: 12px;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px;
   font-weight: 500;
+  letter-spacing: 0.02em;
   text-anchor: middle;
   pointer-events: none;
   user-select: none;
@@ -80,9 +82,11 @@
 }
 
 .spiritLabel {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 7px;
   font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   text-anchor: middle;
   pointer-events: none;
   user-select: none;
@@ -90,13 +94,14 @@
 }
 
 .nodeSublabel {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  font-size: 9px;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 8px;
   font-weight: 500;
+  letter-spacing: 0.02em;
   text-anchor: middle;
   pointer-events: none;
   user-select: none;
-  opacity: 0.8;
+  opacity: 0.7;
 }
 
 /* ═══════════════════════════════════════════════════════════════ */
@@ -105,18 +110,20 @@
 
 .tooltip {
   position: absolute;
-  background: #222;
-  color: #fff;
-  padding: 8px 14px;
-  border-radius: 6px;
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  font-size: 12px;
+  background: #18181B;
+  color: #FAFAFA;
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid #27272A;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px;
   font-weight: 500;
+  letter-spacing: 0.02em;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.15s ease;
   z-index: 100;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   white-space: nowrap;
   transform: translate(-50%, -100%);
   margin-top: -8px;
@@ -127,25 +134,29 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════ */
-/* LEGEND (Academic/Monochrome Style)                              */
+/* LEGEND (Scientific Lab Style)                                   */
 /* ═══════════════════════════════════════════════════════════════ */
 
 .legendContainer {
   text-align: center;
-  margin-top: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #E4E4E7;
 }
 
 .legendTitle {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  font-size: 18px;
-  font-weight: 600;
-  color: #333;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #71717A;
   margin-bottom: 0.5rem;
 }
 
 .legend {
   display: flex;
-  gap: 1.25rem;
+  gap: 1rem;
   flex-wrap: wrap;
   justify-content: center;
   max-width: 100%;
@@ -155,20 +166,22 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  font-size: 11px;
-  color: #333;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 10px;
+  color: #27272A;
 }
 
 .legendAbbr {
   font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .legendEquals {
-  color: #666;
+  color: #A1A1AA;
   margin: 0 2px;
 }
 
 .legendName {
-  color: #666;
+  color: #71717A;
+  letter-spacing: 0.02em;
 }

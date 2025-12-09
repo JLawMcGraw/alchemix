@@ -1,21 +1,23 @@
-/* Modal Styles */
+/* Modal Styles - Molecular Mixology Theme */
 
 .backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: var(--space-3);
+  padding: var(--space-4);
   animation: fadeIn 150ms ease;
 }
 
 .modal {
   background-color: var(--color-ui-bg-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xl);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--color-border-default);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
   max-width: 480px;
   width: 100%;
   max-height: calc(100vh - var(--space-6));
@@ -25,19 +27,23 @@
   animation: slideIn 200ms ease;
 }
 
+/* Header with terminal-style label */
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border-default);
+  background-color: var(--color-ui-bg-base);
 }
 
 .title {
-  font-family: var(--font-display);
-  font-size: var(--text-lg);
-  font-weight: 600;
-  color: var(--color-text-heading);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
   margin: 0;
 }
 
@@ -45,10 +51,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   background: none;
-  border: none;
+  border: 1px solid transparent;
   border-radius: var(--radius);
   color: var(--color-text-muted);
   cursor: pointer;
@@ -56,13 +62,29 @@
 }
 
 .closeButton:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  border-color: var(--color-border-default);
   color: var(--color-text-body);
+}
+
+.closeButton:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
 }
 
 .content {
   padding: var(--space-4);
   overflow-y: auto;
+}
+
+/* Footer for action buttons */
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-top: 1px solid var(--color-border-default);
+  background-color: var(--color-ui-bg-base);
 }
 
 @keyframes fadeIn {

@@ -57,8 +57,8 @@
   padding: 10px 12px;
   text-decoration: none;
   color: var(--color-text-body);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
   font-weight: 500;
   border-radius: var(--radius);
   transition: all var(--transition-fast);
@@ -66,15 +66,15 @@
 }
 
 .navLink:hover {
-  background-color: rgba(242, 164, 75, 0.08);
-  color: var(--color-secondary);
+  background-color: var(--hover-overlay);
+  color: var(--color-text-body);
 }
 
 .navLink.active {
-  background-color: rgba(61, 214, 193, 0.1);
+  background-color: var(--selected-bg);
   color: var(--color-primary);
   font-weight: 600;
-  border-bottom: 2px solid var(--color-secondary);
+  border-bottom: 2px solid var(--color-primary);
 }
 
 .navIcon {
@@ -107,9 +107,9 @@
 }
 
 .hamburgerBtn:hover {
-  border-color: var(--color-secondary);
-  color: var(--color-secondary);
-  background-color: rgba(242, 164, 75, 0.05);
+  border-color: var(--color-border-emphasis);
+  color: var(--color-text-body);
+  background-color: var(--hover-overlay);
 }
 
 /* Dropdown Menu */
@@ -140,13 +140,13 @@
 
 .menuHeader {
   padding: var(--space-3) var(--space-4);
-  background-color: rgba(61, 214, 193, 0.05);
+  background-color: var(--color-ui-bg-base);
 }
 
 .menuEmail {
-  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
   color: var(--color-text-muted);
-  font-family: var(--font-body);
   display: block;
   max-width: 100%;
   overflow: hidden;
@@ -166,8 +166,8 @@
   gap: var(--space-3);
   width: 100%;
   padding: var(--space-3) var(--space-4);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
   font-weight: 500;
   color: var(--color-text-body);
   background-color: transparent;
@@ -179,8 +179,8 @@
 }
 
 .menuItem:hover {
-  background-color: rgba(242, 164, 75, 0.08);
-  color: var(--color-secondary);
+  background-color: var(--hover-overlay);
+  color: var(--color-text-body);
 }
 
 .menuItem:last-child {

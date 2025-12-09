@@ -30,7 +30,8 @@
 }
 
 .message {
-  font-size: var(--text-lg);
+  font-family: var(--font-sans);
+  font-size: 1.125rem;
   font-weight: 600;
   color: var(--color-text-body);
   margin: 0;

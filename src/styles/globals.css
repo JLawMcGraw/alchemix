@@ -1,7 +1,7 @@
-/* AlcheMix Design System */
+/* AlcheMix Design System - Molecular Mixology Theme */
 
-/* Import Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+/* Import Google Fonts - Matches molecular-mixology.html reference */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 /* CSS Reset */
 *,
@@ -14,47 +14,116 @@
 
 /* Design System Variables */
 :root {
-  /* Brand Colors */
-  --color-primary: #3DD6C1;          /* Teal Lab Glow - Main CTA buttons, active states, highlights */
-  --color-secondary: #F2A74B;        /* Amber Reaction - Hovers, accents, secondary highlights */
+  /* =========================
+     BASE THEME - LIGHT MODE (Paper)
+     Clinical off-white, like quality paper stock
+     ========================= */
+  --bg-paper: #F8F9FA;               /* Clinical off-white background */
+  --bg-elevated: #FFFFFF;            /* Pure white for cards/elevated surfaces */
+  --fg-primary: #1E293B;             /* Ink black, high contrast */
+  --fg-secondary: #64748B;           /* Graphite, for secondary text */
+  --fg-tertiary: #94A3B8;            /* Light graphite, for hints/placeholders */
+  --border-hairline: #E2E8F0;        /* Structural lines, like graph paper */
+  --border-emphasis: #CBD5E1;        /* Slightly darker for emphasis */
 
-  /* Background Colors */
-  --color-ui-bg-base: #F8F5EB;       /* Soft Ivory Base - Primary background for app */
-  --color-ui-bg-surface: #FFFFFF;    /* White Surface - Cards, modals, content containers */
+  /* Dark Mode Variables (for future dark theme) */
+  --bg-slate: #0F172A;               /* Deep blue-black, like a lab bench */
+  --bg-elevated-dark: #1E293B;       /* Elevated surfaces in dark mode */
+  --fg-primary-dark: #F1F5F9;        /* Off-white text */
+  --fg-secondary-dark: #94A3B8;      /* Muted text */
+  --border-dark: #334155;            /* Dark mode borders */
 
-  /* Text Colors */
-  --color-text-body: #2D2C28;        /* Graphite Ink - Primary text */
-  --color-text-muted: #7B776D;       /* Soft Slate - Secondary text, labels, metadata */
+  /* =========================
+     BRAND COLORS (Scientifically Neutral)
+     ========================= */
+  --color-primary: #1E293B;          /* Ink Black - Primary actions, neutral */
+  --color-primary-hover: #334155;    /* Slightly lighter for hover */
+  --color-accent: #0D9488;           /* Teal - Accent color, focus states */
 
-  /* Border Colors */
-  --color-border-default: #E2E0DA;   /* Divider Gray - Borders, table lines */
-  --color-border: #E2E0DA;           /* Alias for compatibility */
-  --color-border-light: #EFEDE7;     /* Lighter borders */
+  /* Legacy alias */
+  --color-secondary: #64748B;        /* Slate - Secondary, neutral */
 
-  /* Semantic Colors */
-  --color-semantic-success: #47E48C; /* Match Found - Recipe match % */
-  --color-semantic-warning: #F2D45C; /* Missing Ingredient - Alerts, low stock */
-  --color-semantic-info: #4DA3F7;    /* AI Insight - Info highlights, AI feedback */
-  --color-semantic-error: #ef4444;   /* Error states */
+  /* =========================
+     BACKGROUND COLORS (Aliases)
+     ========================= */
+  --color-ui-bg-base: var(--bg-paper);
+  --color-ui-bg-surface: var(--bg-elevated);
+
+  /* =========================
+     TEXT COLORS (Aliases)
+     ========================= */
+  --color-text-body: var(--fg-primary);
+  --color-text-muted: var(--fg-secondary);
+  --color-text-tertiary: var(--fg-tertiary);
+
+  /* =========================
+     BORDER COLORS (Aliases)
+     ========================= */
+  --color-border-default: var(--border-hairline);
+  --color-border: var(--border-hairline);
+  --color-border-light: #F1F5F9;
+  --color-border-emphasis: var(--border-emphasis);
+
+  /* =========================
+     ELEMENT GROUP COLORS
+     Periodic table / Chemical category coding
+     ========================= */
+  --bond-agave: #0D9488;             /* Teal — Tequila, Mezcal */
+  --bond-grain: #D97706;             /* Amber — Whiskey, Bourbon, Rye */
+  --bond-cane: #65A30D;              /* Leaf Green — Rum, Cachaça */
+  --bond-juniper: #0EA5E9;           /* Sky Blue — Gin */
+  --bond-grape: #7C3AED;             /* Violet — Brandy, Cognac, Pisco */
+  --bond-neutral: #64748B;           /* Slate — Vodka */
+  --bond-botanical: #EC4899;         /* Pink — Amaro, Vermouth, Bitters */
+  --bond-acid: #F59E0B;              /* Yellow — Citrus (Lemon, Lime, Orange) */
+  --bond-sugar: #6366F1;             /* Indigo — Syrups, Liqueurs */
+  --bond-dairy: #E5E5E5;             /* Light Gray — Cream, Eggs (visible) */
+  --bond-carbonation: #A1A1AA;       /* Silver — Soda, Tonic, Sparkling */
+
+  /* =========================
+     STATUS/FUNCTIONAL COLORS
+     ========================= */
+  --status-optimal: #10B981;         /* Emerald — In stock, balanced, success */
+  --status-warning: #F59E0B;         /* Amber — Low stock, attention */
+  --status-critical: #EF4444;        /* Red — Out of stock, error */
+  --status-info: #0EA5E9;            /* Blue — Informational */
 
   /* Semantic Color Aliases (for compatibility) */
-  --color-success: #47E48C;
-  --color-warning: #F2D45C;
-  --color-info: #4DA3F7;
-  --color-error: #ef4444;
+  --color-semantic-success: var(--status-optimal);
+  --color-semantic-warning: var(--status-warning);
+  --color-semantic-info: var(--status-info);
+  --color-semantic-error: var(--status-critical);
+  --color-success: var(--status-optimal);
+  --color-warning: var(--status-warning);
+  --color-info: var(--status-info);
+  --color-error: var(--status-critical);
 
-  /* Gradients */
-  --gradient-primary: linear-gradient(135deg, #3DD6C1 0%, #F2A74B 100%);
+  /* =========================
+     INTERACTION STATES
+     ========================= */
+  --focus-ring: var(--color-accent);
+  --hover-overlay: rgba(0, 0, 0, 0.04);
+  --hover-overlay-dark: rgba(255, 255, 255, 0.06);
+  --selected-bg: rgba(30, 41, 59, 0.08);  /* Slate tint for selected */
+  --selected-border: var(--fg-primary);
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(45, 44, 40, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(45, 44, 40, 0.1), 0 2px 4px -1px rgba(45, 44, 40, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(45, 44, 40, 0.1), 0 4px 6px -2px rgba(45, 44, 40, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(45, 44, 40, 0.1), 0 10px 10px -5px rgba(45, 44, 40, 0.04);
+  /* =========================
+     SHADOWS (Flat design - minimal)
+     ========================= */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.04), 0 2px 4px rgba(0, 0, 0, 0.02);
+  --shadow-xl: 0 8px 16px rgba(0, 0, 0, 0.04), 0 4px 8px rgba(0, 0, 0, 0.02);
+  --shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.06);
+  --ring-focus: 0 0 0 2px var(--color-ui-bg-base), 0 0 0 4px var(--focus-ring);
 
-  /* Typography */
-  --font-display: "Space Grotesk", -apple-system, sans-serif;
-  --font-body: "Inter", -apple-system, sans-serif;
+  /* =========================
+     TYPOGRAPHY
+     ========================= */
+  --font-sans: "Inter", -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", "Consolas", monospace;
+  --font-display: var(--font-sans);  /* Alias for backwards compat */
+  --font-body: var(--font-sans);
 
   /* Font Sizes */
   --text-xs: 0.75rem;     /* 12px */
@@ -66,8 +135,11 @@
   --text-3xl: 1.875rem;   /* 30px */
   --text-4xl: 2.25rem;    /* 36px */
 
-  /* Spacing (8px grid system) */
-  --space-1: 8px;
+  /* =========================
+     SPACING (8px grid)
+     ========================= */
+  --space-0: 4px;         /* Half unit */
+  --space-1: 8px;         /* Base unit */
   --space-2: 16px;
   --space-3: 24px;
   --space-4: 32px;
@@ -77,48 +149,66 @@
   --space-10: 80px;
   --space-12: 96px;
 
-  /* Border Radius */
-  --radius: 8px;
-  --radius-sm: 4px;
-  --radius-lg: 12px;
-  --radius-full: 9999px;
+  /* =========================
+     BORDER RADIUS
+     Sharp corners for scientific aesthetic
+     ========================= */
+  --radius-none: 0px;           /* Sharp corners */
+  --radius: 2px;                /* Default - almost sharp */
+  --radius-sm: 2px;             /* Small - matches default */
+  --radius-lg: 4px;             /* Large - still minimal */
+  --radius-card: 2px;           /* Cards */
+  --radius-button: 2px;         /* Buttons */
+  --radius-input: 2px;          /* Inputs */
+  --radius-atom: 9999px;        /* Perfect circles for atoms/nodes */
+  --radius-full: 9999px;        /* Pills, badges */
 
   /* Icons */
   --icon-stroke: 1.5px;
 
-  /* Transitions */
+  /* =========================
+     TRANSITIONS
+     ========================= */
   --transition-fast: 150ms ease;
   --transition-base: 250ms ease;
   --transition-slow: 350ms ease;
 
-  /* UI Background alias */
+  /* Legacy aliases for compatibility */
   --color-ui-bg: var(--color-ui-bg-base);
   --color-text-heading: var(--color-text-body);
-  --color-danger: #e74c3c;
+  --color-danger: #EF4444;
 }
 
-/* Dark Theme */
+/* Dark Theme - Slate Lab Countertop */
 [data-theme="dark"] {
   /* Background Colors */
-  --color-ui-bg-base: #1a1a1a;
-  --color-ui-bg-surface: #2a2a2a;
-  --color-ui-bg: #1a1a1a;
+  --color-ui-bg-base: #0F172A;       /* Deep blue-black slate */
+  --color-ui-bg-surface: #1E293B;    /* Elevated surfaces */
+  --color-ui-bg: #0F172A;
 
   /* Text Colors */
-  --color-text-body: #e5e5e5;
-  --color-text-heading: #ffffff;
-  --color-text-muted: #9ca3af;
+  --color-text-body: #F1F5F9;        /* Off-white text */
+  --color-text-heading: #FFFFFF;
+  --color-text-muted: #94A3B8;       /* Muted slate */
+  --color-text-tertiary: #64748B;    /* Tertiary text */
 
   /* Border Colors */
-  --color-border-default: #3a3a3a;
-  --color-border: #3a3a3a;
-  --color-border-light: #444444;
+  --color-border-default: #334155;   /* Dark slate border */
+  --color-border: #334155;
+  --color-border-light: #475569;
+  --color-border-emphasis: #475569;
+
+  /* Interaction Colors */
+  --hover-overlay: rgba(255, 255, 255, 0.06);
+  --selected-bg: rgba(13, 148, 136, 0.15);
+  --ring-focus: 0 0 0 2px var(--color-ui-bg-base), 0 0 0 4px var(--focus-ring);
 
   /* Shadows (darker for dark mode) */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.25), 0 2px 4px rgba(0, 0, 0, 0.15);
+  --shadow-xl: 0 8px 16px rgba(0, 0, 0, 0.3), 0 4px 8px rgba(0, 0, 0, 0.2);
+  --shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 /* Base Styles */
@@ -136,7 +226,7 @@ body {
   background-color: var(--color-ui-bg-base);
 }
 
-/* Headings */
+/* Headings - Tighter letter-spacing for scientific precision */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
   font-weight: 600;
@@ -144,10 +234,22 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--color-text-body);
 }
 
-h1 { font-size: var(--text-4xl); }
-h2 { font-size: var(--text-3xl); }
-h3 { font-size: var(--text-2xl); }
-h4 { font-size: var(--text-xl); }
+h1 {
+  font-size: var(--text-4xl);
+  letter-spacing: -0.025em;
+}
+h2 {
+  font-size: var(--text-3xl);
+  letter-spacing: -0.02em;
+}
+h3 {
+  font-size: var(--text-2xl);
+  letter-spacing: -0.015em;
+}
+h4 {
+  font-size: var(--text-xl);
+  letter-spacing: -0.01em;
+}
 h5 { font-size: var(--text-lg); }
 h6 { font-size: var(--text-base); }
 
@@ -228,12 +330,288 @@ a:hover {
 .gap-3 { gap: var(--space-3); }
 .gap-4 { gap: var(--space-4); }
 
-/* Card Component */
+/* =========================
+   TYPOGRAPHY CLASSES
+   Scientific/Laboratory Style
+   ========================= */
+
+/* Display Headings - Large titles with tight tracking */
+.h1-display {
+  font-family: var(--font-sans);
+  font-size: 2.25rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+  color: var(--color-text-body);
+}
+
+.h2-section {
+  font-family: var(--font-sans);
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  color: var(--color-text-body);
+}
+
+.h3-card {
+  font-family: var(--font-sans);
+  font-size: 1.125rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.4;
+  color: var(--color-text-body);
+}
+
+/* Section Labels - Scientific category headers */
+.label-section {
+  font-family: var(--font-sans);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.label-uppercase {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* Element Labels - Periodic table style */
+.label-element-number {
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  color: var(--color-text-muted);
+}
+
+.label-element-name {
+  font-family: var(--font-sans);
+  font-size: 0.5rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* Data/Measurements - Monospace for alignment */
+.data-symbol {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.05em;
+}
+
+.data-symbol-sm {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.data-measurement {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.data-value {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Formula Notation - Chemical style */
+.data-formula {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+}
+
+.data-formula sub {
+  font-size: 0.625rem;
+  vertical-align: baseline;
+  position: relative;
+  top: 0.2em;
+}
+
+/* Monospace utility */
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Body text variants */
+.body-default {
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--color-text-muted);
+}
+
+.body-sm {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+/* =========================
+   STRUCTURAL UTILITIES
+   Hairline borders & flat design
+   ========================= */
+
+/* Hairline Borders */
+.border-hairline {
+  border: 1px solid var(--color-border-default);
+}
+
+.border-hairline-top {
+  border-top: 1px solid var(--color-border-default);
+}
+
+.border-hairline-bottom {
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.border-hairline-left {
+  border-left: 1px solid var(--color-border-default);
+}
+
+.border-hairline-right {
+  border-right: 1px solid var(--color-border-default);
+}
+
+/* Colored Top Border (for element cards) */
+.border-top-accent {
+  border-top: 3px solid var(--accent-color, var(--color-primary));
+}
+
+/* Dividers */
+.divider {
+  height: 1px;
+  background: var(--color-border-default);
+  width: 100%;
+}
+
+.divider-vertical {
+  width: 1px;
+  background: var(--color-border-default);
+  height: 100%;
+}
+
+/* =========================
+   CARD COMPONENTS
+   Flat design with hairline borders
+   ========================= */
+
+/* Base Card - Flat with hairline border */
 .card {
   background: var(--color-ui-bg-surface);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-card);
   padding: var(--space-3);
+}
+
+/* Interactive Card - Subtle hover effects */
+.card-interactive {
+  background: var(--color-ui-bg-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-card);
+  padding: var(--space-3);
+  transition: transform var(--transition-fast),
+              box-shadow var(--transition-fast),
+              border-color var(--transition-fast);
+  cursor: pointer;
+}
+
+.card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+  border-color: var(--color-border-emphasis);
+}
+
+/* Panel - Larger content areas */
+.panel {
+  background: var(--color-ui-bg-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-card);
+  padding: var(--space-4);
+}
+
+/* Terminal Card - For formulas/code display */
+.card-terminal {
+  background: var(--color-ui-bg-base);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.card-terminal-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--color-border-default);
+  background: var(--color-ui-bg-surface);
+}
+
+.card-terminal-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+}
+
+.card-terminal-dot--red { background: #EF4444; }
+.card-terminal-dot--yellow { background: #F59E0B; }
+.card-terminal-dot--green { background: #10B981; }
+
+.card-terminal-title {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-left: var(--space-1);
+}
+
+.card-terminal-content {
+  padding: var(--space-2);
+  font-family: var(--font-mono);
+}
+
+/* =========================
+   INTERACTIVE STATES
+   ========================= */
+
+/* Hover overlay */
+.hover-overlay {
+  position: relative;
+}
+
+.hover-overlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--hover-overlay);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  pointer-events: none;
+}
+
+.hover-overlay:hover::after {
+  opacity: 1;
+}
+
+/* Selected state */
+.selected {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 2px var(--color-primary);
 }
 
 /* Animation */
@@ -250,4 +628,270 @@ a:hover {
 
 .animate-fade-in {
   animation: fadeIn var(--transition-base);
+}
+
+/* =========================
+   BADGE & TAG COMPONENTS
+   Scientific/laboratory labels
+   ========================= */
+
+/* Base Badge - Small label style */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-ui-bg-surface);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* Badge Variants - Element group colors */
+.badge-primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+
+.badge-secondary {
+  background: var(--color-secondary);
+  border-color: var(--color-secondary);
+  color: white;
+}
+
+.badge-success {
+  background: var(--color-success);
+  border-color: var(--color-success);
+  color: white;
+}
+
+.badge-warning {
+  background: var(--color-warning);
+  border-color: var(--color-warning);
+  color: var(--color-text-body);
+}
+
+.badge-error {
+  background: var(--color-error);
+  border-color: var(--color-error);
+  color: white;
+}
+
+/* Outlined Badge Variants */
+.badge-outline {
+  background: transparent;
+}
+
+.badge-outline-primary {
+  background: transparent;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.badge-outline-secondary {
+  background: transparent;
+  border-color: var(--color-secondary);
+  color: var(--color-secondary);
+}
+
+/* Element Group Badges - For periodic table categories */
+.badge-agave {
+  background: var(--bond-agave);
+  border-color: var(--bond-agave);
+  color: white;
+}
+
+.badge-grain {
+  background: var(--bond-grain);
+  border-color: var(--bond-grain);
+  color: white;
+}
+
+.badge-cane {
+  background: var(--bond-cane);
+  border-color: var(--bond-cane);
+  color: white;
+}
+
+.badge-juniper {
+  background: var(--bond-juniper);
+  border-color: var(--bond-juniper);
+  color: white;
+}
+
+.badge-grape {
+  background: var(--bond-grape);
+  border-color: var(--bond-grape);
+  color: white;
+}
+
+.badge-neutral {
+  background: var(--bond-neutral);
+  border-color: var(--bond-neutral);
+  color: white;
+}
+
+.badge-botanical {
+  background: var(--bond-botanical);
+  border-color: var(--bond-botanical);
+  color: white;
+}
+
+.badge-acid {
+  background: var(--bond-acid);
+  border-color: var(--bond-acid);
+  color: var(--color-text-body);
+}
+
+.badge-sugar {
+  background: var(--bond-sugar);
+  border-color: var(--bond-sugar);
+  color: white;
+}
+
+/* Tag - Larger, removable label */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-ui-bg-surface);
+  color: var(--color-text-body);
+}
+
+.tag-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius);
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  padding: 0;
+  margin-left: 2px;
+  margin-right: -4px;
+}
+
+.tag-remove:hover {
+  background: var(--color-error);
+  color: white;
+}
+
+/* Status Indicators - Dot style */
+.status-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-text-muted);
+}
+
+.status-dot-success {
+  background: var(--color-success);
+}
+
+.status-dot-warning {
+  background: var(--color-warning);
+}
+
+.status-dot-error {
+  background: var(--color-error);
+}
+
+.status-dot-primary {
+  background: var(--color-primary);
+}
+
+/* Pill - Rounded badge variant */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 10px;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 9999px;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-ui-bg-surface);
+  color: var(--color-text-muted);
+}
+
+.pill-primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+
+/* =========================
+   MODE TOGGLE
+   View switching component
+   ========================= */
+
+.mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  padding: 2px;
+  background: var(--color-ui-bg-base);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius);
+}
+
+.mode-toggle-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.mode-toggle-option:hover:not(.mode-toggle-active) {
+  color: var(--color-text-body);
+}
+
+.mode-toggle-active {
+  background: var(--color-ui-bg-surface);
+  color: var(--color-text-body);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* Icon-only mode toggle */
+.mode-toggle-icon {
+  padding: 6px 8px;
+}
+
+.mode-toggle-icon svg {
+  width: 14px;
+  height: 14px;
 }

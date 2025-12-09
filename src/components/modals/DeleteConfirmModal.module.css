@@ -90,9 +90,10 @@
 }
 
 .title {
-  font-size: var(--text-xl);
+  font-family: var(--font-sans);
+  font-size: 1.25rem;
   font-weight: 600;
-  font-family: var(--font-display);
+  letter-spacing: -0.01em;
   color: var(--color-text-body);
   margin: 0 0 var(--space-2) 0;
 }
@@ -114,7 +115,8 @@
 
 .warning {
   color: var(--color-semantic-error);
-  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
   font-weight: 500;
   margin: var(--space-2) 0 0 0;
 }
@@ -160,7 +162,7 @@
   }
 
   .title {
-    font-size: var(--text-lg);
+    font-size: 1.125rem;
   }
 
   /* Larger touch targets */

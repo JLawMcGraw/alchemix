@@ -21,6 +21,8 @@ interface RecipeMoleculeProps {
   showExport?: boolean;
   /** Optional className for styling */
   className?: string;
+  /** Optional ref to access the SVG element */
+  svgRef?: React.RefObject<SVGSVGElement>;
 }
 
 // Layout is always computed at this size for consistent molecule proportions
@@ -39,8 +41,10 @@ export function RecipeMolecule({
   showLegend = true,
   showExport = false,
   className,
+  svgRef: externalSvgRef,
 }: RecipeMoleculeProps) {
-  const svgRef = useRef<SVGSVGElement>(null);
+  const internalSvgRef = useRef<SVGSVGElement>(null);
+  const svgRef = externalSvgRef || internalSvgRef;
 
   // Parse ingredients from recipe
   const ingredients = useMemo(() => {

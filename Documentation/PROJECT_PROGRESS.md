@@ -1,18 +1,159 @@
 # Project Development Progress
 
-Last updated: 2025-12-05
+Last updated: 2025-12-08
 
 ---
 
 ## Current Status
 
-**Version**: v1.29.0 (AI Bartender MemMachine v2 Fix)
-**Phase**: Beta Launch Ready - AI Bartender fully functional with semantic search
+**Version**: v1.29.0
+**Phase**: Visual Redesign - "Molecular Mixology" (Batch A in progress)
+**Branch**: `feature/recipe-molecule`
 **Blockers**: None
+
+**Redesign Progress**:
+- Phase 1 (Foundation): **Complete**
+- Phase 2 (Typography): **60%**
+- Phase 3 (Spacing): Pending
+- Phase 4 (Components): Pending
 
 ---
 
-## Recent Session (2025-12-05): AI Bartender MemMachine v2 Integration Fix
+## Recent Session (2025-12-08): Visual Redesign - Font System Migration
+
+### Summary
+Comprehensive font system migration for the "Molecular Mixology" visual redesign. Completed Phase 1 (Foundation) and made significant progress on Phase 2 (Typography). Migrated all page and component CSS modules from deprecated font variables to the new design system. Also audited design documentation and updated all project documentation.
+
+### Work Completed
+
+#### 1. Font System Migration - All Page CSS Modules
+
+Updated all page CSS files to use new font system:
+- `--font-sans` (Inter) for headings and body text
+- `--font-mono` (JetBrains Mono) for data, badges, labels, timestamps
+- Replaced `--text-*` variables with explicit rem values
+
+**Files Updated**:
+- `src/app/shopping-list/shopping-list.module.css` - Also used by recipes page for stat cards
+- `src/app/dashboard/dashboard.module.css` - Primary action font-size
+- `src/app/account/account.module.css` - All titles, profile info, stats, actions, modals
+- `src/app/settings/settings.module.css` - Form elements, theme options, selects, badges
+- `src/app/ai/ai.module.css` - Chat interface, messages, empty states, input
+- `src/app/favorites/favorites.module.css` - Tabs, cards, history display
+- `src/app/bar/bar.module.css` - Mobile tab font-size
+- `src/app/login/login.module.css` - All form fields, messages, password requirements
+
+#### 2. Font System Migration - All Component CSS Modules
+
+**Files Updated**:
+- `src/components/layout/TopNav.module.css` - Nav links, menu items, email display
+- `src/components/modals/ItemDetailModal.module.css` - All title, label, input, textarea styles
+- `src/components/modals/BottleFormModal.module.css` - Form fields, titles, error messages
+- `src/components/modals/CSVUploadModal.module.css` - Title, format info, alerts
+- `src/components/modals/DeleteConfirmModal.module.css` - Title, warning text
+- `src/components/ui/Toast.module.css` - Toast message font
+- `src/components/ui/SuccessCheckmark.module.css` - Success message font
+
+#### 3. Design System Audit
+
+Reviewed `alchemix-design-system.md` and `Documentation/REDESIGN_PLAN.md` to identify what has NOT been implemented:
+
+**Not Yet Implemented**:
+- Dual-Mode UI (Discovery/Logistics) - Deferred
+- Periodic Table of Ingredients (Element Cards)
+- Chemical Formula Notation (`Ry₂ · Sv₁ · Cp₁`)
+- Leading Zeros on Measurements (`01.50 oz`)
+- Terminal-Style Inputs (with `>` prefix)
+- Stepper Input Component
+- Terminal Card Component
+- Balance Meter (Stoichiometric Balance)
+- Brownian Motion Animation
+- Button Restyle (monospace, uppercase, 11px)
+- Flat Design (2px radius, flattened shadows)
+
+#### 4. Documentation Updates
+
+**Updated `Documentation/REDESIGN_PLAN.md`**:
+- Changed status to "In Progress"
+- Added Status and Progress columns to Phase Summary table
+- Added completion checkboxes to Phase 1 and 2
+- Added status blocks to all phases (1-10)
+- Added Progress Log section documenting session work
+- Updated Next Steps with clear priorities
+
+**Updated `.claude/SESSION_START.md`**:
+- Updated Project Overview table (phase, date, branch)
+- Added "Current Focus: Visual Redesign" section
+- Updated Read These Files to include REDESIGN_PLAN.md
+- Updated Design System section with new colors/fonts
+- Added Current Redesign Priority section
+
+**Updated `.claude/SESSION_END.md`**:
+- Added REDESIGN_PLAN.md to Required Updates
+- Added Redesign-Specific Checklist
+- Updated Confirm template with redesign status line
+
+### Font Migration Pattern Applied
+
+| Element Type | Font Variable | Example |
+|--------------|---------------|---------|
+| Headings | `--font-sans` | Page titles, section headers |
+| Body Text | `--font-sans` | Descriptions, labels |
+| Data/Numbers | `--font-mono` | Stats, counts, timestamps |
+| Badges/Tags | `--font-mono` | Status badges, category labels |
+| Form Labels | `--font-sans` | Input labels |
+| Form Values | `--font-mono` | Input values, measurements |
+
+### Font Size Conversions Applied
+
+| Old Variable | New Value |
+|--------------|-----------|
+| `--text-3xl` | `1.875rem` |
+| `--text-2xl` | `1.5rem` |
+| `--text-xl` | `1.25rem` |
+| `--text-lg` | `1.125rem` |
+| `--text-base` | `0.9375rem` |
+| `--text-sm` | `0.875rem` |
+| `--text-xs` | `0.75rem` |
+
+### Files Changed (16 CSS modules + 3 documentation files)
+
+**Page CSS** (8 files):
+- `src/app/shopping-list/shopping-list.module.css`
+- `src/app/dashboard/dashboard.module.css`
+- `src/app/account/account.module.css`
+- `src/app/settings/settings.module.css`
+- `src/app/ai/ai.module.css`
+- `src/app/favorites/favorites.module.css`
+- `src/app/bar/bar.module.css`
+- `src/app/login/login.module.css`
+
+**Component CSS** (7 files):
+- `src/components/layout/TopNav.module.css`
+- `src/components/modals/ItemDetailModal.module.css`
+- `src/components/modals/BottleFormModal.module.css`
+- `src/components/modals/CSVUploadModal.module.css`
+- `src/components/modals/DeleteConfirmModal.module.css`
+- `src/components/ui/Toast.module.css`
+- `src/components/ui/SuccessCheckmark.module.css`
+
+**Documentation** (3 files):
+- `Documentation/REDESIGN_PLAN.md`
+- `.claude/SESSION_START.md`
+- `.claude/SESSION_END.md`
+
+### Testing
+- Grep search confirmed no remaining `font-display` or `--text-*` usage in CSS modules
+- `globals.css` still contains variable definitions (expected - defines design tokens)
+
+### Next Priority
+1. **Finish Phase 2**: Create typography utility classes (`.h1-display`, `.data-measurement`), implement leading zeros formatter
+2. **Phase 3**: Update border radius to 2px, flatten shadows, add hairline border variables
+3. **Phase 4**: Restyle buttons/inputs, create StepperInput & TerminalCard components
+
+---
+
+## Session (2025-12-05): AI Bartender MemMachine v2 Integration Fix
 
 ### Summary
 Fixed critical bug in AI Bartender where MemMachine v2 API responses were not being parsed correctly, resulting in 0 semantic search results. Also added duplicate recommendation prevention and training data acknowledgment rules.

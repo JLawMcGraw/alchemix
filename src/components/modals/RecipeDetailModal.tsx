@@ -1,12 +1,41 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { X, Star, Martini, Edit2, Save, Trash2, FolderOpen, Plus } from 'lucide-react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { X, Star, Martini, Edit2, Save, Trash2, FolderOpen, Plus, Download } from 'lucide-react';
 import { Button, useToast } from '@/components/ui';
 import { useStore } from '@/lib/store';
 import { RecipeMolecule } from '@/components/RecipeMolecule';
+import { classifyIngredient, parseIngredient, generateFormula, TYPE_COLORS, type IngredientType } from '@alchemix/recipe-molecule';
 import type { Recipe, Collection } from '@/types';
 import styles from './RecipeDetailModal.module.css';
+
+// Map ingredient types to CSS variable names for bond colors
+const TYPE_TO_CSS_VAR: Record<IngredientType, string> = {
+  spirit: '--bond-neutral',
+  acid: '--bond-acid',
+  sweet: '--bond-sugar',
+  bitter: '--bond-botanical',
+  salt: '--bond-acid',
+  dilution: '--bond-carbonation',
+  garnish: '--bond-cane',
+  dairy: '--bond-dairy',
+  egg: '--bond-dairy',
+  junction: '--fg-tertiary',
+};
+
+// Get 2-letter symbol for ingredient type
+const TYPE_SYMBOLS: Record<IngredientType, string> = {
+  spirit: 'Sp',
+  acid: 'Ac',
+  sweet: 'Sw',
+  bitter: 'Bt',
+  salt: 'Sa',
+  dilution: 'Mx',
+  garnish: 'Gn',
+  dairy: 'Dy',
+  egg: 'Eg',
+  junction: '',
+};
 
 interface RecipeDetailModalProps {
   isOpen: boolean;
@@ -17,6 +46,20 @@ interface RecipeDetailModalProps {
   onRecipeUpdated?: (updatedRecipe: Recipe) => void;
 }
 
+// Color values for export (matching CSS variables)
+const TYPE_COLORS_HEX: Record<IngredientType, string> = {
+  spirit: '#71717A',
+  acid: '#84CC16',
+  sweet: '#F59E0B',
+  bitter: '#10B981',
+  salt: '#84CC16',
+  dilution: '#06B6D4',
+  garnish: '#A3A3A3',
+  dairy: '#E879F9',
+  egg: '#E879F9',
+  junction: '#71717A',
+};
+
 export function RecipeDetailModal({
   isOpen,
   onClose,
@@ -26,6 +69,7 @@ export function RecipeDetailModal({
   onRecipeUpdated
 }: RecipeDetailModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
+  const moleculeSvgRef = useRef<SVGSVGElement>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editedRecipe, setEditedRecipe] = useState<Partial<Recipe>>({});
   const [showCollectionSelect, setShowCollectionSelect] = useState(false);
@@ -190,6 +234,118 @@ export function RecipeDetailModal({
     });
   };
 
+  // Handle export as styled PNG
+  const handleExport = useCallback(async () => {
+    if (!recipe || !moleculeSvgRef.current) return;
+
+    const ingredients = parseIngredients(recipe.ingredients);
+    const formula = ingredients.length > 0 ? generateFormula(ingredients) : '';
+
+    // Canvas dimensions
+    const canvasWidth = 600;
+    const padding = 40;
+    const titleHeight = 50;
+    const formulaHeight = 30;
+    const moleculeHeight = 320;
+    const ingredientLineHeight = 32;
+    const ingredientsHeight = ingredients.length * ingredientLineHeight + 40;
+    const canvasHeight = padding * 2 + titleHeight + formulaHeight + moleculeHeight + ingredientsHeight;
+
+    // Create canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = canvasWidth * 2; // 2x for retina
+    canvas.height = canvasHeight * 2;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Scale for retina
+    ctx.scale(2, 2);
+
+    // Background
+    ctx.fillStyle = '#FAFAFA';
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    // Title
+    ctx.fillStyle = '#18181B';
+    ctx.font = 'bold 28px system-ui, -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(recipe.name, canvasWidth / 2, padding + 30);
+
+    // Formula
+    ctx.fillStyle = '#71717A';
+    ctx.font = '500 16px "JetBrains Mono", "SF Mono", monospace';
+    ctx.fillText(formula, canvasWidth / 2, padding + titleHeight + 20);
+
+    // Convert SVG to image and draw
+    const svgElement = moleculeSvgRef.current;
+    const svgString = new XMLSerializer().serializeToString(svgElement);
+    const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+    const svgUrl = URL.createObjectURL(svgBlob);
+
+    const img = new Image();
+    img.onload = () => {
+      // Draw molecule centered
+      const moleculeY = padding + titleHeight + formulaHeight + 10;
+      const moleculeX = (canvasWidth - 440) / 2;
+      ctx.drawImage(img, moleculeX, moleculeY, 440, 320);
+
+      URL.revokeObjectURL(svgUrl);
+
+      // Ingredients section
+      const ingredientsY = moleculeY + moleculeHeight + 20;
+
+      // Section title
+      ctx.fillStyle = '#71717A';
+      ctx.font = '500 11px "JetBrains Mono", monospace';
+      ctx.textAlign = 'left';
+      ctx.letterSpacing = '0.1em';
+      ctx.fillText('INGREDIENTS', padding, ingredientsY);
+
+      // Draw line
+      ctx.strokeStyle = '#E4E4E7';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padding + 90, ingredientsY - 4);
+      ctx.lineTo(canvasWidth - padding, ingredientsY - 4);
+      ctx.stroke();
+
+      // Draw each ingredient
+      ingredients.forEach((ingredient, index) => {
+        const y = ingredientsY + 25 + index * ingredientLineHeight;
+        const parsed = parseIngredient(ingredient);
+        const classified = classifyIngredient(parsed);
+        const color = TYPE_COLORS_HEX[classified.type];
+
+        // Color pip
+        ctx.beginPath();
+        ctx.arc(padding + 10, y - 4, 8, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+
+        // Ingredient text
+        ctx.fillStyle = '#27272A';
+        ctx.font = '13px "JetBrains Mono", monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(ingredient, padding + 28, y);
+      });
+
+      // Download
+      const link = document.createElement('a');
+      link.download = `${recipe.name.replace(/\s+/g, '-').toLowerCase()}-recipe.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+
+      showToast('success', 'Recipe exported successfully');
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(svgUrl);
+      showToast('error', 'Failed to export recipe');
+    };
+
+    img.src = svgUrl;
+  }, [recipe, showToast]);
+
   // Focus management and keyboard shortcuts
   useEffect(() => {
     if (isOpen) {
@@ -264,11 +420,10 @@ export function RecipeDetailModal({
                   <h2 className={styles.title} id="recipe-detail-title">
                     {recipe.name}
                   </h2>
-                  {recipe.spirit_type && (
-                    <span className={styles.spiritBadge}>{recipe.spirit_type}</span>
-                  )}
-                  {recipe.category && (
-                    <span className={styles.categoryBadge}>{recipe.category}</span>
+                  {ingredientsArray.length > 0 && (
+                    <div className={styles.formula}>
+                      {generateFormula(ingredientsArray)}
+                    </div>
                   )}
                 </>
               )}
@@ -299,15 +454,14 @@ export function RecipeDetailModal({
         <div className={styles.content}>
           {/* Molecule Visualization (View Mode Only) */}
           {!isEditMode && ingredientsArray.length > 0 && (
-            <section className={styles.section} style={{ marginTop: '-100px' }}>
-              <div style={{ display: 'flex', justifyContent: 'center' }}>
-                <RecipeMolecule
-                  recipe={recipe}
-                  size="full"
-                  showLegend={true}
-                  showExport={true}
-                />
-              </div>
+            <section className={styles.moleculeSection}>
+              <RecipeMolecule
+                recipe={recipe}
+                size="full"
+                showLegend={true}
+                showExport={false}
+                svgRef={moleculeSvgRef}
+              />
             </section>
           )}
 
@@ -371,11 +525,25 @@ export function RecipeDetailModal({
               <>
                 {ingredientsArray.length > 0 ? (
                   <ul className={styles.ingredientsList}>
-                    {ingredientsArray.map((ingredient, index) => (
-                      <li key={index} className={styles.ingredientItem}>
-                        {ingredient}
-                      </li>
-                    ))}
+                    {ingredientsArray.map((ingredient, index) => {
+                      const parsed = parseIngredient(ingredient);
+                      const classified = classifyIngredient(parsed);
+                      const cssVar = TYPE_TO_CSS_VAR[classified.type];
+                      const symbol = TYPE_SYMBOLS[classified.type];
+
+                      return (
+                        <li key={index} className={styles.ingredientItem}>
+                          <span
+                            className={styles.ingredientPip}
+                            style={{ backgroundColor: `var(${cssVar})` }}
+                            title={TYPE_COLORS[classified.type].legend}
+                          >
+                            {symbol}
+                          </span>
+                          <span className={styles.ingredientText}>{ingredient}</span>
+                        </li>
+                      );
+                    })}
                   </ul>
                 ) : (
                   <p className={styles.emptyText}>No ingredients listed</p>
@@ -427,6 +595,92 @@ export function RecipeDetailModal({
               </>
             )}
           </section>
+
+          {/* Stoichiometric Balance */}
+          {!isEditMode && ingredientsArray.length > 0 && (() => {
+            // Calculate balance from ingredients
+            const balanceCounts = { spirit: 0, bitter: 0, sweet: 0, acid: 0 };
+            let totalVolume = 0;
+
+            ingredientsArray.forEach((ingredient) => {
+              const parsed = parseIngredient(ingredient);
+              const classified = classifyIngredient(parsed);
+              const volume = parsed.amount || 0;
+
+              if (classified.type === 'spirit') balanceCounts.spirit += volume;
+              else if (classified.type === 'bitter') balanceCounts.bitter += volume;
+              else if (classified.type === 'sweet') balanceCounts.sweet += volume;
+              else if (classified.type === 'acid') balanceCounts.acid += volume;
+
+              totalVolume += volume;
+            });
+
+            // Calculate percentages (relative to max for visual scaling)
+            const maxValue = Math.max(...Object.values(balanceCounts), 0.1);
+
+            // Only show if there's meaningful data
+            if (totalVolume === 0) return null;
+
+            return (
+              <section className={styles.section}>
+                <h3 className={styles.sectionTitle}>Stoichiometric Balance</h3>
+                <div className={styles.balanceSection}>
+                  <div className={styles.balanceRow}>
+                    <span className={styles.balanceLabel}>Spirit</span>
+                    <div className={styles.balanceTrack}>
+                      <div
+                        className={styles.balanceFill}
+                        style={{
+                          width: `${(balanceCounts.spirit / maxValue) * 100}%`,
+                          backgroundColor: 'var(--bond-neutral)'
+                        }}
+                      />
+                    </div>
+                    <span className={styles.balanceValue}>{balanceCounts.spirit.toFixed(1)}</span>
+                  </div>
+                  <div className={styles.balanceRow}>
+                    <span className={styles.balanceLabel}>Bitter</span>
+                    <div className={styles.balanceTrack}>
+                      <div
+                        className={styles.balanceFill}
+                        style={{
+                          width: `${(balanceCounts.bitter / maxValue) * 100}%`,
+                          backgroundColor: 'var(--bond-botanical)'
+                        }}
+                      />
+                    </div>
+                    <span className={styles.balanceValue}>{balanceCounts.bitter.toFixed(1)}</span>
+                  </div>
+                  <div className={styles.balanceRow}>
+                    <span className={styles.balanceLabel}>Sweet</span>
+                    <div className={styles.balanceTrack}>
+                      <div
+                        className={styles.balanceFill}
+                        style={{
+                          width: `${(balanceCounts.sweet / maxValue) * 100}%`,
+                          backgroundColor: 'var(--bond-sugar)'
+                        }}
+                      />
+                    </div>
+                    <span className={styles.balanceValue}>{balanceCounts.sweet.toFixed(1)}</span>
+                  </div>
+                  <div className={styles.balanceRow}>
+                    <span className={styles.balanceLabel}>Acid</span>
+                    <div className={styles.balanceTrack}>
+                      <div
+                        className={styles.balanceFill}
+                        style={{
+                          width: `${(balanceCounts.acid / maxValue) * 100}%`,
+                          backgroundColor: 'var(--bond-acid)'
+                        }}
+                      />
+                    </div>
+                    <span className={styles.balanceValue}>{balanceCounts.acid.toFixed(1)}</span>
+                  </div>
+                </div>
+              </section>
+            );
+          })()}
 
           {/* Compatibility */}
           {recipe.compatibility !== undefined && recipe.compatibility !== null && (
@@ -552,6 +806,10 @@ export function RecipeDetailModal({
                   style={{ marginRight: '8px' }}
                 />
                 {isFavorited ? 'Remove from Favorites' : 'Add to Favorites'}
+              </Button>
+              <Button variant="outline" onClick={handleExport}>
+                <Download size={18} style={{ marginRight: '8px' }} />
+                Export
               </Button>
               <Button variant="outline" onClick={onClose}>
                 Close

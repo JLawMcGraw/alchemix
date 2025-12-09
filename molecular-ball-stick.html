@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Molecular Mixology — Ball & Stick Model</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #FAFBFC;
+      --fg-primary: #1a1a2e;
+      --fg-secondary: #6b7280;
+      --fg-tertiary: #9ca3af;
+      --border: #e5e7eb;
+      
+      /* Soft, scientific palette - like the reference */
+      --atom-grain: #8B7355;      /* Warm brown for whiskey */
+      --atom-grain-light: #C4A77D;
+      --atom-cane: #7CB342;       /* Soft green for rum */
+      --atom-cane-light: #AED581;
+      --atom-botanical: #9575CD;  /* Soft purple for vermouth/bitters */
+      --atom-botanical-light: #B39DDB;
+      --atom-acid: #FFB74D;       /* Soft orange for citrus */
+      --atom-acid-light: #FFCC80;
+      --atom-sugar: #64B5F6;      /* Soft blue for syrups */
+      --atom-sugar-light: #90CAF9;
+      --atom-neutral: #90A4AE;    /* Grey for vodka/ice */
+      --atom-neutral-light: #B0BEC5;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--fg-primary);
+      min-height: 100vh;
+      padding: 48px;
+    }
+    
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    
+    /* Header styling like reference */
+    .header {
+      margin-bottom: 32px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .title {
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+    }
+    
+    .subtitle {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--fg-tertiary);
+      margin-bottom: 16px;
+    }
+    
+    .formula-row {
+      display: flex;
+      gap: 32px;
+      font-size: 13px;
+    }
+    
+    .formula-label {
+      color: var(--fg-secondary);
+    }
+    
+    .formula-value {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--fg-primary);
+    }
+    
+    .formula-value sub {
+      font-size: 10px;
+    }
+    
+    /* Main layout */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 260px;
+      gap: 40px;
+    }
+    
+    /* Molecule view */
+    .molecule-panel {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 32px;
+    }
+    
+    .molecule-svg {
+      width: 100%;
+      height: 380px;
+    }
+    
+    /* 3D ball styling with gradients */
+    .atom-3d {
+      filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+    }
+    
+    /* Bond sticks */
+    .bond-stick {
+      stroke: #B0BEC5;
+      stroke-width: 6;
+      stroke-linecap: round;
+    }
+    
+    .bond-stick-thin {
+      stroke-width: 4;
+    }
+    
+    .bond-stick-double {
+      stroke-width: 8;
+    }
+    
+    /* Atom labels */
+    .atom-symbol {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 500;
+      fill: white;
+      text-anchor: middle;
+      dominant-baseline: central;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+    
+    .atom-label-external {
+      font-family: 'Inter', sans-serif;
+      font-size: 10px;
+      fill: var(--fg-secondary);
+      text-anchor: middle;
+    }
+    
+    /* Sidebar */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    
+    .info-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 20px;
+    }
+    
+    .card-title {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--fg-tertiary);
+      margin-bottom: 16px;
+    }
+    
+    /* Legend */
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .legend-item:last-child {
+      border-bottom: none;
+    }
+    
+    .legend-atom {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    
+    .legend-text {
+      flex: 1;
+    }
+    
+    .legend-name {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--fg-primary);
+    }
+    
+    .legend-symbol {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--fg-tertiary);
+    }
+    
+    /* Ingredients list */
+    .ingredient-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    
+    .ingredient-row:last-child {
+      border-bottom: none;
+    }
+    
+    .ingredient-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .ingredient-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    
+    .ingredient-vol {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--fg-secondary);
+    }
+    
+    /* Structural formula section */
+    .structural-section {
+      margin-top: 40px;
+      padding-top: 32px;
+      border-top: 1px solid var(--border);
+    }
+    
+    .structural-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-top: 20px;
+    }
+    
+    .structural-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 20px;
+      text-align: center;
+    }
+    
+    .structural-svg {
+      height: 120px;
+      margin-bottom: 12px;
+    }
+    
+    .structural-name {
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+    
+    .structural-formula {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--fg-secondary);
+    }
+    
+    /* Description text */
+    .description {
+      font-size: 12px;
+      line-height: 1.7;
+      color: var(--fg-secondary);
+      margin-top: 16px;
+    }
+    
+    /* Soft animation */
+    @keyframes gentle-float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-2px); }
+    }
+    
+    .molecule-svg .atom-3d {
+      animation: gentle-float 6s ease-in-out infinite;
+    }
+    
+    .molecule-svg .atom-3d:nth-child(odd) {
+      animation-delay: 1s;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="subtitle">Molecular Model</div>
+      <h1 class="title">Boulevardier</h1>
+      <div class="formula-row">
+        <div>
+          <span class="formula-label">Molecular Formula:</span>
+          <span class="formula-value">Ry<sub>2</sub>Sv<sub>1</sub>Cp<sub>1</sub></span>
+        </div>
+        <div>
+          <span class="formula-label">Total Volume:</span>
+          <span class="formula-value">4.00 oz</span>
+        </div>
+        <div>
+          <span class="formula-label">Method:</span>
+          <span class="formula-value">Stirred</span>
+        </div>
+      </div>
+    </header>
+    
+    <div class="main-grid">
+      <div class="molecule-panel">
+        <svg class="molecule-svg" viewBox="0 0 500 380">
+          <defs>
+            <!-- Grain (Rye) gradient - warm brown -->
+            <radialGradient id="grain-grad" cx="35%" cy="35%">
+              <stop offset="0%" stop-color="#D4B896"/>
+              <stop offset="50%" stop-color="#8B7355"/>
+              <stop offset="100%" stop-color="#5D4E37"/>
+            </radialGradient>
+            
+            <!-- Botanical (Vermouth/Campari) gradient - soft purple -->
+            <radialGradient id="botanical-grad" cx="35%" cy="35%">
+              <stop offset="0%" stop-color="#D1C4E9"/>
+              <stop offset="50%" stop-color="#9575CD"/>
+              <stop offset="100%" stop-color="#5E35B1"/>
+            </radialGradient>
+            
+            <!-- Botanical alt (Campari) - pink/red -->
+            <radialGradient id="botanical-alt-grad" cx="35%" cy="35%">
+              <stop offset="0%" stop-color="#F8BBD9"/>
+              <stop offset="50%" stop-color="#E91E63"/>
+              <stop offset="100%" stop-color="#880E4F"/>
+            </radialGradient>
+            
+            <!-- Acid (Orange) gradient -->
+            <radialGradient id="acid-grad" cx="35%" cy="35%">
+              <stop offset="0%" stop-color="#FFE0B2"/>
+              <stop offset="50%" stop-color="#FFB74D"/>
+              <stop offset="100%" stop-color="#E65100"/>
+            </radialGradient>
+            
+            <!-- Neutral gradient -->
+            <radialGradient id="neutral-grad" cx="35%" cy="35%">
+              <stop offset="0%" stop-color="#CFD8DC"/>
+              <stop offset="50%" stop-color="#90A4AE"/>
+              <stop offset="100%" stop-color="#546E7A"/>
+            </radialGradient>
+            
+            <!-- Highlight for 3D effect -->
+            <filter id="sphere-shadow">
+              <feDropShadow dx="0" dy="3" stdDeviation="3" flood-opacity="0.15"/>
+            </filter>
+          </defs>
+          
+          <!-- Bond sticks (behind atoms) -->
+          <!-- Rye to Sweet Vermouth -->
+          <line class="bond-stick bond-stick-double" x1="250" y1="190" x2="140" y2="110"/>
+          <!-- Rye to Campari -->
+          <line class="bond-stick bond-stick-double" x1="250" y1="190" x2="360" y2="110"/>
+          <!-- Rye to Orange -->
+          <line class="bond-stick bond-stick-thin" x1="250" y1="190" x2="250" y2="310"/>
+          <!-- Sweet Vermouth to Angostura (optional dash) -->
+          <line class="bond-stick bond-stick-thin" x1="140" y1="110" x2="80" y2="180" stroke-dasharray="8 4"/>
+          
+          <!-- Atoms (3D spheres) -->
+          
+          <!-- Central: Rye Whiskey (largest) -->
+          <g class="atom-3d" filter="url(#sphere-shadow)">
+            <circle cx="250" cy="190" r="55" fill="url(#grain-grad)"/>
+            <!-- Highlight -->
+            <ellipse cx="235" cy="170" rx="18" ry="12" fill="white" opacity="0.3"/>
+            <text class="atom-symbol" x="250" y="190" font-size="22">Ry</text>
+          </g>
+          <text class="atom-label-external" x="250" y="260">2.00 oz</text>
+          
+          <!-- Sweet Vermouth -->
+          <g class="atom-3d" filter="url(#sphere-shadow)">
+            <circle cx="140" cy="110" r="40" fill="url(#botanical-grad)"/>
+            <ellipse cx="128" cy="95" rx="12" ry="8" fill="white" opacity="0.3"/>
+            <text class="atom-symbol" x="140" y="110" font-size="16">Sv</text>
+          </g>
+          <text class="atom-label-external" x="140" y="165">1.00 oz</text>
+          
+          <!-- Campari -->
+          <g class="atom-3d" filter="url(#sphere-shadow)">
+            <circle cx="360" cy="110" r="40" fill="url(#botanical-alt-grad)"/>
+            <ellipse cx="348" cy="95" rx="12" ry="8" fill="white" opacity="0.3"/>
+            <text class="atom-symbol" x="360" y="110" font-size="16">Cp</text>
+          </g>
+          <text class="atom-label-external" x="360" y="165">1.00 oz</text>
+          
+          <!-- Orange Twist (garnish - smaller) -->
+          <g class="atom-3d" filter="url(#sphere-shadow)">
+            <circle cx="250" cy="310" r="24" fill="url(#acid-grad)"/>
+            <ellipse cx="242" cy="300" rx="7" ry="5" fill="white" opacity="0.3"/>
+            <text class="atom-symbol" x="250" y="310" font-size="12">Or</text>
+          </g>
+          <text class="atom-label-external" x="250" y="348">Twist</text>
+          
+          <!-- Optional: Angostura dash -->
+          <g class="atom-3d" filter="url(#sphere-shadow)" opacity="0.7">
+            <circle cx="80" cy="180" r="16" fill="url(#botanical-grad)"/>
+            <ellipse cx="74" cy="173" rx="4" ry="3" fill="white" opacity="0.3"/>
+            <text class="atom-symbol" x="80" y="180" font-size="9">Ab</text>
+          </g>
+          <text class="atom-label-external" x="80" y="208" font-size="9">opt.</text>
+        </svg>
+      </div>
+      
+      <aside class="sidebar">
+        <div class="info-card">
+          <div class="card-title">Element Legend</div>
+          <div class="legend-item">
+            <div class="legend-atom" style="background: radial-gradient(circle at 35% 35%, #D4B896, #8B7355, #5D4E37)"></div>
+            <div class="legend-text">
+              <div class="legend-name">Grain Spirits</div>
+              <div class="legend-symbol">Ry, Bb, Sc</div>
+            </div>
+          </div>
+          <div class="legend-item">
+            <div class="legend-atom" style="background: radial-gradient(circle at 35% 35%, #D1C4E9, #9575CD, #5E35B1)"></div>
+            <div class="legend-text">
+              <div class="legend-name">Botanicals (Vermouth)</div>
+              <div class="legend-symbol">Sv, Dv, Ab</div>
+            </div>
+          </div>
+          <div class="legend-item">
+            <div class="legend-atom" style="background: radial-gradient(circle at 35% 35%, #F8BBD9, #E91E63, #880E4F)"></div>
+            <div class="legend-text">
+              <div class="legend-name">Botanicals (Amaro)</div>
+              <div class="legend-symbol">Cp, Ap, Av</div>
+            </div>
+          </div>
+          <div class="legend-item">
+            <div class="legend-atom" style="background: radial-gradient(circle at 35% 35%, #FFE0B2, #FFB74D, #E65100)"></div>
+            <div class="legend-text">
+              <div class="legend-name">Citrus</div>
+              <div class="legend-symbol">Or, Lm, Li</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="info-card">
+          <div class="card-title">Reagents</div>
+          <div class="ingredient-row">
+            <span class="ingredient-name">
+              <span class="ingredient-dot" style="background: #8B7355"></span>
+              Rye Whiskey
+            </span>
+            <span class="ingredient-vol">02.00 oz</span>
+          </div>
+          <div class="ingredient-row">
+            <span class="ingredient-name">
+              <span class="ingredient-dot" style="background: #9575CD"></span>
+              Sweet Vermouth
+            </span>
+            <span class="ingredient-vol">01.00 oz</span>
+          </div>
+          <div class="ingredient-row">
+            <span class="ingredient-name">
+              <span class="ingredient-dot" style="background: #E91E63"></span>
+              Campari
+            </span>
+            <span class="ingredient-vol">01.00 oz</span>
+          </div>
+          <div class="ingredient-row">
+            <span class="ingredient-name">
+              <span class="ingredient-dot" style="background: #FFB74D"></span>
+              Orange Twist
+            </span>
+            <span class="ingredient-vol">Garnish</span>
+          </div>
+        </div>
+        
+        <div class="description">
+          A whiskey-based variation of the Negroni, the Boulevardier substitutes rye for gin, creating a richer, more robust molecular structure with deeper bitter-sweet resonance.
+        </div>
+      </aside>
+    </div>
+    
+    <!-- Structural formulas section -->
+    <section class="structural-section">
+      <div class="card-title">Related Molecular Structures</div>
+      <div class="structural-grid">
+        <div class="structural-card">
+          <svg class="structural-svg" viewBox="0 0 140 120">
+            <defs>
+              <radialGradient id="gin-grad" cx="35%" cy="35%">
+                <stop offset="0%" stop-color="#B3E5FC"/>
+                <stop offset="50%" stop-color="#29B6F6"/>
+                <stop offset="100%" stop-color="#0277BD"/>
+              </radialGradient>
+            </defs>
+            <!-- Bonds -->
+            <line class="bond-stick" x1="70" y1="60" x2="35" y2="30" stroke-width="4"/>
+            <line class="bond-stick" x1="70" y1="60" x2="105" y2="30" stroke-width="4"/>
+            <line class="bond-stick" x1="70" y1="60" x2="70" y2="100" stroke-width="3"/>
+            <!-- Atoms -->
+            <circle cx="70" cy="60" r="22" fill="url(#gin-grad)" filter="url(#sphere-shadow)"/>
+            <text class="atom-symbol" x="70" y="60" font-size="11">Gn</text>
+            <circle cx="35" cy="30" r="16" fill="url(#botanical-grad)" filter="url(#sphere-shadow)"/>
+            <text class="atom-symbol" x="35" y="30" font-size="9">Sv</text>
+            <circle cx="105" cy="30" r="16" fill="url(#botanical-alt-grad)" filter="url(#sphere-shadow)"/>
+            <text class="atom-symbol" x="105" y="30" font-size="9">Cp</text>
+            <circle cx="70" cy="100" r="10" fill="url(#acid-grad)" filter="url(#sphere-shadow)"/>
+          </svg>
+          <div class="structural-name">Negroni</div>
+          <div class="structural-formula">Gn<sub>1</sub>Sv<sub>1</sub>Cp<sub>1</sub></div>
+        </div>
+        
+        <div class="structural-card">
+          <svg class="structural-svg" viewBox="0 0 140 120">
+            <!-- Bonds -->
+            <line class="bond-stick" x1="70" y1="60" x2="35" y2="30" stroke-width="4"/>
+            <line class="bond-stick" x1="70" y1="60" x2="105" y2="30" stroke-width="4"/>
+            <line class="bond-stick" x1="70" y1="60" x2="70" y2="100" stroke-width="3"/>
+            <!-- Atoms -->
+            <circle cx="70" cy="60" r="22" fill="url(#grain-grad)" filter="url(#sphere-shadow)"/>
+            <text class="atom-symbol" x="70" y="60" font-size="11">Ry</text>
+            <circle cx="35" cy="30" r="16" fill="url(#botanical-grad)" filter="url(#sphere-shadow)"/>
+            <text class="atom-symbol" x="35" y="30" font-size="9">Sv</text>
+            <circle cx="105" cy="30" r="12" fill="url(#botanical-grad)" filter="url(#sphere-shadow)"/>
+            <text class="atom-symbol" x="105" y="30" font-size="8">Ab</text>
+            <circle cx="70" cy="100" r="10" fill="#EF5350" filter="url(#sphere-shadow)"/>
+          </svg>
+          <div class="structural-name">Manhattan</div>
+          <div class="structural-formula">Ry<sub>2</sub>Sv<sub>1</sub>Ab<sub>d</sub></div>
+        </div>
+        
+        <div class="structural-card">
+          <svg class="structural-svg" viewBox="0 0 140 120">
+            <defs>
+              <radialGradient id="aperol-grad" cx="35%" cy="35%">
+                <stop offset="0%" stop-color="#FFCCBC"/>
+                <stop offset="50%" stop-color="#FF7043"/>
+                <stop offset="100%" stop-color="#BF360C"/>
+              </radialGradient>
+              <radialGradient id="prosecco-grad" cx="35%" cy="35%">
+                <stop offset="0%" stop-color="#FFF9C4"/>
+                <stop offset="50%" stop-color="#FDD835"/>
+                <stop offset="100%" stop-color="#F9A825"/>
+              </radialGradient>
+            </defs>
+            <!-- Bonds -->
+            <line class="bond-stick" x1="70" y1="55" x2="35" y2="85" stroke-width="4"/>
+            <line class="bond-stick" x1="70" y1="55" x2="105" y2="85" stroke-width="3"/>
+            <line class="bond-stick" x1="70" y1="55" x2="70" y2="15" stroke-width="3" stroke-dasharray="6 3"/>
+            <!-- Atoms -->
+            <circle cx="70" cy="55" r="20" fill="url(#aperol-grad)" filter="url(#sphere-shadow)"/>
+            <text class="atom-symbol" x="70" y="55" font-size="11">Ap</text>
+            <circle cx="35" cy="85" r="18" fill="url(#prosecco-grad)" filter="url(#sphere-shadow)"/>
+            <text class="atom-symbol" x="35" y="85" font-size="9">Ps</text>
+            <circle cx="105" cy="85" r="14" fill="url(#neutral-grad)" filter="url(#sphere-shadow)"/>
+            <text class="atom-symbol" x="105" y="85" font-size="8">Sd</text>
+            <circle cx="70" cy="15" r="10" fill="url(#acid-grad)" filter="url(#sphere-shadow)"/>
+          </svg>
+          <div class="structural-name">Aperol Spritz</div>
+          <div class="structural-formula">Ap<sub>3</sub>Ps<sub>3</sub>Sd<sub>1</sub></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

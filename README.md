@@ -4,17 +4,25 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/license-Proprietary-red)](LICENSE)
 
-Modern cocktail inventory and recipe management system with AI-powered bartender recommendations.
+Modern cocktail inventory and recipe management system with AI-powered bartender recommendations. Features a "Molecular Mixology" design system that treats cocktails as chemical formulas and ingredients as periodic table elements.
 
-**Version:** v1.28.0 | **Last Updated:** December 5, 2025
+**Version:** v1.29.0 | **Last Updated:** December 8, 2025
 
 ## Features
 
+### Core Features
 - **My Bar** - Category-organized inventory with 9 tabs, card grid layout, CSV import
 - **Recipe Management** - Full CRUD, collections/folders, bulk operations, CSV import
 - **Recipe Molecule Visualization** - Chemical bond-style molecular diagrams for cocktail recipes
 - **Smart Shopping List** - Near-miss algorithm, ingredient recommendations, 6 recipe buckets
 - **AI Bartender** - Claude-powered assistant with MemMachine semantic memory
+
+### Design & UX
+- **Molecular Mixology Design** - Scientific, laboratory-inspired interface
+- **Element Group Colors** - Color-coded ingredient categories (spirits, acids, sugars, etc.)
+- **Typography System** - Inter (UI) + JetBrains Mono (data) font pairing
+
+### Security & Auth
 - **Secure Auth** - HttpOnly cookie JWT with CSRF protection (XSS-resistant)
 - **Account Settings** - Change password, delete account, data export/import
 - **Email Verification** - Secure signup flow with verification tokens
@@ -55,7 +63,8 @@ alchemix/
 │   ├── app/               # Pages (login, dashboard, bar, recipes, ai, settings, etc.)
 │   ├── components/        # UI components and modals
 │   ├── hooks/             # Custom hooks (useAuthGuard, useVerificationGuard)
-│   └── lib/               # API client, store, utilities
+│   ├── lib/               # API client, store, utilities
+│   └── styles/            # globals.css (design system tokens)
 ├── api/                    # Express backend
 │   ├── src/
 │   │   ├── routes/        # API endpoints
@@ -72,9 +81,12 @@ alchemix/
 │   ├── memmachine/        # MemMachine config templates
 │   └── .env.example       # Docker env template
 ├── Documentation/          # Project docs
-│   ├── railway-deployment/ # Railway deployment guide
-│   ├── PROJECT_PROGRESS.md
-│   └── DEV_NOTES.md
+│   ├── REDESIGN_PLAN.md   # Visual redesign phases & progress
+│   ├── PROJECT_PROGRESS.md # Session history
+│   ├── DEV_NOTES.md       # Technical decisions
+│   └── railway-deployment/ # Railway deployment guide
+├── .claude/                # Claude Code session docs
+├── alchemix-design-system.md # Full design specification
 └── railway/                # Railway deployment configs
 ```
 
@@ -186,8 +198,36 @@ AlcheMix uses MemMachine v2 API for semantic recipe search and AI context:
 - Per-user project isolation (`org: alchemix`, `project: user_{id}_recipes`)
 - Vector similarity search via Neo4j GDS plugin
 
+## Design System
+
+AlcheMix uses the "Molecular Mixology" design system - a clinical, scientific aesthetic inspired by laboratory interfaces and chemistry textbooks.
+
+### Design Principles
+- **Clinical Aesthetic** - Clean, precise, laboratory-inspired interface
+- **Chemical Metaphor** - Ingredients as elements, recipes as molecules
+- **Typography** - Inter (UI/headings), JetBrains Mono (data/measurements)
+- **Color Coding** - Ingredient groups have distinct colors (agave=teal, grain=amber, etc.)
+
+### Key Design Files
+- `alchemix-design-system.md` - Complete design specification
+- `Documentation/REDESIGN_PLAN.md` - Implementation phases and progress
+
+### Element Group Colors
+| Group | Color | Ingredients |
+|-------|-------|-------------|
+| Agave | Teal `#0D9488` | Tequila, Mezcal |
+| Grain | Amber `#D97706` | Whiskey, Bourbon, Rye |
+| Cane | Green `#65A30D` | Rum, Cachaça |
+| Juniper | Sky `#0EA5E9` | Gin |
+| Grape | Violet `#7C3AED` | Brandy, Cognac |
+| Botanical | Pink `#EC4899` | Amaro, Vermouth, Bitters |
+| Acid | Yellow `#F59E0B` | Citrus |
+| Sugar | Indigo `#6366F1` | Syrups, Liqueurs |
+
 ## Documentation
 
+- `alchemix-design-system.md` - Full "Molecular Mixology" design specification
+- `Documentation/REDESIGN_PLAN.md` - Visual redesign phases and progress
 - `Documentation/PROJECT_PROGRESS.md` - Session history and progress
 - `Documentation/DEV_NOTES.md` - Technical decisions and gotchas
 - `Documentation/railway-deployment/` - Railway deployment guide
