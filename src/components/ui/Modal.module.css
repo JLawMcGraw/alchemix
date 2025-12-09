@@ -123,3 +123,27 @@
     padding: var(--space-3);
   }
 }
+
+/* =========================
+   DARK MODE OVERRIDES
+   ========================= */
+
+:global([data-theme="dark"]) .backdrop {
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
+:global([data-theme="dark"]) .modal {
+  background-color: var(--color-ui-bg-surface);
+  border-color: var(--color-border-default);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+:global([data-theme="dark"]) .header {
+  background-color: #0B1120;  /* Darker than surface */
+  border-color: var(--color-border-default);
+}
+
+:global([data-theme="dark"]) .footer {
+  background-color: #0B1120;
+  border-color: var(--color-border-default);
+}

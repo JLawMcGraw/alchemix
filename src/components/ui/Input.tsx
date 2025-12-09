@@ -23,6 +23,10 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   helperText?: string;
   /** Full width mode */
   fullWidth?: boolean;
+  /** Show terminal-style prefix character (>) */
+  showPrefix?: boolean;
+  /** Custom prefix character (default: ">") */
+  prefixChar?: string;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(({
@@ -30,6 +34,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   error,
   helperText,
   fullWidth = false,
+  showPrefix = false,
+  prefixChar = '>',
   className = '',
   id,
   required,
@@ -46,6 +52,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   // Combine describedby IDs
   const describedBy = [ariaDescribedBy, errorId, helperId].filter(Boolean).join(' ') || undefined;
 
+  const inputClassNames = [
+    styles.input,
+    error ? styles.error : '',
+    showPrefix ? styles.inputWithPrefix : '',
+    className,
+  ].filter(Boolean).join(' ');
+
   return (
     <div className={`${styles.wrapper} ${fullWidth ? styles.fullWidth : ''}`}>
       {label && (
@@ -54,17 +67,24 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
           {required && <span className={styles.required} aria-hidden="true"> *</span>}
         </label>
       )}
-      <input
-        ref={ref}
-        id={inputId}
-        className={`${styles.input} ${error ? styles.error : ''} ${className}`}
-        aria-label={!label ? ariaLabel : undefined}
-        aria-invalid={error ? true : undefined}
-        aria-required={required}
-        aria-describedby={describedBy}
-        required={required}
-        {...props}
-      />
+      <div className={styles.inputContainer}>
+        {showPrefix && (
+          <span className={styles.inputPrefix} aria-hidden="true">
+            {prefixChar}
+          </span>
+        )}
+        <input
+          ref={ref}
+          id={inputId}
+          className={inputClassNames}
+          aria-label={!label ? ariaLabel : undefined}
+          aria-invalid={error ? true : undefined}
+          aria-required={required}
+          aria-describedby={describedBy}
+          required={required}
+          {...props}
+        />
+      </div>
       {helperText && !error && (
         <span id={helperId} className={styles.helperText}>
           {helperText}

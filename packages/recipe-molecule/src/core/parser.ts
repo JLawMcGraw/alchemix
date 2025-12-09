@@ -108,11 +108,44 @@ interface AmountResult {
   remainder: string;
 }
 
+// Unicode fraction mapping
+const UNICODE_FRACTIONS: Record<string, number> = {
+  '½': 0.5,
+  '⅓': 1/3,
+  '⅔': 2/3,
+  '¼': 0.25,
+  '¾': 0.75,
+  '⅕': 0.2,
+  '⅖': 0.4,
+  '⅗': 0.6,
+  '⅘': 0.8,
+  '⅙': 1/6,
+  '⅚': 5/6,
+  '⅛': 0.125,
+  '⅜': 0.375,
+  '⅝': 0.625,
+  '⅞': 0.875,
+};
+
 function extractAmountAndUnit(str: string): AmountResult {
   // Pattern: optional amount (decimal, fraction, or whole number) + optional unit
-  // Examples: "2 oz", "1.5 oz", "1/2 oz", "2", "Orange peel"
+  // Examples: "2 oz", "1.5 oz", "1/2 oz", "¾ oz", "2", "Orange peel"
 
-  // Match fractions like "1/2", "3/4"
+  // First, check for Unicode fractions (e.g., "¾ ounce", "1½ oz")
+  const unicodeFractionPattern = /^(\d*)\s*([½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞])\s*/;
+  const unicodeFractionMatch = str.match(unicodeFractionPattern);
+
+  if (unicodeFractionMatch) {
+    const whole = unicodeFractionMatch[1] ? parseInt(unicodeFractionMatch[1]) : 0;
+    const fractionChar = unicodeFractionMatch[2];
+    const fractionValue = UNICODE_FRACTIONS[fractionChar] || 0;
+    const amount = whole + fractionValue;
+    const afterFraction = str.slice(unicodeFractionMatch[0].length);
+    const { unit, remainder } = extractUnit(afterFraction);
+    return { amount, unit, remainder };
+  }
+
+  // Match ASCII fractions like "1/2", "3/4"
   const fractionPattern = /^(\d+)\/(\d+)\s*/;
   const fractionMatch = str.match(fractionPattern);
 

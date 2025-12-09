@@ -43,16 +43,20 @@ const CLASSIFICATION_RULES: Record<IngredientType, string[]> = {
     'simple syrup', 'syrup', 'sugar syrup', 'rich syrup', 'demerara syrup',
     'honey syrup', 'honey', 'agave', 'agave syrup', 'maple syrup', 'maple',
     'grenadine', 'orgeat', 'falernum', 'gum syrup', 'gomme',
-    'passion fruit syrup', 'passionfruit syrup',
+    'passion fruit syrup', 'passionfruit syrup', 'cinnamon syrup', 'vanilla syrup',
     // Sugar
     'sugar', 'sugar cube', 'brown sugar', 'demerara', 'turbinado',
-    // Sweet liqueurs
-    'triple sec', 'cointreau', 'grand marnier', 'curacao', 'curaçao',
+    // Sweet liqueurs (must come before garnish fruits)
+    'liqueur', 'triple sec', 'cointreau', 'grand marnier', 'curacao', 'curaçao',
     'blue curacao', 'dry curacao', 'pierre ferrand',
     'maraschino', 'luxardo', 'amaretto', 'frangelico', 'kahlua', 'kahlúa',
     'baileys', 'cream liqueur', 'licor 43', 'st germain', 'elderflower',
     'chambord', 'midori', 'creme de', 'crème de', 'cherry heering', 'heering',
     'allspice dram', 'st elizabeth', 'velvet falernum', 'pimento dram',
+    // Fruit liqueurs
+    'blackberry liqueur', 'raspberry liqueur', 'strawberry liqueur',
+    'peach liqueur', 'apricot liqueur', 'banana liqueur', 'melon liqueur',
+    'apple liqueur', 'pear liqueur', 'cherry liqueur', 'cassis',
   ],
 
   bitter: [
@@ -162,16 +166,33 @@ function matchesKeyword(text: string, keyword: string): boolean {
 }
 
 /**
+ * Priority order for type checking
+ * More specific types checked first, garnish last (catch-all)
+ */
+const TYPE_CHECK_ORDER: IngredientType[] = [
+  'spirit',    // Check spirits first (base ingredients)
+  'sweet',     // Liqueurs before garnish (blackberry liqueur != blackberry garnish)
+  'bitter',    // Bitters/amari
+  'acid',      // Citrus/acids
+  'salt',      // Salt/spicy
+  'dairy',     // Dairy products
+  'egg',       // Eggs
+  'dilution',  // Mixers/sodas
+  'garnish',   // Last resort - garnishes and unknown
+];
+
+/**
  * Determine ingredient type from name
  */
 function determineType(name: string): IngredientType {
   const lower = name.toLowerCase();
 
-  // Check each type's keywords using word boundary matching
-  for (const [type, keywords] of Object.entries(CLASSIFICATION_RULES)) {
+  // Check types in priority order (most specific first)
+  for (const type of TYPE_CHECK_ORDER) {
+    const keywords = CLASSIFICATION_RULES[type];
     for (const keyword of keywords) {
       if (matchesKeyword(lower, keyword)) {
-        return type as IngredientType;
+        return type;
       }
     }
   }

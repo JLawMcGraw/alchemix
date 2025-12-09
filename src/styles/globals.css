@@ -77,8 +77,11 @@
   --bond-botanical: #EC4899;         /* Pink — Amaro, Vermouth, Bitters */
   --bond-acid: #F59E0B;              /* Yellow — Citrus (Lemon, Lime, Orange) */
   --bond-sugar: #6366F1;             /* Indigo — Syrups, Liqueurs */
-  --bond-dairy: #E5E5E5;             /* Light Gray — Cream, Eggs (visible) */
+  --bond-dairy: #E5E5E5;             /* Light Gray — Cream (visible) */
+  --bond-egg: #FDE68A;               /* Warm Yellow — Eggs */
   --bond-carbonation: #A1A1AA;       /* Silver — Soda, Tonic, Sparkling */
+  --bond-salt: #EF4444;              /* Red — Salt, Spices, Heat */
+  --bond-garnish: #10B981;           /* Emerald Green — Herbs, Garnishes */
 
   /* =========================
      STATUS/FUNCTIONAL COLORS
@@ -179,36 +182,84 @@
   --color-danger: #EF4444;
 }
 
-/* Dark Theme - Slate Lab Countertop */
+/* =========================
+   DARK THEME - Slate Lab Countertop
+   Deep blue-black like a polished lab bench
+   ========================= */
 [data-theme="dark"] {
-  /* Background Colors */
-  --color-ui-bg-base: #0F172A;       /* Deep blue-black slate */
-  --color-ui-bg-surface: #1E293B;    /* Elevated surfaces */
+  /* Background Colors - Lab bench aesthetic */
+  --bg-paper: #0F172A;               /* Deep blue-black slate */
+  --bg-elevated: #1E293B;            /* Elevated surfaces (cards, modals) */
+  --color-ui-bg-base: #0F172A;
+  --color-ui-bg-surface: #1E293B;
   --color-ui-bg: #0F172A;
 
-  /* Text Colors */
-  --color-text-body: #F1F5F9;        /* Off-white text */
+  /* Text Colors - High contrast for readability */
+  --fg-primary: #F1F5F9;             /* Off-white, primary text */
+  --fg-secondary: #94A3B8;           /* Slate, secondary text */
+  --fg-tertiary: #64748B;            /* Dim slate, hints/placeholders */
+  --color-text-body: #F1F5F9;
   --color-text-heading: #FFFFFF;
-  --color-text-muted: #94A3B8;       /* Muted slate */
-  --color-text-tertiary: #64748B;    /* Tertiary text */
+  --color-text-muted: #94A3B8;
+  --color-text-tertiary: #64748B;
 
-  /* Border Colors */
-  --color-border-default: #334155;   /* Dark slate border */
+  /* Border Colors - Subtle dark borders */
+  --border-hairline: #334155;        /* Primary border color */
+  --border-emphasis: #475569;        /* Emphasized borders */
+  --color-border-default: #334155;
   --color-border: #334155;
-  --color-border-light: #475569;
+  --color-border-light: #1E293B;
   --color-border-emphasis: #475569;
 
-  /* Interaction Colors */
+  /* Brand Colors - Adjusted for dark backgrounds */
+  --color-primary: #F1F5F9;          /* Inverted: Off-white for primary actions */
+  --color-primary-hover: #FFFFFF;
+  --color-accent: #14B8A6;           /* Brighter teal for visibility */
+  --color-secondary: #94A3B8;
+
+  /* Interaction States */
   --hover-overlay: rgba(255, 255, 255, 0.06);
-  --selected-bg: rgba(13, 148, 136, 0.15);
+  --selected-bg: rgba(20, 184, 166, 0.15);  /* Teal tint */
+  --selected-border: #14B8A6;
+  --focus-ring: #14B8A6;             /* Brighter teal for focus */
   --ring-focus: 0 0 0 2px var(--color-ui-bg-base), 0 0 0 4px var(--focus-ring);
 
-  /* Shadows (darker for dark mode) */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.15);
-  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.25), 0 2px 4px rgba(0, 0, 0, 0.15);
-  --shadow-xl: 0 8px 16px rgba(0, 0, 0, 0.3), 0 4px 8px rgba(0, 0, 0, 0.2);
-  --shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.3);
+  /* Shadows - Darker, more pronounced */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-xl: 0 8px 16px rgba(0, 0, 0, 0.4), 0 4px 8px rgba(0, 0, 0, 0.25);
+  --shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.4);
+
+  /* Element Group Colors - Adjusted for dark mode contrast */
+  --bond-agave: #14B8A6;             /* Brighter Teal */
+  --bond-grain: #F59E0B;             /* Brighter Amber */
+  --bond-cane: #84CC16;              /* Brighter Lime Green */
+  --bond-juniper: #38BDF8;           /* Brighter Sky Blue */
+  --bond-grape: #A78BFA;             /* Brighter Violet */
+  --bond-neutral: #94A3B8;           /* Brighter Slate */
+  --bond-botanical: #F472B6;         /* Brighter Pink */
+  --bond-acid: #FBBF24;              /* Brighter Yellow */
+  --bond-sugar: #818CF8;             /* Brighter Indigo */
+  --bond-dairy: #374151;             /* Dark Gray (visible in dark mode) */
+  --bond-egg: #FDE68A;               /* Warm Yellow (same) */
+  --bond-carbonation: #D1D5DB;       /* Light Silver */
+  --bond-salt: #F87171;              /* Brighter Red */
+  --bond-garnish: #34D399;           /* Brighter Emerald */
+
+  /* Status Colors - Brighter for visibility */
+  --status-optimal: #34D399;         /* Brighter Emerald */
+  --status-warning: #FBBF24;         /* Brighter Amber */
+  --status-critical: #F87171;        /* Brighter Red */
+  --status-info: #38BDF8;            /* Brighter Blue */
+  --color-success: #34D399;
+  --color-warning: #FBBF24;
+  --color-info: #38BDF8;
+  --color-error: #F87171;
+  --color-danger: #F87171;
+
+  /* Scrollbar - Dark theme */
+  color-scheme: dark;
 }
 
 /* Base Styles */
@@ -894,4 +945,637 @@ a:hover {
 .mode-toggle-icon svg {
   width: 14px;
   height: 14px;
+}
+
+/* =========================
+   DARK MODE COMPONENT OVERRIDES
+   Specific adjustments for dark theme
+   ========================= */
+
+/* Dark mode cards - slightly elevated from background */
+[data-theme="dark"] .card,
+[data-theme="dark"] .card-interactive,
+[data-theme="dark"] .panel {
+  background: var(--bg-elevated);
+  border-color: var(--border-hairline);
+}
+
+[data-theme="dark"] .card-interactive:hover {
+  border-color: var(--border-emphasis);
+  box-shadow: var(--shadow-hover);
+}
+
+/* Dark mode terminal card */
+[data-theme="dark"] .card-terminal {
+  background: #0B1120;  /* Even darker than base */
+  border-color: var(--border-hairline);
+}
+
+[data-theme="dark"] .card-terminal-header {
+  background: var(--bg-elevated);
+  border-color: var(--border-hairline);
+}
+
+/* Dark mode badges - ensure text visibility */
+[data-theme="dark"] .badge {
+  background: var(--bg-elevated);
+  border-color: var(--border-hairline);
+  color: var(--fg-secondary);
+}
+
+[data-theme="dark"] .badge-primary {
+  background: var(--fg-primary);
+  border-color: var(--fg-primary);
+  color: var(--bg-paper);
+}
+
+/* Dark mode tags */
+[data-theme="dark"] .tag {
+  background: var(--bg-elevated);
+  border-color: var(--border-hairline);
+  color: var(--fg-primary);
+}
+
+/* Dark mode pills */
+[data-theme="dark"] .pill {
+  background: var(--bg-elevated);
+  border-color: var(--border-hairline);
+  color: var(--fg-secondary);
+}
+
+[data-theme="dark"] .pill-primary {
+  background: var(--fg-primary);
+  border-color: var(--fg-primary);
+  color: var(--bg-paper);
+}
+
+/* Dark mode mode-toggle */
+[data-theme="dark"] .mode-toggle {
+  background: #0B1120;
+  border-color: var(--border-hairline);
+}
+
+[data-theme="dark"] .mode-toggle-active {
+  background: var(--bg-elevated);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Dark mode scrollbar */
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: var(--bg-paper);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: var(--border-hairline);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: var(--border-emphasis);
+}
+
+/* Dark mode selection */
+[data-theme="dark"] ::selection {
+  background: rgba(20, 184, 166, 0.3);
+  color: var(--fg-primary);
+}
+
+/* Dark mode links */
+[data-theme="dark"] a {
+  color: var(--color-accent);
+}
+
+[data-theme="dark"] a:hover {
+  color: #5EEAD4;  /* Lighter teal */
+}
+
+/* Dark mode focus visible */
+[data-theme="dark"] *:focus-visible {
+  outline-color: var(--color-accent);
+}
+
+/* =========================
+   ANIMATIONS - Scientific Motion
+   Subtle, precise movements that evoke
+   molecular behavior and lab equipment
+   ========================= */
+
+/* Brownian Motion - Molecular nodes drift slowly */
+@keyframes brownian {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(2px, -1px); }
+  50% { transform: translate(-1px, 2px); }
+  75% { transform: translate(-2px, -2px); }
+}
+
+@keyframes brownian-alt {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-2px, 1px); }
+  50% { transform: translate(1px, -2px); }
+  75% { transform: translate(2px, 1px); }
+}
+
+@keyframes brownian-subtle {
+  0%, 100% { transform: translate(0, 0); }
+  33% { transform: translate(1px, -0.5px); }
+  66% { transform: translate(-0.5px, 1px); }
+}
+
+/* Apply Brownian motion to molecular nodes */
+.brownian {
+  animation: brownian 5s ease-in-out infinite;
+}
+
+.brownian-alt {
+  animation: brownian-alt 6s ease-in-out infinite;
+}
+
+.brownian-subtle {
+  animation: brownian-subtle 4s ease-in-out infinite;
+}
+
+/* Staggered delays for natural molecule movement */
+.brownian-delay-1 { animation-delay: 0s; }
+.brownian-delay-2 { animation-delay: -1s; }
+.brownian-delay-3 { animation-delay: -2s; }
+.brownian-delay-4 { animation-delay: -3s; }
+.brownian-delay-5 { animation-delay: -4s; }
+
+/* Fade In animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Slide animations */
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Pulse animation - for loading states */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Spin animation */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Bounce animation - subtle */
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* Shake animation - for errors */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+/* Animation utility classes */
+.animate-fade-in {
+  animation: fadeIn var(--transition-base);
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp var(--transition-base);
+}
+
+.animate-fade-in-down {
+  animation: fadeInDown var(--transition-base);
+}
+
+.animate-fade-in-scale {
+  animation: fadeInScale var(--transition-base);
+}
+
+.animate-slide-in-right {
+  animation: slideInRight var(--transition-base);
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft var(--transition-base);
+}
+
+.animate-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.animate-bounce {
+  animation: bounce 1s ease-in-out infinite;
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+/* Staggered animation delays for lists */
+.stagger-1 { animation-delay: 50ms; }
+.stagger-2 { animation-delay: 100ms; }
+.stagger-3 { animation-delay: 150ms; }
+.stagger-4 { animation-delay: 200ms; }
+.stagger-5 { animation-delay: 250ms; }
+.stagger-6 { animation-delay: 300ms; }
+.stagger-7 { animation-delay: 350ms; }
+.stagger-8 { animation-delay: 400ms; }
+
+/* Hover lift effect */
+.hover-lift {
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+
+/* Hover scale effect - for element cards */
+.hover-scale {
+  transition: transform var(--transition-fast);
+}
+
+.hover-scale:hover {
+  transform: scale(1.05);
+}
+
+/* Interactive press effect */
+.press-effect {
+  transition: transform var(--transition-fast);
+}
+
+.press-effect:active {
+  transform: scale(0.98);
+}
+
+/* =========================
+   REDUCED MOTION
+   Respect user preferences
+   ========================= */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .brownian,
+  .brownian-alt,
+  .brownian-subtle {
+    animation: none !important;
+  }
+
+  .hover-lift:hover,
+  .hover-scale:hover {
+    transform: none !important;
+  }
+}
+
+/* =========================
+   ACCESSIBILITY UTILITIES
+   WCAG 2.1 AA compliance helpers
+   ========================= */
+
+/* Screen reader only - visually hidden but accessible */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Make sr-only visible on focus (for skip links) */
+.sr-only-focusable:focus,
+.sr-only-focusable:focus-within {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: var(--space-2) var(--space-3);
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+  background: var(--color-primary);
+  color: white;
+  z-index: 9999;
+}
+
+/* Skip link styling */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: var(--space-2);
+  z-index: 9999;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-primary);
+  color: white;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-decoration: none;
+  border-radius: var(--radius);
+  transition: top var(--transition-fast);
+}
+
+.skip-link:focus {
+  top: var(--space-2);
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Focus visible - Enhanced keyboard focus indicator */
+.focus-visible-ring:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Minimum touch target size - 44x44px per WCAG */
+.touch-target {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :root {
+    --color-border-default: #000000;
+    --color-border-emphasis: #000000;
+    --shadow-sm: none;
+    --shadow-md: none;
+    --shadow-lg: none;
+    --shadow-hover: none;
+  }
+
+  .card,
+  .card-interactive,
+  .panel,
+  .badge,
+  .tag,
+  .pill {
+    border-width: 2px;
+  }
+
+  .card-interactive:hover {
+    border-width: 3px;
+    box-shadow: none;
+  }
+}
+
+/* =========================
+   RESPONSIVE UTILITIES
+   Mobile-first breakpoints
+   ========================= */
+
+/* Mobile-first responsive grid */
+.responsive-grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .responsive-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 768px) {
+  .responsive-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .responsive-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Periodic table responsive grid */
+.periodic-grid {
+  display: grid;
+  gap: var(--space-1);
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@media (min-width: 640px) {
+  .periodic-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+@media (min-width: 768px) {
+  .periodic-grid {
+    grid-template-columns: repeat(8, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .periodic-grid {
+    grid-template-columns: repeat(10, 1fr);
+    gap: var(--space-2);
+  }
+}
+
+/* Hide on mobile */
+.hide-mobile {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .hide-mobile {
+    display: block;
+  }
+}
+
+/* Show only on mobile */
+.show-mobile {
+  display: block;
+}
+
+@media (min-width: 640px) {
+  .show-mobile {
+    display: none;
+  }
+}
+
+/* Full width on mobile */
+.mobile-full-width {
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .mobile-full-width {
+    width: auto;
+  }
+}
+
+/* Stack on mobile (flex column) */
+.mobile-stack {
+  flex-direction: column;
+}
+
+@media (min-width: 640px) {
+  .mobile-stack {
+    flex-direction: row;
+  }
+}
+
+/* Touch-friendly spacing on mobile */
+@media (max-width: 639px) {
+  .touch-spacing {
+    padding: var(--space-2);
+    gap: var(--space-2);
+  }
+
+  .touch-spacing button,
+  .touch-spacing a,
+  .touch-spacing input,
+  .touch-spacing select {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* =========================
+   PRINT STYLES
+   Clean printing support
+   ========================= */
+@media print {
+  * {
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  a,
+  a:visited {
+    text-decoration: underline;
+  }
+
+  a[href]::after {
+    content: " (" attr(href) ")";
+  }
+
+  abbr[title]::after {
+    content: " (" attr(title) ")";
+  }
+
+  /* Don't show links for images, or javascript/internal links */
+  a[href^="javascript:"]::after,
+  a[href^="#"]::after {
+    content: "";
+  }
+
+  pre,
+  blockquote {
+    border: 1px solid #999;
+    page-break-inside: avoid;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tr,
+  img {
+    page-break-inside: avoid;
+  }
+
+  img {
+    max-width: 100% !important;
+  }
+
+  p,
+  h2,
+  h3 {
+    orphans: 3;
+    widows: 3;
+  }
+
+  h2,
+  h3 {
+    page-break-after: avoid;
+  }
+
+  /* Hide non-essential elements when printing */
+  nav,
+  .no-print,
+  button:not(.print-button),
+  .mode-toggle {
+    display: none !important;
+  }
 }

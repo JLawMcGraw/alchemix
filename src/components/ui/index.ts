@@ -11,6 +11,9 @@ export type { ElementCardProps } from './ElementCard';
 export { Input } from './Input';
 export type { InputProps } from './Input';
 
+export { StepperInput } from './StepperInput';
+export type { StepperInputProps } from './StepperInput';
+
 export { Spinner } from './Spinner';
 
 export { SuccessCheckmark } from './SuccessCheckmark';

@@ -1,0 +1,124 @@
+/* StepperInput Styles - Molecular Mixology Theme */
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+.label {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.container {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius);
+  background: var(--color-ui-bg-surface);
+  overflow: hidden;
+}
+
+.fullWidth .container {
+  width: 100%;
+}
+
+/* Stepper buttons */
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  min-width: 36px;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.button:hover:not(:disabled) {
+  background: var(--hover-overlay);
+  color: var(--color-text-body);
+}
+
+.button:active:not(:disabled) {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.button:first-child {
+  border-right: 1px solid var(--color-border-default);
+}
+
+.button:last-child {
+  border-left: 1px solid var(--color-border-default);
+}
+
+/* Input wrapper for value + unit */
+.inputWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-width: 80px;
+  padding: 0 8px;
+  gap: 4px;
+}
+
+/* The actual input */
+.input {
+  width: 48px;
+  padding: 8px 0;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--color-text-body);
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+.input:focus {
+  color: var(--color-primary);
+}
+
+.input:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Unit label */
+.unit {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: lowercase;
+  color: var(--color-text-muted);
+}
+
+/* Focus state for container */
+.container:focus-within {
+  border-color: var(--focus-ring);
+  box-shadow: var(--ring-focus);
+}
+
+/* Hover state for container */
+.container:hover:not(:focus-within) {
+  border-color: var(--color-border-emphasis);
+}

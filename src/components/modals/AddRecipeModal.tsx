@@ -314,8 +314,8 @@ export function AddRecipeModal({ isOpen, onClose, onAdd, collections = [] }: Add
                         flex: 1,
                         minHeight: 'auto',
                         padding: '10px 12px',
-                        fontFamily: 'var(--font-body)',
-                        fontSize: 'var(--text-base)',
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '0.875rem',
                       }}
                     />
                     {formData.ingredients.length > 1 && (
@@ -346,7 +346,7 @@ export function AddRecipeModal({ isOpen, onClose, onAdd, collections = [] }: Add
               {fieldErrors.ingredients && (
                 <span className={styles.errorText}>{fieldErrors.ingredients}</span>
               )}
-              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', marginTop: '4px' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '4px' }}>
                 Press Enter to quickly add another ingredient
               </span>
             </div>

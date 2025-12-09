@@ -125,6 +125,21 @@ describe('Ingredient Classifier', () => {
         const result = classifyIngredient(createParsed('sugar'));
         expect(result.type).toBe('sweet');
       });
+
+      it('should classify blackberry liqueur as sweet (not garnish)', () => {
+        const result = classifyIngredient(createParsed('leopold brothers rocky mountain blackberry liqueur'));
+        expect(result.type).toBe('sweet');
+      });
+
+      it('should classify any liqueur as sweet', () => {
+        const result = classifyIngredient(createParsed('raspberry liqueur'));
+        expect(result.type).toBe('sweet');
+      });
+
+      it('should classify allspice dram as sweet', () => {
+        const result = classifyIngredient(createParsed('st elizabeth allspice dram'));
+        expect(result.type).toBe('sweet');
+      });
     });
 
     describe('Bitters', () => {

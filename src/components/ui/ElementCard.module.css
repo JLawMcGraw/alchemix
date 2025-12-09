@@ -30,9 +30,9 @@
   border-radius: var(--radius-card) var(--radius-card) 0 0;
 }
 
-/* Hover state */
+/* Hover state - scale up like hovering over molecule */
 .elementCard:hover {
-  transform: translateY(-2px);
+  transform: scale(1.05);
   box-shadow: var(--shadow-hover);
   border-color: var(--element-color, var(--color-primary));
 }
@@ -180,4 +180,29 @@
   .atomicNumber {
     font-size: 0.5rem;
   }
+}
+
+/* =========================
+   DARK MODE OVERRIDES
+   ========================= */
+
+:global([data-theme="dark"]) .elementCard {
+  background: var(--color-ui-bg-surface);
+  border-color: var(--color-border-default);
+}
+
+:global([data-theme="dark"]) .elementCard:hover {
+  box-shadow: var(--shadow-hover);
+}
+
+:global([data-theme="dark"]) .elementCard.hasInventory {
+  background: var(--color-ui-bg-surface);
+}
+
+:global([data-theme="dark"]) .elementCard.empty {
+  opacity: 0.4;
+}
+
+:global([data-theme="dark"]) .elementCard.empty:hover {
+  opacity: 0.7;
 }

@@ -115,3 +115,25 @@
   color: var(--color-text-muted);
   pointer-events: none;
 }
+
+/* =========================
+   DARK MODE OVERRIDES
+   ========================= */
+
+:global([data-theme="dark"]) .input {
+  background-color: #0B1120;  /* Darker than surface */
+  border-color: var(--color-border-default);
+  color: var(--color-text-body);
+}
+
+:global([data-theme="dark"]) .input:hover:not(:disabled) {
+  border-color: var(--color-border-emphasis);
+}
+
+:global([data-theme="dark"]) .input:disabled {
+  background-color: var(--color-ui-bg-surface);
+}
+
+:global([data-theme="dark"]) .inputPrefix {
+  color: var(--color-accent);
+}

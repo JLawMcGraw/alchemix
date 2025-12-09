@@ -189,3 +189,41 @@
   white-space: nowrap;
   border: 0;
 }
+
+/* =========================
+   DARK MODE OVERRIDES
+   ========================= */
+
+/* Primary button in dark mode - keep solid fill for contrast */
+:global([data-theme="dark"]) .primary {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #0F172A;  /* Dark text on bright button */
+}
+
+:global([data-theme="dark"]) .primary:hover:not(:disabled) {
+  background-color: #5EEAD4;  /* Lighter teal */
+  border-color: #5EEAD4;
+}
+
+/* Secondary/Outline in dark mode */
+:global([data-theme="dark"]) .secondary,
+:global([data-theme="dark"]) .outline {
+  border-color: var(--color-border-default);
+  color: var(--color-text-body);
+}
+
+:global([data-theme="dark"]) .secondary:hover:not(:disabled),
+:global([data-theme="dark"]) .outline:hover:not(:disabled) {
+  border-color: var(--color-border-emphasis);
+}
+
+/* Ghost button in dark mode */
+:global([data-theme="dark"]) .ghost:active:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Text button in dark mode */
+:global([data-theme="dark"]) .text:active:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.08);
+}

@@ -34,6 +34,30 @@ describe('Ingredient Parser', () => {
         expect(result.amount).toBe(2.25);
       });
 
+      it('should parse Unicode fraction ½', () => {
+        const result = parseIngredient('½ oz lime juice');
+        expect(result.amount).toBe(0.5);
+        expect(result.unit).toBe('oz');
+      });
+
+      it('should parse Unicode fraction ¾', () => {
+        const result = parseIngredient('¾ ounce fresh lime juice');
+        expect(result.amount).toBe(0.75);
+        expect(result.unit).toBe('oz');
+      });
+
+      it('should parse Unicode fraction ¼', () => {
+        const result = parseIngredient('¼ oz simple syrup');
+        expect(result.amount).toBe(0.25);
+        expect(result.unit).toBe('oz');
+      });
+
+      it('should parse mixed Unicode fractions like 1½', () => {
+        const result = parseIngredient('1½ oz bourbon');
+        expect(result.amount).toBe(1.5);
+        expect(result.unit).toBe('oz');
+      });
+
       it('should handle no amount', () => {
         const result = parseIngredient('Orange peel');
         expect(result.amount).toBeNull();

@@ -1,25 +1,112 @@
 # Project Development Progress
 
-Last updated: 2025-12-08
+Last updated: 2025-12-09
 
 ---
 
 ## Current Status
 
 **Version**: v1.29.0
-**Phase**: Visual Redesign - "Molecular Mixology" (Batch A in progress)
-**Branch**: `feature/recipe-molecule`
+**Phase**: Visual Redesign - "Molecular Mixology" (**ALL PHASES COMPLETE**)
+**Branch**: `alchemix-redesign`
 **Blockers**: None
 
 **Redesign Progress**:
-- Phase 1 (Foundation): **Complete**
-- Phase 2 (Typography): **60%**
-- Phase 3 (Spacing): Pending
-- Phase 4 (Components): Pending
+- Phase 1-4 (Batch A - Foundation): **Complete**
+- Phase 5-7 (Batch B - Features): **Complete**
+- Phase 8-10 (Batch C - Polish): **Complete**
 
 ---
 
-## Recent Session (2025-12-08): Visual Redesign - Font System Migration
+## Recent Session (2025-12-09): Visual Redesign Complete + Stoichiometric Balance Fixes
+
+### Summary
+Completed all remaining phases (8-10) of the Molecular Mixology visual redesign. Fixed critical bugs in ingredient classification and stoichiometric balance display.
+
+### Work Completed
+
+#### 1. Batch C (Polish) - Phases 8-10
+
+**Phase 8: Dark Mode Refinement**
+- Rewrote `[data-theme="dark"]` section in `globals.css` with comprehensive dark mode variables
+- Deep blue-black slate backgrounds (#0F172A, #1E293B)
+- High-contrast off-white text for readability
+- Brighter element group colors for dark mode visibility
+- Added dark mode overrides to component CSS modules:
+  - `Button.module.css` - Teal accent primary buttons
+  - `Input.module.css` - Darker input backgrounds
+  - `Modal.module.css` - Darker backdrop/header/footer
+  - `ElementCard.module.css` - Proper contrast
+
+**Phase 9: Animations**
+- Added Brownian motion keyframes (`brownian`, `brownian-alt`, `brownian-subtle`)
+- Added animation keyframes: fadeIn, fadeInUp, fadeInDown, fadeInScale, slideInRight, slideInLeft, pulse, spin, bounce, shake
+- Added utility classes: `.animate-*`, `.stagger-*`, `.hover-lift`, `.hover-scale`, `.press-effect`
+- Updated ElementCard hover to `scale(1.05)` for molecule-like feel
+- Added `@media (prefers-reduced-motion)` support
+
+**Phase 10: Polish & Accessibility**
+- Added accessibility utilities: `.sr-only`, `.sr-only-focusable`, `.skip-link`, `.touch-target`
+- Added `@media (prefers-contrast: high)` support for high contrast mode
+- Added responsive utilities: `.responsive-grid`, `.periodic-grid`, `.hide-mobile`, `.show-mobile`, `.mobile-full-width`, `.mobile-stack`, `.touch-spacing`
+- Added `@media print` styles for clean printing
+
+#### 2. Ingredient Classification Fixes
+
+**Blackberry Liqueur Bug**
+- Problem: "Leopold Brothers Rocky Mountain Blackberry Liqueur" was classified as `garnish` instead of `sweet`
+- Fix: Added `'liqueur'` as top-level keyword in sweet classification
+- Added specific fruit liqueur keywords: blackberry, raspberry, strawberry, peach, apricot, banana, melon, apple, pear, cherry liqueur, cassis
+- Created explicit `TYPE_CHECK_ORDER` array ensuring sweet is checked before garnish
+
+**Files Modified**:
+- `packages/recipe-molecule/src/core/classifier.ts` - Added liqueur keywords, priority order
+
+#### 3. Stoichiometric Balance Display Fix
+
+**Problem**: Small amounts like "1 dash bitters" (0.03 oz) displayed as "0.0" due to `.toFixed(1)` rounding
+
+**Fix**: Added `formatBalanceValue()` helper function in `RecipeDetailModal.tsx`:
+- `0` → `"0"`
+- `< 0.05` → `"trace"` (for dashes, drops)
+- `< 1` → 2 decimal places (e.g., `"0.78"`)
+- `≥ 1` → 1 decimal place (e.g., `"2.0"`)
+
+#### 4. Cleanup
+
+- Removed duplicate `PeriodicTable.tsx` and `PeriodicTable.module.css` from `src/components/ui/` (keeping feature-rich version in `src/components/`)
+- Updated `src/components/ui/index.ts` to remove duplicate export
+
+### Files Changed
+
+**globals.css**:
+- Complete dark mode variable rewrite
+- Brownian motion and animation keyframes
+- Accessibility utilities
+- Responsive grid utilities
+- Print styles
+- Reduced motion support
+
+**Component CSS Modules**:
+- `Button.module.css` - Dark mode overrides
+- `Input.module.css` - Dark mode overrides
+- `Modal.module.css` - Dark mode overrides
+- `ElementCard.module.css` - Dark mode overrides, hover scale effect
+
+**Recipe Molecule Package**:
+- `classifier.ts` - TYPE_CHECK_ORDER, liqueur keywords
+- `classifier.test.ts` - Added tests for blackberry liqueur, allspice dram
+
+**RecipeDetailModal.tsx**:
+- Added `formatBalanceValue()` for smart balance display
+
+### Test Status
+- All 142 recipe-molecule tests passing
+- Type-check passes for all packages
+
+---
+
+## Previous Session (2025-12-08): Visual Redesign - Font System Migration
 
 ### Summary
 Comprehensive font system migration for the "Molecular Mixology" visual redesign. Completed Phase 1 (Foundation) and made significant progress on Phase 2 (Typography). Migrated all page and component CSS modules from deprecated font variables to the new design system. Also audited design documentation and updated all project documentation.

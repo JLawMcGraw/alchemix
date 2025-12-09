@@ -24,8 +24,9 @@
 
 .modal {
   background: var(--color-ui-bg-surface);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xl);
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border-default);
+  box-shadow: var(--shadow-lg);
   width: 100%;
   max-width: 720px;
   max-height: 90vh;
@@ -75,7 +76,7 @@
   align-items: center;
   justify-content: center;
   transition: color var(--transition-fast);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
 }
 
 .closeBtn:hover {
@@ -137,9 +138,11 @@
 
 .textareaLabel {
   font-family: var(--font-sans);
-  font-size: 0.875rem;
+  font-size: 0.6875rem;
   font-weight: 500;
-  color: var(--color-text-body);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
 }
 
 .textarea {
@@ -150,7 +153,7 @@
   color: var(--color-text-body);
   background: var(--color-ui-bg-surface);
   border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   transition: all var(--transition-fast);
   resize: vertical;
   min-height: 80px;
@@ -174,7 +177,7 @@
   color: var(--color-text-body);
   background: var(--color-ui-bg-surface);
   border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   transition: all var(--transition-fast);
   cursor: pointer;
 }
@@ -193,9 +196,11 @@
 
 .label {
   font-family: var(--font-sans);
-  font-size: 0.875rem;
+  font-size: 0.6875rem;
   font-weight: 500;
-  color: var(--color-text-body);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
 }
 
 .required {
@@ -257,7 +262,7 @@
   align-items: center;
   justify-content: center;
   transition: color var(--transition-fast);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
 }
 
 .closeButton:hover {

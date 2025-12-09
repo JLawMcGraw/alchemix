@@ -33,25 +33,44 @@ export type BondType =
 
 export interface TypeStyle {
   fill: string;
+  cssVar: string;  // CSS variable name for AlcheMix integration
   legend: string;
 }
 
 /**
  * Color palette aligned with AlcheMix design system --bond-* tokens
- * Using direct hex values for standalone package compatibility
+ *
+ * Each type has:
+ * - fill: Hex fallback for standalone use
+ * - cssVar: CSS variable name (used when rendered in AlcheMix context)
+ * - legend: Display name for legends
+ *
+ * When used in AlcheMix, the component wrapper sets these CSS variables,
+ * allowing the molecule to inherit the design system colors.
  */
 export const TYPE_COLORS: Record<IngredientType, TypeStyle> = {
-  spirit:   { fill: '#64748B', legend: 'Spirit' },     // --bond-neutral (slate)
-  acid:     { fill: '#F59E0B', legend: 'Acid' },       // --bond-acid (yellow/amber)
-  sweet:    { fill: '#6366F1', legend: 'Sweet' },      // --bond-sugar (indigo)
-  bitter:   { fill: '#EC4899', legend: 'Bitter' },     // --bond-botanical (pink)
-  salt:     { fill: '#EF4444', legend: 'Salt' },       // Red accent for spice/heat
-  dilution: { fill: '#A1A1AA', legend: 'Mixer' },      // --bond-carbonation (silver)
-  garnish:  { fill: '#10B981', legend: 'Garnish' },    // Emerald green for herbs/garnishes
-  dairy:    { fill: '#F5F5F4', legend: 'Dairy' },      // --bond-dairy (cream)
-  egg:      { fill: '#FDE68A', legend: 'Egg' },        // Warm yellow for egg
-  junction: { fill: 'transparent', legend: '' },       // Invisible - not shown in legend
+  spirit:   { fill: '#64748B', cssVar: '--bond-neutral',     legend: 'Spirit' },
+  acid:     { fill: '#F59E0B', cssVar: '--bond-acid',        legend: 'Acid' },
+  sweet:    { fill: '#6366F1', cssVar: '--bond-sugar',       legend: 'Sweet' },
+  bitter:   { fill: '#EC4899', cssVar: '--bond-botanical',   legend: 'Bitter' },
+  salt:     { fill: '#EF4444', cssVar: '--bond-salt',        legend: 'Salt' },
+  dilution: { fill: '#A1A1AA', cssVar: '--bond-carbonation', legend: 'Mixer' },
+  garnish:  { fill: '#10B981', cssVar: '--bond-garnish',     legend: 'Garnish' },
+  dairy:    { fill: '#F5F5F4', cssVar: '--bond-dairy',       legend: 'Dairy' },
+  egg:      { fill: '#FDE68A', cssVar: '--bond-egg',         legend: 'Egg' },
+  junction: { fill: 'transparent', cssVar: '',               legend: '' },
 };
+
+/**
+ * Get the color for an ingredient type with CSS variable fallback
+ * Use this in components that support CSS variable overrides
+ */
+export function getTypeColor(type: IngredientType): string {
+  const style = TYPE_COLORS[type];
+  if (!style.cssVar) return style.fill;
+  // Return CSS variable with hex fallback
+  return `var(${style.cssVar}, ${style.fill})`;
+}
 
 /**
  * Determines if an ingredient type is terminal (bond ends here) or inline (bonds pass through)

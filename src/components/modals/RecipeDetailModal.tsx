@@ -5,7 +5,7 @@ import { X, Star, Martini, Edit2, Save, Trash2, FolderOpen, Plus, Download } fro
 import { Button, useToast } from '@/components/ui';
 import { useStore } from '@/lib/store';
 import { RecipeMolecule } from '@/components/RecipeMolecule';
-import { classifyIngredient, parseIngredient, generateFormula, TYPE_COLORS, type IngredientType } from '@alchemix/recipe-molecule';
+import { classifyIngredient, parseIngredient, generateFormula, toOunces, TYPE_COLORS, type IngredientType } from '@alchemix/recipe-molecule';
 import type { Recipe, Collection } from '@/types';
 import styles from './RecipeDetailModal.module.css';
 
@@ -44,6 +44,14 @@ interface RecipeDetailModalProps {
   isFavorited: boolean;
   onToggleFavorite: () => void;
   onRecipeUpdated?: (updatedRecipe: Recipe) => void;
+}
+
+// Format balance value - show "trace" for very small amounts, otherwise appropriate precision
+function formatBalanceValue(value: number): string {
+  if (value === 0) return '0';
+  if (value < 0.05) return 'trace';  // Very small amounts (like a dash)
+  if (value < 1) return value.toFixed(2);  // Show 2 decimals for sub-1 values
+  return value.toFixed(1);  // Show 1 decimal for larger values
 }
 
 // Color values for export (matching CSS variables)
@@ -598,14 +606,15 @@ export function RecipeDetailModal({
 
           {/* Stoichiometric Balance */}
           {!isEditMode && ingredientsArray.length > 0 && (() => {
-            // Calculate balance from ingredients
+            // Calculate balance from ingredients (converting all to oz equivalents)
             const balanceCounts = { spirit: 0, bitter: 0, sweet: 0, acid: 0 };
             let totalVolume = 0;
 
             ingredientsArray.forEach((ingredient) => {
               const parsed = parseIngredient(ingredient);
               const classified = classifyIngredient(parsed);
-              const volume = parsed.amount || 0;
+              // Convert to oz equivalents for consistent comparison
+              const volume = toOunces(parsed.amount, parsed.unit);
 
               if (classified.type === 'spirit') balanceCounts.spirit += volume;
               else if (classified.type === 'bitter') balanceCounts.bitter += volume;
@@ -616,7 +625,7 @@ export function RecipeDetailModal({
             });
 
             // Calculate percentages (relative to max for visual scaling)
-            const maxValue = Math.max(...Object.values(balanceCounts), 0.1);
+            const maxValue = Math.max(...Object.values(balanceCounts), 0.01);
 
             // Only show if there's meaningful data
             if (totalVolume === 0) return null;
@@ -636,7 +645,7 @@ export function RecipeDetailModal({
                         }}
                       />
                     </div>
-                    <span className={styles.balanceValue}>{balanceCounts.spirit.toFixed(1)}</span>
+                    <span className={styles.balanceValue}>{formatBalanceValue(balanceCounts.spirit)}</span>
                   </div>
                   <div className={styles.balanceRow}>
                     <span className={styles.balanceLabel}>Bitter</span>
@@ -649,7 +658,7 @@ export function RecipeDetailModal({
                         }}
                       />
                     </div>
-                    <span className={styles.balanceValue}>{balanceCounts.bitter.toFixed(1)}</span>
+                    <span className={styles.balanceValue}>{formatBalanceValue(balanceCounts.bitter)}</span>
                   </div>
                   <div className={styles.balanceRow}>
                     <span className={styles.balanceLabel}>Sweet</span>
@@ -662,7 +671,7 @@ export function RecipeDetailModal({
                         }}
                       />
                     </div>
-                    <span className={styles.balanceValue}>{balanceCounts.sweet.toFixed(1)}</span>
+                    <span className={styles.balanceValue}>{formatBalanceValue(balanceCounts.sweet)}</span>
                   </div>
                   <div className={styles.balanceRow}>
                     <span className={styles.balanceLabel}>Acid</span>
@@ -675,7 +684,7 @@ export function RecipeDetailModal({
                         }}
                       />
                     </div>
-                    <span className={styles.balanceValue}>{balanceCounts.acid.toFixed(1)}</span>
+                    <span className={styles.balanceValue}>{formatBalanceValue(balanceCounts.acid)}</span>
                   </div>
                 </div>
               </section>
