@@ -265,6 +265,7 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   margin-bottom: 4px;
+  color: var(--color-text-body);
 }
 
 .categoryLabel {

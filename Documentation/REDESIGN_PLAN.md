@@ -983,6 +983,40 @@ Two HTML mockups provide the design direction:
 
 ## Progress Log
 
+### December 10, 2025 - Session 5: Shopping List, Favorites & AI Bartender Page Redesigns
+
+**Shopping List Page**:
+- Complete rewrite with two-column layout (recommendations left, shopping list right)
+- Top Pick hero card with teal border and Award icon
+- Other Recommendations with pagination (7 items/page, Previous/Next buttons)
+- My Shopping List sidebar with checkboxes, Impact Summary, custom item input
+
+**Favorites Page**:
+- Grid layout matching Recipes page card styling exactly
+- Spirit filter buttons dynamically generated from user's favorites
+- RecipeMolecule thumbnails, craftable dot indicator
+- Fixed React hooks ordering bug
+
+**AI Bartender Page**:
+- Sidebar layout (260px sidebar + main chat area)
+- Bar Context card (bottles, recipes, craftable counts)
+- Quick Prompts section (4 pre-defined prompts)
+- History section (last 5 chat sessions with date labels)
+- Empty state uses AlcheMixLogo (muted 35% opacity)
+- Viewport-height constrained layout
+
+**Dashboard Fix**:
+- Category numbers in "My Bar Overview" changed to black
+- Colored dots remain above numbers for category indication
+
+**Files Changed**:
+- `src/app/shopping-list/page.tsx`, `shopping-list.module.css`
+- `src/app/favorites/page.tsx`, `favorites.module.css`
+- `src/app/ai/page.tsx`, `ai.module.css`
+- `src/app/dashboard/page.tsx`, `dashboard.module.css`
+
+---
+
 ### December 9, 2025 - Session 4: Dashboard & Recipes Page Visual Redesign + New Login
 
 **Login Page**:

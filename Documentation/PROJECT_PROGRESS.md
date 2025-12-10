@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2025-12-09
+Last updated: 2025-12-10
 
 ---
 
@@ -15,10 +15,77 @@ Last updated: 2025-12-09
 - Phase 1-4 (Batch A - Foundation): **Complete**
 - Phase 5-7 (Batch B - Features): **Complete**
 - Phase 8-10 (Batch C - Polish): **Complete**
+- Page-specific redesigns: **Complete** (Shopping List, Favorites, AI Bartender)
 
 ---
 
-## Recent Session (2025-12-09): Dashboard & Recipes Page Visual Redesign + New Login Page
+## Recent Session (2025-12-10): Shopping List, Favorites & AI Bartender Page Redesigns
+
+### Summary
+Continued page-by-page visual redesign applying Molecular Mixology design system. Redesigned Shopping List page with two-column layout (recommendations + shopping list), Favorites page with recipe cards matching Recipes page styling, and AI Bartender page with sidebar layout (bar context, quick prompts, history).
+
+### Work Completed
+
+#### 1. Shopping List Page Redesign
+- Two-column layout: Recommendations (left), Shopping List (right)
+- **Top Pick** hero card with teal border and Award icon
+- **Other Recommendations** expandable list with pagination (7 items per page, Previous/Next)
+- **My Shopping List** sidebar with checkboxes and Impact Summary
+- Custom item input with always-visible plus button
+- Files: `shopping-list/page.tsx`, `shopping-list.module.css`
+
+#### 2. Favorites Page Redesign
+- Grid of recipe cards matching Recipes page styling exactly
+- Spirit filter buttons (All, Gin, Whiskey, etc.)
+- RecipeMolecule thumbnails in cards
+- Green craftable dot indicator using `craftableRecipes` from store
+- Fixed React hooks ordering (useMemo before conditional returns)
+- Files: `favorites/page.tsx`, `favorites.module.css`
+
+#### 3. AI Bartender Page Redesign
+- Sidebar layout (260px sidebar + main chat area)
+- **Bar Context** card: bottles, recipes, craftable counts
+- **Quick Prompts** section: 4 pre-defined prompts
+- **History** section: last 5 chat sessions with date labels
+- **Chat Area**: Lab Assistant header, teal-bordered AI messages
+- **Empty State**: Uses AlcheMixLogo (muted 35% opacity, 30% grayscale)
+- Viewport-height constrained layout (no overflow)
+- Files: `ai/page.tsx`, `ai.module.css`
+
+#### 4. Dashboard Fix
+- Changed category numbers in "My Bar Overview" to black
+- Kept colored dots above numbers for category indication
+- Files: `dashboard/page.tsx`, `dashboard.module.css`
+
+### Files Changed
+
+**Shopping List**:
+- `src/app/shopping-list/page.tsx` - Two-column layout, pagination, custom items
+- `src/app/shopping-list/shopping-list.module.css` - Complete rewrite
+
+**Favorites**:
+- `src/app/favorites/page.tsx` - Grid layout, spirit filters, craftable detection
+- `src/app/favorites/favorites.module.css` - Complete rewrite
+
+**AI Bartender**:
+- `src/app/ai/page.tsx` - Sidebar layout, bar context, quick prompts, history
+- `src/app/ai/ai.module.css` - Complete rewrite with viewport-height constraints
+
+**Dashboard**:
+- `src/app/dashboard/page.tsx` - Removed colored numbers
+- `src/app/dashboard/dashboard.module.css` - Added black color to categoryCount
+
+### Design Decisions
+- Shopping list pagination: 7 items per page for Other Recommendations
+- Plus button always visible (disabled state when empty) to avoid jarring UI
+- Award icon instead of medal emoji for Top Pick
+- AI empty state uses AlcheMixLogo with muted styling (background feel)
+- AI page constrained to viewport height (no scrolling past bottom)
+- Category numbers in Dashboard are black with only colored dot indicator
+
+---
+
+## Previous Session (2025-12-09): Dashboard & Recipes Page Visual Redesign + New Login Page
 
 ### Summary
 Complete visual overhaul of Dashboard and Recipes pages following the Molecular Mixology design system. Created new Login page design. Updated logo colors, refined typography, and implemented new card-based layouts with spirit detection and molecule visualization.

@@ -340,10 +340,7 @@ export default function DashboardPage() {
                         className={styles.categoryDot}
                         style={{ backgroundColor: cat.color }}
                       />
-                      <div
-                        className={styles.categoryCount}
-                        style={{ color: cat.color }}
-                      >
+                      <div className={styles.categoryCount}>
                         {String(count).padStart(2, '0')}
                       </div>
                       <div className={styles.categoryLabel}>{cat.label}</div>

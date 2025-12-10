@@ -1,19 +1,16 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
 import { RecipeDetailModal } from '@/components/modals';
 import { parseAIResponse } from '@/lib/aiPersona';
-import { Sparkles, Send, User } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
+import { AlcheMixLogo } from '@/components/ui';
 import type { ChatMessage, Recipe } from '@/types';
 import styles from './ai.module.css';
 
 export default function AIPage() {
-  const router = useRouter();
   const { isValidating, isAuthenticated } = useAuthGuard();
   const {
     chatHistory,
@@ -21,11 +18,14 @@ export default function AIPage() {
     clearChat,
     recipes,
     favorites,
+    inventoryItems,
+    shoppingListStats,
     addFavorite,
     removeFavorite,
     fetchRecipes,
     fetchFavorites,
-    error: storeError
+    fetchItems,
+    fetchShoppingList,
   } = useStore();
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -33,50 +33,92 @@ export default function AIPage() {
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Ensure arrays (must be before any conditional returns for hooks)
+  const chatArray = Array.isArray(chatHistory) ? chatHistory : [];
+  const favoritesArray = Array.isArray(favorites) ? favorites : [];
+  const recipesArray = Array.isArray(recipes) ? recipes : [];
+  const inventoryArray = Array.isArray(inventoryItems) ? inventoryItems : [];
+
   useEffect(() => {
-    // Scroll to bottom when new messages arrive
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory]);
 
-  // Fetch recipes and favorites on mount (CRITICAL FIX)
   useEffect(() => {
     if (isAuthenticated && !isValidating) {
-      console.log('🔄 Fetching recipes and favorites for AI page...');
       fetchRecipes();
       fetchFavorites();
+      fetchItems();
+      fetchShoppingList();
     }
-  }, [isAuthenticated, isValidating, fetchRecipes, fetchFavorites]);
+  }, [isAuthenticated, isValidating, fetchRecipes, fetchFavorites, fetchItems, fetchShoppingList]);
 
   if (isValidating || !isAuthenticated) {
     return null;
   }
 
-  // Ensure chatHistory/favorites are arrays
-  const chatArray = Array.isArray(chatHistory) ? chatHistory : [];
-  const favoritesArray = Array.isArray(favorites) ? favorites : [];
+  // Bar context stats
+  const barContext = {
+    bottles: inventoryArray.length,
+    recipes: recipesArray.length,
+    craftable: shoppingListStats?.craftable || 0,
+  };
+
+  // Quick prompts
+  const quickPrompts = [
+    "What can I make right now?",
+    "Suggest something with gin",
+    "I want something refreshing",
+    "What should I buy next?",
+  ];
+
+  // Group chat history by date for sidebar
+  const getHistorySessions = () => {
+    const sessions: { id: number; preview: string; date: string }[] = [];
+    const seenPreviews = new Set<string>();
+
+    chatArray.forEach((msg, index) => {
+      if (msg.role === 'user' && !seenPreviews.has(msg.content.substring(0, 50))) {
+        seenPreviews.add(msg.content.substring(0, 50));
+        const date = msg.timestamp ? new Date(msg.timestamp) : new Date();
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        let dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        if (date.toDateString() === today.toDateString()) {
+          dateStr = 'Today';
+        } else if (date.toDateString() === yesterday.toDateString()) {
+          dateStr = 'Yesterday';
+        }
+
+        sessions.push({
+          id: index,
+          preview: msg.content.length > 35 ? msg.content.substring(0, 35) + '...' : msg.content,
+          date: dateStr,
+        });
+      }
+    });
+
+    return sessions.slice(-5).reverse(); // Last 5, most recent first
+  };
+
+  const historySessions = getHistorySessions();
 
   const isRecipeFavorited = (recipe: Recipe | null): boolean => {
-    if (!recipe) {
-      return false;
-    }
+    if (!recipe) return false;
     if (recipe.id) {
       return favoritesArray.some((fav) => fav.recipe_id === recipe.id);
     }
     return favoritesArray.some(
-      (fav) =>
-        fav.recipe_name?.toLowerCase() === recipe.name.toLowerCase()
+      (fav) => fav.recipe_name?.toLowerCase() === recipe.name.toLowerCase()
     );
   };
 
   const findFavoriteForRecipe = (recipe: Recipe | null) => {
-    if (!recipe) {
-      return undefined;
-    }
+    if (!recipe) return undefined;
     if (recipe.id) {
       const byId = favoritesArray.find((fav) => fav.recipe_id === recipe.id);
-      if (byId) {
-        return byId;
-      }
+      if (byId) return byId;
     }
     return favoritesArray.find(
       (fav) => fav.recipe_name?.toLowerCase() === recipe.name.toLowerCase()
@@ -93,21 +135,9 @@ export default function AIPage() {
     setErrorMessage(null);
 
     try {
-      console.log('🚀 Sending message to AI:', userMessage);
       await sendMessage(userMessage);
-      console.log('✅ AI response received');
     } catch (error: unknown) {
-      console.error('❌ Failed to send message:', error);
-      const message = error instanceof Error ? error.message : 'Failed to send message. Check console for details.';
-      // Log additional details for axios errors
-      if (error && typeof error === 'object' && 'response' in error) {
-        const axiosErr = error as { response?: { data?: unknown; status?: number } };
-        console.error('Error details:', {
-          message,
-          response: axiosErr.response?.data,
-          status: axiosErr.response?.status
-        });
-      }
+      const message = error instanceof Error ? error.message : 'Failed to send message.';
       setErrorMessage(message);
     } finally {
       setLoading(false);
@@ -120,17 +150,15 @@ export default function AIPage() {
     }
   };
 
-  // Handle clicking on a recipe name
-  const handleRecipeClick = (recipeName: string) => {
-    // Find the recipe in the user's collection
-    const recipesArray = Array.isArray(recipes) ? recipes : [];
+  const handleQuickPrompt = (prompt: string) => {
+    setInput(prompt);
+  };
 
-    // Try exact match first
+  const handleRecipeClick = (recipeName: string) => {
     let recipe = recipesArray.find((r) =>
       r.name.toLowerCase() === recipeName.toLowerCase()
     );
 
-    // If no exact match, try partial match (handles "DAIQUIRI #1" vs "DAIQUIRI")
     if (!recipe) {
       recipe = recipesArray.find((r) => {
         const cleanRecipeName = recipeName.replace(/\s*#\d+\s*$/i, '').trim().toLowerCase();
@@ -142,43 +170,24 @@ export default function AIPage() {
     }
 
     if (recipe) {
-      console.log('✅ Found recipe:', recipe.name);
       setSelectedRecipe(recipe);
-    } else {
-      console.log('❌ Recipe not found:', recipeName, 'Available:', recipesArray.map(r => r.name));
     }
   };
 
-  // Render AI message with clickable recipe names
   const renderMessageContent = (message: ChatMessage) => {
     if (message.role !== 'assistant') {
-      return <p className={styles.messageText}>{message.content}</p>;
+      return <div className={styles.messageText}>{message.content}</div>;
     }
 
-    // Parse the AI response to extract recommendations
     const { explanation, recommendations } = parseAIResponse(message.content);
 
-    const recipesArray = Array.isArray(recipes) ? recipes : [];
-
-    console.log('🔍 Parsing AI response:', {
-      hasRecommendations: recommendations.length > 0,
-      recommendations,
-      availableRecipes: recipesArray.map(r => r.name),
-      messagePreview: message.content.substring(0, 100)
-    });
-
-    // If no recommendations, just show the content as-is
     if (recommendations.length === 0) {
-      console.log('⚠️ No RECOMMENDATIONS: line found in AI response');
-      return <p className={styles.messageText}>{message.content}</p>;
+      return <div className={styles.messageText}>{message.content}</div>;
     }
 
-    // Split the explanation into parts and make recipe names clickable
     let displayText = explanation;
 
-    // Create clickable links for each recommended recipe
     recommendations.forEach((recipeName) => {
-      // Check if this recipe exists in user's collection (with flexible matching)
       const recipe = recipesArray.find((r) => {
         const cleanRecipeName = recipeName.replace(/\s*#\d+\s*$/i, '').trim().toLowerCase();
         const cleanDbName = r.name.replace(/\s*#\d+\s*$/i, '').trim().toLowerCase();
@@ -188,43 +197,24 @@ export default function AIPage() {
       });
 
       if (recipe) {
-        console.log(`✅ Recipe match: "${recipeName}" → "${recipe.name}"`);
-
-        // Replace both the full name AND the base name (without #1, #2, etc.)
-        // This handles cases where AI says "DAIQUIRI" in text but "DAIQUIRI #1" in recommendations
-
-        // Try exact match first
-        // Escape special regex characters (including parentheses)
         const escapedFullName = recipeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        // Don't use \b with parentheses - use negative lookbehind/lookahead for word boundaries
         const fullNameRegex = new RegExp(`(?<!\\w)${escapedFullName}(?!\\w)`, 'gi');
         displayText = displayText.replace(fullNameRegex, `__RECIPE__${recipeName}__RECIPE__`);
 
-        // Also try base name without suffix (e.g., "DAIQUIRI" from "DAIQUIRI #1")
         const baseName = recipeName.replace(/\s*#\d+\s*$/i, '').trim();
         if (baseName !== recipeName) {
           const escapedBaseName = baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          // Use negative lookbehind/lookahead instead of \b for better parentheses handling
           const baseNameRegex = new RegExp(`(?<!\\w)${escapedBaseName}(?!\\w|\\s*#)`, 'gi');
           displayText = displayText.replace(baseNameRegex, `__RECIPE__${recipeName}__RECIPE__`);
         }
-      } else {
-        console.log(`❌ No recipe match for: "${recipeName}"`);
       }
     });
 
-    // Split by recipe markers and render
     const parts = displayText.split(/__RECIPE__(.*?)__RECIPE__/);
-
-    console.log('📝 Rendered parts:', {
-      totalParts: parts.length,
-      parts: parts.map((p, i) => ({ index: i, text: p.substring(0, 30), isRecipe: recommendations.some(r => r.toLowerCase() === p.toLowerCase()) }))
-    });
 
     return (
       <div className={styles.messageText}>
         {parts.map((part, index) => {
-          // Check if this part is a recipe name
           const isRecipe = recommendations.some(
             (r) => r.toLowerCase() === part.toLowerCase()
           );
@@ -234,12 +224,7 @@ export default function AIPage() {
               <span
                 key={index}
                 onClick={() => handleRecipeClick(part)}
-                style={{
-                  color: 'var(--color-primary)',
-                  textDecoration: 'underline',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                }}
+                className={styles.recipeLink}
               >
                 {part}
               </span>
@@ -252,160 +237,184 @@ export default function AIPage() {
     );
   };
 
-  return (
-    <div className={styles.aiPage}>
-      <div className={styles.container}>
-        {/* Header */}
-        <div className={styles.header}>
-          <div>
-            <h1 className={styles.title}>
-              <Sparkles size={32} style={{ marginRight: '12px', verticalAlign: 'middle' }} />
-              AI Bartender
-            </h1>
-            <p className={styles.subtitle}>
-              Your cocktail lab assistant powered by AI
-            </p>
-          </div>
-          {chatArray.length > 0 && (
-            <Button variant="outline" size="sm" onClick={handleClearChat}>
-              Clear Chat
-            </Button>
-          )}
-        </div>
+  const formatTimestamp = (timestamp: string | Date | undefined) => {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
 
-        {/* Chat Container */}
-        <div className={styles.chatContainer}>
-          {/* Messages */}
-          <div className={styles.messages}>
-            {chatArray.length === 0 ? (
-              <div className={styles.emptyState}>
-                <Sparkles size={64} className={styles.emptyIcon} strokeWidth={1.5} />
-                <h3 className={styles.emptyTitle}>Start Your Experiment</h3>
-                <p className={styles.emptyText}>
-                  Ask the Lab Assistant for cocktail recommendations based on your
-                  bar inventory
-                </p>
-                <div className={styles.suggestions}>
-                  <p className={styles.suggestionsLabel}>Try asking:</p>
-                  <button
-                    onClick={() => setInput("What can I make with whiskey?")}
-                    className={styles.suggestionBtn}
-                  >
-                    &quot;What can I make with whiskey?&quot;
-                  </button>
-                  <button
-                    onClick={() => setInput("Suggest a refreshing summer cocktail")}
-                    className={styles.suggestionBtn}
-                  >
-                    &quot;Suggest a refreshing summer cocktail&quot;
-                  </button>
-                  <button
-                    onClick={() => setInput("What cocktails use gin?")}
-                    className={styles.suggestionBtn}
-                  >
-                    &quot;What cocktails use gin?&quot;
-                  </button>
+  return (
+    <div className={styles.page}>
+      <div className={styles.container}>
+        <div className={styles.mainGrid}>
+          {/* Left Sidebar */}
+          <div className={styles.sidebar}>
+            {/* Bar Context */}
+            <div className={styles.contextCard}>
+              <div className={styles.contextLabel}>Your Bar Context</div>
+              <div className={styles.contextStats}>
+                <div className={styles.contextRow}>
+                  <span className={styles.contextKey}>Bottles</span>
+                  <span className={styles.contextValue}>{barContext.bottles}</span>
+                </div>
+                <div className={styles.contextRow}>
+                  <span className={styles.contextKey}>Recipes</span>
+                  <span className={styles.contextValue}>{barContext.recipes}</span>
+                </div>
+                <div className={styles.contextRow}>
+                  <span className={styles.contextKey}>Craftable</span>
+                  <span className={styles.contextValueGreen}>{barContext.craftable}</span>
                 </div>
               </div>
-            ) : (
-              <>
-                {chatArray.map((message, index) => (
-                  <div
-                    key={index}
-                    className={`${styles.message} ${
-                      message.role === 'user' ? styles.userMessage : styles.aiMessage
-                    }`}
+              <div className={styles.contextStatus}>
+                <div className={styles.statusDot} />
+                AI has access to your data
+              </div>
+            </div>
+
+            {/* Quick Prompts */}
+            <div className={styles.promptsCard}>
+              <div className={styles.promptsLabel}>Quick Prompts</div>
+              <div className={styles.promptsList}>
+                {quickPrompts.map((prompt, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleQuickPrompt(prompt)}
+                    className={styles.promptBtn}
                   >
-                    <div className={styles.messageIcon}>
-                      {message.role === 'user' ? <User size={24} /> : <Sparkles size={24} />}
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* History */}
+            <div className={styles.historyCard}>
+              <div className={styles.historyHeader}>
+                <span className={styles.historyLabel}>History</span>
+                {chatArray.length > 0 && (
+                  <button className={styles.clearBtn} onClick={handleClearChat}>
+                    Clear
+                  </button>
+                )}
+              </div>
+              {historySessions.length === 0 ? (
+                <div className={styles.historyEmpty}>No history yet</div>
+              ) : (
+                <div className={styles.historyList}>
+                  {historySessions.map((session) => (
+                    <div key={session.id} className={styles.historyItem}>
+                      <div className={styles.historyPreview}>{session.preview}</div>
+                      <div className={styles.historyDate}>{session.date}</div>
                     </div>
-                    <Card
-                      padding="md"
-                      className={
-                        message.role === 'user'
-                          ? styles.userBubble
-                          : styles.aiBubble
-                      }
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Main Chat Area */}
+          <div className={styles.chatArea}>
+            {/* Chat Header */}
+            <div className={styles.chatHeader}>
+              <div className={styles.chatHeaderLeft}>
+                <div className={styles.statusDotLarge} />
+                <span className={styles.chatTitle}>Lab Assistant</span>
+              </div>
+              <button className={styles.newChatBtn} onClick={handleClearChat}>
+                <RotateCcw size={14} />
+                New Chat
+              </button>
+            </div>
+
+            {/* Messages */}
+            <div className={styles.messages}>
+              {chatArray.length === 0 ? (
+                <div className={styles.emptyState}>
+                  <div className={styles.emptyLogo}>
+                    <AlcheMixLogo size="lg" showText={false} />
+                  </div>
+                  <h3 className={styles.emptyTitle}>Ask the Lab Assistant</h3>
+                  <p className={styles.emptyText}>
+                    I know your bar inventory and recipe collection. Ask me what you can make, get recommendations, or explore new cocktails.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {chatArray.map((message, index) => (
+                    <div
+                      key={index}
+                      className={message.role === 'user' ? styles.messageUser : styles.messageAi}
                     >
                       {renderMessageContent(message)}
-                      {message.timestamp && (
-                        <span className={styles.messageTime}>
-                          {new Date(message.timestamp).toLocaleTimeString()}
-                        </span>
-                      )}
-                    </Card>
-                  </div>
-                ))}
-                {loading && (
-                  <div className={`${styles.message} ${styles.aiMessage}`}>
-                    <div className={styles.messageIcon}>
-                      <Sparkles size={24} />
+                      <div className={styles.messageTime}>
+                        {formatTimestamp(message.timestamp)}
+                      </div>
                     </div>
-                    <Card padding="md" className={styles.aiBubble}>
+                  ))}
+
+                  {loading && (
+                    <div className={styles.messageAi}>
                       <div className={styles.typing}>
                         <span></span>
                         <span></span>
                         <span></span>
                       </div>
-                    </Card>
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
-              </>
-            )}
-          </div>
+                    </div>
+                  )}
 
-          {/* Error Message */}
-          {errorMessage && (
-            <div style={{
-              padding: '12px',
-              margin: '8px 0',
-              backgroundColor: '#fee',
-              border: '1px solid #fcc',
-              borderRadius: '8px',
-              color: '#c33',
-              fontSize: '14px'
-            }}>
-              ⚠️ {errorMessage}
+                  <div ref={messagesEndRef} />
+                </>
+              )}
             </div>
-          )}
 
-          {/* Input Form */}
-          <form onSubmit={handleSubmit} className={styles.inputForm}>
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask the AI Bartender..."
-              className={styles.input}
-              disabled={loading}
-            />
-            <Button type="submit" variant="primary" disabled={loading || !input.trim()}>
-              <Send size={18} />
-            </Button>
-          </form>
+            {/* Error Message */}
+            {errorMessage && (
+              <div className={styles.errorMessage}>
+                {errorMessage}
+              </div>
+            )}
+
+            {/* Input Form */}
+            <form onSubmit={handleSubmit} className={styles.inputForm}>
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Ask about cocktails, ingredients, or recipes..."
+                className={styles.input}
+                disabled={loading}
+              />
+              <button
+                type="submit"
+                disabled={!input.trim() || loading}
+                className={styles.sendBtn}
+              >
+                Send
+              </button>
+            </form>
+          </div>
         </div>
-
-        {/* Recipe Detail Modal */}
-        {selectedRecipe && (
-            <RecipeDetailModal
-              recipe={selectedRecipe}
-              isOpen={!!selectedRecipe}
-              onClose={() => setSelectedRecipe(null)}
-              isFavorited={isRecipeFavorited(selectedRecipe)}
-              onToggleFavorite={async () => {
-                const favorite = findFavoriteForRecipe(selectedRecipe);
-
-                if (favorite && favorite.id) {
-                  await removeFavorite(favorite.id);
-                } else if (selectedRecipe) {
-                  await addFavorite(selectedRecipe.name, selectedRecipe.id);
-                }
-                await fetchFavorites();
-              }}
-            />
-          )}
       </div>
+
+      {/* Recipe Detail Modal */}
+      {selectedRecipe && (
+        <RecipeDetailModal
+          recipe={selectedRecipe}
+          isOpen={!!selectedRecipe}
+          onClose={() => setSelectedRecipe(null)}
+          isFavorited={isRecipeFavorited(selectedRecipe)}
+          onToggleFavorite={async () => {
+            const favorite = findFavoriteForRecipe(selectedRecipe);
+            if (favorite && favorite.id) {
+              await removeFavorite(favorite.id);
+            } else if (selectedRecipe) {
+              await addFavorite(selectedRecipe.name, selectedRecipe.id);
+            }
+            await fetchFavorites();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,244 +1,389 @@
-/* Favorites Page Styles */
+/* Favorites Page - Molecular Mixology Redesign */
 
-.favoritesPage {
-  min-height: calc(100vh - 72px);
-  background-color: var(--color-ui-bg-base);
-  padding: var(--space-4) var(--space-3);
+.page {
+  min-height: 100vh;
+  background: var(--color-ui-bg-base);
+  padding-top: var(--space-6);
+  padding-bottom: var(--space-8);
 }
 
 .container {
   max-width: 1200px;
   margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+  padding: 0 var(--space-6);
 }
 
 /* Header */
 .header {
-  text-align: center;
-  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-6);
 }
 
 .title {
   font-family: var(--font-sans);
-  font-size: 1.875rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
   color: var(--color-text-body);
-  margin: 0 0 var(--space-1) 0;
-}
-
-.subtitle {
-  font-family: var(--font-sans);
-  font-size: 0.9375rem;
-  color: var(--color-text-muted);
   margin: 0;
 }
 
-/* Tabs */
-.tabs {
-  display: flex;
-  gap: var(--space-2);
-  border-bottom: 2px solid var(--color-border);
-  padding-bottom: 0;
+.subtitle {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin: var(--space-1) 0 0 0;
 }
 
-.tab {
+.craftableCount {
+  color: var(--color-success);
+}
+
+/* Spirit Filters */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+}
+
+.filterBtn {
   padding: var(--space-2) var(--space-3);
   font-family: var(--font-sans);
-  font-size: 0.9375rem;
+  font-size: 0.8125rem;
   font-weight: 500;
-  color: var(--color-text-muted);
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
+  color: var(--color-text-body);
+  background: white;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius);
   cursor: pointer;
-  transition: all var(--transition-fast);
-  margin-bottom: -2px;
+  transition: all 0.1s ease;
 }
 
-.tab:hover {
-  color: var(--color-primary);
+.filterBtn:hover {
+  border-color: var(--color-text-body);
 }
 
-.tab.activeTab {
-  color: var(--color-primary);
-  border-bottom-color: var(--color-primary);
+.filterBtnActive {
+  background: var(--color-text-body);
+  color: white;
+  border-color: var(--color-text-body);
 }
 
 /* Empty State */
 .emptyState {
+  background: white;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius);
+  padding: var(--space-12);
   text-align: center;
-  padding: var(--space-8) var(--space-3);
 }
 
 .emptyIcon {
-  color: var(--color-text-muted);
-  margin-bottom: var(--space-3);
+  color: var(--color-border-default);
+  margin-bottom: var(--space-4);
 }
 
 .emptyTitle {
   font-family: var(--font-sans);
-  font-size: 1.5rem;
+  font-size: 1.125rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
   color: var(--color-text-body);
   margin: 0 0 var(--space-2) 0;
 }
 
 .emptyText {
   font-family: var(--font-sans);
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   color: var(--color-text-muted);
   margin: 0 0 var(--space-4) 0;
-  max-width: 400px;
-  margin-left: auto;
-  margin-right: auto;
+}
+
+.browseBtn {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: white;
+  background: var(--color-text-body);
+  border: none;
+  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.browseBtn:hover {
+  background: #0F172A;
 }
 
 /* Favorites Grid */
-.favoritesGrid {
+.grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: var(--space-3);
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
 }
 
-.favoriteCard {
-  transition: transform var(--transition-base);
-}
-
-.favoriteCard:hover {
-  transform: translateY(-4px);
-}
-
-.favoriteHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-2);
-}
-
-.favoriteIcon {
-  color: var(--color-secondary);
-}
-
-.removeBtn {
-  background: none;
-  border: none;
-  color: var(--color-text-muted);
+/* Recipe Card */
+.card {
+  background: white;
+  border: 1px solid var(--color-border-default);
+  border-radius: 2px;
+  overflow: hidden;
   cursor: pointer;
-  transition: all var(--transition-fast);
-  padding: 4px;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+
+.card:hover {
+  transform: scale(1.02);
+  border-color: var(--color-text-body);
+}
+
+.cardImage {
+  height: 150px;
+  background: white;
+  border-bottom: 1px solid var(--color-border-default);
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.craftableIndicator {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-success);
+}
+
+.removeBtn {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: #D4D4D4;
+  cursor: pointer;
+  transition: color 0.1s ease;
+  z-index: 1;
 }
 
 .removeBtn:hover {
   color: var(--color-error);
-  transform: scale(1.2);
 }
 
-.favoriteName {
+.cardContent {
+  padding: 12px;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.cardTitle {
   font-family: var(--font-sans);
-  font-size: 1.125rem;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 500;
   color: var(--color-text-body);
-  margin: 0 0 var(--space-1) 0;
+  margin: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.favoriteDate {
+.starIcon {
+  color: #F59E0B;
+  flex-shrink: 0;
+  margin-left: var(--space-2);
+}
+
+.spiritBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.spiritBadge {
+  display: inline-block;
+  padding: 2px 6px;
   font-family: var(--font-mono);
-  font-size: 0.875rem;
-  color: var(--color-text-muted);
-  margin: 0 0 var(--space-3) 0;
+  font-size: 0.625rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 2px;
 }
 
-/* History List */
-.historyList {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.historyGroup {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.historyDate {
-  font-family: var(--font-sans);
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--color-text-body);
-  margin: 0;
-}
-
-.messagesList {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.historyItem {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: var(--space-2);
-  background-color: var(--color-ui-bg-base);
-  border-radius: var(--radius);
-  transition: background-color var(--transition-fast);
-}
-
-.historyItem:hover {
-  background-color: var(--selected-bg);
-}
-
-.messageRole {
-  font-family: var(--font-sans);
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-primary);
-}
-
-.messageContent {
-  font-family: var(--font-sans);
-  font-size: 0.9375rem;
-  color: var(--color-text-body);
-  line-height: 1.5;
-  margin: 0;
-}
-
-.messageTime {
+.ingredientsPreview {
   font-family: var(--font-mono);
   font-size: 0.75rem;
   color: var(--color-text-muted);
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* Quick Actions */
+.quickActions {
+  margin-top: var(--space-8);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--color-border-default);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.quickActionsLabel {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.quickActionsBtns {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.quickActionBtn {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.1s ease;
+}
+
+.quickActionBtn:hover {
+  color: var(--color-text-body);
 }
 
 /* Responsive */
+@media (max-width: 1024px) {
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 @media (max-width: 768px) {
-  .favoritesPage {
-    padding: var(--space-3) var(--space-2);
+  .page {
+    padding-top: var(--space-4);
+  }
+
+  .container {
+    padding: 0 var(--space-4);
+  }
+
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-3);
   }
 
   .title {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
   }
 
-  .favoritesGrid {
+  .cardImage {
+    height: 120px;
+  }
+
+  .quickActions {
+    flex-direction: column;
+    gap: var(--space-3);
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .grid {
     grid-template-columns: 1fr;
   }
 
-  .tabs {
+  .filters {
     overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: var(--space-2);
+    margin-bottom: var(--space-4);
   }
 
-  .tab {
-    white-space: nowrap;
+  .filterBtn {
+    flex-shrink: 0;
   }
+}
+
+/* Dark Mode */
+[data-theme="dark"] .filterBtn {
+  background: var(--bg-elevated);
+  border-color: var(--border-hairline);
+  color: var(--fg-primary);
+}
+
+[data-theme="dark"] .filterBtn:hover {
+  border-color: var(--fg-secondary);
+}
+
+[data-theme="dark"] .filterBtnActive {
+  background: var(--fg-primary);
+  color: var(--bg-base);
+  border-color: var(--fg-primary);
+}
+
+[data-theme="dark"] .emptyState {
+  background: var(--bg-elevated);
+  border-color: var(--border-hairline);
+}
+
+[data-theme="dark"] .emptyIcon {
+  color: var(--border-hairline);
+}
+
+[data-theme="dark"] .browseBtn {
+  background: var(--fg-primary);
+  color: var(--bg-base);
+}
+
+[data-theme="dark"] .browseBtn:hover {
+  background: var(--fg-secondary);
+}
+
+[data-theme="dark"] .card {
+  background: var(--bg-elevated);
+  border-color: var(--border-hairline);
+}
+
+[data-theme="dark"] .card:hover {
+  border-color: var(--fg-secondary);
+}
+
+[data-theme="dark"] .cardImage {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="dark"] .quickActions {
+  border-top-color: var(--border-hairline);
+}
+
+[data-theme="dark"] .quickActionBtn:hover {
+  color: var(--fg-primary);
 }

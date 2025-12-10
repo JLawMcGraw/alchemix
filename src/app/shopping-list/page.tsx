@@ -1,17 +1,20 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
-import { Card } from '@/components/ui/Card';
-import { Spinner, Button } from '@/components/ui';
-import { ShoppingCart, TrendingUp, AlertCircle, ChevronRight, ChevronLeft, CheckCircle, Wine } from 'lucide-react';
+import { Spinner } from '@/components/ui';
+import { ChevronDown, ChevronLeft, ChevronRight, X, Check, RefreshCw, Plus, Award } from 'lucide-react';
 import { RecipeDetailModal } from '@/components/modals/RecipeDetailModal';
 import { ItemDetailModal } from '@/components/modals/ItemDetailModal';
 import type { Recipe, InventoryItem } from '@/types';
 import styles from './shopping-list.module.css';
 
-type ViewMode = 'recommendations' | 'craftable' | 'nearMisses' | 'inventory';
+interface ShoppingItem {
+  id: number;
+  name: string;
+  checked: boolean;
+}
 
 export default function ShoppingListPage() {
   const { isValidating, isAuthenticated } = useAuthGuard();
@@ -33,21 +36,20 @@ export default function ShoppingListPage() {
     inventoryVersion,
   } = useStore();
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const [viewMode, setViewMode] = useState<ViewMode>('recommendations');
+  const [expandedIngredient, setExpandedIngredient] = useState<number | null>(null);
+  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
+  const [customItemInput, setCustomItemInput] = useState('');
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
-  const [isManualRefresh, setIsManualRefresh] = useState(false);
-  const [selectedIngredient, setSelectedIngredient] = useState<string | null>(null);
-  const [ingredientRecipes, setIngredientRecipes] = useState<any[]>([]);
-  const itemsPerPage = 10;
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 7;
 
   const safeCraftableRecipes = Array.isArray(craftableRecipes) ? craftableRecipes : [];
   const safeNearMissRecipes = Array.isArray(nearMissRecipes) ? nearMissRecipes : [];
   const safeFavorites = Array.isArray(favorites) ? favorites : [];
-  const safeInventoryItems = Array.isArray(inventoryItems) ? inventoryItems : [];
 
   // Merge partial recipe data from shopping-list API with full recipe details from the store
   const enrichRecipe = (recipe: any): Recipe => {
@@ -57,7 +59,48 @@ export default function ShoppingListPage() {
     return fromStore ? { ...fromStore, ...recipe } : recipe;
   };
 
-  const enrichRecipes = (list: any[]) => list.map(enrichRecipe);
+  // Build recommendations with their unlocked recipes
+  const recommendations = useMemo(() => {
+    return shoppingListSuggestions.map((suggestion, index) => {
+      // Find all near-miss recipes that need this ingredient
+      const recipesForIngredient = safeNearMissRecipes
+        .filter((recipe) => recipe.missingIngredient?.toLowerCase() === suggestion.ingredient.toLowerCase())
+        .map((recipe) => enrichRecipe(recipe).name);
+
+      return {
+        id: index + 1,
+        name: suggestion.ingredient
+          .split(' ')
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(' '),
+        unlocks: suggestion.unlocks,
+        recipes: recipesForIngredient,
+      };
+    });
+  }, [shoppingListSuggestions, safeNearMissRecipes, recipes]);
+
+  const topPick = recommendations[0];
+
+  // Pagination for other recommendations (excluding top pick)
+  const allOtherRecs = recommendations.slice(1);
+  const totalPages = Math.ceil(allOtherRecs.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const otherRecs = allOtherRecs.slice(startIndex, endIndex);
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+      setExpandedIngredient(null); // Collapse any expanded items when changing page
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+      setExpandedIngredient(null); // Collapse any expanded items when changing page
+    }
+  };
 
   useEffect(() => {
     if (isAuthenticated && !isValidating) {
@@ -68,67 +111,76 @@ export default function ShoppingListPage() {
     }
   }, [isAuthenticated, isValidating, fetchShoppingList, fetchRecipes, fetchItems, fetchFavorites]);
 
-  // Re-fetch shopping list whenever inventory changes (stock adjustments, add/delete)
+  // Re-fetch shopping list whenever inventory changes
   useEffect(() => {
     if (isAuthenticated && !isValidating) {
       fetchShoppingList().catch(console.error);
     }
   }, [inventoryVersion, isAuthenticated, isValidating, fetchShoppingList]);
 
-  // Keep shopping list in sync with the in-memory inventory list (edge cases where version misses)
-  useEffect(() => {
-    if (isAuthenticated && !isValidating) {
-      fetchShoppingList().catch(console.error);
-    }
-  }, [safeInventoryItems, isAuthenticated, isValidating, fetchShoppingList]);
-
   if (isValidating || !isAuthenticated) {
     return null;
   }
 
-  // Pagination logic
-  const totalPages = Math.ceil(shoppingListSuggestions.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentSuggestions = shoppingListSuggestions.slice(startIndex, endIndex);
+  const toggleExpand = (id: number) => {
+    setExpandedIngredient(expandedIngredient === id ? null : id);
+  };
 
-  const handleNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+  const addToList = (name: string) => {
+    if (shoppingList.some((item) => item.name.toLowerCase() === name.toLowerCase())) return;
+    setShoppingList([...shoppingList, { id: Date.now(), name, checked: false }]);
+  };
+
+  const toggleChecked = (id: number) => {
+    setShoppingList(
+      shoppingList.map((item) =>
+        item.id === id ? { ...item, checked: !item.checked } : item
+      )
+    );
+  };
+
+  const removeFromList = (id: number) => {
+    setShoppingList(shoppingList.filter((item) => item.id !== id));
+  };
+
+  const clearCompleted = () => {
+    setShoppingList(shoppingList.filter((item) => !item.checked));
+  };
+
+  const isInList = (name: string) => {
+    return shoppingList.some((item) => item.name.toLowerCase() === name.toLowerCase());
+  };
+
+  const handleAddCustomItem = () => {
+    if (customItemInput.trim()) {
+      addToList(customItemInput.trim());
+      setCustomItemInput('');
     }
   };
 
-  const handlePrevPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+  const handleRefresh = async () => {
+    if (isLoadingShoppingList || isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      await fetchShoppingList();
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
-  const handleStatClick = (mode: ViewMode) => {
-    setViewMode(mode);
-    setCurrentPage(1);
-  };
-
-  const handleRecipeClick = (recipe: any) => {
-    setSelectedRecipe(enrichRecipe(recipe));
-    setIsModalOpen(true);
+  const handleRecipeClick = (recipeName: string) => {
+    const recipe = safeNearMissRecipes.find(
+      (r) => enrichRecipe(r).name === recipeName
+    );
+    if (recipe) {
+      setSelectedRecipe(enrichRecipe(recipe));
+      setIsModalOpen(true);
+    }
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedRecipe(null);
-  };
-
-  const handleRefreshShoppingList = async () => {
-    if (isLoadingShoppingList || isManualRefresh) return;
-    setIsManualRefresh(true);
-    try {
-      await fetchShoppingList();
-    } finally {
-      setIsManualRefresh(false);
-    }
   };
 
   const handleToggleFavorite = async () => {
@@ -165,72 +217,31 @@ export default function ShoppingListPage() {
     return false;
   };
 
-  const parseIngredients = (ingredients: string | string[] | undefined): string[] => {
-    if (!ingredients) return [];
-    if (Array.isArray(ingredients)) {
-      return ingredients.filter((ingredient) => typeof ingredient === 'string');
-    }
-    try {
-      const parsed = JSON.parse(ingredients);
-      if (Array.isArray(parsed)) {
-        return parsed.filter((ingredient) => typeof ingredient === 'string');
-      }
-    } catch {
-      // Fallback below
-    }
-    return ingredients
-      .split(',')
-      .map((ingredient) => ingredient.trim())
-      .filter(Boolean);
-  };
-
-  const handleItemClick = (item: InventoryItem) => {
-    setSelectedItem(item);
-    setIsItemModalOpen(true);
-  };
-
-  const handleCloseItemModal = () => {
-    setIsItemModalOpen(false);
-    setSelectedItem(null);
-  };
-
-  const handleIngredientClick = (ingredient: string) => {
-    // Find all near-miss recipes that need this ingredient
-    const recipesForIngredient = safeNearMissRecipes.filter(
-      (recipe) => recipe.missingIngredient === ingredient
+  // Calculate impact summary
+  const uncheckedItems = shoppingList.filter((item) => !item.checked);
+  const totalUnlocks = uncheckedItems.reduce((sum, item) => {
+    const rec = recommendations.find(
+      (r) => r.name.toLowerCase() === item.name.toLowerCase()
     );
-    setSelectedIngredient(ingredient);
-    setIngredientRecipes(enrichRecipes(recipesForIngredient));
-    setViewMode('nearMisses'); // Switch to near-miss view to show the recipes
-  };
+    return sum + (rec?.unlocks || 0);
+  }, 0);
+
+  const craftableCount = shoppingListStats?.craftable || 0;
+  const nearMissCount = shoppingListStats?.nearMisses || 0;
 
   return (
     <div className={styles.page}>
       <div className={styles.container}>
         {/* Header */}
         <div className={styles.header}>
-          <div className={styles.headerContent}>
-            <div className={styles.headerLeft}>
-              <ShoppingCart className={styles.headerIcon} size={32} />
-              <div>
-                <h1 className={styles.title}>Smart Shopping List</h1>
-                <p className={styles.subtitle}>
-                  Discover which ingredients will unlock the most new cocktails
-                </p>
-              </div>
-            </div>
-            <div className={styles.headerActions}>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRefreshShoppingList}
-                disabled={isLoadingShoppingList || isManualRefresh}
-              >
-                {(isLoadingShoppingList || isManualRefresh) && <Spinner size="sm" />}
-                Refresh
-              </Button>
-            </div>
-          </div>
+          <h1 className={styles.title}>What Should I Buy Next?</h1>
+          <p className={styles.subtitle}>
+            <span className={styles.craftableCount}>{craftableCount} craftable</span>
+            {' · '}
+            <span className={styles.nearMissCount}>{nearMissCount} near misses</span>
+            {' · '}
+            {recommendations.length} recommendations
+          </p>
         </div>
 
         {/* Loading State */}
@@ -241,347 +252,276 @@ export default function ShoppingListPage() {
           </div>
         )}
 
-        {/* Statistics Cards - Clickable */}
-        {!isLoadingShoppingList && shoppingListStats && (
-          <div className={styles.statsGrid}>
-            <Card
-              padding="md"
-              hover
-              className={`${styles.statCard} ${viewMode === 'recommendations' ? styles.statCardActive : ''}`}
-              onClick={() => handleStatClick('recommendations')}
-            >
-              <div className={styles.statLabel}>Total Recipes</div>
-              <div className={styles.statValue}>{shoppingListStats.totalRecipes}</div>
-              <div className={styles.statHint}>View recommendations</div>
-            </Card>
-            <Card
-              padding="md"
-              hover
-              className={`${styles.statCard} ${viewMode === 'craftable' ? styles.statCardActive : ''}`}
-              onClick={() => handleStatClick('craftable')}
-            >
-              <div className={styles.statLabel}>Already Craftable</div>
-              <div className={styles.statValue}>{shoppingListStats.craftable}</div>
-              <div className={styles.statHint}>Click to view</div>
-            </Card>
-            <Card
-              padding="md"
-              hover
-              className={`${styles.statCard} ${viewMode === 'nearMisses' ? styles.statCardActive : ''}`}
-              onClick={() => handleStatClick('nearMisses')}
-            >
-              <div className={styles.statLabel}>Near Misses</div>
-              <div className={styles.statValue}>{shoppingListStats.nearMisses}</div>
-              <div className={styles.statHint}>Click to view</div>
-            </Card>
-            <Card
-              padding="md"
-              hover
-              className={`${styles.statCard} ${viewMode === 'inventory' ? styles.statCardActive : ''}`}
-              onClick={() => handleStatClick('inventory')}
-            >
-              <div className={styles.statLabel}>Inventory Items</div>
-              <div className={styles.statValue}>{shoppingListStats.inventoryItems}</div>
-              <div className={styles.statHint}>Click to view</div>
-            </Card>
-          </div>
-        )}
-
-        {/* Empty State - No Inventory or Recipes */}
-        {!isLoadingShoppingList &&
-          shoppingListStats &&
-          shoppingListStats.totalRecipes === 0 && (
-            <Card padding="lg" className={styles.emptyState}>
-              <AlertCircle className={styles.emptyIcon} size={48} />
-              <h2 className={styles.emptyTitle}>No Recipes Found</h2>
-              <p className={styles.emptyText}>
-                Add some recipes to your collection to get smart shopping recommendations.
-              </p>
-              <p className={styles.emptyHint}>
-                Try importing recipes from the Recipes page to get started!
-              </p>
-            </Card>
-          )}
-
-        {/* Empty State - No Recommendations */}
-        {!isLoadingShoppingList &&
-          shoppingListSuggestions.length === 0 &&
-          shoppingListStats &&
-          shoppingListStats.totalRecipes > 0 && (
-            <Card padding="lg" className={styles.emptyState}>
-              <ShoppingCart className={styles.emptyIcon} size={48} />
-              <h2 className={styles.emptyTitle}>No Recommendations Available</h2>
-              <p className={styles.emptyText}>
-                You can already make most of your recipes, or you need multiple ingredients
-                to unlock new ones.
-              </p>
-              <p className={styles.emptyHint}>
-                Try adding more recipes to your collection to get recommendations!
-              </p>
-            </Card>
-          )}
-
-        {/* View Modes */}
+        {/* Main Content */}
         {!isLoadingShoppingList && (
-          <>
-            {/* Recommendations View */}
-            {viewMode === 'recommendations' && shoppingListSuggestions.length > 0 && (
-              <div className={styles.recommendations}>
-                <h2 className={styles.sectionTitle}>
-                  <TrendingUp size={24} />
-                  Recommended Ingredients
-                </h2>
-                <p className={styles.sectionSubtitle}>
-                  Purchase any of these ingredients to unlock new cocktail recipes
-                </p>
-
-                <div className={styles.suggestionsList}>
-                  {currentSuggestions.map((suggestion, index) => {
-                    const globalIndex = startIndex + index;
-                    return (
-                      <Card
-                        key={`${suggestion.ingredient}-${globalIndex}`}
-                        padding="md"
-                        hover
-                        className={styles.suggestionCard}
-                        onClick={() => handleIngredientClick(suggestion.ingredient)}
+          <div className={styles.mainGrid}>
+            {/* Left Column: Recommendations */}
+            <div className={styles.leftColumn}>
+              {/* Top Pick Hero */}
+              {topPick && (
+                <div className={styles.topPickCard}>
+                  <div className={styles.topPickHeader}>
+                    <div className={styles.topPickBadge}>
+                      <Award size={16} className={styles.topPickIcon} />
+                      <span className={styles.topPickLabel}>Top Pick</span>
+                    </div>
+                    {!isInList(topPick.name) && (
+                      <button
+                        className={styles.addToListBtn}
+                        onClick={() => addToList(topPick.name)}
                       >
-                        <div className={styles.suggestionRank}>#{globalIndex + 1}</div>
-                        <div className={styles.suggestionContent}>
-                          <h3 className={styles.ingredientName}>
-                            {suggestion.ingredient
-                              .split(' ')
-                              .map(
-                                (word) =>
-                                  word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-                              )
-                              .join(' ')}
-                          </h3>
-                          <div className={styles.unlocksInfo}>
-                            <span className={styles.unlocksCount}>
-                              {suggestion.unlocks}
-                            </span>
-                            <span className={styles.unlocksLabel}>
-                              {suggestion.unlocks === 1 ? 'recipe' : 'recipes'} unlocked
-                            </span>
-                          </div>
-                          <div className={styles.clickHint} style={{
-                            fontSize: 'var(--text-xs)',
-                            color: 'var(--color-primary)',
-                            marginTop: 'var(--space-1)',
-                            fontWeight: 500
-                          }}>
-                            Click to view recipes →
-                          </div>
-                        </div>
-                        <div className={styles.suggestionBadge}>
-                          +{suggestion.unlocks}
-                        </div>
-                      </Card>
-                    );
-                  })}
-                </div>
-
-                {/* Pagination Controls */}
-                {totalPages > 1 && (
-                  <div className={styles.pagination}>
-                    <Button
-                      variant="outline"
-                      onClick={handlePrevPage}
-                      disabled={currentPage === 1}
-                    >
-                      <ChevronLeft size={18} />
-                      Previous
-                    </Button>
-                    <span className={styles.pageInfo}>
-                      Page {currentPage} of {totalPages}
-                    </span>
-                    <Button
-                      variant="outline"
-                      onClick={handleNextPage}
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                      <ChevronRight size={18} />
-                    </Button>
+                        + Add to List
+                      </button>
+                    )}
                   </div>
-                )}
-              </div>
-            )}
-
-            {/* Craftable Recipes View */}
-            {viewMode === 'craftable' && (
-              <div className={styles.recommendations}>
-                <h2 className={styles.sectionTitle}>
-                  <CheckCircle size={24} />
-                  Craftable Recipes ({shoppingListStats?.craftable || 0})
-                </h2>
-                <p className={styles.sectionSubtitle}>
-                  Recipes you can make right now with your current inventory
-                </p>
-                {safeCraftableRecipes.length > 0 ? (
-                  <div className={styles.suggestionsList}>
-                    {safeCraftableRecipes.map((recipe) => (
-                      <Card
-                        key={recipe.id}
-                        padding="md"
-                        hover
-                        className={styles.suggestionCard}
-                        onClick={() => handleRecipeClick(recipe)}
-                      >
-                        <CheckCircle
-                          size={24}
-                          className={styles.headerIcon}
-                          style={{ color: 'var(--color-primary)' }}
-                        />
-                        <div className={styles.suggestionContent}>
-                          <h3 className={styles.ingredientName}>{recipe.name}</h3>
-                          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', marginTop: 'var(--space-1)' }}>
-                            {parseIngredients(recipe.ingredients).join(', ')}
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <Card padding="lg" className={styles.infoCard}>
-                    <p className={styles.infoText}>
-                      No craftable recipes found. Add more ingredients to your bar inventory!
+                  <div className={styles.topPickContent}>
+                    <div className={styles.topPickMain}>
+                      <h2 className={styles.topPickName}>{topPick.name}</h2>
+                      <span className={styles.topPickUnlocks}>+{topPick.unlocks}</span>
+                    </div>
+                    <p className={styles.topPickDesc}>
+                      Unlocks {topPick.unlocks} new recipe{topPick.unlocks !== 1 ? 's' : ''}
                     </p>
-                  </Card>
-                )}
-              </div>
-            )}
-
-            {/* Near Misses View */}
-            {viewMode === 'nearMisses' && (
-              <div className={styles.recommendations}>
-                <h2 className={styles.sectionTitle}>
-                  <AlertCircle size={24} />
-                  {selectedIngredient && ingredientRecipes.length > 0
-                    ? `Recipes Unlocked by "${selectedIngredient.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}" (${ingredientRecipes.length})`
-                    : `Near Miss Recipes (${shoppingListStats?.nearMisses || 0})`
-                  }
-                </h2>
-                {selectedIngredient && ingredientRecipes.length > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedIngredient(null);
-                      setIngredientRecipes([]);
-                    }}
-                    style={{ marginBottom: 'var(--space-3)' }}
-                  >
-                    ← Back to All Near Misses
-                  </Button>
-                )}
-                <p className={styles.sectionSubtitle}>
-                  {selectedIngredient && ingredientRecipes.length > 0
-                    ? `Add this ingredient to make these ${ingredientRecipes.length} cocktail${ingredientRecipes.length === 1 ? '' : 's'}`
-                    : "Recipes you're missing just ONE ingredient from making"
-                  }
-                </p>
-                {(selectedIngredient && ingredientRecipes.length > 0 ? ingredientRecipes : enrichRecipes(safeNearMissRecipes)).length > 0 ? (
-                  <div className={styles.suggestionsList}>
-                    {(selectedIngredient && ingredientRecipes.length > 0 ? ingredientRecipes : enrichRecipes(safeNearMissRecipes)).map((recipe) => (
-                      <Card
-                        key={recipe.id}
-                        padding="md"
-                        hover
-                        className={styles.suggestionCard}
-                        onClick={() => handleRecipeClick(recipe)}
-                      >
-                        <AlertCircle
-                          size={24}
-                          style={{ color: 'var(--color-secondary)', flexShrink: 0 }}
-                        />
-                        <div className={styles.suggestionContent}>
-                          <h3 className={styles.ingredientName}>{recipe.name}</h3>
-                          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', marginTop: 'var(--space-1)' }}>
-                            {parseIngredients(recipe.ingredients).join(', ')}
-                          </div>
-                          <div style={{
-                            fontSize: 'var(--text-sm)',
-                            color: 'var(--color-secondary)',
-                            marginTop: 'var(--space-2)',
-                            fontWeight: 600,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 'var(--space-1)'
-                          }}>
-                            <span>Missing:</span>
-                            <span style={{
-                              background: 'rgba(242, 167, 75, 0.1)',
-                              padding: 'var(--space-1) var(--space-2)',
-                              borderRadius: 'var(--radius-sm)',
-                              textTransform: 'capitalize'
-                            }}>
-                              {recipe.missingIngredient}
-                            </span>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <Card padding="lg" className={styles.infoCard}>
-                    <p className={styles.infoText}>
-                      No near-miss recipes found. You can already make most of your recipes!
-                    </p>
-                  </Card>
-                )}
-              </div>
-            )}
-
-            {/* Inventory View */}
-            {viewMode === 'inventory' && safeInventoryItems.length > 0 && (
-              <div className={styles.recommendations}>
-                <h2 className={styles.sectionTitle}>
-                  <Wine size={24} />
-                  Your Bar Inventory ({safeInventoryItems.length} items)
-                </h2>
-                <p className={styles.sectionSubtitle}>
-                  All items and ingredients in your collection
-                </p>
-                <div className={styles.inventoryList}>
-                  {safeInventoryItems.map((item, index) => (
-                    <Card
-                      key={item.id || index}
-                      padding="md"
-                      hover
-                      className={styles.inventoryCard}
-                      onClick={() => handleItemClick(item)}
-                    >
-                      <div className={styles.inventoryContent}>
-                        <h3 className={styles.bottleName}>{item.name}</h3>
-                        {item.category && (
-                          <span className={styles.bottleCategory}>{item.category}</span>
-                        )}
+                    {topPick.recipes.length > 0 && (
+                      <div className={styles.recipeChips}>
+                        {topPick.recipes.map((recipe) => (
+                          <button
+                            key={recipe}
+                            className={styles.recipeChip}
+                            onClick={() => handleRecipeClick(recipe)}
+                          >
+                            {recipe}
+                          </button>
+                        ))}
                       </div>
-                    </Card>
-                  ))}
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Other Recommendations */}
+              {allOtherRecs.length > 0 && (
+                <div className={styles.otherRecsCard}>
+                  <div className={styles.otherRecsHeader}>
+                    <h3 className={styles.otherRecsTitle}>Other Recommendations</h3>
+                    <button
+                      className={styles.refreshBtn}
+                      onClick={handleRefresh}
+                      disabled={isRefreshing}
+                    >
+                      <RefreshCw size={14} className={isRefreshing ? styles.spinning : ''} />
+                    </button>
+                  </div>
+                  <div className={styles.recList}>
+                    {otherRecs.map((rec, index) => {
+                      const globalRank = startIndex + index + 2; // +2 because top pick is #1
+                      return (
+                        <div key={rec.id}>
+                          <div
+                            className={styles.recRow}
+                            onClick={() => toggleExpand(rec.id)}
+                          >
+                            <span className={styles.recRank}>{globalRank}.</span>
+                            <span className={styles.recName}>{rec.name}</span>
+                            <span className={styles.recUnlocks}>+{rec.unlocks}</span>
+                            {!isInList(rec.name) ? (
+                              <button
+                                className={styles.addBtn}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  addToList(rec.name);
+                                }}
+                              >
+                                + Add
+                              </button>
+                            ) : (
+                              <span className={styles.addedBadge}>✓ Added</span>
+                            )}
+                            <ChevronDown
+                              size={16}
+                              className={`${styles.chevron} ${
+                                expandedIngredient === rec.id ? styles.chevronExpanded : ''
+                              }`}
+                            />
+                          </div>
+
+                          {/* Expanded Recipes */}
+                          {expandedIngredient === rec.id && rec.recipes.length > 0 && (
+                            <div className={styles.expandedRecipes}>
+                              <p className={styles.expandedLabel}>Unlocks these recipes:</p>
+                              <div className={styles.recipeChips}>
+                                {rec.recipes.map((recipe) => (
+                                  <button
+                                    key={recipe}
+                                    className={styles.recipeChip}
+                                    onClick={() => handleRecipeClick(recipe)}
+                                  >
+                                    {recipe}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className={styles.pagination}>
+                      <button
+                        className={styles.paginationBtn}
+                        onClick={handlePrevPage}
+                        disabled={currentPage === 1}
+                      >
+                        <ChevronLeft size={16} />
+                        Previous
+                      </button>
+                      <span className={styles.pageInfo}>
+                        {currentPage} / {totalPages}
+                      </span>
+                      <button
+                        className={styles.paginationBtn}
+                        onClick={handleNextPage}
+                        disabled={currentPage === totalPages}
+                      >
+                        Next
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Empty State */}
+              {recommendations.length === 0 && shoppingListStats && shoppingListStats.totalRecipes > 0 && (
+                <div className={styles.emptyState}>
+                  <p className={styles.emptyTitle}>No Recommendations Available</p>
+                  <p className={styles.emptyText}>
+                    You can already make most of your recipes, or you need multiple ingredients
+                    to unlock new ones.
+                  </p>
+                </div>
+              )}
+
+              {recommendations.length === 0 && shoppingListStats && shoppingListStats.totalRecipes === 0 && (
+                <div className={styles.emptyState}>
+                  <p className={styles.emptyTitle}>No Recipes Found</p>
+                  <p className={styles.emptyText}>
+                    Add some recipes to your collection to get smart shopping recommendations.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Right Column: Shopping List */}
+            <div className={styles.rightColumn}>
+              {/* My Shopping List */}
+              <div className={styles.shoppingListCard}>
+                <div className={styles.shoppingListHeader}>
+                  <h3 className={styles.shoppingListTitle}>My Shopping List</h3>
+                  <span className={styles.itemCount}>
+                    {uncheckedItems.length} item{uncheckedItems.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                {shoppingList.length === 0 ? (
+                  <div className={styles.emptyList}>
+                    <p className={styles.emptyListText}>No items yet</p>
+                    <p className={styles.emptyListHint}>Click &quot;+ Add&quot; on recommendations</p>
+                  </div>
+                ) : (
+                  <div className={styles.shoppingItems}>
+                    {/* Unchecked items first */}
+                    {uncheckedItems.map((item) => (
+                      <div key={item.id} className={styles.shoppingItem}>
+                        <button
+                          className={styles.checkbox}
+                          onClick={() => toggleChecked(item.id)}
+                        />
+                        <span className={styles.itemName}>{item.name}</span>
+                        <button
+                          className={styles.removeBtn}
+                          onClick={() => removeFromList(item.id)}
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ))}
+
+                    {/* Checked items */}
+                    {shoppingList
+                      .filter((item) => item.checked)
+                      .map((item) => (
+                        <div key={item.id} className={`${styles.shoppingItem} ${styles.checkedItem}`}>
+                          <button
+                            className={`${styles.checkbox} ${styles.checkboxChecked}`}
+                            onClick={() => toggleChecked(item.id)}
+                          >
+                            <Check size={12} />
+                          </button>
+                          <span className={`${styles.itemName} ${styles.checkedName}`}>
+                            {item.name}
+                          </span>
+                          <button
+                            className={styles.removeBtn}
+                            onClick={() => removeFromList(item.id)}
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ))}
+                  </div>
+                )}
+
+                {/* Clear completed */}
+                {shoppingList.some((item) => item.checked) && (
+                  <div className={styles.clearCompletedRow}>
+                    <button className={styles.clearCompletedBtn} onClick={clearCompleted}>
+                      Clear Completed
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Impact Summary */}
+              <div className={styles.impactCard}>
+                <div className={styles.impactLabel}>Impact Summary</div>
+                <div className={styles.impactRow}>
+                  <span className={styles.impactText}>Items to buy</span>
+                  <span className={styles.impactValue}>{uncheckedItems.length}</span>
+                </div>
+                <div className={styles.impactRow}>
+                  <span className={styles.impactText}>New recipes unlocked</span>
+                  <span className={styles.impactValueGreen}>+{totalUnlocks}</span>
                 </div>
               </div>
-            )}
-          </>
-        )}
 
-        {/* How it Works */}
-        {!isLoadingShoppingList && shoppingListSuggestions.length > 0 && (
-          <Card padding="lg" className={styles.infoCard}>
-            <h3 className={styles.infoTitle}>How It Works</h3>
-            <p className={styles.infoText}>
-              Our smart algorithm analyzes your current bar inventory against your entire
-              recipe collection to identify &quot;near miss&quot; cocktails—recipes you&apos;re missing
-              just <strong>one ingredient</strong> from making.
-            </p>
-            <p className={styles.infoText}>
-              The recommendations are ranked by how many new cocktails each ingredient
-              would unlock, helping you maximize your cocktail-making potential with
-              strategic purchases.
-            </p>
-          </Card>
+              {/* Add Custom Item */}
+              <div className={styles.customItemCard}>
+                <input
+                  type="text"
+                  placeholder="Add custom item..."
+                  className={styles.customItemInput}
+                  value={customItemInput}
+                  onChange={(e) => setCustomItemInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleAddCustomItem();
+                    }
+                  }}
+                />
+                <button
+                  className={`${styles.customItemAddBtn} ${!customItemInput.trim() ? styles.customItemAddBtnDisabled : ''}`}
+                  onClick={handleAddCustomItem}
+                  disabled={!customItemInput.trim()}
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
@@ -601,7 +541,10 @@ export default function ShoppingListPage() {
       {/* Item Detail Modal */}
       <ItemDetailModal
         isOpen={isItemModalOpen}
-        onClose={handleCloseItemModal}
+        onClose={() => {
+          setIsItemModalOpen(false);
+          setSelectedItem(null);
+        }}
         item={selectedItem}
       />
     </div>
