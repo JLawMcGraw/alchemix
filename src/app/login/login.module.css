@@ -26,20 +26,6 @@
   gap: var(--space-2);
 }
 
-.logoContainer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  max-width: 350px;
-}
-
-.logoContainer img {
-  width: 100%;
-  height: auto !important;
-  object-fit: contain;
-}
-
 .logoTagline {
   font-family: var(--font-sans);
   font-size: 0.9375rem;
@@ -238,10 +224,5 @@
 @media (max-width: 480px) {
   .loginPage {
     padding: var(--space-2);
-  }
-
-  .logoContainer img {
-    width: 240px;
-    height: auto;
   }
 }

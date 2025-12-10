@@ -2,14 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import Link from 'next/link';
 import { Eye, EyeOff, Check } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { validatePassword as validatePasswordPolicy, checkPasswordRequirements } from '@/lib/passwordPolicy';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { Input } from '@/components/ui/Input';
+import { AlcheMixLogo, Button, Card, Input } from '@/components/ui';
 import styles from './login.module.css';
 
 export default function LoginPage() {
@@ -122,15 +119,7 @@ export default function LoginPage() {
       <div className={styles.loginContainer}>
         {/* Logo */}
         <div className={styles.logoSection}>
-          <div className={styles.logoContainer}>
-            <Image
-              src="/AlcheMix Logo Crop.png"
-              alt="AlcheMix Logo"
-              width={350}
-              height={117}
-              priority
-            />
-          </div>
+          <AlcheMixLogo size="lg" showText={true} showTagline={true} />
           <p className={styles.logoTagline}>Your cocktail lab assistant</p>
         </div>
 

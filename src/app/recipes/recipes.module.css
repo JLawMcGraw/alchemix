@@ -1,4 +1,4 @@
-/* Recipes Page Styles - Scientific Lab Aesthetic */
+/* Recipes Page Styles - Molecular Design System */
 
 .recipesPage {
   min-height: calc(100vh - 72px);
@@ -7,20 +7,29 @@
 }
 
 .container {
-  max-width: 1400px;
+  max-width: 1200px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
-/* Header */
+/* ==========================================================================
+   Header
+   ========================================================================== */
+
 .header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   flex-wrap: wrap;
   gap: var(--space-3);
+}
+
+.headerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .title {
@@ -37,62 +46,606 @@
 
 .subtitle {
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   color: var(--color-text-muted);
-  margin: var(--space-1) 0 0 0;
+  margin: 0;
 }
 
-/* Controls */
-.controls {
+.subtitleHighlight {
+  color: #10B981;
+}
+
+.headerActions {
   display: flex;
-  gap: var(--space-2);
+  gap: 12px;
+  align-items: center;
+}
+
+.actionBtn {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 10px 16px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.actionBtnOutline {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.actionBtnOutline:hover {
+  border-color: var(--color-text-body);
+  color: var(--color-text-body);
+}
+
+.actionBtnPrimary {
+  background: var(--color-text-body);
+  border: 1px solid var(--color-text-body);
+  color: white;
+}
+
+.actionBtnPrimary:hover {
+  background: #0F172A;
+}
+
+/* ==========================================================================
+   Mastery Filter Pills
+   ========================================================================== */
+
+.filterBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
-.searchInput {
-  flex: 1;
-  min-width: 250px;
-  padding: 8px 12px;
+.filterLabel {
   font-family: var(--font-mono);
-  font-size: 0.8125rem;
+  font-size: 0.625rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.masteryPill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
   color: var(--color-text-body);
-  background-color: var(--color-ui-bg-surface);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius);
-  transition: all var(--transition-fast);
+}
+
+.masteryPill:hover {
+  border-color: var(--color-text-body);
+}
+
+.masteryPill.active {
+  background: var(--color-text-body);
+  border-color: var(--color-text-body);
+  color: white;
+}
+
+.masteryDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pillCount {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 6px;
+  border-radius: 2px;
+}
+
+.masteryPill.active .pillCount {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.clearFilterBtn {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  margin-left: 8px;
+}
+
+.clearFilterBtn:hover {
+  color: var(--color-text-body);
+}
+
+/* ==========================================================================
+   Tabs
+   ========================================================================== */
+
+.tabBar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0;
+}
+
+.tab {
+  padding: 8px 0;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  margin-bottom: -1px;
+}
+
+.tab:hover {
+  color: var(--color-text-body);
+}
+
+.tab.active {
+  color: var(--color-text-body);
+  border-bottom-color: var(--color-text-body);
+}
+
+.tabSpacer {
+  flex: 1;
+}
+
+.activeCollectionIndicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  color: var(--color-text-body);
+}
+
+.closeCollectionBtn {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.closeCollectionBtn:hover {
+  color: var(--color-text-body);
+}
+
+/* ==========================================================================
+   Controls (Search & Filter)
+   ========================================================================== */
+
+.controls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.backBtn {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.backBtn:hover {
+  color: var(--color-text-body);
+}
+
+.searchWrapper {
+  position: relative;
+  flex: 1;
+  max-width: 400px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 10px 12px 10px 40px;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  color: var(--color-text-body);
+  background-color: white;
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+  transition: border-color 0.15s ease;
 }
 
 .searchInput::placeholder {
-  color: var(--color-text-tertiary);
+  color: var(--color-text-muted);
 }
 
 .searchInput:focus {
   outline: none;
-  border-color: var(--color-border-emphasis);
+  border-color: var(--color-text-body);
 }
 
 .filterSelect {
-  padding: 8px 12px;
+  padding: 10px 12px;
   font-family: var(--font-mono);
-  font-size: 0.8125rem;
-  color: var(--color-text-body);
-  background-color: var(--color-ui-bg-surface);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  background-color: white;
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
   cursor: pointer;
-  transition: border-color var(--transition-fast);
-}
-
-.filterSelect:hover {
-  border-color: var(--color-border-emphasis);
 }
 
 .filterSelect:focus {
   outline: none;
-  border-color: var(--color-border-emphasis);
+  border-color: var(--color-text-body);
 }
 
-/* Empty State */
+.recipeCount {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+/* ==========================================================================
+   Collections Grid
+   ========================================================================== */
+
+.collectionsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.collectionCard {
+  background: white;
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.collectionCard:hover {
+  border-color: var(--color-text-body);
+  transform: translateY(-2px);
+}
+
+.collectionCardDashed {
+  border-style: dashed;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 120px;
+}
+
+.collectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.collectionIcon {
+  color: var(--color-text-body);
+}
+
+.collectionName {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-body);
+  margin: 0;
+}
+
+.collectionDescription {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin: 0 0 12px 0;
+}
+
+.collectionCount {
+  font-family: var(--font-mono);
+  font-size: 1.125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-body);
+}
+
+.collectionCountLabel {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--color-text-muted);
+  margin-left: 4px;
+}
+
+.newCollectionIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--color-ui-bg-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  color: var(--color-text-muted);
+  font-size: 1.25rem;
+}
+
+.newCollectionText {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+/* ==========================================================================
+   Uncategorized Section
+   ========================================================================== */
+
+.sectionDivider {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-4);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.sectionTitle {
+  font-family: var(--font-sans);
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: var(--color-text-body);
+  margin: 0;
+}
+
+.sectionCount {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+/* ==========================================================================
+   Recipes Grid
+   ========================================================================== */
+
+.recipesGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+/* ==========================================================================
+   Recipe Card
+   ========================================================================== */
+
+.recipeCard {
+  background: white;
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+  overflow: hidden;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+  cursor: pointer;
+}
+
+.recipeCard:hover {
+  transform: scale(1.02);
+  border-color: var(--color-text-body);
+}
+
+.recipeImage {
+  height: 150px;
+  background: white;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.craftableDot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10B981;
+}
+
+.selectionCheckbox {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.selectionCheckbox:hover {
+  border-color: var(--color-text-body);
+}
+
+.selectionCheckbox.selected {
+  background: var(--color-text-body);
+  border-color: var(--color-text-body);
+}
+
+.selectionCheckbox svg {
+  color: white;
+}
+
+.recipeContent {
+  padding: 12px;
+}
+
+.recipeHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.recipeName {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-body);
+  margin: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.favoriteBtn {
+  background: none;
+  border: none;
+  color: #D4D4D4;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s ease;
+}
+
+.favoriteBtn:hover {
+  color: #F59E0B;
+}
+
+.favoriteBtn.favorited {
+  color: #F59E0B;
+}
+
+.spiritBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.spiritBadge {
+  display: inline-block;
+  padding: 2px 6px;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 2px;
+}
+
+.ingredients {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* ==========================================================================
+   Bulk Actions Bar (Fixed Bottom)
+   ========================================================================== */
+
+.bulkBar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-text-body);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+}
+
+.bulkCount {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+}
+
+.bulkDivider {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.bulkAction {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.bulkAction:hover {
+  color: #0EA5E9;
+}
+
+.bulkActionDanger:hover {
+  color: #EF4444;
+}
+
+.bulkActionMuted {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.bulkActionMuted:hover {
+  color: white;
+}
+
+/* ==========================================================================
+   Empty State
+   ========================================================================== */
+
 .emptyState {
   text-align: center;
   padding: var(--space-8) var(--space-4);
@@ -118,131 +671,10 @@
   margin: 0 0 var(--space-4) 0;
 }
 
-/* Recipes Grid */
-.recipesGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: var(--space-3);
-}
+/* ==========================================================================
+   Pagination
+   ========================================================================== */
 
-.recipeCard {
-  overflow: hidden;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-}
-
-.recipeCard:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-hover);
-  border-color: var(--color-border-emphasis);
-}
-
-/* Recipe Image / Molecule Thumbnail */
-.recipeImage {
-  height: 160px;
-  background: var(--color-ui-bg-surface);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  border-bottom: 1px solid var(--color-border-default);
-}
-
-.recipeImageIcon {
-  color: var(--color-text-tertiary);
-  opacity: 0.5;
-}
-
-/* Recipe Content */
-.recipeContent {
-  padding: var(--space-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  flex: 1;
-}
-
-.recipeHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--space-2);
-}
-
-.recipeName {
-  font-family: var(--font-sans);
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--color-text-body);
-  margin: 0;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.favoriteBtn {
-  background: none;
-  border: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.favoriteBtn:hover {
-  transform: scale(1.1);
-  color: var(--color-primary);
-}
-
-.favoriteBtn.favorited {
-  color: var(--color-primary);
-}
-
-.spiritBadge {
-  display: inline-block;
-  padding: 2px 8px;
-  font-family: var(--font-mono);
-  font-size: 0.5625rem;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-primary);
-  background-color: var(--selected-bg);
-  border: 1px solid var(--color-primary);
-  border-radius: var(--radius);
-  white-space: nowrap;
-}
-
-.ingredients {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-  line-height: 1.5;
-  margin: 0;
-  min-height: 36px;
-}
-
-/* Chemical Formula on Card */
-.recipeFormula {
-  font-family: var(--font-mono);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  color: var(--color-text-body);
-  margin: 0;
-  padding: 4px 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Pagination */
 .pagination {
   display: flex;
   align-items: center;
@@ -259,7 +691,20 @@
   white-space: nowrap;
 }
 
-/* Responsive */
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+
+@media (max-width: 1024px) {
+  .collectionsGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .recipesGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 @media (max-width: 768px) {
   .recipesPage {
     padding: var(--space-3) var(--space-2);
@@ -270,33 +715,52 @@
     align-items: flex-start;
   }
 
-  .title {
-    font-size: 1.25rem;
+  .headerActions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .filterBar {
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+
+  .collectionsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .recipesGrid {
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .controls {
-    width: 100%;
     flex-direction: column;
+    align-items: stretch;
   }
 
-  .searchInput {
-    width: 100%;
+  .searchWrapper {
+    max-width: none;
   }
 
-  .filterSelect {
-    width: 100%;
+  .bulkBar {
+    left: 16px;
+    right: 16px;
+    transform: none;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .collectionsGrid {
+    grid-template-columns: 1fr;
   }
 
   .recipesGrid {
     grid-template-columns: 1fr;
   }
 
-  .recipeHeader {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .recipeName {
-    white-space: normal;
+  .tabBar {
+    gap: 16px;
   }
 }

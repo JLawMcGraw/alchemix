@@ -18,7 +18,96 @@ Last updated: 2025-12-09
 
 ---
 
-## Recent Session (2025-12-09): Visual Redesign Complete + Stoichiometric Balance Fixes
+## Recent Session (2025-12-09): Dashboard & Recipes Page Visual Redesign + New Login Page
+
+### Summary
+Complete visual overhaul of Dashboard and Recipes pages following the Molecular Mixology design system. Created new Login page design. Updated logo colors, refined typography, and implemented new card-based layouts with spirit detection and molecule visualization.
+
+### Work Completed
+
+#### 1. New Login Page Design
+- Created new login page layout with Molecular Mixology aesthetic
+- Clean, clinical design matching the overall design system
+- Updated `login/page.tsx` and `login.module.css`
+
+#### 2. AlcheMix Logo Color Updates
+- Updated `AlcheMixLogo.tsx` with new node colors:
+  - Top-left: `--bond-cane` (#65A30D, green) for Rum
+  - Top-right: `--bond-juniper` (#0EA5E9, sky blue) for Gin
+  - Bottom: `--bond-grain` (#D97706, amber) for Whiskey
+  - Center: `--bond-botanical` (#EC4899, pink) for Botanicals
+- Adjusted MIX text font-size to 1.15em for visual balance with ALCHE
+
+#### 3. Dashboard Visual Redesign
+- Completely rewrote `dashboard/page.tsx` with new layout:
+  - Centered greeting header with inline stats
+  - Lab Assistant's Notes card (black/white theme, no teal accents)
+  - My Bar Overview with composition bar and category grid
+  - Recipe Mastery sidebar with color-coded status
+  - Collections sidebar with quick-create
+- Updated `dashboard.module.css` with spacious layout (--space-5 gaps)
+- Removed all teal/green accents from buttons, replaced with black
+
+#### 4. Recipes Page Visual Redesign
+- Completely rewrote `recipes/page.tsx` with new design:
+  - Horizontal mastery filter pills (Craftable, Near Miss, 2-3 Away, Major Gaps)
+  - Collections/All Recipes tabs
+  - Spirit detection system from ingredient keywords
+  - Spirit badges on recipe cards (colored tags like "Gin", "Whiskey")
+  - Green craftable dot indicator on cards
+  - Fixed bulk actions bar at bottom
+- Updated `recipes.module.css` with:
+  - Recipe cards with white molecule visualization area
+  - Subtle border-bottom separator between image and content
+  - Spirit badge styling with transparent colored backgrounds
+  - Recipe image container height: 150px
+
+#### 5. Spirit Detection System
+Implemented automatic spirit detection from recipe ingredients:
+- `SPIRIT_COLORS` mapping: Gin (sky blue), Whiskey (amber), Tequila (teal), Rum (green), Vodka (slate), Brandy (violet), Liqueur (pink)
+- `SPIRIT_KEYWORDS` for ingredient matching: gin, whiskey, bourbon, tequila, rum, vodka, brandy, cognac, etc.
+- `getIngredientSpirits()` function to extract all spirits from ingredients
+- Spirit badges displayed below recipe name with colored backgrounds
+
+#### 6. Recipe Card Refinements
+- Removed spirit bar (colored bar at top of cards) per user preference
+- Kept spirit badges (user liked these)
+- Changed molecule visualization background from `var(--color-ui-bg-base)` to white for contrast
+- Added border-bottom separator between image area and card content
+- Adjusted image container height from 108px to 150px to prevent molecule clipping
+
+### Files Changed
+
+**Login**:
+- `src/app/login/page.tsx` - New login page design
+- `src/app/login/login.module.css` - New login styles
+
+**Logo**:
+- `src/components/ui/AlcheMixLogo.tsx` - Node color classes, MIX font-size
+- `src/components/ui/AlcheMixLogo.module.css` - (existing, referenced new classes)
+
+**Dashboard**:
+- `src/app/dashboard/page.tsx` - Complete rewrite with new layout
+- `src/app/dashboard/dashboard.module.css` - Complete rewrite with new styles
+
+**Recipes**:
+- `src/app/recipes/page.tsx` - Complete rewrite with spirit detection, new card layout
+- `src/app/recipes/recipes.module.css` - Complete rewrite, removed spiritBar styles, updated recipeImage
+
+**Recipe Molecule**:
+- `src/components/RecipeMolecule.tsx` - (thumbnail size verified at 300x225)
+
+### Design Decisions
+- Login page uses clean, clinical design with Molecular Mixology aesthetic
+- Dashboard uses black/white theme (no teal accents on Lab Notes or buttons)
+- Spirit detection via keyword matching (not spirit_type field)
+- Spirit badges preferred over colored bars
+- Molecule visualization on white background for visual separation
+- 150px image container height balances molecule display and card proportions
+
+---
+
+## Previous Session (2025-12-09): Visual Redesign Complete + Stoichiometric Balance Fixes
 
 ### Summary
 Completed all remaining phases (8-10) of the Molecular Mixology visual redesign. Fixed critical bugs in ingredient classification and stoichiometric balance display.

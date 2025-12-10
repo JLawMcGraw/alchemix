@@ -983,6 +983,37 @@ Two HTML mockups provide the design direction:
 
 ## Progress Log
 
+### December 9, 2025 - Session 4: Dashboard & Recipes Page Visual Redesign + New Login
+
+**Login Page**:
+- Created new login page design with Molecular Mixology aesthetic
+- Clean, clinical styling matching the design system
+
+**Logo Updates**:
+- Updated node colors: green (cane), sky blue (juniper), amber (grain), pink (botanical)
+- Adjusted MIX font-size to 1.15em for visual balance
+
+**Dashboard Redesign**:
+- Complete rewrite with centered greeting, Lab Notes card, My Bar Overview
+- Removed all teal/green accents, replaced with black/white theme
+- Spacious layout with --space-5 gaps
+
+**Recipes Page Redesign**:
+- Complete rewrite with mastery filter pills, spirit detection system
+- Spirit badges on recipe cards (colored tags: Gin, Whiskey, Rum, etc.)
+- Removed spirit bar (user preference), kept badges
+- White background for molecule visualization (contrast fix)
+- Recipe image container: 150px height
+
+**Files Changed**:
+- `src/app/login/page.tsx`, `login.module.css` - New login design
+- `src/app/dashboard/page.tsx`, `dashboard.module.css` - Complete rewrite
+- `src/app/recipes/page.tsx`, `recipes.module.css` - Complete rewrite with spirit detection
+- `src/components/ui/AlcheMixLogo.tsx` - Logo color updates
+- `src/components/RecipeMolecule.tsx` - Verified thumbnail sizing
+
+---
+
 ### December 8, 2025 - Session 1
 
 **Phase 1 Completed**:

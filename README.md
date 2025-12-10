@@ -6,21 +6,24 @@
 
 Modern cocktail inventory and recipe management system with AI-powered bartender recommendations. Features a "Molecular Mixology" design system that treats cocktails as chemical formulas and ingredients as periodic table elements.
 
-**Version:** v1.29.0 | **Last Updated:** December 8, 2025
+**Version:** v1.29.0 | **Last Updated:** December 9, 2025
 
 ## Features
 
 ### Core Features
 - **My Bar** - Category-organized inventory with 9 tabs, card grid layout, CSV import
-- **Recipe Management** - Full CRUD, collections/folders, bulk operations, CSV import
+- **Recipe Management** - Full CRUD, collections/folders, bulk operations, CSV import, spirit detection
 - **Recipe Molecule Visualization** - Chemical bond-style molecular diagrams for cocktail recipes
 - **Smart Shopping List** - Near-miss algorithm, ingredient recommendations, 6 recipe buckets
 - **AI Bartender** - Claude-powered assistant with MemMachine semantic memory
+- **Dashboard** - Lab overview with My Bar composition, Recipe Mastery stats, Collections sidebar
 
 ### Design & UX
 - **Molecular Mixology Design** - Scientific, laboratory-inspired interface
 - **Element Group Colors** - Color-coded ingredient categories (spirits, acids, sugars, etc.)
+- **Spirit Detection** - Automatic spirit identification from recipe ingredients with colored badges
 - **Typography System** - Inter (UI) + JetBrains Mono (data) font pairing
+- **Recipe Cards** - Molecule visualization with spirit badges and craftable indicators
 
 ### Security & Auth
 - **Secure Auth** - HttpOnly cookie JWT with CSRF protection (XSS-resistant)

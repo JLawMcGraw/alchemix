@@ -1,4 +1,7 @@
 // UI Components Export
+export { AlcheMixLogo } from './AlcheMixLogo';
+export type { AlcheMixLogoProps } from './AlcheMixLogo';
+
 export { Button } from './Button';
 export type { ButtonProps } from './Button';
 

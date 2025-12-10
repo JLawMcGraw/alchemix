@@ -2,12 +2,11 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '@/lib/store';
 import { Home, Wine, Sparkles, BookOpen, ShoppingCart, Star, LogOut, Menu, X, User, Settings } from 'lucide-react';
-import { VerificationBanner } from '@/components/ui';
+import { AlcheMixLogo, VerificationBanner } from '@/components/ui';
 import styles from './TopNav.module.css';
 
 export const TopNav: React.FC = () => {
@@ -82,14 +81,7 @@ export const TopNav: React.FC = () => {
         <div className={styles.container}>
           {/* Logo */}
           <Link href="/dashboard" className={styles.logo}>
-            <Image
-              src="/AlcheMix Logo Crop.png"
-              alt="AlcheMix Logo"
-              width={140}
-              height={42}
-              className={styles.logoIcon}
-              priority
-            />
+            <AlcheMixLogo size="sm" showText={true} />
           </Link>
 
           {/* Navigation Links */}

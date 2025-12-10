@@ -1,4 +1,4 @@
-/* Dashboard Styles */
+/* Dashboard Styles - Molecular Design System */
 
 .dashboard {
   padding: var(--space-4) var(--space-3);
@@ -7,26 +7,21 @@
 }
 
 .container {
-  max-width: 1200px;
+  max-width: 1024px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-5);
 }
 
+/* ==========================================================================
+   Header / Greeting Section
+   ========================================================================== */
 
-
-/* Header / Control Panel */
 .header {
-  background-color: var(--color-ui-bg-base);
-  border-radius: var(--radius);
-  padding: var(--space-3);
-  /* Removed border and box-shadow */
-}
-
-.headerTop {
-  padding: 0 var(--space-1) var(--space-3) var(--space-1);
   text-align: center;
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .greeting {
@@ -35,125 +30,385 @@
   font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--color-text-body);
-  margin: 0 0 var(--space-1) 0;
+  margin: 0 0 var(--space-2) 0;
 }
 
-.stats {
+.greeting strong {
+  color: var(--color-accent, #0D9488);
+  font-weight: 700;
+}
+
+.statsLine {
   font-family: var(--font-mono);
   font-size: 0.875rem;
   color: var(--color-text-muted);
   margin: 0;
-  max-width: 600px;
-  margin: 0 auto;
 }
 
-.stats strong {
-  color: var(--color-primary);
+.statsLine .statValue {
+  color: var(--color-text-body);
   font-weight: 600;
 }
 
-/* Actions */
-.actions {
-  display: flex;
-  justify-content: center; /* Center actions now that some are removed */
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--color-border-light);
-}
+/* ==========================================================================
+   Lab Assistant's Notes Card
+   ========================================================================== */
 
-.primaryAction {
-  font-size: 0.9375rem;
-  width: auto; /* Allow button to size itself */
-  flex-grow: 0; /* Don't force it to grow */
-}
-
-.aiActionButton,
-.cardActionButton {
-  margin-top: var(--space-3);
-  text-align: center;
-}
-
-/* Overview Section */
-.overview {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-3);
-}
-
-.overviewCard {
-  background-color: var(--color-ui-bg-surface);
+.labNotesCard {
+  background: white;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  transition: all var(--transition-base);
-  box-shadow: var(--shadow-sm);
+  border-radius: 2px;
 }
 
-.overviewCard:hover {
-  border-color: var(--color-border-emphasis);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-hover);
+.labNotesHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+  background-color: var(--color-ui-bg-base);
 }
 
-/* Special styling for the AI Notebook Card */
-.overviewCard:first-child {
-  border: 1px solid var(--color-border-default);
-  background-color: #fff; /* White background to stand out */
+.labNotesTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-body);
+  margin: 0;
+}
+
+.pulsingDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-text-body);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.labNotesLabel {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.labNotesContent {
+  padding: var(--space-4);
 }
 
 .insightText {
   font-family: var(--font-sans);
   font-size: 0.9375rem;
   color: var(--color-text-body);
-  line-height: 1.7;
+  line-height: 1.8;
   text-align: center;
+  margin: 0;
 }
 
-.loadingText {
-  font-style: italic;
-  color: var(--color-text-muted);
-  text-align: center;
+.insightText strong {
+  color: var(--color-text-body);
+  font-weight: 600;
+}
+
+.labNotesAction {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-4);
+}
+
+.askAiButton {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 12px 32px;
+  border: 1px solid var(--color-text-body);
+  background: transparent;
+  color: var(--color-text-body);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.askAiButton:hover {
+  background-color: var(--color-text-body);
+  color: white;
+}
+
+/* ==========================================================================
+   Main Grid Layout
+   ========================================================================== */
+
+.mainGrid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--space-5);
+}
+
+/* ==========================================================================
+   Card Base Styles
+   ========================================================================== */
+
+.card {
+  background: white;
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
 }
 
 .cardHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--space-2);
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--color-border-light);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .cardTitle {
   font-family: var(--font-sans);
-  font-size: 1rem;
+  font-size: 0.875rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
   color: var(--color-text-body);
   margin: 0;
-  display: flex;
-  align-items: center;
 }
 
 .viewAllBtn {
-  background: none;
-  border: none;
-  color: var(--color-primary);
   font-family: var(--font-mono);
   font-size: 0.75rem;
-  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-body);
+  background: none;
+  border: none;
   cursor: pointer;
-  transition: color var(--transition-fast);
+  transition: color 0.15s ease;
 }
 
 .viewAllBtn:hover {
-  color: var(--color-secondary);
+  color: var(--color-text-muted);
 }
 
-.cardContent {
-  min-height: 120px;
+/* ==========================================================================
+   My Bar Overview Card
+   ========================================================================== */
+
+/* Composition Bar */
+.compositionBar {
+  padding: 16px 16px 8px;
 }
+
+.barTrack {
+  display: flex;
+  height: 8px;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.barSegment {
+  transition: width 0.3s ease;
+}
+
+.barTotal {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  color: var(--color-text-muted);
+  text-align: right;
+  margin-top: 4px;
+}
+
+/* Category Grid */
+.categoryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--color-border);
+}
+
+.categoryCell {
+  padding: var(--space-4);
+  text-align: center;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  border-bottom: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+}
+
+.categoryCell:nth-child(3n) {
+  border-right: none;
+}
+
+.categoryCell:nth-last-child(-n+3) {
+  border-bottom: none;
+}
+
+.categoryCell:hover {
+  background-color: var(--color-ui-bg-base);
+}
+
+.categoryDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin: 0 auto 8px;
+}
+
+.categoryCount {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 4px;
+}
+
+.categoryLabel {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Last Mixed Footer */
+.lastMixedFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.lastMixedLabel {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-right: 12px;
+}
+
+.lastMixedName {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  color: var(--color-text-body);
+}
+
+.lastMixedTime {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+/* ==========================================================================
+   Right Sidebar Cards
+   ========================================================================== */
+
+.sidebarStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* List Item Base */
+.listItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border-light);
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.listItem:hover {
+  background-color: var(--color-ui-bg-base);
+}
+
+.listItem:last-child {
+  border-bottom: none;
+}
+
+/* Recipe Mastery List */
+.masteryItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.masteryDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.masteryLabel {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  color: var(--color-text-body);
+}
+
+.masteryCount {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 8px;
+  border-radius: 2px;
+}
+
+/* Collection List */
+.collectionItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.collectionIcon {
+  font-size: 0.875rem;
+  opacity: 0.5;
+}
+
+.collectionName {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  color: var(--color-text-body);
+}
+
+.collectionCount {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+/* ==========================================================================
+   Footer
+   ========================================================================== */
+
+.footer {
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-border);
+  text-align: center;
+}
+
+.footerText {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+}
+
+/* ==========================================================================
+   Empty States
+   ========================================================================== */
 
 .emptyState {
   color: var(--color-text-muted);
@@ -161,145 +416,55 @@
   font-size: 0.8125rem;
   font-style: italic;
   text-align: center;
-  padding: var(--space-3) 0;
+  padding: var(--space-3) var(--space-2);
 }
 
-/* Item Lists */
-.bottleList,
-.recipeList,
-.favoriteList,
-.categoryList,
-.masteryList,
-.collectionList {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
+/* ==========================================================================
+   Loading States
+   ========================================================================== */
 
-.bottleItem,
-.recipeItem,
-.favoriteItem,
-.categoryItem,
-.masteryItem,
-.collectionItem {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--space-2) var(--space-1);
-  border-bottom: 1px solid var(--color-border-light);
-  transition: background-color var(--transition-fast);
-}
-
-.categoryItem:hover,
-.masteryItem:hover,
-.collectionItem:hover {
-  background-color: var(--selected-bg);
-}
-.bottleItem:first-child,
-.recipeItem:first-child,
-.favoriteItem:first-child,
-.categoryItem:first-child,
-.masteryItem:first-child,
-.collectionItem:first-child {
-  padding-top: 0;
-}
-
-.bottleItem:last-child,
-.recipeItem:last-child,
-.favoriteItem:last-child,
-.categoryItem:last-child,
-.masteryItem:last-child,
-.collectionItem:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-.bottleName,
-.recipeName,
-.favoriteName,
-.categoryLabel,
-.collectionName {
-  font-family: var(--font-sans);
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--color-text-body);
-}
-
-.bottleType,
-.recipeIngredients {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
+.loadingText {
+  font-style: italic;
   color: var(--color-text-muted);
+  text-align: center;
 }
 
-.collectionCount {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--color-text-muted);
-  white-space: nowrap;
+/* ==========================================================================
+   Responsive Design
+   ========================================================================== */
+
+@media (max-width: 900px) {
+  .mainGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .categoryGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
-.categoryCount {
-  font-family: var(--font-mono);
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--color-primary);
-  background-color: var(--color-ui-bg-base);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius);
+@media (max-width: 600px) {
+  .dashboard {
+    padding: var(--space-3) var(--space-2);
+  }
+
+  .categoryGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .categoryCell:nth-child(3n) {
+    border-right: 1px solid var(--color-border);
+  }
+
+  .categoryCell:nth-child(2n) {
+    border-right: none;
+  }
+
+  .categoryCell:nth-last-child(-n+3) {
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .categoryCell:nth-last-child(-n+2) {
+    border-bottom: none;
+  }
 }
-
-.favoriteItem {
-  gap: var(--space-2);
-  justify-content: flex-start;
-}
-
-.favoriteIcon {
-  color: var(--color-secondary);
-}
-
-
-.overviewGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: var(--space-3);
-}
-
-
-.greeting strong {
-  color: var(--color-primary);
-  font-weight: 700;
-}
-
-/* Recipe Mastery Styles */
-.masteryLabel {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-family: var(--font-sans);
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--color-text-body);
-}
-
-.masteryIcon {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.masteryCount {
-  font-family: var(--font-mono);
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--color-text-body);
-  background-color: var(--color-ui-bg-base);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius);
-}
-

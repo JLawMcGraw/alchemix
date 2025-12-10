@@ -6,14 +6,61 @@ import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { Button, useToast, Spinner } from '@/components/ui';
 import { Card } from '@/components/ui/Card';
-import { BookOpen, Upload, Star, Martini, ChevronLeft, ChevronRight, Trash2, FolderOpen, Plus, Edit, Trash, CheckSquare, Square, ShoppingCart, CheckCircle, AlertCircle, Wine } from 'lucide-react';
+import { Search, Star, ChevronLeft, ChevronRight, Trash2, FolderOpen, Plus, Check, Martini, Upload } from 'lucide-react';
 import { CSVUploadModal, RecipeDetailModal, DeleteConfirmModal, CollectionModal, AddRecipeModal } from '@/components/modals';
 import { RecipeMolecule } from '@/components/RecipeMolecule';
 import { recipeApi } from '@/lib/api';
 import type { Recipe, Collection } from '@/types';
 import { matchesSpiritCategory, SpiritCategory } from '@/lib/spirits';
 import styles from './recipes.module.css';
-import shoppingStyles from '../shopping-list/shopping-list.module.css';
+
+// Spirit colors for card borders
+const SPIRIT_COLORS: Record<string, string> = {
+  'Gin': '#0EA5E9',
+  'Whiskey': '#D97706',
+  'Tequila': '#0D9488',
+  'Rum': '#65A30D',
+  'Vodka': '#94A3B8',
+  'Brandy': '#8B5CF6',
+  'Liqueur': '#EC4899',
+  'Other Spirits': '#64748B',
+};
+
+// Spirit keywords for ingredient detection
+const SPIRIT_KEYWORDS: Record<string, string[]> = {
+  'Gin': ['gin', 'london dry', 'plymouth', 'navy strength', 'sloe gin'],
+  'Whiskey': ['whiskey', 'whisky', 'bourbon', 'rye', 'scotch', 'irish whiskey', 'japanese whisky'],
+  'Tequila': ['tequila', 'mezcal', 'blanco', 'reposado', 'anejo'],
+  'Rum': ['rum', 'rhum', 'white rum', 'dark rum', 'spiced rum', 'cachaca', 'agricole'],
+  'Vodka': ['vodka'],
+  'Brandy': ['brandy', 'cognac', 'armagnac', 'pisco', 'calvados', 'grappa'],
+  'Liqueur': ['liqueur', 'amaretto', 'cointreau', 'triple sec', 'curacao', 'chartreuse', 'benedictine', 'campari', 'aperol', 'kahlua', 'baileys', 'frangelico', 'maraschino', 'absinthe', 'st germain', 'grand marnier', 'drambuie', 'midori', 'galliano', 'sambuca', 'limoncello'],
+};
+
+// Get all spirit colors from ingredients
+const getIngredientSpirits = (ingredients: string[]): string[] => {
+  const foundSpirits = new Set<string>();
+
+  for (const ingredient of ingredients) {
+    const lowerIngredient = ingredient.toLowerCase();
+    for (const [spirit, keywords] of Object.entries(SPIRIT_KEYWORDS)) {
+      if (keywords.some(keyword => lowerIngredient.includes(keyword))) {
+        foundSpirits.add(spirit);
+        break; // Only match one spirit per ingredient
+      }
+    }
+  }
+
+  return Array.from(foundSpirits);
+};
+
+// Mastery filter configuration
+const MASTERY_FILTERS = [
+  { key: 'craftable', label: 'Craftable', color: '#10B981', filter: 'craftable' },
+  { key: 'near-miss', label: 'Near Miss', color: '#0EA5E9', filter: 'almost' },
+  { key: '2-3-away', label: '2-3 Away', color: '#F59E0B', filter: 'need-few' },
+  { key: 'major-gaps', label: 'Major Gaps', color: '#94A3B8', filter: 'major-gaps' },
+];
 
 function RecipesPageContent() {
   const router = useRouter();
@@ -41,13 +88,14 @@ function RecipesPageContent() {
     majorGapsRecipes,
     isLoadingShoppingList,
     fetchShoppingList,
-    inventoryItems,
     fetchItems,
   } = useStore();
   const { showToast } = useToast();
+
+  // State
+  const [activeTab, setActiveTab] = useState<'collections' | 'all'>('collections');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterSpirit, setFilterSpirit] = useState<SpiritCategory | 'all'>('all');
-  const [filterCollection, setFilterCollection] = useState<string>('all');
   const [masteryFilter, setMasteryFilter] = useState<string | null>(null);
   const [csvModalOpen, setCsvModalOpen] = useState(false);
   const [addRecipeModalOpen, setAddRecipeModalOpen] = useState(false);
@@ -57,7 +105,6 @@ function RecipesPageContent() {
   const [editingCollection, setEditingCollection] = useState<Collection | null>(null);
   const [showCollectionDeleteConfirm, setShowCollectionDeleteConfirm] = useState(false);
   const [deletingCollection, setDeletingCollection] = useState<Collection | null>(null);
-  const [showCollectionsPanel, setShowCollectionsPanel] = useState(false);
   const [activeCollection, setActiveCollection] = useState<Collection | null>(null);
   const [selectedRecipes, setSelectedRecipes] = useState<Set<number>>(new Set());
   const [showBulkMoveModal, setShowBulkMoveModal] = useState(false);
@@ -72,23 +119,19 @@ function RecipesPageContent() {
     hasNextPage: false,
     hasPreviousPage: false
   });
-  // Track last loaded filter/collection to avoid redundant reloads
   const [lastLoadedParams, setLastLoadedParams] = useState<{ filter: string | null; collection: string | null } | null>(null);
 
+  // Load recipes
   const loadRecipes = async (page: number = 1, loadAll: boolean = false) => {
     try {
       if (loadAll) {
-        // Load all recipes by making multiple paginated requests
-        const firstResult = await recipeApi.getAll(1, 100); // Max limit is 100
+        const firstResult = await recipeApi.getAll(1, 100);
         let allRecipes = [...firstResult.recipes];
         const totalPages = firstResult.pagination.totalPages;
-
-        // Load remaining pages
         for (let p = 2; p <= totalPages; p++) {
           const pageResult = await recipeApi.getAll(p, 100);
           allRecipes = [...allRecipes, ...pageResult.recipes];
         }
-
         useStore.setState({ recipes: allRecipes });
         setPagination({
           page: 1,
@@ -100,7 +143,6 @@ function RecipesPageContent() {
         });
         setCurrentPage(1);
       } else {
-        // Normal paginated load
         const result = await recipeApi.getAll(page, 50);
         useStore.setState({ recipes: result.recipes });
         setPagination(result.pagination);
@@ -111,51 +153,44 @@ function RecipesPageContent() {
     }
   };
 
-  // Handle URL parameters and recipe loading
+  // Handle URL parameters
   useEffect(() => {
     if (!isAuthenticated || isValidating) return;
 
     const filter = searchParams.get('filter');
     const collectionId = searchParams.get('collection');
 
-    // Check if params actually changed to avoid redundant reloads (e.g., when opening modal)
     const paramsChanged = !lastLoadedParams ||
       lastLoadedParams.filter !== filter ||
       lastLoadedParams.collection !== collectionId;
 
     if (!paramsChanged) return;
-
-    // Update tracked params
     setLastLoadedParams({ filter, collection: collectionId });
 
     if (filter) {
       setMasteryFilter(filter);
-      setActiveCollection(null); // Clear collection when mastery filter is active
-      // Load all recipes when mastery filter is active
+      setActiveCollection(null);
+      setActiveTab('all');
       loadRecipes(1, true);
     } else if (collectionId && collections.length > 0) {
       const collectionsArr = Array.isArray(collections) ? collections : [];
       const collection = collectionsArr.find(c => c.id === parseInt(collectionId));
       if (collection) {
         setActiveCollection(collection);
-        setShowCollectionsPanel(true);
-        setMasteryFilter(null); // Clear mastery filter when viewing a collection
-        // Load all recipes when viewing a collection
+        setActiveTab('collections');
+        setMasteryFilter(null);
         loadRecipes(1, true);
       }
     } else {
-      // No filter, no collection - load normal paginated recipes
       setMasteryFilter(null);
       setActiveCollection(null);
-      setShowCollectionsPanel(false);
       loadRecipes(1, false);
     }
   }, [searchParams, collections, isAuthenticated, isValidating, lastLoadedParams]);
 
+  // Fetch initial data
   useEffect(() => {
     if (isAuthenticated && !isValidating) {
-      // Don't load recipes here - the URL parameter effect handles it
-      // Only load supporting data
       fetchFavorites().catch(console.error);
       fetchCollections().catch(console.error);
       fetchShoppingList().catch(console.error);
@@ -168,15 +203,10 @@ function RecipesPageContent() {
   const favoritesArray = Array.isArray(favorites) ? favorites : [];
   const collectionsArray = Array.isArray(collections) ? collections : [];
 
-  // Helper function to parse ingredients
+  // Parse ingredients helper
   const parseIngredients = (ingredients: string | string[] | undefined): string[] => {
-    if (!ingredients) {
-      return [];
-    }
-    if (Array.isArray(ingredients)) {
-      return ingredients;
-    }
-
+    if (!ingredients) return [];
+    if (Array.isArray(ingredients)) return ingredients;
     try {
       const parsed = JSON.parse(ingredients);
       return Array.isArray(parsed) ? parsed : [ingredients];
@@ -185,28 +215,23 @@ function RecipesPageContent() {
     }
   };
 
-  // Get unique spirit types - memoized to avoid re-computation on every render
-  const spiritTypes: Array<SpiritCategory | 'all'> = useMemo(() => [
-    'all',
-    ...new Set(
-      recipesArray
-        .map((r) => {
-          if (!r.spirit_type) return null;
-          // Categorize known spirits; fallback to Other
-          if (matchesSpiritCategory(r.spirit_type, 'Whiskey')) return 'Whiskey';
-          if (matchesSpiritCategory(r.spirit_type, 'Rum')) return 'Rum';
-          if (matchesSpiritCategory(r.spirit_type, 'Gin')) return 'Gin';
-          if (matchesSpiritCategory(r.spirit_type, 'Vodka')) return 'Vodka';
-          if (matchesSpiritCategory(r.spirit_type, 'Tequila')) return 'Tequila';
-          if (matchesSpiritCategory(r.spirit_type, 'Brandy')) return 'Brandy';
-          return 'Other Spirits';
-        })
-        .filter((v): v is SpiritCategory => Boolean(v))
-    ),
-  ], [recipesArray]);
+  // Spirit types for filter dropdown
+  const spiritTypes: Array<SpiritCategory | 'all'> = useMemo(() => {
+    const allSpirits = new Set<SpiritCategory>();
+    recipesArray.forEach((r) => {
+      const ingredients = parseIngredients(r.ingredients);
+      const spirits = getIngredientSpirits(ingredients);
+      spirits.forEach(s => allSpirits.add(s as SpiritCategory));
+    });
+    return ['all', ...Array.from(allSpirits)];
+  }, [recipesArray]);
 
-  // Filter recipes based on mastery level, active collection, search, and spirit
-  // Memoized to avoid expensive re-computation on every render
+  // Check if recipe is craftable
+  const isRecipeCraftable = (recipe: Recipe): boolean => {
+    return craftableRecipes.some(c => c.id === recipe.id || c.name === recipe.name);
+  };
+
+  // Filter recipes
   const filteredRecipes = useMemo(() => {
     return recipesArray.filter((recipe) => {
       const ingredientsArray = parseIngredients(recipe.ingredients);
@@ -220,46 +245,37 @@ function RecipesPageContent() {
         filterSpirit === 'all' ||
         matchesSpiritCategory(recipe.spirit_type, filterSpirit as SpiritCategory);
 
-      // Apply mastery filter if set - use data from shopping list API
+      // Apply mastery filter
       if (masteryFilter) {
         const matchesList = (list: Array<{ id?: number; name: string }> = []) => {
           return list.some(entry => {
-            if (recipe.id && entry.id) {
-              return entry.id === recipe.id;
-            }
+            if (recipe.id && entry.id) return entry.id === recipe.id;
             return entry.name === recipe.name;
           });
         };
 
-        // Use the recipe lists from the shopping list API
         switch (masteryFilter) {
           case 'craftable':
-            // Check if recipe is in craftableRecipes list
-            // craftableRecipes is an array of objects with {id, name, ingredients}
             return matchesSearch && matchesSpirit && matchesList(craftableRecipes);
           case 'almost':
-            // Check if recipe is in nearMissRecipes list (missing exactly 1 ingredient)
             return matchesSearch && matchesSpirit && matchesList(nearMissRecipes);
           case 'need-few':
-            // Check if recipe is in needFewRecipes list (missing 2-3 ingredients)
             return matchesSearch && matchesSpirit && matchesList(needFewRecipes);
           case 'major-gaps':
-            // Check if recipe is in majorGapsRecipes list (missing 4+ ingredients)
             return matchesSearch && matchesSpirit && matchesList(majorGapsRecipes);
         }
       }
 
-      // If viewing a collection, show only recipes in that collection
-      // Otherwise, show only uncategorized recipes
+      // Collection filter
       const matchesCollection = activeCollection
         ? recipe.collection_id === activeCollection.id
-        : !recipe.collection_id;
+        : activeTab === 'all' ? true : !recipe.collection_id;
 
       return matchesSearch && matchesSpirit && matchesCollection;
     });
-  }, [recipesArray, searchQuery, filterSpirit, masteryFilter, activeCollection, craftableRecipes, nearMissRecipes, needFewRecipes, majorGapsRecipes]);
+  }, [recipesArray, searchQuery, filterSpirit, masteryFilter, activeCollection, activeTab, craftableRecipes, nearMissRecipes, needFewRecipes, majorGapsRecipes]);
 
-  // Pagination for collection view (client-side so we can show all but paginate display)
+  // Pagination for collection view
   const COLLECTION_PAGE_SIZE = 24;
   const collectionTotalPages = activeCollection
     ? Math.max(1, Math.ceil(filteredRecipes.length / COLLECTION_PAGE_SIZE))
@@ -279,41 +295,25 @@ function RecipesPageContent() {
     }
   }, [activeCollection, filteredRecipes.length, collectionPage, collectionTotalPages]);
 
-  // Reset to first collection page when changing filters/search within a collection
   useEffect(() => {
-    if (activeCollection) {
-      setCollectionPage(1);
-    }
+    if (activeCollection) setCollectionPage(1);
   }, [searchQuery, filterSpirit, activeCollection]);
 
-  if (isValidating || !isAuthenticated) {
-    return null;
-  }
+  if (isValidating || !isAuthenticated) return null;
 
-  // Count uncategorized recipes
-  const uncategorizedRecipesOnPage = recipesArray.filter((r) => !r.collection_id).length;
-  const categorizedRecipeCount = collectionsArray.reduce(
-    (sum, collection) => sum + (collection.recipe_count ?? 0),
-    0
-  );
-  const uncategorizedCount = pagination.total
-    ? Math.max(pagination.total - categorizedRecipeCount, uncategorizedRecipesOnPage)
-    : uncategorizedRecipesOnPage;
+  // Counts
+  const uncategorizedCount = recipesArray.filter((r) => !r.collection_id).length;
   const totalRecipeCount = pagination.total || recipesArray.length;
+  const craftableCount = shoppingListStats?.craftable || 0;
 
-  const isFavorited = (recipeId: number) => {
-    return favoritesArray.some((fav) => fav.recipe_id === recipeId);
-  };
+  const isFavorited = (recipeId: number) => favoritesArray.some((fav) => fav.recipe_id === recipeId);
 
+  // Handlers
   const handleAddRecipe = async (recipe: Omit<Recipe, 'id' | 'user_id' | 'created_at'>) => {
     try {
       await addRecipe(recipe);
-      await loadRecipes(1); // Reload first page after adding
-      // Refresh collections to update recipe counts if recipe was added to a collection
-      if (recipe.collection_id) {
-        await fetchCollections();
-      }
-      // Refresh shopping list stats to update Total Recipes, Craftable, Near Misses
+      await loadRecipes(1);
+      if (recipe.collection_id) await fetchCollections();
       await fetchShoppingList();
       showToast('success', 'Recipe added successfully');
     } catch (error) {
@@ -325,19 +325,13 @@ function RecipesPageContent() {
   const handleCSVUpload = async (file: File, collectionId?: number) => {
     try {
       const result = await recipeApi.importCSV(file, collectionId);
-      await loadRecipes(1); // Reload first page after import
-      // Refresh collections to update recipe counts
-      if (collectionId) {
-        await fetchCollections();
-      }
-      // Refresh shopping list stats to update Total Recipes, Craftable, Near Misses
+      await loadRecipes(1);
+      if (collectionId) await fetchCollections();
       await fetchShoppingList();
       if (result.imported > 0) {
-        if (result.failed > 0) {
-          showToast('success', `Imported ${result.imported} recipes. ${result.failed} failed.`);
-        } else {
-          showToast('success', `Successfully imported ${result.imported} recipes`);
-        }
+        showToast('success', result.failed > 0
+          ? `Imported ${result.imported} recipes. ${result.failed} failed.`
+          : `Successfully imported ${result.imported} recipes`);
       } else {
         showToast('error', 'No recipes were imported. Check your CSV format.');
       }
@@ -349,7 +343,6 @@ function RecipesPageContent() {
 
   const handleToggleFavorite = async (recipe: Recipe) => {
     if (!recipe.id) return;
-
     const favorite = favoritesArray.find((fav) => fav.recipe_id === recipe.id);
     try {
       if (favorite && favorite.id) {
@@ -361,7 +354,6 @@ function RecipesPageContent() {
       }
     } catch (error) {
       showToast('error', 'Failed to update favorites');
-      console.error('Failed to toggle favorite:', error);
     }
   };
 
@@ -370,14 +362,12 @@ function RecipesPageContent() {
       const result = await recipeApi.deleteAll();
       await loadRecipes(1);
       await fetchCollections();
-      // Refresh shopping list stats to update Total Recipes, Craftable, Near Misses
       await fetchShoppingList();
       setSelectedRecipes(new Set());
       showToast('success', result.message);
       setShowDeleteConfirm(false);
     } catch (error) {
       showToast('error', 'Failed to delete recipes');
-      console.error('Failed to delete all recipes:', error);
     }
   };
 
@@ -395,14 +385,8 @@ function RecipesPageContent() {
       await fetchCollections();
     } catch (error) {
       showToast('error', editingCollection ? 'Failed to update collection' : 'Failed to create collection');
-      console.error('Failed to save collection:', error);
       throw error;
     }
-  };
-
-  const handleEditCollection = (collection: Collection) => {
-    setEditingCollection(collection);
-    setCollectionModalOpen(true);
   };
 
   const handleDeleteCollection = async () => {
@@ -416,58 +400,37 @@ function RecipesPageContent() {
       await loadRecipes(1);
     } catch (error) {
       showToast('error', 'Failed to delete collection');
-      console.error('Failed to delete collection:', error);
     }
   };
 
-  // Bulk selection handlers
+  // Bulk selection
   const toggleRecipeSelection = (recipeId: number) => {
     const newSelected = new Set(selectedRecipes);
-    if (newSelected.has(recipeId)) {
-      newSelected.delete(recipeId);
-    } else {
-      newSelected.add(recipeId);
-    }
+    if (newSelected.has(recipeId)) newSelected.delete(recipeId);
+    else newSelected.add(recipeId);
     setSelectedRecipes(newSelected);
   };
 
-  const selectAllRecipes = () => {
-    if (selectedRecipes.size === displayedRecipes.length) {
-      setSelectedRecipes(new Set());
-    } else {
-      setSelectedRecipes(new Set(displayedRecipes.map((r) => r.id!)));
-    }
-  };
-
-  const clearSelection = () => {
-    setSelectedRecipes(new Set());
-  };
+  const clearSelection = () => setSelectedRecipes(new Set());
 
   const handleBulkDelete = async () => {
     if (selectedRecipes.size === 0) return;
-
-    if (!confirm(`Are you sure you want to delete ${selectedRecipes.size} ${selectedRecipes.size === 1 ? 'recipe' : 'recipes'}? This action cannot be undone.`)) {
-      return;
-    }
-
+    if (!confirm(`Delete ${selectedRecipes.size} recipe(s)? This cannot be undone.`)) return;
     try {
       const ids = Array.from(selectedRecipes);
       const deleted = await bulkDeleteRecipes(ids);
       await loadRecipes(currentPage);
       await fetchCollections();
-      // Refresh shopping list stats to update Total Recipes, Craftable, Near Misses
       await fetchShoppingList();
       setSelectedRecipes(new Set());
-      showToast('success', `Deleted ${deleted} ${deleted === 1 ? 'recipe' : 'recipes'}`);
+      showToast('success', `Deleted ${deleted} recipe(s)`);
     } catch (error) {
       showToast('error', 'Failed to delete recipes');
-      console.error('Failed to bulk delete:', error);
     }
   };
 
   const handleBulkMove = async () => {
     if (selectedRecipes.size === 0) return;
-
     try {
       let moved = 0;
       for (const recipeId of selectedRecipes) {
@@ -482,263 +445,198 @@ function RecipesPageContent() {
       const collectionName = bulkMoveCollectionId
         ? collectionsArray.find((c) => c.id === bulkMoveCollectionId)?.name || 'collection'
         : 'Uncategorized';
-      showToast('success', `Moved ${moved} ${moved === 1 ? 'recipe' : 'recipes'} to ${collectionName}`);
+      showToast('success', `Moved ${moved} recipe(s) to ${collectionName}`);
     } catch (error) {
       showToast('error', 'Failed to move some recipes');
-      console.error('Failed to bulk move:', error);
+    }
+  };
+
+  const handleMasteryFilterClick = (filterKey: string) => {
+    if (masteryFilter === filterKey) {
+      setMasteryFilter(null);
+      router.push('/recipes');
+    } else {
+      router.push(`/recipes?filter=${filterKey}`);
+    }
+  };
+
+  // Get mastery counts
+  const getMasteryCount = (key: string): number => {
+    switch (key) {
+      case 'craftable': return shoppingListStats?.craftable || 0;
+      case 'near-miss': return shoppingListStats?.nearMisses || 0;
+      case '2-3-away': return shoppingListStats?.missing2to3 || 0;
+      case 'major-gaps': return shoppingListStats?.missing4plus || 0;
+      default: return 0;
     }
   };
 
   return (
     <div className={styles.recipesPage}>
       <div className={styles.container}>
-        {/* Header */}
+        {/* ===== HEADER ===== */}
         <div className={styles.header}>
-          <div>
-            <h1 className={styles.title}>
-              {activeCollection ? (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setActiveCollection(null);
-                      setCollectionPage(1);
-                      router.push('/recipes');
-                    }}
-                    style={{ marginRight: '8px', padding: '4px' }}
-                  >
-                    <ChevronLeft size={24} />
-                  </Button>
-                  <FolderOpen size={32} style={{ marginRight: '12px', verticalAlign: 'middle' }} />
-                  {activeCollection.name}
-                </>
-              ) : (
-                <>
-                  <BookOpen size={32} style={{ marginRight: '12px', verticalAlign: 'middle' }} />
-                  Recipe Collections
-                </>
-              )}
-            </h1>
+          <div className={styles.headerLeft}>
+            <h1 className={styles.title}>Recipes</h1>
             <p className={styles.subtitle}>
-              {activeCollection
-                ? `${activeCollection.recipe_count || 0} ${activeCollection.recipe_count === 1 ? 'recipe' : 'recipes'} in this collection`
-                : `${collectionsArray.length} ${collectionsArray.length === 1 ? 'collection' : 'collections'}${uncategorizedCount > 0 ? ` • ${uncategorizedCount} uncategorized ${uncategorizedCount === 1 ? 'recipe' : 'recipes'}` : ''}`}
+              {totalRecipeCount} total · <span className={styles.subtitleHighlight}>{craftableCount} craftable tonight</span>
             </p>
           </div>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            {activeCollection ? null : (
-              <>
-                <Button
-                  variant="primary"
-                  size="md"
-                  onClick={() => setAddRecipeModalOpen(true)}
-                >
-                  <Plus size={18} />
-                  New Recipe
-                </Button>
-                <Button
-                  variant="outline"
-                  size="md"
-                  onClick={() => {
-                    setEditingCollection(null);
-                    setCollectionModalOpen(true);
-                  }}
-                >
-                  <Plus size={18} />
-                  New Collection
-                </Button>
-                <Button variant="outline" size="md" onClick={() => setCsvModalOpen(true)}>
-                  <Upload size={18} />
-                  Import CSV
-                </Button>
-                {totalRecipeCount > 0 && (
-                  <Button
-                    variant="outline"
-                    size="md"
-                    onClick={() => setShowDeleteConfirm(true)}
-                    style={{ color: 'var(--color-semantic-error)', borderColor: 'var(--color-semantic-error)' }}
-                  >
-                    <Trash2 size={18} />
-                    Delete All Recipes
-                  </Button>
-                )}
-              </>
-            )}
+          <div className={styles.headerActions}>
+            <button
+              className={`${styles.actionBtn} ${styles.actionBtnOutline}`}
+              onClick={() => setCsvModalOpen(true)}
+            >
+              Import CSV
+            </button>
+            <button
+              className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
+              onClick={() => setAddRecipeModalOpen(true)}
+            >
+              + New Recipe
+            </button>
           </div>
         </div>
 
-        {/* Loading State for Shopping List Stats */}
-        {isLoadingShoppingList && (
-          <div className={shoppingStyles.loadingContainer}>
-            <Spinner />
-            <p className={shoppingStyles.loadingText}>Loading statistics...</p>
-          </div>
-        )}
+        {/* ===== MASTERY FILTER PILLS ===== */}
+        <div className={styles.filterBar}>
+          <span className={styles.filterLabel}>Filter:</span>
+          {MASTERY_FILTERS.map((stat) => {
+            const isActive = masteryFilter === stat.filter;
+            const count = getMasteryCount(stat.key);
+            return (
+              <button
+                key={stat.key}
+                onClick={() => handleMasteryFilterClick(stat.filter)}
+                className={`${styles.masteryPill} ${isActive ? styles.active : ''}`}
+              >
+                <div className={styles.masteryDot} style={{ backgroundColor: stat.color }} />
+                <span>{stat.label}</span>
+                <span
+                  className={styles.pillCount}
+                  style={{
+                    backgroundColor: isActive ? 'rgba(255,255,255,0.2)' : `${stat.color}15`,
+                    color: isActive ? 'white' : stat.color
+                  }}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+          {masteryFilter && (
+            <button className={styles.clearFilterBtn} onClick={() => router.push('/recipes')}>
+              Clear
+            </button>
+          )}
+        </div>
 
-        {/* Statistics Cards */}
-        {!isLoadingShoppingList && shoppingListStats && (
-          <div className={shoppingStyles.statsGrid}>
-            <Card
-              padding="md"
-              hover
-              className={shoppingStyles.statCard}
-            >
-              <div className={shoppingStyles.statLabel}>Total Recipes</div>
-              <div className={shoppingStyles.statValue}>{shoppingListStats.totalRecipes}</div>
-              <div className={shoppingStyles.statHint}>In your collection</div>
-            </Card>
-            <Card
-              padding="md"
-              hover
-              className={shoppingStyles.statCard}
-              onClick={() => router.push('/recipes?filter=craftable')}
-              style={{ cursor: 'pointer' }}
-            >
-              <div className={shoppingStyles.statLabel}>Already Craftable</div>
-              <div className={shoppingStyles.statValue}>{shoppingListStats.craftable}</div>
-              <div className={shoppingStyles.statHint}>You can make now</div>
-            </Card>
-            <Card
-              padding="md"
-              hover
-              className={shoppingStyles.statCard}
-              onClick={() => router.push('/recipes?filter=almost')}
-              style={{ cursor: 'pointer' }}
-            >
-              <div className={shoppingStyles.statLabel}>Near Misses</div>
-              <div className={shoppingStyles.statValue}>{shoppingListStats.nearMisses}</div>
-              <div className={shoppingStyles.statHint}>Missing 1 ingredient</div>
-            </Card>
-            <Card
-              padding="md"
-              hover
-              className={shoppingStyles.statCard}
-              onClick={() => router.push('/bar')}
-              style={{ cursor: 'pointer' }}
-            >
-              <div className={shoppingStyles.statLabel}>Inventory Items</div>
-              <div className={shoppingStyles.statValue}>{shoppingListStats.inventoryItems}</div>
-              <div className={shoppingStyles.statHint}>In your bar</div>
-            </Card>
-          </div>
-        )}
+        {/* ===== TABS ===== */}
+        <div className={styles.tabBar}>
+          <button
+            className={`${styles.tab} ${activeTab === 'collections' && !masteryFilter ? styles.active : ''}`}
+            onClick={() => {
+              setActiveTab('collections');
+              setActiveCollection(null);
+              setMasteryFilter(null);
+              router.push('/recipes');
+            }}
+          >
+            Collections
+          </button>
+          <button
+            className={`${styles.tab} ${activeTab === 'all' || masteryFilter ? styles.active : ''}`}
+            onClick={() => {
+              setActiveTab('all');
+              setActiveCollection(null);
+              if (!masteryFilter) loadRecipes(1, true);
+            }}
+          >
+            All Recipes
+          </button>
+          {activeCollection && (
+            <>
+              <div className={styles.tabSpacer} />
+              <div className={styles.activeCollectionIndicator}>
+                <span>{activeCollection.name}</span>
+                <button
+                  className={styles.closeCollectionBtn}
+                  onClick={() => {
+                    setActiveCollection(null);
+                    router.push('/recipes');
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            </>
+          )}
+        </div>
 
-        {/* Show Collections List when not viewing a specific collection */}
-        {!activeCollection && (
+        {/* ===== COLLECTIONS VIEW ===== */}
+        {activeTab === 'collections' && !activeCollection && !masteryFilter && (
           <>
-            {/* Collections Section */}
-            {collectionsArray.length > 0 && (
-              <>
-                <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--color-text-heading)', marginBottom: '16px' }}>
-                  Collections
-                </h2>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px', marginBottom: '32px' }}>
-                  {collectionsArray.map((collection) => (
-                  <Card
-                      key={collection.id}
-                      padding="md"
-                      style={{ cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s' }}
-                      onClick={() => {
-                        setActiveCollection(collection);
-                        setCollectionPage(1);
-                        router.push(`/recipes?collection=${collection.id}`);
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div style={{ flex: 1 }}>
-                          <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--color-text-heading)', marginBottom: '8px', display: 'flex', alignItems: 'center' }}>
-                            <FolderOpen size={24} style={{ marginRight: '10px', color: 'var(--color-primary)' }} />
-                            {collection.name}
-                          </h3>
-                          {collection.description && (
-                            <p style={{ fontSize: '14px', color: 'var(--color-text-subtle)', marginBottom: '12px', lineHeight: '1.4' }}>
-                              {collection.description}
-                            </p>
-                          )}
-                          <p style={{ fontSize: '16px', fontWeight: 500, color: 'var(--color-text-body)' }}>
-                            {collection.recipe_count || 0} {collection.recipe_count === 1 ? 'recipe' : 'recipes'}
-                          </p>
-                        </div>
-                        <div style={{ display: 'flex', gap: '4px' }}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditCollection(collection);
-                            }}
-                          >
-                            <Edit size={16} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDeletingCollection(collection);
-                              setShowCollectionDeleteConfirm(true);
-                            }}
-                            style={{ color: 'var(--color-semantic-error)' }}
-                          >
-                            <Trash size={16} />
-                          </Button>
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {/* Uncategorized Recipes Section or Mastery Filter View */}
-            {(uncategorizedCount > 0 || masteryFilter) && (
-              <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                  <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--color-text-heading)', margin: 0 }}>
-                    {masteryFilter ? (
-                      masteryFilter === 'craftable' ? `Craftable Recipes (${filteredRecipes.length})` :
-                      masteryFilter === 'almost' ? `Near Miss Recipes (${filteredRecipes.length})` :
-                      masteryFilter === 'need-few' ? `Need 2-3 Items (${filteredRecipes.length})` :
-                      masteryFilter === 'major-gaps' ? `Major Gaps (${filteredRecipes.length})` :
-                      `Recipes (${filteredRecipes.length})`
-                    ) : (
-                      `Uncategorized Recipes (${uncategorizedCount})`
-                    )}
-                  </h2>
-                  {masteryFilter && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => router.push('/recipes')}
-                      style={{ fontSize: '14px' }}
-                    >
-                      Clear Filter
-                    </Button>
+            {/* Collection Cards */}
+            <div className={styles.collectionsGrid}>
+              {collectionsArray.map((collection) => (
+                <div
+                  key={collection.id}
+                  className={styles.collectionCard}
+                  onClick={() => {
+                    setActiveCollection(collection);
+                    setCollectionPage(1);
+                    router.push(`/recipes?collection=${collection.id}`);
+                  }}
+                >
+                  <div className={styles.collectionHeader}>
+                    <FolderOpen size={20} className={styles.collectionIcon} />
+                    <h3 className={styles.collectionName}>{collection.name}</h3>
+                  </div>
+                  {collection.description && (
+                    <p className={styles.collectionDescription}>{collection.description}</p>
                   )}
+                  <div>
+                    <span className={styles.collectionCount}>
+                      {String(collection.recipe_count || 0).padStart(2, '0')}
+                    </span>
+                    <span className={styles.collectionCountLabel}>recipes</span>
+                  </div>
                 </div>
-                <div className={styles.controls} style={{ marginBottom: '20px' }}>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={selectAllRecipes}
-                    style={{ padding: '8px', minWidth: 'auto' }}
-                    aria-label={selectedRecipes.size === displayedRecipes.length && displayedRecipes.length > 0 ? 'Deselect all recipes' : 'Select all recipes'}
-                    aria-pressed={selectedRecipes.size === displayedRecipes.length && displayedRecipes.length > 0}
-                  >
-                    {selectedRecipes.size === displayedRecipes.length && displayedRecipes.length > 0 ? (
-                      <CheckSquare size={20} aria-hidden="true" />
-                    ) : (
-                      <Square size={20} aria-hidden="true" />
-                    )}
-                  </Button>
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search uncategorized recipes..."
-                    className={styles.searchInput}
-                  />
+              ))}
+
+              {/* New Collection Card */}
+              <div
+                className={`${styles.collectionCard} ${styles.collectionCardDashed}`}
+                onClick={() => {
+                  setEditingCollection(null);
+                  setCollectionModalOpen(true);
+                }}
+              >
+                <div className={styles.newCollectionIcon}>+</div>
+                <span className={styles.newCollectionText}>New Collection</span>
+              </div>
+            </div>
+
+            {/* Uncategorized Section */}
+            {uncategorizedCount > 0 && (
+              <div className={styles.sectionDivider}>
+                <div className={styles.sectionHeader}>
+                  <h2 className={styles.sectionTitle}>Uncategorized</h2>
+                  <span className={styles.sectionCount}>{uncategorizedCount} recipes</span>
+                </div>
+
+                {/* Search */}
+                <div className={styles.controls}>
+                  <div className={styles.searchWrapper}>
+                    <Search size={16} className={styles.searchIcon} />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search uncategorized..."
+                      className={styles.searchInput}
+                    />
+                  </div>
                   <select
                     value={filterSpirit}
                     onChange={(e) => setFilterSpirit(e.target.value as SpiritCategory | 'all')}
@@ -752,121 +650,68 @@ function RecipesPageContent() {
                   </select>
                 </div>
 
-                {/* Bulk Actions Bar */}
-                {selectedRecipes.size > 0 && (
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    padding: '12px 16px',
-                    backgroundColor: 'var(--color-primary)',
-                    borderRadius: 'var(--radius)',
-                    marginBottom: '20px',
-                    color: 'white',
-                  }}>
-                    <span style={{ fontWeight: 500 }}>
-                      {selectedRecipes.size} {selectedRecipes.size === 1 ? 'recipe' : 'recipes'} selected
-                    </span>
-                    <div style={{ flex: 1 }} />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowBulkMoveModal(true)}
-                      style={{ backgroundColor: 'white', color: 'var(--color-text-body)' }}
-                    >
-                      <FolderOpen size={16} />
-                      Move to Collection
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleBulkDelete}
-                      style={{ backgroundColor: 'white', color: 'var(--color-semantic-error)' }}
-                    >
-                      <Trash2 size={16} />
-                      Delete Selected
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearSelection}
-                      style={{ color: 'white' }}
-                    >
-                      Clear
-                    </Button>
-                  </div>
-                )}
-
+                {/* Recipe Grid */}
                 <div className={styles.recipesGrid}>
-                  {filteredRecipes.map((recipe) => (
-                    <Card key={recipe.id} padding="md" hover>
-                      <div className={styles.recipeCard}>
-                        <div className={styles.recipeHeader}>
+                  {filteredRecipes.slice(0, 8).map((recipe) => {
+                    const ingredients = parseIngredients(recipe.ingredients);
+                    const spirits = getIngredientSpirits(ingredients);
+                    const spiritColors = spirits.length > 0
+                      ? spirits.map(s => SPIRIT_COLORS[s] || '#94A3B8')
+                      : ['#94A3B8']; // Default gray if no spirits found
+                    const craftable = isRecipeCraftable(recipe);
+                    const isSelected = selectedRecipes.has(recipe.id!);
+
+                    return (
+                      <div
+                        key={recipe.id}
+                        className={styles.recipeCard}
+                        onClick={() => setSelectedRecipe(recipe)}
+                      >
+                        <div className={styles.recipeImage}>
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleRecipeSelection(recipe.id!);
-                            }}
-                            aria-label={selectedRecipes.has(recipe.id!) ? `Deselect ${recipe.name}` : `Select ${recipe.name}`}
-                            aria-pressed={selectedRecipes.has(recipe.id!)}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              cursor: 'pointer',
-                              padding: '4px',
-                              marginRight: '8px',
-                              color: selectedRecipes.has(recipe.id!) ? 'var(--color-primary)' : 'var(--color-text-subtle)',
-                            }}
+                            className={`${styles.selectionCheckbox} ${isSelected ? styles.selected : ''}`}
+                            onClick={(e) => { e.stopPropagation(); toggleRecipeSelection(recipe.id!); }}
                           >
-                            {selectedRecipes.has(recipe.id!) ? (
-                              <CheckSquare size={20} aria-hidden="true" />
-                            ) : (
-                              <Square size={20} aria-hidden="true" />
-                            )}
+                            {isSelected && <Check size={12} />}
                           </button>
-                          <h3 className={styles.recipeName} style={{ flex: 1 }}>{recipe.name}</h3>
-                          <button
-                            className={styles.favoriteBtn}
-                            onClick={() => handleToggleFavorite(recipe)}
-                            aria-label={isFavorited(recipe.id!) ? 'Remove from favorites' : 'Add to favorites'}
-                          >
-                            <Star
-                              size={20}
-                              fill={isFavorited(recipe.id!) ? 'currentColor' : 'none'}
-                              className={isFavorited(recipe.id!) ? styles.favorited : ''}
-                            />
-                          </button>
+                          {craftable && <div className={styles.craftableDot} title="Craftable" />}
+                          <RecipeMolecule recipe={recipe} size="thumbnail" showLegend={false} />
                         </div>
-
-                        {recipe.spirit_type && (
-                          <span className={styles.spiritBadge}>{recipe.spirit_type}</span>
-                        )}
-
-                        <p className={styles.ingredients}>
-                          {(() => {
-                            const ingredientsArray = parseIngredients(recipe.ingredients);
-                            if (ingredientsArray.length === 0) return 'No ingredients listed';
-                            const displayIngredients = ingredientsArray.slice(0, 3).join(' · ');
-                            return ingredientsArray.length > 3 ? `${displayIngredients}...` : displayIngredients;
-                          })()}
-                        </p>
-
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          fullWidth
-                          onClick={() => setSelectedRecipe(recipe)}
-                        >
-                          View Recipe
-                        </Button>
+                        <div className={styles.recipeContent}>
+                          <div className={styles.recipeHeader}>
+                            <h3 className={styles.recipeName}>{recipe.name}</h3>
+                            <button
+                              className={`${styles.favoriteBtn} ${isFavorited(recipe.id!) ? styles.favorited : ''}`}
+                              onClick={(e) => { e.stopPropagation(); handleToggleFavorite(recipe); }}
+                            >
+                              <Star size={16} fill={isFavorited(recipe.id!) ? 'currentColor' : 'none'} />
+                            </button>
+                          </div>
+                          {spirits.length > 0 && (
+                            <div className={styles.spiritBadges}>
+                              {spirits.map((spirit, idx) => (
+                                <span
+                                  key={idx}
+                                  className={styles.spiritBadge}
+                                  style={{ backgroundColor: `${SPIRIT_COLORS[spirit]}15`, color: SPIRIT_COLORS[spirit] }}
+                                >
+                                  {spirit}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <p className={styles.ingredients}>
+                            {ingredients.slice(0, 2).join(' · ')}
+                          </p>
+                        </div>
                       </div>
-                    </Card>
-                  ))}
+                    );
+                  })}
                 </div>
-              </>
+              </div>
             )}
 
-            {/* Empty State - No collections and no recipes */}
+            {/* Empty State */}
             {collectionsArray.length === 0 && uncategorizedCount === 0 && (
               <Card padding="lg">
                 <div className={styles.emptyState}>
@@ -880,13 +725,7 @@ function RecipesPageContent() {
                       <Upload size={18} />
                       Import CSV
                     </Button>
-                    <Button
-                      variant="primary"
-                      onClick={() => {
-                        setEditingCollection(null);
-                        setCollectionModalOpen(true);
-                      }}
-                    >
+                    <Button variant="primary" onClick={() => setCollectionModalOpen(true)}>
                       <Plus size={18} />
                       Create Collection
                     </Button>
@@ -897,252 +736,234 @@ function RecipesPageContent() {
           </>
         )}
 
-        {/* Show Recipes when viewing a specific collection */}
-        {activeCollection && (
+        {/* ===== COLLECTION DETAIL VIEW ===== */}
+        {activeTab === 'collections' && activeCollection && !masteryFilter && (
           <>
-            {/* Search and Filter */}
             <div className={styles.controls}>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={selectAllRecipes}
-                style={{ padding: '8px', minWidth: 'auto' }}
-                aria-label={selectedRecipes.size === displayedRecipes.length && displayedRecipes.length > 0 ? 'Deselect all recipes' : 'Select all recipes'}
-                aria-pressed={selectedRecipes.size === displayedRecipes.length && displayedRecipes.length > 0}
-              >
-                {selectedRecipes.size === displayedRecipes.length && displayedRecipes.length > 0 ? (
-                  <CheckSquare size={20} aria-hidden="true" />
-                ) : (
-                  <Square size={20} aria-hidden="true" />
-                )}
-              </Button>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search recipes in this collection..."
-                className={styles.searchInput}
-              />
+              <button className={styles.backBtn} onClick={() => { setActiveCollection(null); router.push('/recipes'); }}>
+                ← Back
+              </button>
+              <div className={styles.searchWrapper}>
+                <Search size={16} className={styles.searchIcon} />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search in collection..."
+                  className={styles.searchInput}
+                />
+              </div>
               <select
                 value={filterSpirit}
                 onChange={(e) => setFilterSpirit(e.target.value as SpiritCategory | 'all')}
                 className={styles.filterSelect}
               >
                 {spiritTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type === 'all' ? 'All Spirits' : type}
-                  </option>
+                  <option key={type} value={type}>{type === 'all' ? 'All Spirits' : type}</option>
                 ))}
               </select>
             </div>
 
-            {/* Bulk Actions Bar */}
-            {selectedRecipes.size > 0 && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '12px 16px',
-                backgroundColor: 'var(--color-primary)',
-                borderRadius: 'var(--radius)',
-                marginBottom: '20px',
-                color: 'white',
-              }}>
-                <span style={{ fontWeight: 500 }}>
-                  {selectedRecipes.size} {selectedRecipes.size === 1 ? 'recipe' : 'recipes'} selected
+            <div className={styles.recipesGrid}>
+              {displayedRecipes.map((recipe) => {
+                const ingredients = parseIngredients(recipe.ingredients);
+                const spirits = getIngredientSpirits(ingredients);
+                const spiritColors = spirits.length > 0
+                  ? spirits.map(s => SPIRIT_COLORS[s] || '#94A3B8')
+                  : ['#94A3B8'];
+                const craftable = isRecipeCraftable(recipe);
+                const isSelected = selectedRecipes.has(recipe.id!);
+
+                return (
+                  <div
+                    key={recipe.id}
+                    className={styles.recipeCard}
+                    onClick={() => setSelectedRecipe(recipe)}
+                  >
+                    <div className={styles.recipeImage}>
+                      <button
+                        className={`${styles.selectionCheckbox} ${isSelected ? styles.selected : ''}`}
+                        onClick={(e) => { e.stopPropagation(); toggleRecipeSelection(recipe.id!); }}
+                      >
+                        {isSelected && <Check size={12} />}
+                      </button>
+                      {craftable && <div className={styles.craftableDot} title="Craftable" />}
+                      <RecipeMolecule recipe={recipe} size="thumbnail" showLegend={false} />
+                    </div>
+                    <div className={styles.recipeContent}>
+                      <div className={styles.recipeHeader}>
+                        <h3 className={styles.recipeName}>{recipe.name}</h3>
+                        <button
+                          className={`${styles.favoriteBtn} ${isFavorited(recipe.id!) ? styles.favorited : ''}`}
+                          onClick={(e) => { e.stopPropagation(); handleToggleFavorite(recipe); }}
+                        >
+                          <Star size={16} fill={isFavorited(recipe.id!) ? 'currentColor' : 'none'} />
+                        </button>
+                      </div>
+                      {spirits.length > 0 && (
+                        <div className={styles.spiritBadges}>
+                          {spirits.map((spirit, idx) => (
+                            <span key={idx} className={styles.spiritBadge} style={{ backgroundColor: `${SPIRIT_COLORS[spirit]}15`, color: SPIRIT_COLORS[spirit] }}>
+                              {spirit}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <p className={styles.ingredients}>
+                        {ingredients.slice(0, 2).join(' · ')}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Collection pagination */}
+            {collectionTotalPages > 1 && (
+              <div className={styles.pagination}>
+                <Button variant="outline" size="sm" onClick={() => setCollectionPage((p) => Math.max(1, p - 1))} disabled={collectionPage === 1}>
+                  <ChevronLeft size={18} /> Previous
+                </Button>
+                <span className={styles.pageInfo}>
+                  Page {collectionPage} of {collectionTotalPages}
                 </span>
-                <div style={{ flex: 1 }} />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowBulkMoveModal(true)}
-                  style={{ backgroundColor: 'white', color: 'var(--color-text-body)' }}
-                >
-                  <FolderOpen size={16} />
-                  Move to Collection
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleBulkDelete}
-                  style={{ backgroundColor: 'white', color: 'var(--color-semantic-error)' }}
-                >
-                  <Trash2 size={16} />
-                  Delete Selected
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearSelection}
-                  style={{ color: 'white' }}
-                >
-                  Clear
+                <Button variant="outline" size="sm" onClick={() => setCollectionPage((p) => Math.min(collectionTotalPages, p + 1))} disabled={collectionPage === collectionTotalPages}>
+                  Next <ChevronRight size={18} />
                 </Button>
               </div>
             )}
-
-            {/* Recipes Grid */}
-        {filteredRecipes.length === 0 ? (
-          <Card padding="lg">
-            <div className={styles.emptyState}>
-              <Martini size={64} className={styles.emptyIcon} strokeWidth={1.5} />
-              <h3 className={styles.emptyTitle}>No recipes found</h3>
-              <p className={styles.emptyText}>
-                {searchQuery || filterSpirit !== 'all'
-                  ? 'Try adjusting your search or filters'
-                  : 'Import your recipe collection to get started'}
-              </p>
-              {!searchQuery && filterSpirit === 'all' && (
-                <Button variant="primary" size="md" onClick={() => setCsvModalOpen(true)}>
-                  <Upload size={18} />
-                  Import Recipes
-                </Button>
-              )}
-            </div>
-          </Card>
-        ) : (
-          <div className={styles.recipesGrid}>
-            {displayedRecipes.map((recipe) => (
-              <Card
-                key={recipe.id}
-                padding="none"
-                hover
-                className={styles.recipeCard}
-              >
-                {/* Recipe Molecule Thumbnail */}
-                <div className={styles.recipeImage}>
-                  <RecipeMolecule
-                    recipe={recipe}
-                    size="thumbnail"
-                    showLegend={false}
-                  />
-                </div>
-
-                {/* Recipe Content */}
-                <div className={styles.recipeContent}>
-                  <div className={styles.recipeHeader}>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleRecipeSelection(recipe.id!);
-                      }}
-                      aria-label={selectedRecipes.has(recipe.id!) ? `Deselect ${recipe.name}` : `Select ${recipe.name}`}
-                      aria-pressed={selectedRecipes.has(recipe.id!)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        padding: '4px',
-                        marginRight: '8px',
-                        color: selectedRecipes.has(recipe.id!) ? 'var(--color-primary)' : 'var(--color-text-subtle)',
-                      }}
-                    >
-                      {selectedRecipes.has(recipe.id!) ? (
-                        <CheckSquare size={20} aria-hidden="true" />
-                      ) : (
-                        <Square size={20} aria-hidden="true" />
-                      )}
-                    </button>
-                    <h3 className={styles.recipeName} style={{ flex: 1 }}>{recipe.name}</h3>
-                    <button
-                      onClick={() => handleToggleFavorite(recipe)}
-                      className={`${styles.favoriteBtn} ${
-                        isFavorited(recipe.id!) ? styles.favorited : ''
-                      }`}
-                      aria-label={isFavorited(recipe.id!) ? 'Remove from favorites' : 'Add to favorites'}
-                    >
-                      <Star
-                        size={20}
-                        fill={isFavorited(recipe.id!) ? 'currentColor' : 'none'}
-                      />
-                    </button>
-                  </div>
-
-                  {recipe.spirit_type && (
-                    <span className={styles.spiritBadge}>{recipe.spirit_type}</span>
-                  )}
-
-                  <p className={styles.ingredients}>
-                    {(() => {
-                      const ingredientsArray = parseIngredients(recipe.ingredients);
-                      if (ingredientsArray.length === 0) return 'No ingredients listed';
-                      const displayIngredients = ingredientsArray.slice(0, 3).join(' · ');
-                      return ingredientsArray.length > 3 ? `${displayIngredients}...` : displayIngredients;
-                    })()}
-                  </p>
-
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    fullWidth
-                    onClick={() => setSelectedRecipe(recipe)}
-                  >
-                    View Recipe
-                  </Button>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-
-          {/* Collection pagination controls */}
-          {activeCollection && collectionTotalPages > 1 && (
-            <div className={styles.pagination}>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCollectionPage((p) => Math.max(1, p - 1))}
-                disabled={collectionPage === 1}
-              >
-                <ChevronLeft size={18} />
-                Previous
-              </Button>
-              <span className={styles.pageInfo}>
-                Page {collectionPage} of {collectionTotalPages} ({filteredRecipes.length} total in this collection)
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCollectionPage((p) => Math.min(collectionTotalPages, p + 1))}
-                disabled={collectionPage === collectionTotalPages}
-              >
-                Next
-                <ChevronRight size={18} />
-              </Button>
-            </div>
-          )}
-
           </>
         )}
 
-        {/* Pagination Controls (list view) */}
-        {!activeCollection && pagination.totalPages > 1 && filteredRecipes.length > 0 && (
-          <div className={styles.pagination}>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => loadRecipes(currentPage - 1)}
-              disabled={!pagination.hasPreviousPage}
-            >
-              <ChevronLeft size={18} />
-              Previous
-            </Button>
-            <span className={styles.pageInfo}>
-              Page {pagination.page} of {pagination.totalPages} ({pagination.total} total recipes)
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => loadRecipes(currentPage + 1)}
-              disabled={!pagination.hasNextPage}
-            >
-              Next
-              <ChevronRight size={18} />
-            </Button>
+        {/* ===== ALL RECIPES VIEW ===== */}
+        {(activeTab === 'all' || masteryFilter) && !activeCollection && (
+          <>
+            <div className={styles.controls}>
+              <div className={styles.searchWrapper}>
+                <Search size={16} className={styles.searchIcon} />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search all recipes..."
+                  className={styles.searchInput}
+                />
+              </div>
+              <select
+                value={filterSpirit}
+                onChange={(e) => setFilterSpirit(e.target.value as SpiritCategory | 'all')}
+                className={styles.filterSelect}
+              >
+                {spiritTypes.map((type) => (
+                  <option key={type} value={type}>{type === 'all' ? 'All Spirits' : type}</option>
+                ))}
+              </select>
+              <span className={styles.recipeCount}>{filteredRecipes.length} recipes</span>
+            </div>
+
+            {filteredRecipes.length === 0 ? (
+              <Card padding="lg">
+                <div className={styles.emptyState}>
+                  <Martini size={64} className={styles.emptyIcon} strokeWidth={1.5} />
+                  <h3 className={styles.emptyTitle}>No recipes found</h3>
+                  <p className={styles.emptyText}>
+                    {searchQuery || filterSpirit !== 'all'
+                      ? 'Try adjusting your search or filters'
+                      : 'Import your recipe collection to get started'}
+                  </p>
+                </div>
+              </Card>
+            ) : (
+              <div className={styles.recipesGrid}>
+                {filteredRecipes.map((recipe) => {
+                  const ingredients = parseIngredients(recipe.ingredients);
+                  const spirits = getIngredientSpirits(ingredients);
+                  const spiritColors = spirits.length > 0
+                    ? spirits.map(s => SPIRIT_COLORS[s] || '#94A3B8')
+                    : ['#94A3B8'];
+                  const craftable = isRecipeCraftable(recipe);
+                  const isSelected = selectedRecipes.has(recipe.id!);
+
+                  return (
+                    <div
+                      key={recipe.id}
+                      className={styles.recipeCard}
+                      onClick={() => setSelectedRecipe(recipe)}
+                    >
+                      <div className={styles.recipeImage}>
+                        <button
+                          className={`${styles.selectionCheckbox} ${isSelected ? styles.selected : ''}`}
+                          onClick={(e) => { e.stopPropagation(); toggleRecipeSelection(recipe.id!); }}
+                        >
+                          {isSelected && <Check size={12} />}
+                        </button>
+                        {craftable && <div className={styles.craftableDot} title="Craftable" />}
+                        <RecipeMolecule recipe={recipe} size="thumbnail" showLegend={false} />
+                      </div>
+                      <div className={styles.recipeContent}>
+                        <div className={styles.recipeHeader}>
+                          <h3 className={styles.recipeName}>{recipe.name}</h3>
+                          <button
+                            className={`${styles.favoriteBtn} ${isFavorited(recipe.id!) ? styles.favorited : ''}`}
+                            onClick={(e) => { e.stopPropagation(); handleToggleFavorite(recipe); }}
+                          >
+                            <Star size={16} fill={isFavorited(recipe.id!) ? 'currentColor' : 'none'} />
+                          </button>
+                        </div>
+                        {spirits.length > 0 && (
+                          <div className={styles.spiritBadges}>
+                            {spirits.map((spirit, idx) => (
+                              <span key={idx} className={styles.spiritBadge} style={{ backgroundColor: `${SPIRIT_COLORS[spirit]}15`, color: SPIRIT_COLORS[spirit] }}>
+                                {spirit}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <p className={styles.ingredients}>
+                          {ingredients.slice(0, 2).join(' · ')}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Pagination */}
+            {pagination.totalPages > 1 && !masteryFilter && (
+              <div className={styles.pagination}>
+                <Button variant="outline" size="sm" onClick={() => loadRecipes(currentPage - 1)} disabled={!pagination.hasPreviousPage}>
+                  <ChevronLeft size={18} /> Previous
+                </Button>
+                <span className={styles.pageInfo}>
+                  Page {pagination.page} of {pagination.totalPages}
+                </span>
+                <Button variant="outline" size="sm" onClick={() => loadRecipes(currentPage + 1)} disabled={!pagination.hasNextPage}>
+                  Next <ChevronRight size={18} />
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ===== BULK ACTIONS BAR ===== */}
+        {selectedRecipes.size > 0 && (
+          <div className={styles.bulkBar}>
+            <span className={styles.bulkCount}>{selectedRecipes.size} selected</span>
+            <div className={styles.bulkDivider} />
+            <button className={styles.bulkAction} onClick={() => setShowBulkMoveModal(true)}>
+              Move to Collection
+            </button>
+            <button className={`${styles.bulkAction} ${styles.bulkActionDanger}`} onClick={handleBulkDelete}>
+              Delete
+            </button>
+            <button className={`${styles.bulkAction} ${styles.bulkActionMuted}`} onClick={clearSelection}>
+              Clear
+            </button>
           </div>
         )}
 
-        {/* Add Recipe Modal */}
+        {/* ===== MODALS ===== */}
         <AddRecipeModal
           isOpen={addRecipeModalOpen}
           onClose={() => setAddRecipeModalOpen(false)}
@@ -1150,7 +971,6 @@ function RecipesPageContent() {
           collections={collectionsArray}
         />
 
-        {/* CSV Upload Modal */}
         <CSVUploadModal
           isOpen={csvModalOpen}
           onClose={() => setCsvModalOpen(false)}
@@ -1158,120 +978,77 @@ function RecipesPageContent() {
           onUpload={handleCSVUpload}
         />
 
-        {/* Recipe Detail Modal */}
         <RecipeDetailModal
           isOpen={!!selectedRecipe}
           onClose={() => setSelectedRecipe(null)}
           recipe={selectedRecipe}
           isFavorited={selectedRecipe ? isFavorited(selectedRecipe.id!) : false}
-          onToggleFavorite={() => {
-            if (selectedRecipe) {
-              handleToggleFavorite(selectedRecipe);
-            }
-          }}
+          onToggleFavorite={() => { if (selectedRecipe) handleToggleFavorite(selectedRecipe); }}
           onRecipeUpdated={(updatedRecipe) => setSelectedRecipe(updatedRecipe)}
         />
 
-        {/* Delete All Confirmation Modal */}
         <DeleteConfirmModal
           isOpen={showDeleteConfirm}
           onClose={() => setShowDeleteConfirm(false)}
           onConfirm={handleDeleteAll}
           title="Delete All Recipes?"
-          message="This will remove every recipe in your library, including those in collections."
+          message="This will remove every recipe in your library."
           itemName="all recipes"
-          warningMessage={`This action cannot be undone and will permanently delete ${totalRecipeCount} ${totalRecipeCount === 1 ? 'recipe' : 'recipes'}.`}
+          warningMessage={`This action cannot be undone and will permanently delete ${totalRecipeCount} recipes.`}
         />
 
-        {/* Collection Modal */}
         <CollectionModal
           isOpen={collectionModalOpen}
-          onClose={() => {
-            setCollectionModalOpen(false);
-            setEditingCollection(null);
-          }}
+          onClose={() => { setCollectionModalOpen(false); setEditingCollection(null); }}
           onSubmit={handleCollectionSubmit}
           collection={editingCollection}
         />
 
-        {/* Delete Collection Confirmation Modal */}
         <DeleteConfirmModal
           isOpen={showCollectionDeleteConfirm}
-          onClose={() => {
-            setShowCollectionDeleteConfirm(false);
-            setDeletingCollection(null);
-          }}
+          onClose={() => { setShowCollectionDeleteConfirm(false); setDeletingCollection(null); }}
           onConfirm={handleDeleteCollection}
           title="Delete Collection?"
           message="Are you sure you want to delete this collection?"
           itemName={deletingCollection?.name || 'collection'}
-          warningMessage="This will permanently delete this collection. Recipes in this collection will not be deleted, but will no longer be associated with it."
+          warningMessage="Recipes in this collection will not be deleted."
         />
 
-        {/* Bulk Move to Collection Modal */}
+        {/* Bulk Move Modal */}
         {showBulkMoveModal && (
           <div
             style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
               backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 1000,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
             }}
-            onClick={() => {
-              setShowBulkMoveModal(false);
-              setBulkMoveCollectionId(null);
-            }}
+            onClick={() => { setShowBulkMoveModal(false); setBulkMoveCollectionId(null); }}
           >
             <div
               style={{
-                backgroundColor: 'var(--color-ui-bg-main)',
-                borderRadius: 'var(--radius-lg)',
-                padding: '24px',
-                maxWidth: '400px',
-                width: '90%',
-                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+                backgroundColor: 'white', borderRadius: '2px', padding: '24px',
+                maxWidth: '400px', width: '90%', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px', color: 'var(--color-text-heading)' }}>
-                Move {selectedRecipes.size} {selectedRecipes.size === 1 ? 'Recipe' : 'Recipes'}
+              <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px', color: 'var(--color-text-body)' }}>
+                Move {selectedRecipes.size} Recipe(s)
               </h3>
               <select
                 value={bulkMoveCollectionId ?? ''}
                 onChange={(e) => setBulkMoveCollectionId(e.target.value ? parseInt(e.target.value, 10) : null)}
                 style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  fontSize: '14px',
-                  fontFamily: 'var(--font-body)',
-                  color: 'var(--color-text-body)',
-                  backgroundColor: 'var(--color-ui-bg-surface)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 'var(--radius)',
-                  marginBottom: '20px',
+                  width: '100%', padding: '10px 12px', fontSize: '14px',
+                  border: '1px solid var(--color-border)', borderRadius: '2px', marginBottom: '20px',
                 }}
               >
-                <option value="">Uncategorized (No Collection)</option>
+                <option value="">Uncategorized</option>
                 {collectionsArray.map((collection) => (
-                  <option key={collection.id} value={collection.id}>
-                    {collection.name}
-                  </option>
+                  <option key={collection.id} value={collection.id}>{collection.name}</option>
                 ))}
               </select>
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowBulkMoveModal(false);
-                    setBulkMoveCollectionId(null);
-                  }}
-                >
+                <Button variant="outline" onClick={() => { setShowBulkMoveModal(false); setBulkMoveCollectionId(null); }}>
                   Cancel
                 </Button>
                 <Button variant="primary" onClick={handleBulkMove}>

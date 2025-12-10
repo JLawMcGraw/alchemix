@@ -34,13 +34,6 @@
   opacity: 0.8;
 }
 
-.logoIcon {
-  width: 140px;
-  height: 42px;
-  object-fit: contain;
-  display: block;
-}
-
 /* Navigation Links */
 .navLinks {
   display: flex;

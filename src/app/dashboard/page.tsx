@@ -4,26 +4,19 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { Skeleton, StatCardSkeleton, InsightSkeleton } from '@/components/ui/Skeleton';
+import { InsightSkeleton } from '@/components/ui/Skeleton';
 import { CSVUploadModal } from '@/components/modals/CSVUploadModal';
 import { useToast } from '@/components/ui/Toast';
-import { Sparkles, Wine, Upload, BookOpen, Star, Zap, FolderOpen } from 'lucide-react';
 import { inventoryApi, recipeApi } from '@/lib/api';
 import styles from './dashboard.module.css';
 
 /**
  * Safely render HTML content with only allowed tags
  * Prevents XSS attacks from AI-generated content
- *
- * SSR-safe implementation that doesn't rely on DOM APIs or jsdom
- * Allows only: strong, em, b, i, br tags (no attributes)
  */
 const sanitizeAndRenderHTML = (html: string): string => {
   if (!html) return '';
 
-  // Step 1: Escape HTML entities to prevent double-encoding issues
   const entityMap: Record<string, string> = {
     '&lt;': '<',
     '&gt;': '>',
@@ -38,28 +31,23 @@ const sanitizeAndRenderHTML = (html: string): string => {
     decoded = decoded.replace(new RegExp(entity, 'g'), char);
   }
 
-  // Step 2: Use placeholder tokens for allowed tags
   const allowedTags = ['strong', 'em', 'b', 'i', 'br'];
   const placeholders: { placeholder: string; tag: string }[] = [];
   let placeholderIndex = 0;
 
-  // Replace allowed tags with placeholders
   for (const tag of allowedTags) {
-    // Opening tags (with optional whitespace)
     decoded = decoded.replace(new RegExp(`<${tag}(\\s[^>]*)?>`, 'gi'), () => {
       const placeholder = `__ALLOWED_TAG_${placeholderIndex++}__`;
       placeholders.push({ placeholder, tag: `<${tag}>` });
       return placeholder;
     });
 
-    // Closing tags
     decoded = decoded.replace(new RegExp(`</${tag}>`, 'gi'), () => {
       const placeholder = `__ALLOWED_TAG_${placeholderIndex++}__`;
       placeholders.push({ placeholder, tag: `</${tag}>` });
       return placeholder;
     });
 
-    // Self-closing tags (for <br/>)
     decoded = decoded.replace(new RegExp(`<${tag}\\s*/>`, 'gi'), () => {
       const placeholder = `__ALLOWED_TAG_${placeholderIndex++}__`;
       placeholders.push({ placeholder, tag: `<${tag}/>` });
@@ -67,13 +55,9 @@ const sanitizeAndRenderHTML = (html: string): string => {
     });
   }
 
-  // Step 3: Remove all remaining HTML tags (potentially malicious)
   decoded = decoded.replace(/<[^>]*>/g, '');
-
-  // Step 4: Escape any remaining < > characters to prevent injection
   decoded = decoded.replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-  // Step 5: Restore allowed tags from placeholders
   for (const { placeholder, tag } of placeholders) {
     decoded = decoded.replace(placeholder, tag);
   }
@@ -92,10 +76,7 @@ const renderGreetingContent = (greeting: string): React.ReactNode => {
   const nodes: React.ReactNode[] = [];
 
   tokens.forEach((token) => {
-    if (!token) {
-      return;
-    }
-
+    if (!token) return;
     const normalized = token.toLowerCase();
 
     if (normalized === '<strong>') {
@@ -112,9 +93,7 @@ const renderGreetingContent = (greeting: string): React.ReactNode => {
     const isWhitespaceOnly = sanitizedText.trim().length === 0;
 
     if (isWhitespaceOnly) {
-      if (sanitizedText.length > 0) {
-        nodes.push(' ');
-      }
+      if (sanitizedText.length > 0) nodes.push(' ');
       return;
     }
 
@@ -133,22 +112,34 @@ const renderGreetingContent = (greeting: string): React.ReactNode => {
   return nodes;
 };
 
+// Category configuration with colors
+const CATEGORIES = [
+  { key: 'spirit', label: 'Spirits', color: '#D97706' },
+  { key: 'liqueur', label: 'Liqueurs', color: '#EC4899' },
+  { key: 'mixer', label: 'Mixers', color: '#0EA5E9' },
+  { key: 'syrup', label: 'Syrups', color: '#6366F1' },
+  { key: 'garnish', label: 'Garnishes', color: '#65A30D' },
+  { key: 'other', label: 'Other', color: '#94A3B8' },
+];
+
+// Mastery tiers configuration
+const MASTERY_TIERS = [
+  { key: 'craftable', label: 'Craftable', color: '#10B981' },
+  { key: 'nearMiss', label: 'Near Miss', color: '#0EA5E9' },
+  { key: 'need2to3', label: '2-3 Away', color: '#F59E0B' },
+  { key: 'majorGaps', label: 'Major Gaps', color: '#94A3B8' },
+];
+
 export default function DashboardPage() {
   const router = useRouter();
   const { isValidating, isAuthenticated } = useAuthGuard();
   const {
-    user,
-    inventoryItems,
     recipes,
-    favorites,
     collections,
     dashboardGreeting,
     dashboardInsight,
     isDashboardInsightLoading,
     shoppingListStats,
-    craftableRecipes,
-    nearMissRecipes,
-    fetchItems,
     fetchRecipes,
     fetchFavorites,
     fetchCollections,
@@ -160,41 +151,18 @@ export default function DashboardPage() {
   const [csvModalType, setCsvModalType] = useState<'items' | 'recipes'>('items');
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number> | null>(null);
 
-  // Memoized helper function to parse ingredients (prevents recreation on every render)
-  // NOTE: All hooks must be called before any conditional returns (React rules of hooks)
-  const parseIngredients = useCallback((ingredients: string | string[] | undefined): string[] => {
-    if (!ingredients) return [];
-    if (Array.isArray(ingredients)) return ingredients;
-    try {
-      const parsed = JSON.parse(ingredients);
-      return Array.isArray(parsed) ? parsed : [ingredients];
-    } catch {
-      return ingredients.split(',').map(i => i.trim());
-    }
-  }, []);
-
-  // Memoized stats calculations (only recalculate when data changes)
-  const { itemsArray, recipesArray, favoritesArray, collectionsArray, lowStockCount } = useMemo(() => ({
-    itemsArray: Array.isArray(inventoryItems) ? inventoryItems : [],
+  // Memoized arrays
+  const { recipesArray, collectionsArray } = useMemo(() => ({
     recipesArray: Array.isArray(recipes) ? recipes : [],
-    favoritesArray: Array.isArray(favorites) ? favorites : [],
     collectionsArray: Array.isArray(collections) ? collections : [],
-    // Low stock feature disabled until Quantity field is added to InventoryItem type
-    lowStockCount: 0,
-  }), [inventoryItems, recipes, favorites, collections]);
+  }), [recipes, collections]);
 
-  // CSV Import handlers (memoized to prevent child re-renders)
-  const handleOpenCSVModal = useCallback((type: 'items' | 'recipes') => {
-    setCsvModalType(type);
-    setCsvModalOpen(true);
-  }, []);
-
+  // CSV Import handlers
   const handleCSVUpload = useCallback(async (file: File, collectionId?: number) => {
     try {
       if (csvModalType === 'items') {
         const result = await inventoryApi.importCSV(file);
         showToast('success', `Successfully imported ${result.imported} items!`);
-        // Refresh category counts after import
         const counts = await inventoryApi.getCategoryCounts();
         setCategoryCounts(counts);
       } else {
@@ -217,13 +185,9 @@ export default function DashboardPage() {
   }, [csvModalType, showToast, fetchRecipes]);
 
   // Fetch data when authenticated
-  // Note: We check isAuthenticated && !isValidating to ensure we only fetch after auth is confirmed
   useEffect(() => {
-    if (!isAuthenticated || isValidating) {
-      return;
-    }
+    if (!isAuthenticated || isValidating) return;
 
-    // Fetch category counts directly (more efficient than fetching all items)
     inventoryApi.getCategoryCounts()
       .then(setCategoryCounts)
       .catch(console.error);
@@ -235,7 +199,17 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, isValidating]);
 
-  // Show loading state during validation
+  // Calculate total items
+  const totalItems = useMemo(() => {
+    if (!categoryCounts) return 0;
+    return Object.entries(categoryCounts)
+      .filter(([key]) => key !== 'all')
+      .reduce((sum, [, count]) => sum + count, 0);
+  }, [categoryCounts]);
+
+  // Calculate craftable count
+  const craftableCount = shoppingListStats?.craftable || 0;
+
   if (isValidating) {
     return (
       <div className={styles.dashboard}>
@@ -249,253 +223,242 @@ export default function DashboardPage() {
   }
 
   if (!isAuthenticated) {
-    return null; // useAuthGuard will handle redirect
+    return null;
   }
 
   return (
     <div className={styles.dashboard}>
       <div className={styles.container}>
-        {/* Header & Control Panel Section */}
+        {/* ===== HEADER / GREETING ===== */}
         <header className={styles.header}>
-          <div className={styles.headerTop}>
-            <h1 className={styles.greeting}>
-              {isDashboardInsightLoading
-                ? 'Brewing up a greeting...'
-                : renderGreetingContent(dashboardGreeting)}
-            </h1>
-          </div>
-
+          <h1 className={styles.greeting}>
+            {isDashboardInsightLoading
+              ? 'Brewing up a greeting...'
+              : renderGreetingContent(dashboardGreeting)}
+          </h1>
+          <p className={styles.statsLine}>
+            <span className={styles.statValue}>{totalItems}</span> bottles ·
+            <span className={styles.statValue}> {recipesArray.length}</span> recipes ·
+            <span className={styles.statValue}> {craftableCount}</span> makeable tonight
+          </p>
         </header>
 
-        {/* Overview Section */}
-        <section className={styles.overview}>
-          {/* Lab Assistant's Notebook */}
-          <Card padding="lg" className={styles.overviewCard}>
+        {/* ===== LAB ASSISTANT'S NOTES ===== */}
+        <div className={styles.labNotesCard}>
+          <div className={styles.labNotesHeader}>
+            <h2 className={styles.labNotesTitle}>
+              <div className={styles.pulsingDot} />
+              Lab Assistant&apos;s Notes
+            </h2>
+            <span className={styles.labNotesLabel}>AI Analysis</span>
+          </div>
+          <div className={styles.labNotesContent}>
+            {isDashboardInsightLoading ? (
+              <InsightSkeleton />
+            ) : dashboardInsight ? (
+              <p
+                className={styles.insightText}
+                dangerouslySetInnerHTML={{ __html: sanitizeAndRenderHTML(dashboardInsight) }}
+              />
+            ) : (
+              <p className={styles.emptyState}>
+                Add items and recipes to get personalized insights!
+              </p>
+            )}
+            <div className={styles.labNotesAction}>
+              <button
+                className={styles.askAiButton}
+                onClick={() => router.push('/ai')}
+              >
+                Ask the AI Bartender
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* ===== MAIN GRID ===== */}
+        <div className={styles.mainGrid}>
+          {/* --- MY BAR OVERVIEW (Left, wider) --- */}
+          <div className={styles.card}>
             <div className={styles.cardHeader}>
-              <h3 className={styles.cardTitle}>
-                <Sparkles size={20} style={{ marginRight: '8px' }} />
-                Lab Assistant&apos;s Notebook
-              </h3>
+              <h2 className={styles.cardTitle}>My Bar Overview</h2>
+              <button
+                className={styles.viewAllBtn}
+                onClick={() => router.push('/bar')}
+              >
+                View All →
+              </button>
             </div>
-            <div className={styles.cardContent}>
-              {isDashboardInsightLoading ? (
-                <InsightSkeleton />
-              ) : dashboardInsight ? (
-                <p
-                  className={styles.insightText}
-                  dangerouslySetInnerHTML={{ __html: sanitizeAndRenderHTML(dashboardInsight) }}
-                />
-              ) : (
-                <p className={styles.emptyState}>
-                  Add items and recipes to get personalized insights!
-                </p>
-              )}
-              {/* Ask the AI Bartender Button */}
-              <div className={styles.aiActionButton}>
-                <Button
-                  variant="primary"
-                  size="lg"
-                  onClick={() => router.push('/ai')}
-                >
-                  <Sparkles size={20} style={{ marginRight: '8px' }} />
-                  Ask the AI Bartender
-                </Button>
-              </div>
-            </div>
-          </Card>
 
-          {/* Other Cards */}
-          <div className={styles.overviewGrid}>
-            {/* My Bar Overview */}
-            <Card padding="md" className={styles.overviewCard}>
-              <div className={styles.cardHeader}>
-                <h3 className={styles.cardTitle}>
-                  <Wine size={20} style={{ marginRight: '8px' }} />
-                  My Bar Overview
-                </h3>
-                <button onClick={() => router.push('/bar')} className={styles.viewAllBtn}>
-                  View All →
-                </button>
-              </div>
-              <div className={styles.cardContent}>
-                {!categoryCounts || Object.keys(categoryCounts).length === 0 ? (
-                  <p className={styles.emptyState}>No items yet.</p>
-                ) : (
-                  <ul className={styles.categoryList}>
-                    {(() => {
-                      const categoryLabels: Record<string, string> = {
-                        spirit: 'Spirits',
-                        liqueur: 'Liqueurs',
-                        mixer: 'Mixers',
-                        syrup: 'Syrups',
-                        garnish: 'Garnishes',
-                        wine: 'Wines',
-                        beer: 'Beers',
-                        other: 'Other'
-                      };
-
-                      return Object.entries(categoryCounts)
-                        .filter(([category, count]) => category !== 'all' && count > 0)
-                        .sort(([, a], [, b]) => b - a)
-                        .map(([category, count]) => (
-                          <li
-                            key={category}
-                            className={styles.categoryItem}
-                            onClick={() => router.push(`/bar?category=${category}`)}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/bar?category=${category}`); } }}
-                            tabIndex={0}
-                            role="button"
-                            style={{ cursor: 'pointer' }}
-                          >
-                            <span className={styles.categoryLabel}>
-                              {categoryLabels[category] || category}
-                            </span>
-                            <span className={styles.categoryCount}>{count}</span>
-                          </li>
-                        ));
-                    })()}
-                  </ul>
-                )}
-                {/* Add New Item Button */}
-                <div className={styles.cardActionButton}>
-                  <Button variant="outline" size="md" onClick={() => router.push('/bar')}>
-                    <Wine size={18} style={{ marginRight: '6px' }} />
-                    Add New Item
-                  </Button>
+            {/* Composition Bar */}
+            {totalItems > 0 && (
+              <div className={styles.compositionBar}>
+                <div className={styles.barTrack}>
+                  {CATEGORIES.map((cat) => {
+                    const count = categoryCounts?.[cat.key] || 0;
+                    if (count === 0) return null;
+                    const widthPercent = (count / totalItems) * 100;
+                    return (
+                      <div
+                        key={cat.key}
+                        className={styles.barSegment}
+                        style={{
+                          width: `${widthPercent}%`,
+                          backgroundColor: cat.color,
+                        }}
+                        title={`${cat.label}: ${count}`}
+                      />
+                    );
+                  })}
                 </div>
+                <div className={styles.barTotal}>{totalItems} total</div>
               </div>
-            </Card>
+            )}
 
-            {/* Recipe Mastery */}
-            <Card padding="md" className={styles.overviewCard}>
-              <div className={styles.cardHeader}>
-                <h3 className={styles.cardTitle}>
-                  <Zap size={20} style={{ marginRight: '8px' }} />
-                  Recipe Mastery
-                </h3>
-                <button onClick={() => router.push('/recipes')} className={styles.viewAllBtn}>
-                  View All →
-                </button>
+            {/* Category Grid */}
+            {!categoryCounts || Object.keys(categoryCounts).length === 0 ? (
+              <p className={styles.emptyState}>No items yet. Add bottles to your bar!</p>
+            ) : (
+              <div className={styles.categoryGrid}>
+                {CATEGORIES.map((cat) => {
+                  const count = categoryCounts[cat.key] || 0;
+                  return (
+                    <div
+                      key={cat.key}
+                      className={styles.categoryCell}
+                      onClick={() => router.push(`/bar?category=${cat.key}`)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          router.push(`/bar?category=${cat.key}`);
+                        }
+                      }}
+                    >
+                      <div
+                        className={styles.categoryDot}
+                        style={{ backgroundColor: cat.color }}
+                      />
+                      <div
+                        className={styles.categoryCount}
+                        style={{ color: cat.color }}
+                      >
+                        {String(count).padStart(2, '0')}
+                      </div>
+                      <div className={styles.categoryLabel}>{cat.label}</div>
+                    </div>
+                  );
+                })}
               </div>
-              <div className={styles.cardContent}>
+            )}
+          </div>
+
+          {/* --- RIGHT SIDEBAR --- */}
+          <div className={styles.sidebarStack}>
+            {/* Recipe Mastery */}
+            <div className={styles.card}>
+              <div className={styles.cardHeader}>
+                <h2 className={styles.cardTitle}>Recipe Mastery</h2>
+              </div>
+              <div>
                 {recipesArray.length === 0 ? (
                   <p className={styles.emptyState}>No recipes yet.</p>
                 ) : (
-                  <ul className={styles.masteryList}>
-                    {(() => {
-                      // Use backend-calculated stats for 100% accuracy
-                      const craftable = shoppingListStats?.craftable || 0;
-                      const almostThere = shoppingListStats?.nearMisses || 0;
-                      const needFew = shoppingListStats?.missing2to3 || 0;
-                      const majorGaps = shoppingListStats?.missing4plus || 0;
-
-                      return (
-                        <>
-                          <li
-                            className={styles.masteryItem}
-                            onClick={() => router.push('/recipes?filter=craftable')}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/recipes?filter=craftable'); } }}
-                            tabIndex={0}
-                            role="button"
-                            style={{ cursor: 'pointer' }}
-                          >
-                            <span className={styles.masteryLabel}>
-                              <span className={styles.masteryIcon} style={{ backgroundColor: 'var(--bond-cane)' }}></span>
-                              Craftable Now
-                            </span>
-                            <span className={styles.masteryCount}>{craftable}</span>
-                          </li>
-                          <li
-                            className={styles.masteryItem}
-                            onClick={() => router.push('/recipes?filter=almost')}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/recipes?filter=almost'); } }}
-                            tabIndex={0}
-                            role="button"
-                            style={{ cursor: 'pointer' }}
-                          >
-                            <span className={styles.masteryLabel}>
-                              <span className={styles.masteryIcon} style={{ backgroundColor: 'var(--bond-juniper)' }}></span>
-                              Almost There (1 away)
-                            </span>
-                            <span className={styles.masteryCount}>{almostThere}</span>
-                          </li>
-                          <li
-                            className={styles.masteryItem}
-                            onClick={() => router.push('/recipes?filter=need-few')}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/recipes?filter=need-few'); } }}
-                            tabIndex={0}
-                            role="button"
-                            style={{ cursor: 'pointer' }}
-                          >
-                            <span className={styles.masteryLabel}>
-                              <span className={styles.masteryIcon} style={{ backgroundColor: 'var(--bond-grain)' }}></span>
-                              Need 2-3 Items
-                            </span>
-                            <span className={styles.masteryCount}>{needFew}</span>
-                          </li>
-                          <li
-                            className={styles.masteryItem}
-                            onClick={() => router.push('/recipes?filter=major-gaps')}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/recipes?filter=major-gaps'); } }}
-                            tabIndex={0}
-                            role="button"
-                            style={{ cursor: 'pointer' }}
-                          >
-                            <span className={styles.masteryLabel}>
-                              <span className={styles.masteryIcon} style={{ backgroundColor: 'var(--bond-botanical)' }}></span>
-                              Major Gaps (4+)
-                            </span>
-                            <span className={styles.masteryCount}>{majorGaps}</span>
-                          </li>
-                        </>
-                      );
-                    })()}
-                  </ul>
+                  <>
+                    {[
+                      { key: 'craftable', label: 'Craftable', color: '#10B981', count: shoppingListStats?.craftable || 0, filter: 'craftable' },
+                      { key: 'nearMiss', label: 'Near Miss', color: '#0EA5E9', count: shoppingListStats?.nearMisses || 0, filter: 'almost' },
+                      { key: 'need2to3', label: '2-3 Away', color: '#F59E0B', count: shoppingListStats?.missing2to3 || 0, filter: 'need-few' },
+                      { key: 'majorGaps', label: 'Major Gaps', color: '#94A3B8', count: shoppingListStats?.missing4plus || 0, filter: 'major-gaps' },
+                    ].map((tier) => (
+                      <div
+                        key={tier.key}
+                        className={styles.listItem}
+                        onClick={() => router.push(`/recipes?filter=${tier.filter}`)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            router.push(`/recipes?filter=${tier.filter}`);
+                          }
+                        }}
+                      >
+                        <div className={styles.masteryItem}>
+                          <div
+                            className={styles.masteryDot}
+                            style={{ backgroundColor: tier.color }}
+                          />
+                          <span className={styles.masteryLabel}>{tier.label}</span>
+                        </div>
+                        <span
+                          className={styles.masteryCount}
+                          style={{
+                            backgroundColor: `${tier.color}15`,
+                            color: tier.color,
+                          }}
+                        >
+                          {String(tier.count).padStart(2, '0')}
+                        </span>
+                      </div>
+                    ))}
+                  </>
                 )}
               </div>
-            </Card>
+            </div>
 
-            {/* Collections Overview */}
-            <Card padding="md" className={styles.overviewCard}>
+            {/* Collections */}
+            <div className={styles.card}>
               <div className={styles.cardHeader}>
-                <h3 className={styles.cardTitle}>
-                  <FolderOpen size={20} style={{ marginRight: '8px' }} />
-                  My Collections
-                </h3>
-                <button onClick={() => router.push('/recipes')} className={styles.viewAllBtn}>
-                  View All →
+                <h2 className={styles.cardTitle}>Collections</h2>
+                <button
+                  className={styles.viewAllBtn}
+                  onClick={() => router.push('/recipes')}
+                >
+                  + New
                 </button>
               </div>
-              <div className={styles.cardContent}>
+              <div>
                 {collectionsArray.length === 0 ? (
                   <p className={styles.emptyState}>No collections yet.</p>
                 ) : (
-                  <ul className={styles.collectionList}>
-                    {collectionsArray
-                      .sort((a, b) => (b.recipe_count || 0) - (a.recipe_count || 0))
-                      .slice(0, 3)
-                      .map((collection) => (
-                        <li
-                          key={collection.id}
-                          className={styles.collectionItem}
-                          onClick={() => router.push(`/recipes?collection=${collection.id}`)}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/recipes?collection=${collection.id}`); } }}
-                          tabIndex={0}
-                          role="button"
-                          style={{ cursor: 'pointer' }}
-                        >
+                  collectionsArray
+                    .sort((a, b) => (b.recipe_count || 0) - (a.recipe_count || 0))
+                    .slice(0, 4)
+                    .map((collection) => (
+                      <div
+                        key={collection.id}
+                        className={styles.listItem}
+                        onClick={() => router.push(`/recipes?collection=${collection.id}`)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            router.push(`/recipes?collection=${collection.id}`);
+                          }
+                        }}
+                      >
+                        <div className={styles.collectionItem}>
+                          <span className={styles.collectionIcon}>◆</span>
                           <span className={styles.collectionName}>{collection.name}</span>
-                          <span className={styles.collectionCount}>
-                            {collection.recipe_count || 0} {collection.recipe_count === 1 ? 'recipe' : 'recipes'}
-                          </span>
-                        </li>
-                      ))}
-                  </ul>
+                        </div>
+                        <span className={styles.collectionCount}>
+                          {String(collection.recipe_count || 0).padStart(2, '0')} recipes
+                        </span>
+                      </div>
+                    ))
                 )}
               </div>
-            </Card>
+            </div>
           </div>
-        </section>
+        </div>
+
+        {/* ===== FOOTER ===== */}
+        <footer className={styles.footer}>
+          <span className={styles.footerText}>Molecular OS v1.0</span>
+        </footer>
 
         {/* CSV Upload Modal */}
         <CSVUploadModal
