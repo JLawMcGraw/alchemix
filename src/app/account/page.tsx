@@ -1,50 +1,22 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
+import { useSettings, type Theme, type Units } from '@/hooks/useSettings';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
-import {
-  User,
-  Mail,
-  Calendar,
-  Shield,
-  Wine,
-  BookOpen,
-  Star,
-  MessageSquare,
-  ChevronRight,
-  AlertTriangle,
-  Key,
-  Eye,
-  EyeOff,
-} from 'lucide-react';
-import { inventoryApi, recipeApi, favoritesApi, collectionsApi, authApi } from '@/lib/api';
+import { Button } from '@/components/ui/Button';
+import { ChevronRight, Check, Eye, EyeOff, AlertTriangle, Download, Upload } from 'lucide-react';
+import { authApi } from '@/lib/api';
 import styles from './account.module.css';
-
-interface AccountStats {
-  inventoryCount: number;
-  recipeCount: number;
-  favoriteCount: number;
-  collectionCount: number;
-}
 
 export default function AccountPage() {
   const router = useRouter();
   const { isValidating, isAuthenticated } = useAuthGuard();
   const { user, logout } = useStore();
-  const [stats, setStats] = useState<AccountStats>({
-    inventoryCount: 0,
-    recipeCount: 0,
-    favoriteCount: 0,
-    collectionCount: 0,
-  });
-  const [isLoading, setIsLoading] = useState(true);
-  const hasFetched = useRef(false);
+  const { settings, isLoaded, setTheme, setUnits } = useSettings();
 
   // Change Password Modal State
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -63,41 +35,20 @@ export default function AccountPage() {
   const [deleteError, setDeleteError] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // Fetch stats on mount - only once
-  useEffect(() => {
-    if (!isAuthenticated || isValidating || hasFetched.current) return;
-
-    const fetchStats = async () => {
-      try {
-        hasFetched.current = true;
-        setIsLoading(true);
-
-        // Fetch all counts directly from API
-        const [categoryCounts, recipesRes, favoritesRes, collectionsRes] = await Promise.all([
-          inventoryApi.getCategoryCounts(),
-          recipeApi.getAll(),
-          favoritesApi.getAll(),
-          collectionsApi.getAll(),
-        ]);
-
-        // Use 'all' key from category counts (it's the pre-calculated total)
-        const inventoryCount = categoryCounts.all || 0;
-
-        setStats({
-          inventoryCount,
-          recipeCount: recipesRes.pagination?.total || recipesRes.recipes?.length || 0,
-          favoriteCount: Array.isArray(favoritesRes) ? favoritesRes.length : 0,
-          collectionCount: Array.isArray(collectionsRes) ? collectionsRes.length : 0,
-        });
-      } catch (error) {
-        console.error('Failed to fetch account stats:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchStats();
-  }, [isAuthenticated, isValidating]);
+  // Export/Import State
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportSuccess, setExportSuccess] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{
+    inventory: number;
+    recipes: number;
+    favorites: number;
+    collections: number;
+  } | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [overwriteData, setOverwriteData] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Format date nicely
   const formatDate = (dateString: string | undefined) => {
@@ -107,6 +58,13 @@ export default function AccountPage() {
       month: 'long',
       year: 'numeric',
     });
+  };
+
+  // Get user initials
+  const getInitials = (email: string | undefined) => {
+    if (!email) return 'U';
+    const name = email.split('@')[0];
+    return name.slice(0, 2).toUpperCase();
   };
 
   // Handle Change Password
@@ -132,7 +90,6 @@ export default function AccountPage() {
       setPasswordLoading(true);
       await authApi.changePassword(currentPassword, newPassword);
       setShowPasswordModal(false);
-      // Logout and redirect
       logout();
       router.push('/login?message=password_changed');
     } catch (error) {
@@ -170,7 +127,89 @@ export default function AccountPage() {
     }
   };
 
-  // Reset password modal state
+  // Handle Export Data
+  const handleExportData = async () => {
+    try {
+      setIsExporting(true);
+      const data = await authApi.exportData();
+
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `alchemix-export-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setExportSuccess(true);
+      setTimeout(() => setExportSuccess(false), 3000);
+    } catch (error) {
+      console.error('Failed to export data:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Handle Import
+  const handleImportClick = () => {
+    setImportResult(null);
+    setImportError(null);
+    setOverwriteData(false);
+    setShowImportModal(true);
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsImporting(true);
+      setImportError(null);
+      setImportResult(null);
+
+      const text = await file.text();
+      const importData = JSON.parse(text);
+
+      if (!importData || typeof importData !== 'object') {
+        throw new Error('Invalid import file format');
+      }
+
+      const dataToImport = {
+        inventory: importData.inventory || [],
+        recipes: importData.recipes || [],
+        favorites: importData.favorites || [],
+        collections: importData.collections || [],
+      };
+
+      const result = await authApi.importData(dataToImport, { overwrite: overwriteData });
+      setImportResult(result.imported);
+    } catch (error) {
+      console.error('Failed to import data:', error);
+      if (error instanceof SyntaxError) {
+        setImportError('Invalid JSON file. Please select a valid AlcheMix export file.');
+      } else if (error instanceof Error) {
+        setImportError(error.message);
+      } else {
+        setImportError('Failed to import data. Please try again.');
+      }
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const closeImportModal = () => {
+    setShowImportModal(false);
+    setImportResult(null);
+    setImportError(null);
+    setOverwriteData(false);
+  };
+
+  // Reset modals
   const resetPasswordModal = () => {
     setCurrentPassword('');
     setNewPassword('');
@@ -180,16 +219,21 @@ export default function AccountPage() {
     setShowNewPassword(false);
   };
 
-  // Reset delete modal state
   const resetDeleteModal = () => {
     setDeletePassword('');
     setDeleteConfirmText('');
     setDeleteError('');
   };
 
-  if (isValidating) {
+  // Handle Logout
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
+  };
+
+  if (isValidating || !isLoaded) {
     return (
-      <div className={styles.account}>
+      <div className={styles.page}>
         <div className={styles.container}>
           <div className={styles.loading}>Loading...</div>
         </div>
@@ -201,151 +245,169 @@ export default function AccountPage() {
     return null;
   }
 
+  const themeOptions: { value: Theme; label: string }[] = [
+    { value: 'light', label: 'Light' },
+    { value: 'dark', label: 'Dark' },
+    { value: 'system', label: 'System' },
+  ];
+
+  const unitOptions: { value: Units; label: string }[] = [
+    { value: 'oz', label: 'Ounces (oz)' },
+    { value: 'ml', label: 'Milliliters (ml)' },
+    { value: 'cl', label: 'Centiliters (cl)' },
+  ];
+
   return (
-    <div className={styles.account}>
+    <div className={styles.page}>
       <div className={styles.container}>
         {/* Header */}
         <header className={styles.header}>
-          <h1 className={styles.title}>Account</h1>
-          <p className={styles.subtitle}>Manage your profile and view your stats</p>
+          <h1 className={styles.title}>Settings</h1>
+          <p className={styles.subtitle}>Account, preferences, and data management</p>
         </header>
 
-        {/* Profile Section */}
-        <section className={styles.section}>
-          <Card padding="lg" className={styles.profileCard}>
-            <div className={styles.profileHeader}>
-              <div className={styles.avatar}>
-                <User size={32} />
-              </div>
-              <div className={styles.profileInfo}>
-                <h2 className={styles.profileName}>
-                  {user?.email?.split('@')[0] || 'User'}
-                </h2>
-                <span className={styles.memberBadge}>Member</span>
-              </div>
-            </div>
-
-            <div className={styles.profileDetails}>
-              <div className={styles.detailRow}>
-                <Mail size={18} className={styles.detailIcon} />
-                <span className={styles.detailLabel}>Email</span>
-                <span className={styles.detailValue}>{user?.email}</span>
+        <div className={styles.sections}>
+          {/* Profile Section */}
+          <section className={styles.section}>
+            <div className={styles.sectionLabel}>Profile</div>
+            <div className={styles.sectionCard}>
+              {/* User Info */}
+              <div className={styles.profileRow}>
+                <div className={styles.avatar}>
+                  <span>{getInitials(user?.email)}</span>
+                </div>
+                <div className={styles.profileInfo}>
+                  <div className={styles.profileEmail}>{user?.email}</div>
+                  <div className={styles.profileMeta}>Member since {formatDate(user?.created_at)}</div>
+                </div>
               </div>
 
-              <div className={styles.detailRow}>
-                <Calendar size={18} className={styles.detailIcon} />
-                <span className={styles.detailLabel}>Member since</span>
-                <span className={styles.detailValue}>
-                  {formatDate(user?.created_at)}
-                </span>
-              </div>
-
-              <div className={styles.detailRow}>
-                <Shield size={18} className={styles.detailIcon} />
-                <span className={styles.detailLabel}>Email verified</span>
-                <span className={`${styles.detailValue} ${user?.is_verified ? styles.verified : styles.unverified}`}>
-                  {user?.is_verified ? 'Verified' : 'Not verified'}
+              {/* Email Status */}
+              <div className={styles.row}>
+                <span className={styles.rowLabel}>Email status</span>
+                <span className={`${styles.rowValue} ${user?.is_verified ? styles.verified : styles.unverified}`}>
+                  {user?.is_verified ? '✓ Verified' : 'Unverified'}
                 </span>
               </div>
             </div>
-          </Card>
-        </section>
+          </section>
 
-        {/* Stats Section */}
-        <section className={styles.section}>
-          <h3 className={styles.sectionTitle}>Your Bar Stats</h3>
-          <div className={styles.statsGrid}>
-            <Card padding="md" className={styles.statCard} onClick={() => router.push('/bar')}>
-              <div className={styles.statIcon} style={{ backgroundColor: 'rgba(61, 214, 193, 0.1)' }}>
-                <Wine size={24} style={{ color: 'var(--color-primary)' }} />
-              </div>
-              <div className={styles.statContent}>
-                <span className={styles.statNumber}>
-                  {isLoading ? '...' : stats.inventoryCount}
-                </span>
-                <span className={styles.statLabel}>Items in Bar</span>
-              </div>
-              <ChevronRight size={20} className={styles.statArrow} />
-            </Card>
+          {/* Security Section */}
+          <section className={styles.section}>
+            <div className={styles.sectionLabel}>Security</div>
+            <div className={styles.sectionCard}>
+              <button
+                className={styles.rowBtn}
+                onClick={() => {
+                  resetPasswordModal();
+                  setShowPasswordModal(true);
+                }}
+              >
+                <div className={styles.rowBtnContent}>
+                  <div className={styles.rowBtnTitle}>Change password</div>
+                  <div className={styles.rowBtnSubtitle}>Last changed: Never</div>
+                </div>
+                <ChevronRight size={16} className={styles.rowBtnIcon} />
+              </button>
 
-            <Card padding="md" className={styles.statCard} onClick={() => router.push('/recipes')}>
-              <div className={styles.statIcon} style={{ backgroundColor: 'rgba(242, 164, 75, 0.1)' }}>
-                <BookOpen size={24} style={{ color: 'var(--color-secondary)' }} />
-              </div>
-              <div className={styles.statContent}>
-                <span className={styles.statNumber}>
-                  {isLoading ? '...' : stats.recipeCount}
-                </span>
-                <span className={styles.statLabel}>Recipes Saved</span>
-              </div>
-              <ChevronRight size={20} className={styles.statArrow} />
-            </Card>
+              <button className={styles.rowBtn}>
+                <div className={styles.rowBtnContent}>
+                  <div className={styles.rowBtnTitle}>Active sessions</div>
+                  <div className={styles.rowBtnSubtitle}>1 device</div>
+                </div>
+                <ChevronRight size={16} className={styles.rowBtnIcon} />
+              </button>
+            </div>
+          </section>
 
-            <Card padding="md" className={styles.statCard} onClick={() => router.push('/favorites')}>
-              <div className={styles.statIcon} style={{ backgroundColor: 'rgba(255, 193, 7, 0.1)' }}>
-                <Star size={24} style={{ color: '#ffc107' }} />
+          {/* Preferences Section */}
+          <section className={styles.section}>
+            <div className={styles.sectionLabel}>Preferences</div>
+            <div className={styles.sectionCard}>
+              {/* Theme */}
+              <div className={styles.row}>
+                <span className={styles.rowLabel}>Theme</span>
+                <div className={styles.themeSelector}>
+                  {themeOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      className={`${styles.themeBtn} ${settings.theme === option.value ? styles.themeBtnActive : ''}`}
+                      onClick={() => setTheme(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className={styles.statContent}>
-                <span className={styles.statNumber}>
-                  {isLoading ? '...' : stats.favoriteCount}
-                </span>
-                <span className={styles.statLabel}>Favorites</span>
+
+              {/* Units */}
+              <div className={styles.row}>
+                <span className={styles.rowLabel}>Measurement units</span>
+                <select
+                  className={styles.select}
+                  value={settings.units}
+                  onChange={(e) => setUnits(e.target.value as Units)}
+                >
+                  {unitOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <ChevronRight size={20} className={styles.statArrow} />
-            </Card>
+            </div>
+          </section>
 
-            <Card padding="md" className={styles.statCard} onClick={() => router.push('/recipes')}>
-              <div className={styles.statIcon} style={{ backgroundColor: 'rgba(156, 39, 176, 0.1)' }}>
-                <MessageSquare size={24} style={{ color: '#9c27b0' }} />
-              </div>
-              <div className={styles.statContent}>
-                <span className={styles.statNumber}>
-                  {isLoading ? '...' : stats.collectionCount}
-                </span>
-                <span className={styles.statLabel}>Collections</span>
-              </div>
-              <ChevronRight size={20} className={styles.statArrow} />
-            </Card>
-          </div>
-        </section>
+          {/* Data Section */}
+          <section className={styles.section}>
+            <div className={styles.sectionLabel}>Data</div>
+            <div className={styles.sectionCard}>
+              <button className={styles.rowBtn} onClick={handleExportData} disabled={isExporting}>
+                <div className={styles.rowBtnContent}>
+                  <div className={styles.rowBtnTitle}>Export data</div>
+                  <div className={styles.rowBtnSubtitle}>Download your inventory & recipes</div>
+                </div>
+                {exportSuccess ? (
+                  <Check size={16} className={styles.rowBtnIconSuccess} />
+                ) : (
+                  <Download size={16} className={styles.rowBtnIcon} />
+                )}
+              </button>
 
-        {/* Account Actions Section */}
-        <section className={styles.section}>
-          <h3 className={styles.sectionTitle}>Account Actions</h3>
-          <Card padding="md" className={styles.actionsCard}>
-            <button
-              className={styles.actionItem}
-              onClick={() => {
-                resetPasswordModal();
-                setShowPasswordModal(true);
-              }}
-            >
-              <Key size={18} />
-              <span className={styles.actionText}>Change Password</span>
-              <ChevronRight size={18} className={styles.actionArrow} />
-            </button>
+              <button className={styles.rowBtn} onClick={handleImportClick}>
+                <div className={styles.rowBtnContent}>
+                  <div className={styles.rowBtnTitle}>Import data</div>
+                  <div className={styles.rowBtnSubtitle}>Restore from a backup file</div>
+                </div>
+                <Upload size={16} className={styles.rowBtnIcon} />
+              </button>
+            </div>
+          </section>
 
-            <div className={styles.actionDivider} />
+          {/* Danger Zone */}
+          <section className={styles.section}>
+            <div className={styles.sectionLabelDanger}>Danger Zone</div>
+            <div className={styles.sectionCardDanger}>
+              <button
+                className={`${styles.rowBtn} ${styles.rowBtnDanger}`}
+                onClick={() => {
+                  resetDeleteModal();
+                  setShowDeleteModal(true);
+                }}
+              >
+                <div className={styles.rowBtnContent}>
+                  <div className={styles.rowBtnTitleDanger}>Delete account</div>
+                  <div className={styles.rowBtnSubtitle}>Permanently delete all your data</div>
+                </div>
+                <ChevronRight size={16} className={styles.rowBtnIconDanger} />
+              </button>
+            </div>
+          </section>
 
-            <button
-              className={`${styles.actionItem} ${styles.dangerAction}`}
-              onClick={() => {
-                resetDeleteModal();
-                setShowDeleteModal(true);
-              }}
-            >
-              <AlertTriangle size={18} />
-              <span className={styles.actionText}>Delete Account</span>
-              <ChevronRight size={18} className={styles.actionArrow} />
-            </button>
-          </Card>
-        </section>
-
-        {/* Back to Settings */}
-        <div className={styles.backLink}>
-          <Button variant="ghost" onClick={() => router.push('/settings')}>
-            Go to Settings
-          </Button>
+          {/* Log Out */}
+          <button className={styles.logoutBtn} onClick={handleLogout}>
+            Log out
+          </button>
         </div>
       </div>
 
@@ -356,16 +418,12 @@ export default function AccountPage() {
         title="Change Password"
       >
         <div className={styles.modalContent}>
-          <p className={styles.modalDescription}>
-            Enter your current password and choose a new password.
-          </p>
-
           {passwordError && (
             <div className={styles.errorMessage}>{passwordError}</div>
           )}
 
           <div className={styles.formGroup}>
-            <label className={styles.formLabel}>Current Password</label>
+            <label className={styles.formLabel}>Current password</label>
             <div className={styles.passwordInputWrapper}>
               <Input
                 type={showCurrentPassword ? 'text' : 'password'}
@@ -384,13 +442,13 @@ export default function AccountPage() {
           </div>
 
           <div className={styles.formGroup}>
-            <label className={styles.formLabel}>New Password</label>
+            <label className={styles.formLabel}>New password</label>
             <div className={styles.passwordInputWrapper}>
               <Input
                 type={showNewPassword ? 'text' : 'password'}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Enter new password (min 12 chars)"
+                placeholder="Min 12 characters"
               />
               <button
                 type="button"
@@ -403,7 +461,7 @@ export default function AccountPage() {
           </div>
 
           <div className={styles.formGroup}>
-            <label className={styles.formLabel}>Confirm New Password</label>
+            <label className={styles.formLabel}>Confirm new password</label>
             <Input
               type="password"
               value={confirmPassword}
@@ -413,7 +471,7 @@ export default function AccountPage() {
           </div>
 
           <div className={styles.modalActions}>
-            <Button variant="outline" onClick={() => setShowPasswordModal(false)}>
+            <Button variant="ghost" onClick={() => setShowPasswordModal(false)}>
               Cancel
             </Button>
             <Button
@@ -421,7 +479,7 @@ export default function AccountPage() {
               onClick={handleChangePassword}
               loading={passwordLoading}
             >
-              Change Password
+              Update Password
             </Button>
           </div>
         </div>
@@ -435,9 +493,8 @@ export default function AccountPage() {
       >
         <div className={styles.modalContent}>
           <div className={styles.dangerWarning}>
-            <AlertTriangle size={24} />
             <p>
-              This action is <strong>permanent</strong> and cannot be undone. All your data will be deleted including your inventory, recipes, favorites, and collections.
+              This will permanently delete your account and all data including inventory, recipes, favorites, and collections. This cannot be undone.
             </p>
           </div>
 
@@ -446,18 +503,18 @@ export default function AccountPage() {
           )}
 
           <div className={styles.formGroup}>
-            <label className={styles.formLabel}>Password</label>
+            <label className={styles.formLabel}>Enter your password</label>
             <Input
               type="password"
               value={deletePassword}
               onChange={(e) => setDeletePassword(e.target.value)}
-              placeholder="Enter your password"
+              placeholder="Password"
             />
           </div>
 
           <div className={styles.formGroup}>
             <label className={styles.formLabel}>
-              Type <strong>DELETE</strong> to confirm
+              Type <span className={styles.deleteText}>DELETE</span> to confirm
             </label>
             <Input
               type="text"
@@ -468,17 +525,120 @@ export default function AccountPage() {
           </div>
 
           <div className={styles.modalActions}>
-            <Button variant="outline" onClick={() => setShowDeleteModal(false)}>
+            <Button variant="ghost" onClick={() => setShowDeleteModal(false)}>
               Cancel
             </Button>
             <Button
               variant="danger"
               onClick={handleDeleteAccount}
               loading={deleteLoading}
+              disabled={deleteConfirmText !== 'DELETE'}
             >
-              Delete My Account
+              Delete Account
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      {/* Import Data Modal */}
+      <Modal
+        isOpen={showImportModal}
+        onClose={closeImportModal}
+        title="Import Data"
+      >
+        <div className={styles.modalContent}>
+          {!importResult && !importError && (
+            <>
+              <p className={styles.modalDescription}>
+                Select an AlcheMix export file (.json) to import your data.
+              </p>
+              <div className={styles.importOptions}>
+                <label className={styles.checkboxLabel}>
+                  <input
+                    type="checkbox"
+                    checked={overwriteData}
+                    onChange={(e) => setOverwriteData(e.target.checked)}
+                    className={styles.checkbox}
+                  />
+                  <span>Overwrite existing data</span>
+                </label>
+                <p className={styles.checkboxHint}>
+                  {overwriteData
+                    ? 'Warning: This will replace all your existing data'
+                    : 'Data will be merged with your existing data'}
+                </p>
+              </div>
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept=".json"
+                onChange={handleFileSelect}
+                className={styles.fileInput}
+                disabled={isImporting}
+              />
+              <div className={styles.modalActions}>
+                <Button variant="ghost" onClick={closeImportModal}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={() => fileInputRef.current?.click()}
+                  loading={isImporting}
+                >
+                  Select File
+                </Button>
+              </div>
+            </>
+          )}
+
+          {importError && (
+            <>
+              <div className={styles.importError}>
+                <AlertTriangle size={24} />
+                <p>{importError}</p>
+              </div>
+              <div className={styles.modalActions}>
+                <Button variant="ghost" onClick={closeImportModal}>
+                  Close
+                </Button>
+                <Button variant="primary" onClick={() => setImportError(null)}>
+                  Try Again
+                </Button>
+              </div>
+            </>
+          )}
+
+          {importResult && (
+            <>
+              <div className={styles.importSuccess}>
+                <Check size={24} />
+                <p>Import completed successfully!</p>
+              </div>
+              <div className={styles.importResults}>
+                <div className={styles.importResultItem}>
+                  <span>Inventory items:</span>
+                  <span>{importResult.inventory}</span>
+                </div>
+                <div className={styles.importResultItem}>
+                  <span>Recipes:</span>
+                  <span>{importResult.recipes}</span>
+                </div>
+                <div className={styles.importResultItem}>
+                  <span>Favorites:</span>
+                  <span>{importResult.favorites}</span>
+                </div>
+                <div className={styles.importResultItem}>
+                  <span>Collections:</span>
+                  <span>{importResult.collections}</span>
+                </div>
+              </div>
+              <div className={styles.modalActions}>
+                <Button variant="primary" onClick={closeImportModal}>
+                  Done
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </Modal>
     </div>

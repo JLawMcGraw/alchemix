@@ -21,6 +21,7 @@ import type {
   ApiResponse,
   ShoppingListResponse,
   ShoppingListStats,
+  ShoppingListItem,
 } from '@/types';
 
 // API Base URL (Express backend)
@@ -362,6 +363,30 @@ export const recipeApi = {
   },
 };
 
+// Custom Glasses API
+export interface CustomGlass {
+  id: number;
+  user_id: number;
+  name: string;
+  created_at: string;
+}
+
+export const glassesApi = {
+  async getAll(): Promise<CustomGlass[]> {
+    const { data } = await apiClient.get<{ success: boolean; data: CustomGlass[] }>('/api/glasses');
+    return data.data;
+  },
+
+  async add(name: string): Promise<CustomGlass> {
+    const { data } = await apiClient.post<{ success: boolean; data: CustomGlass }>('/api/glasses', { name });
+    return data.data;
+  },
+
+  async delete(id: number): Promise<void> {
+    await apiClient.delete(`/api/glasses/${id}`);
+  },
+};
+
 // Collections API
 export const collectionsApi = {
   async getAll(): Promise<Collection[]> {
@@ -412,6 +437,31 @@ export const shoppingListApi = {
       needFewRecipes: data.needFewRecipes ?? [],
       majorGapsRecipes: data.majorGapsRecipes ?? [],
     };
+  },
+
+  // Shopping List Items CRUD
+  async getItems(): Promise<ShoppingListItem[]> {
+    const { data } = await apiClient.get<{ success: boolean; data: ShoppingListItem[] }>('/api/shopping-list/items');
+    return data.data;
+  },
+
+  async addItem(name: string): Promise<ShoppingListItem> {
+    const { data } = await apiClient.post<{ success: boolean; data: ShoppingListItem }>('/api/shopping-list/items', { name });
+    return data.data;
+  },
+
+  async updateItem(id: number, updates: { checked?: boolean; name?: string }): Promise<ShoppingListItem> {
+    const { data } = await apiClient.put<{ success: boolean; data: ShoppingListItem }>(`/api/shopping-list/items/${id}`, updates);
+    return data.data;
+  },
+
+  async removeItem(id: number): Promise<void> {
+    await apiClient.delete(`/api/shopping-list/items/${id}`);
+  },
+
+  async clearChecked(): Promise<number> {
+    const { data } = await apiClient.delete<{ success: boolean; deleted: number }>('/api/shopping-list/items/checked');
+    return data.deleted;
   },
 };
 

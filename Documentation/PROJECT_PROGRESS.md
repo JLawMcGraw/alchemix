@@ -19,7 +19,110 @@ Last updated: 2025-12-10
 
 ---
 
-## Recent Session (2025-12-10): Shopping List, Favorites & AI Bartender Page Redesigns
+## Recent Session (2025-12-10): Major Feature Updates + Logo Assets
+
+### Summary
+Comprehensive session with multiple major features: Shopping List Items CRUD (database persistence), Custom Glasses API, Account Page redesign with Settings/Export/Import, TopNav redesign with user avatar dropdown, Modal redesigns (ItemDetailModal, AddBottleModal, EditBottleModal, AddRecipeModal, CSVUploadModal, RecipeDetailModal), and logo asset creation with favicon update.
+
+### Work Completed
+
+#### 1. Shopping List Items CRUD (Backend + Frontend)
+- **Database**: Added `shopping_list_items` table in `db.ts` with user_id, name, checked, created_at
+- **API Routes**: Full CRUD in `shoppingList.ts`:
+  - `GET /api/shopping-list/items` - Get all items
+  - `POST /api/shopping-list/items` - Add item (with duplicate detection)
+  - `PUT /api/shopping-list/items/:id` - Update item (toggle checked, rename)
+  - `DELETE /api/shopping-list/items/:id` - Remove item
+  - `DELETE /api/shopping-list/items/checked` - Clear all checked items
+- **Frontend API**: Added `shoppingListApi` methods in `api.ts`
+- **Zustand Store**: Added `shoppingListItems` state + CRUD actions in `createChatSlice.ts`
+- **Types**: Added `ShoppingListItem` interface
+- **Tests**: Added 394 lines of tests in `shoppingList.test.ts`
+
+#### 2. Custom Glasses API (Backend + Frontend)
+- **Database**: Added `custom_glasses` table with user_id, name, unique constraint
+- **API Routes**: New `api/src/routes/glasses.ts`:
+  - `GET /api/glasses` - Get user's custom glasses
+  - `POST /api/glasses` - Add custom glass
+  - `DELETE /api/glasses/:id` - Delete custom glass
+- **Service**: New `GlassService.ts` with business logic
+- **Frontend API**: Added `glassesApi` in `api.ts`
+- **Tests**: New `glasses.test.ts` and `GlassService.test.ts`
+
+#### 3. Account Page Redesign
+- Complete rewrite with new layout:
+  - User avatar with initials and email
+  - **Settings** section: Theme toggle (Light/Dark/System), Units toggle (Metric/Imperial)
+  - **Security** section: Change Password
+  - **Data Management**: Export Data (JSON), Import Data with overwrite option
+  - **Danger Zone**: Delete Account with confirmation
+- New `useSettings` hook for theme/units persistence
+- Files: `account/page.tsx`, `account.module.css`
+
+#### 4. TopNav Redesign
+- Replaced hamburger menu with horizontal nav links
+- Added user avatar dropdown (initials-based)
+- Badge counts on Shopping List and Favorites links
+- AI indicator dot on AI Bartender link
+- Dropdown menu with Settings link and Logout
+- Files: `TopNav.tsx`, `TopNav.module.css`
+
+#### 5. Modal Redesigns (Molecular Mixology Style)
+- **ItemDetailModal**: Complete rewrite with:
+  - Category color dot header
+  - View mode with structured data display
+  - Edit mode with form fields
+  - Quantity stepper (+/- buttons)
+  - Delete confirmation
+- **AddBottleModal**: Updated styling, category selector
+- **EditBottleModal**: Updated styling, form layout
+- **AddRecipeModal**: Updated styling, ingredient management
+- **CSVUploadModal**: Updated styling, preview table
+- **RecipeDetailModal**: Updated styling, ingredient list, molecule viz
+
+#### 6. Logo Assets & Favicon
+- Created `public/icon.svg` - Y-shaped molecule icon (100x100)
+- Created `public/logo.svg` - Icon + "ALCHEMIX" wordmark (280x100)
+- Created `public/logo-text.svg` - Text wordmark only (180x40)
+- Updated `layout.tsx` to use `/icon.svg` as favicon
+- Deleted old PNG favicons and logo files
+
+#### 7. Other Updates
+- **Shopping List Page**: Simplified layout, uses store items
+- **Recipes Page**: Simplified, removed inline spirit detection (using store)
+- **RecipeMolecule**: Enhanced rendering with better scaling
+- **globals.css**: Added new CSS variables
+- **next.config.js**: Added configuration updates
+- **docker-compose.yml**: Configuration updates
+
+### New Files
+- `api/src/routes/glasses.ts` - Glasses API routes
+- `api/src/routes/glasses.test.ts` - Glasses route tests
+- `api/src/services/GlassService.ts` - Glasses service
+- `api/src/services/GlassService.test.ts` - Glasses service tests
+- `public/icon.svg`, `public/logo.svg`, `public/logo-text.svg` - Logo assets
+- Multiple test files and module CSS files
+
+### Files Modified
+- `api/src/database/db.ts` - Added shopping_list_items and custom_glasses tables
+- `api/src/routes/shoppingList.ts` - Added items CRUD endpoints
+- `api/src/routes/shoppingList.test.ts` - Added items tests
+- `api/src/server.ts` - Added glasses routes
+- `src/app/layout.tsx` - Updated favicon
+- `src/app/account/page.tsx` + CSS - Complete redesign
+- `src/components/layout/TopNav.tsx` + CSS - Complete redesign
+- `src/components/modals/*` - All modals restyled
+- `src/lib/api.ts` - Added glasses and shopping list items APIs
+- `src/lib/store/createChatSlice.ts` - Added shopping list items state
+- `src/types/index.ts` - Added ShoppingListItem type
+
+### Files Deleted
+- `public/favicon-*.png`, `public/android-chrome-*.png`, `public/apple-touch-icon.png`
+- `public/AlcheMix Logo (OLD).svg`, `public/AlcheMix Logo Crop.png`, `public/Flask Logo.png`
+
+---
+
+## Previous Session (2025-12-10): Shopping List, Favorites & AI Bartender Page Redesigns
 
 ### Summary
 Continued page-by-page visual redesign applying Molecular Mixology design system. Redesigned Shopping List page with two-column layout (recommendations + shopping list), Favorites page with recipe cards matching Recipes page styling, and AI Bartender page with sidebar layout (bar context, quick prompts, history).

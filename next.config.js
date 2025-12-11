@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Transpile the local recipe-molecule package
+  transpilePackages: ['@alchemix/recipe-molecule'],
   // Enable standalone output for Docker production builds
   // Creates a minimal standalone folder with only necessary files
   output: 'standalone',

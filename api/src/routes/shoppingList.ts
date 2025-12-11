@@ -916,15 +916,227 @@ router.get('/smart', asyncHandler(async (req: Request, res: Response) => {
     });
 }));
 
+// =============================================================================
+// SHOPPING LIST ITEMS CRUD
+// =============================================================================
+
+interface ShoppingListItem {
+  id: number;
+  user_id: number;
+  name: string;
+  checked: number;
+  created_at: string;
+}
+
+/**
+ * GET /api/shopping-list/items
+ * Get all shopping list items for the authenticated user
+ */
+router.get('/items', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+
+  if (!userId) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  }
+
+  const items = db.prepare(`
+    SELECT id, name, checked, created_at
+    FROM shopping_list_items
+    WHERE user_id = ?
+    ORDER BY created_at DESC
+  `).all(userId) as ShoppingListItem[];
+
+  // Convert SQLite integer to boolean for frontend
+  const formattedItems = items.map(item => ({
+    id: item.id,
+    name: item.name,
+    checked: item.checked === 1,
+    createdAt: item.created_at,
+  }));
+
+  res.json({ success: true, data: formattedItems });
+}));
+
+/**
+ * POST /api/shopping-list/items
+ * Add a new item to the shopping list
+ */
+router.post('/items', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  const { name } = req.body;
+
+  if (!userId) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  }
+
+  if (!name || typeof name !== 'string' || name.trim().length === 0) {
+    return res.status(400).json({ success: false, error: 'Item name is required' });
+  }
+
+  const trimmedName = name.trim();
+
+  // Check for duplicate (case-insensitive)
+  const existing = db.prepare(`
+    SELECT id FROM shopping_list_items
+    WHERE user_id = ? AND LOWER(name) = LOWER(?)
+  `).get(userId, trimmedName) as ShoppingListItem | undefined;
+
+  if (existing) {
+    return res.status(409).json({ success: false, error: 'Item already in list' });
+  }
+
+  const result = db.prepare(`
+    INSERT INTO shopping_list_items (user_id, name, checked)
+    VALUES (?, ?, 0)
+  `).run(userId, trimmedName);
+
+  const newItem = db.prepare(`
+    SELECT id, name, checked, created_at
+    FROM shopping_list_items
+    WHERE id = ?
+  `).get(result.lastInsertRowid) as ShoppingListItem;
+
+  res.status(201).json({
+    success: true,
+    data: {
+      id: newItem.id,
+      name: newItem.name,
+      checked: newItem.checked === 1,
+      createdAt: newItem.created_at,
+    },
+  });
+}));
+
+/**
+ * PUT /api/shopping-list/items/:id
+ * Update an item (toggle checked status or rename)
+ */
+router.put('/items/:id', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  const itemId = parseInt(req.params.id, 10);
+  const { checked, name } = req.body;
+
+  if (!userId) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  }
+
+  if (isNaN(itemId)) {
+    return res.status(400).json({ success: false, error: 'Invalid item ID' });
+  }
+
+  // Verify ownership
+  const existing = db.prepare(`
+    SELECT id FROM shopping_list_items
+    WHERE id = ? AND user_id = ?
+  `).get(itemId, userId) as ShoppingListItem | undefined;
+
+  if (!existing) {
+    return res.status(404).json({ success: false, error: 'Item not found' });
+  }
+
+  // Build update query dynamically based on provided fields
+  const updates: string[] = [];
+  const params: (string | number)[] = [];
+
+  if (typeof checked === 'boolean') {
+    updates.push('checked = ?');
+    params.push(checked ? 1 : 0);
+  }
+
+  if (typeof name === 'string' && name.trim().length > 0) {
+    updates.push('name = ?');
+    params.push(name.trim());
+  }
+
+  if (updates.length === 0) {
+    return res.status(400).json({ success: false, error: 'No valid fields to update' });
+  }
+
+  params.push(itemId, userId);
+
+  db.prepare(`
+    UPDATE shopping_list_items
+    SET ${updates.join(', ')}
+    WHERE id = ? AND user_id = ?
+  `).run(...params);
+
+  const updated = db.prepare(`
+    SELECT id, name, checked, created_at
+    FROM shopping_list_items
+    WHERE id = ?
+  `).get(itemId) as ShoppingListItem;
+
+  res.json({
+    success: true,
+    data: {
+      id: updated.id,
+      name: updated.name,
+      checked: updated.checked === 1,
+      createdAt: updated.created_at,
+    },
+  });
+}));
+
+/**
+ * DELETE /api/shopping-list/items/checked
+ * Remove all checked items (clear completed)
+ * Note: This must come before /:id route
+ */
+router.delete('/items/checked', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+
+  if (!userId) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  }
+
+  const result = db.prepare(`
+    DELETE FROM shopping_list_items
+    WHERE user_id = ? AND checked = 1
+  `).run(userId);
+
+  res.json({
+    success: true,
+    deleted: result.changes,
+  });
+}));
+
+/**
+ * DELETE /api/shopping-list/items/:id
+ * Remove a single item from the shopping list
+ */
+router.delete('/items/:id', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  const itemId = parseInt(req.params.id, 10);
+
+  if (!userId) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  }
+
+  if (isNaN(itemId)) {
+    return res.status(400).json({ success: false, error: 'Invalid item ID' });
+  }
+
+  const result = db.prepare(`
+    DELETE FROM shopping_list_items
+    WHERE id = ? AND user_id = ?
+  `).run(itemId, userId);
+
+  if (result.changes === 0) {
+    return res.status(404).json({ success: false, error: 'Item not found' });
+  }
+
+  res.json({ success: true });
+}));
+
 /**
  * Export Shopping List Router
  *
  * Mounted at /api/shopping-list in server.ts:
  * - GET /api/shopping-list/smart - Get smart recommendations
- *
- * Future Enhancements:
- * - POST /api/shopping-list/custom - Custom ingredient analysis
- * - GET /api/shopping-list/popular - Popular ingredients from community
- * - GET /api/shopping-list/categories - Recommendations by category
+ * - GET /api/shopping-list/items - Get user's shopping list items
+ * - POST /api/shopping-list/items - Add item to shopping list
+ * - PUT /api/shopping-list/items/:id - Update item
+ * - DELETE /api/shopping-list/items/:id - Remove item
+ * - DELETE /api/shopping-list/items/checked - Clear completed items
  */
 export default router;

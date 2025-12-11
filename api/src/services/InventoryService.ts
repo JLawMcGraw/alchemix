@@ -84,6 +84,7 @@ export interface SanitizedInventoryItem {
   profile_nose: string | null;
   palate: string | null;
   finish: string | null;
+  tasting_notes: string | null;
 }
 
 /**
@@ -241,8 +242,8 @@ export class InventoryService {
         user_id, name, category, type, abv,
         stock_number, spirit_classification, distillation_method,
         distillery_location, age_statement, additional_notes,
-        profile_nose, palate, finish
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        profile_nose, palate, finish, tasting_notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       userId,
       data.name,
@@ -257,7 +258,8 @@ export class InventoryService {
       data.additional_notes || null,
       data.profile_nose || null,
       data.palate || null,
-      data.finish || null
+      data.finish || null,
+      data.tasting_notes || null
     );
 
     return this.db.prepare(
@@ -294,7 +296,8 @@ export class InventoryService {
         additional_notes = ?,
         profile_nose = ?,
         palate = ?,
-        finish = ?
+        finish = ?,
+        tasting_notes = ?
       WHERE id = ? AND user_id = ?
     `).run(
       data.name,
@@ -310,6 +313,7 @@ export class InventoryService {
       data.profile_nose || null,
       data.palate || null,
       data.finish || null,
+      data.tasting_notes || null,
       itemId,
       userId
     );
@@ -452,6 +456,7 @@ export class InventoryService {
       profile_nose: safeString(this.findField(record, ['profile_nose', 'Profile (Nose)', 'Nose', 'nose', 'Aroma', 'aroma', 'Smell', 'smell'])),
       palate: safeString(this.findField(record, ['palate', 'Palate', 'Taste', 'taste', 'Flavor', 'flavor'])),
       finish: safeString(this.findField(record, ['finish', 'Finish', 'Aftertaste', 'aftertaste'])),
+      tasting_notes: safeString(this.findField(record, ['tasting_notes', 'Tasting Notes', 'tasting notes', 'Tasting', 'Profile', 'profile'])),
     };
 
     return { isValid: true, errors: [], sanitized };

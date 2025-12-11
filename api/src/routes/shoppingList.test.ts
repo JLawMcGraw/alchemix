@@ -502,7 +502,7 @@ describe('Shopping List Routes Integration Tests', () => {
       // Add recipes asking for synonyms or partial matches
       testDb.prepare(`
         INSERT INTO recipes (user_id, name, ingredients)
-        VALUES 
+        VALUES
           (?, 'Daiquiri Check', ?),
           (?, 'Bourbon Check', ?),
           (?, 'Rye Check', ?),
@@ -524,7 +524,7 @@ describe('Shopping List Routes Integration Tests', () => {
       // All these recipes should be "Near Misses" (missing 1 ingredient: lime, sugar, bitters)
       // They should NOT be missing the base spirit.
       // If matching failed, they would be missing 2 ingredients (spirit + mixer).
-      
+
       const nearMissNames = response.body.nearMissRecipes.map((r: any) => r.name);
       expect(nearMissNames).toContain('Daiquiri Check');
       expect(nearMissNames).toContain('Bourbon Check');
@@ -537,6 +537,396 @@ describe('Shopping List Routes Integration Tests', () => {
 
       const bourbon = response.body.nearMissRecipes.find((r: any) => r.name === 'Bourbon Check');
       expect(bourbon.missingIngredient).toContain('sugar cube'); // NOT 'bourbon whiskey'
+    });
+  });
+
+  // =============================================================================
+  // SHOPPING LIST ITEMS CRUD TESTS
+  // =============================================================================
+
+  describe('GET /api/shopping-list/items', () => {
+    it('should reject unauthenticated requests', async () => {
+      const response = await request(server!)
+        .get('/api/shopping-list/items')
+        .expect(401);
+
+      expect(response.body).toHaveProperty('success', false);
+    });
+
+    it('should return empty array when user has no items', async () => {
+      const response = await request(server!)
+        .get('/api/shopping-list/items')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body.data).toEqual([]);
+    });
+
+    it('should return all items for authenticated user', async () => {
+      // Add some items
+      testDb.prepare(`
+        INSERT INTO shopping_list_items (user_id, name, checked)
+        VALUES (?, ?, ?), (?, ?, ?)
+      `).run(userId, 'Angostura Bitters', 0, userId, 'Simple Syrup', 1);
+
+      const response = await request(server!)
+        .get('/api/shopping-list/items')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toHaveLength(2);
+      expect(response.body.data[0]).toHaveProperty('name');
+      expect(response.body.data[0]).toHaveProperty('checked');
+      expect(response.body.data[0]).toHaveProperty('id');
+    });
+
+    it('should not return items from other users', async () => {
+      // Create another user
+      const otherUser = testDb.prepare(`
+        INSERT INTO users (email, password_hash)
+        VALUES (?, ?)
+      `).run('other@example.com', 'hash');
+
+      // Add items for both users
+      testDb.prepare(`
+        INSERT INTO shopping_list_items (user_id, name, checked)
+        VALUES (?, ?, ?), (?, ?, ?)
+      `).run(userId, 'My Item', 0, otherUser.lastInsertRowid, 'Other User Item', 0);
+
+      const response = await request(server!)
+        .get('/api/shopping-list/items')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(response.body.data).toHaveLength(1);
+      expect(response.body.data[0].name).toBe('My Item');
+    });
+  });
+
+  describe('POST /api/shopping-list/items', () => {
+    it('should reject unauthenticated requests', async () => {
+      const response = await request(server!)
+        .post('/api/shopping-list/items')
+        .send({ name: 'Test Item' })
+        .expect(401);
+
+      expect(response.body).toHaveProperty('success', false);
+    });
+
+    it('should add a new item to the shopping list', async () => {
+      const response = await request(server!)
+        .post('/api/shopping-list/items')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ name: 'Angostura Bitters' })
+        .expect(201);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toHaveProperty('id');
+      expect(response.body.data.name).toBe('Angostura Bitters');
+      expect(response.body.data.checked).toBe(false);
+
+      // Verify in database
+      const item = testDb.prepare(`
+        SELECT * FROM shopping_list_items WHERE user_id = ?
+      `).get(userId) as any;
+      expect(item.name).toBe('Angostura Bitters');
+    });
+
+    it('should reject empty item name', async () => {
+      const response = await request(server!)
+        .post('/api/shopping-list/items')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ name: '' })
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toContain('required');
+    });
+
+    it('should reject duplicate items (case-insensitive)', async () => {
+      // Add first item
+      await request(server!)
+        .post('/api/shopping-list/items')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ name: 'Angostura Bitters' })
+        .expect(201);
+
+      // Try to add duplicate with different case
+      const response = await request(server!)
+        .post('/api/shopping-list/items')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ name: 'ANGOSTURA BITTERS' })
+        .expect(409);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toContain('already');
+    });
+
+    it('should trim whitespace from item names', async () => {
+      const response = await request(server!)
+        .post('/api/shopping-list/items')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ name: '  Triple Sec  ' })
+        .expect(201);
+
+      expect(response.body.data.name).toBe('Triple Sec');
+    });
+  });
+
+  describe('PUT /api/shopping-list/items/:id', () => {
+    let itemId: number;
+
+    beforeEach(() => {
+      const result = testDb.prepare(`
+        INSERT INTO shopping_list_items (user_id, name, checked)
+        VALUES (?, ?, ?)
+      `).run(userId, 'Test Item', 0);
+      itemId = result.lastInsertRowid as number;
+    });
+
+    it('should reject unauthenticated requests', async () => {
+      const response = await request(server!)
+        .put(`/api/shopping-list/items/${itemId}`)
+        .send({ checked: true })
+        .expect(401);
+
+      expect(response.body).toHaveProperty('success', false);
+    });
+
+    it('should toggle checked status', async () => {
+      const response = await request(server!)
+        .put(`/api/shopping-list/items/${itemId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ checked: true })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.checked).toBe(true);
+
+      // Verify in database
+      const item = testDb.prepare(`
+        SELECT checked FROM shopping_list_items WHERE id = ?
+      `).get(itemId) as any;
+      expect(item.checked).toBe(1);
+    });
+
+    it('should rename an item', async () => {
+      const response = await request(server!)
+        .put(`/api/shopping-list/items/${itemId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ name: 'Renamed Item' })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.name).toBe('Renamed Item');
+    });
+
+    it('should update both name and checked status', async () => {
+      const response = await request(server!)
+        .put(`/api/shopping-list/items/${itemId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ name: 'New Name', checked: true })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.name).toBe('New Name');
+      expect(response.body.data.checked).toBe(true);
+    });
+
+    it('should return 404 for non-existent item', async () => {
+      const response = await request(server!)
+        .put('/api/shopping-list/items/99999')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ checked: true })
+        .expect(404);
+
+      expect(response.body.success).toBe(false);
+    });
+
+    it('should not allow updating other users items', async () => {
+      // Create another user and their item
+      const otherUser = testDb.prepare(`
+        INSERT INTO users (email, password_hash)
+        VALUES (?, ?)
+      `).run('other@example.com', 'hash');
+
+      const otherItem = testDb.prepare(`
+        INSERT INTO shopping_list_items (user_id, name, checked)
+        VALUES (?, ?, ?)
+      `).run(otherUser.lastInsertRowid, 'Other Item', 0);
+
+      const response = await request(server!)
+        .put(`/api/shopping-list/items/${otherItem.lastInsertRowid}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ checked: true })
+        .expect(404);
+
+      expect(response.body.success).toBe(false);
+    });
+
+    it('should reject request with no valid fields', async () => {
+      const response = await request(server!)
+        .put(`/api/shopping-list/items/${itemId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({})
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+    });
+  });
+
+  describe('DELETE /api/shopping-list/items/:id', () => {
+    let itemId: number;
+
+    beforeEach(() => {
+      const result = testDb.prepare(`
+        INSERT INTO shopping_list_items (user_id, name, checked)
+        VALUES (?, ?, ?)
+      `).run(userId, 'Test Item', 0);
+      itemId = result.lastInsertRowid as number;
+    });
+
+    it('should reject unauthenticated requests', async () => {
+      const response = await request(server!)
+        .delete(`/api/shopping-list/items/${itemId}`)
+        .expect(401);
+
+      expect(response.body).toHaveProperty('success', false);
+    });
+
+    it('should delete an item', async () => {
+      const response = await request(server!)
+        .delete(`/api/shopping-list/items/${itemId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+
+      // Verify deleted
+      const item = testDb.prepare(`
+        SELECT * FROM shopping_list_items WHERE id = ?
+      `).get(itemId);
+      expect(item).toBeUndefined();
+    });
+
+    it('should return 404 for non-existent item', async () => {
+      const response = await request(server!)
+        .delete('/api/shopping-list/items/99999')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(404);
+
+      expect(response.body.success).toBe(false);
+    });
+
+    it('should not delete other users items', async () => {
+      // Create another user and their item
+      const otherUser = testDb.prepare(`
+        INSERT INTO users (email, password_hash)
+        VALUES (?, ?)
+      `).run('other@example.com', 'hash');
+
+      const otherItem = testDb.prepare(`
+        INSERT INTO shopping_list_items (user_id, name, checked)
+        VALUES (?, ?, ?)
+      `).run(otherUser.lastInsertRowid, 'Other Item', 0);
+
+      const response = await request(server!)
+        .delete(`/api/shopping-list/items/${otherItem.lastInsertRowid}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(404);
+
+      expect(response.body.success).toBe(false);
+
+      // Verify item still exists
+      const item = testDb.prepare(`
+        SELECT * FROM shopping_list_items WHERE id = ?
+      `).get(otherItem.lastInsertRowid);
+      expect(item).toBeDefined();
+    });
+  });
+
+  describe('DELETE /api/shopping-list/items/checked', () => {
+    it('should reject unauthenticated requests', async () => {
+      const response = await request(server!)
+        .delete('/api/shopping-list/items/checked')
+        .expect(401);
+
+      expect(response.body).toHaveProperty('success', false);
+    });
+
+    it('should delete all checked items', async () => {
+      // Add mix of checked and unchecked items
+      testDb.prepare(`
+        INSERT INTO shopping_list_items (user_id, name, checked)
+        VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?)
+      `).run(
+        userId, 'Checked Item 1', 1,
+        userId, 'Checked Item 2', 1,
+        userId, 'Unchecked Item', 0
+      );
+
+      const response = await request(server!)
+        .delete('/api/shopping-list/items/checked')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.deleted).toBe(2);
+
+      // Verify only unchecked item remains
+      const remaining = testDb.prepare(`
+        SELECT * FROM shopping_list_items WHERE user_id = ?
+      `).all(userId) as any[];
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0].name).toBe('Unchecked Item');
+    });
+
+    it('should return 0 deleted when no checked items exist', async () => {
+      // Add only unchecked item
+      testDb.prepare(`
+        INSERT INTO shopping_list_items (user_id, name, checked)
+        VALUES (?, ?, ?)
+      `).run(userId, 'Unchecked Item', 0);
+
+      const response = await request(server!)
+        .delete('/api/shopping-list/items/checked')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.deleted).toBe(0);
+    });
+
+    it('should not delete other users checked items', async () => {
+      // Create another user
+      const otherUser = testDb.prepare(`
+        INSERT INTO users (email, password_hash)
+        VALUES (?, ?)
+      `).run('other@example.com', 'hash');
+
+      // Add checked items for both users
+      testDb.prepare(`
+        INSERT INTO shopping_list_items (user_id, name, checked)
+        VALUES (?, ?, ?), (?, ?, ?)
+      `).run(
+        userId, 'My Checked Item', 1,
+        otherUser.lastInsertRowid, 'Other Checked Item', 1
+      );
+
+      const response = await request(server!)
+        .delete('/api/shopping-list/items/checked')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(response.body.deleted).toBe(1);
+
+      // Verify other user's item still exists
+      const otherItems = testDb.prepare(`
+        SELECT * FROM shopping_list_items WHERE user_id = ?
+      `).all(otherUser.lastInsertRowid) as any[];
+      expect(otherItems).toHaveLength(1);
     });
   });
 });

@@ -4,8 +4,8 @@ services:
     image: neo4j:5.23-community
     container_name: alchemix-neo4j
     ports:
-      - "7474:7474"  # HTTP
-      - "7687:7687"  # Bolt
+      - "17474:7474"  # HTTP (mapped to 17474 to avoid Windows Hyper-V excluded port ranges)
+      - "17687:7687"  # Bolt (mapped to 17687 to avoid Windows Hyper-V excluded port ranges)
     environment:
       - NEO4J_AUTH=neo4j/alchemixpassword
       - NEO4J_PLUGINS=["apoc", "graph-data-science"]

@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Plus, X, AlertCircle, Trash2 } from 'lucide-react';
-import { Button, Input, Spinner, SuccessCheckmark } from '@/components/ui';
+import { X, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
+import { SuccessCheckmark } from '@/components/ui';
+import { GlassSelector } from '@/components/GlassSelector';
 import type { Recipe, Collection } from '@/types';
-import styles from './BottleFormModal.module.css';
+import styles from './AddRecipeModal.module.css';
 
 interface AddRecipeModalProps {
   isOpen: boolean;
@@ -15,32 +16,40 @@ interface AddRecipeModalProps {
 
 type FormState = {
   name: string;
-  ingredients: string[];
+  spirits: string[];
+  ingredients: string;
   instructions: string;
   glass: string;
-  category: string;
-  spirit_type: string;
   collection_id: string;
+  notes: string;
 };
 
 const createInitialFormState = (): FormState => ({
   name: '',
-  ingredients: [''],
+  spirits: [],
+  ingredients: '',
   instructions: '',
   glass: '',
-  category: '',
-  spirit_type: '',
   collection_id: '',
+  notes: '',
 });
+
+const SPIRITS = [
+  { value: 'gin', label: 'Gin', color: '#0EA5E9' },
+  { value: 'whiskey', label: 'Whiskey', color: '#D97706' },
+  { value: 'rum', label: 'Rum', color: '#65A30D' },
+  { value: 'tequila', label: 'Tequila', color: '#0D9488' },
+  { value: 'vodka', label: 'Vodka', color: '#94A3B8' },
+  { value: 'other', label: 'Other', color: '#8B5CF6' },
+];
 
 export function AddRecipeModal({ isOpen, onClose, onAdd, collections = [] }: AddRecipeModalProps) {
   const [formData, setFormData] = useState<FormState>(createInitialFormState());
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isDirty, setIsDirty] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   const modalRef = useRef<HTMLDivElement>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
@@ -49,20 +58,15 @@ export function AddRecipeModal({ isOpen, onClose, onAdd, collections = [] }: Add
     if (isOpen) {
       setShowSuccess(false);
 
-      // Focus management and keyboard shortcuts
-      // Auto-focus first input
       setTimeout(() => firstInputRef.current?.focus(), 100);
 
-      // Handle keyboard events
       const handleKeyDown = (e: KeyboardEvent) => {
-        // ESC to close
         if (e.key === 'Escape') {
           e.preventDefault();
           handleClose();
           return;
         }
 
-        // Tab key focus trapping
         if (e.key === 'Tab' && modalRef.current) {
           const focusableElements = modalRef.current.querySelectorAll<HTMLElement>(
             'button, input, textarea, select, [tabindex]:not([tabindex="-1"])'
@@ -85,136 +89,69 @@ export function AddRecipeModal({ isOpen, onClose, onAdd, collections = [] }: Add
     }
   }, [isOpen]);
 
-  // Real-time validation
-  const validateField = (name: string, value: string): string | null => {
-    if (name === 'name' && !value.trim()) {
-      return 'Recipe name is required';
-    }
-    return null;
-  };
+  if (!isOpen) return null;
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+  const handleChange = <K extends keyof FormState>(field: K, value: FormState[K]) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
     setIsDirty(true);
-
-    // Clear field-specific error on change
-    if (fieldErrors[name]) {
-      setFieldErrors((prev) => {
-        const next = { ...prev };
-        delete next[name];
-        return next;
-      });
-    }
-
-    // Real-time validation
-    const error = validateField(name, value);
-    if (error) {
-      setFieldErrors((prev) => ({ ...prev, [name]: error }));
-    }
   };
 
-  const handleIngredientChange = (index: number, value: string) => {
-    const newIngredients = [...formData.ingredients];
-    newIngredients[index] = value;
-    setFormData((prev) => ({ ...prev, ingredients: newIngredients }));
-    setIsDirty(true);
-
-    // Clear ingredients error if at least one ingredient has content
-    if (fieldErrors.ingredients && newIngredients.some(ing => ing.trim())) {
-      setFieldErrors((prev) => {
-        const next = { ...prev };
-        delete next.ingredients;
-        return next;
-      });
-    }
+  const handleSpiritToggle = (spiritValue: string) => {
+    const newSpirits = formData.spirits.includes(spiritValue)
+      ? formData.spirits.filter(s => s !== spiritValue)
+      : [...formData.spirits, spiritValue];
+    handleChange('spirits', newSpirits);
   };
 
-  const handleIngredientKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      addIngredient();
-    }
-  };
-
-  const addIngredient = () => {
-    setFormData((prev) => ({
-      ...prev,
-      ingredients: [...prev.ingredients, '']
-    }));
-  };
-
-  const removeIngredient = (index: number) => {
-    if (formData.ingredients.length === 1) return; // Keep at least one
-    setFormData((prev) => ({
-      ...prev,
-      ingredients: prev.ingredients.filter((_, i) => i !== index)
-    }));
-  };
-
-  const validateForm = (): boolean => {
-    const errors: Record<string, string> = {};
-
-    if (!formData.name.trim()) {
-      errors.name = 'Recipe name is required';
-    }
-
-    const hasIngredients = formData.ingredients.some(ing => ing.trim());
-    if (!hasIngredients) {
-      errors.ingredients = 'At least one ingredient is required';
-    }
-
-    setFieldErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
+  // Parse ingredients count from textarea
+  const ingredientCount = formData.ingredients
+    .split('\n')
+    .filter(line => line.trim()).length;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
 
-    if (!validateForm()) {
+    if (!formData.name.trim()) {
+      setError('Recipe name is required');
+      return;
+    }
+
+    if (!formData.ingredients.trim()) {
+      setError('At least one ingredient is required');
       return;
     }
 
     setLoading(true);
+    setError(null);
 
     try {
-      // Filter out empty ingredients
+      // Parse ingredients from textarea (one per line)
       const ingredientsArray = formData.ingredients
-        .map(i => i.trim())
-        .filter(i => i.length > 0);
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
 
       await onAdd({
         name: formData.name.trim(),
         ingredients: ingredientsArray,
         instructions: formData.instructions.trim() || undefined,
-        glass: formData.glass.trim() || undefined,
-        category: formData.category.trim() || undefined,
-        spirit_type: formData.spirit_type.trim() || undefined,
+        glass: formData.glass || undefined,
+        category: formData.notes.trim() || undefined,
+        spirit_type: formData.spirits[0] || undefined,
         collection_id: formData.collection_id ? parseInt(formData.collection_id, 10) : undefined,
       });
 
-      // Success - show checkmark animation
       setShowSuccess(true);
-
-      // Reset form after animation
-      setTimeout(() => {
-        setFormData(createInitialFormState());
-        setIsDirty(false);
-        setError(null);
-        setFieldErrors({});
-        onClose();
-      }, 1500);
+      setIsDirty(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add recipe');
-      console.error('Failed to add recipe:', err);
     } finally {
       setLoading(false);
     }
   };
 
   const handleClose = () => {
-    if (isDirty && !showSuccess) {
+    if (isDirty && !showSuccess && !loading) {
       const confirmClose = window.confirm(
         'You have unsaved changes. Are you sure you want to close?'
       );
@@ -223,228 +160,252 @@ export function AddRecipeModal({ isOpen, onClose, onAdd, collections = [] }: Add
 
     setFormData(createInitialFormState());
     setError(null);
-    setFieldErrors({});
     setIsDirty(false);
     setShowSuccess(false);
+    setShowDetails(false);
     onClose();
   };
 
-  if (!isOpen) return null;
+  const primarySpirit = SPIRITS.find(s => s.value === formData.spirits[0]);
 
   return (
-    <div
-      className={styles.backdrop}
-      onClick={handleClose}
-      aria-hidden="true"
-    >
-      {/* Modal */}
-      <div
-        ref={modalRef}
-        className={styles.modal}
-        role="dialog"
-        aria-labelledby="add-recipe-title"
-        aria-modal="true"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className={styles.modalHeader}>
-          <h2 id="add-recipe-title" className={styles.modalTitle}>
-            <Plus size={24} />
-            Add New Recipe
-          </h2>
-          <button
-            onClick={handleClose}
-            className={styles.closeButton}
-            aria-label="Close modal"
-            disabled={loading}
-          >
-            <X size={24} />
-          </button>
-        </div>
-
-        {/* Success Animation Overlay */}
-        {showSuccess && (
-          <div className={styles.successOverlay}>
-            <SuccessCheckmark />
-            <p className={styles.successText}>Recipe added successfully!</p>
-          </div>
-        )}
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className={styles.modalContent}>
-          {/* Error Message */}
-          {error && (
-            <div className={styles.errorBanner} role="alert">
-              <AlertCircle size={20} />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {/* Basic Information */}
-          <div className={styles.formSection}>
-            <h3 className={styles.sectionTitle}>Basic Information</h3>
-
-            <Input
-              ref={firstInputRef}
-              label="Recipe Name"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              error={fieldErrors.name}
-              fullWidth
-              required
-              placeholder="e.g., Margarita"
-            />
-
-            <div className={styles.formGroup}>
-              <label className={styles.label}>
-                Ingredients <span className={styles.required}>*</span>
-              </label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {formData.ingredients.map((ingredient, index) => (
-                  <div key={index} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input
-                      type="text"
-                      value={ingredient}
-                      onChange={(e) => handleIngredientChange(index, e.target.value)}
-                      onKeyDown={(e) => handleIngredientKeyDown(index, e)}
-                      className={`${styles.textarea} ${fieldErrors.ingredients ? styles.inputError : ''}`}
-                      placeholder={index === 0 ? 'e.g., 2 oz Tequila' : `Ingredient ${index + 1}`}
-                      style={{
-                        flex: 1,
-                        minHeight: 'auto',
-                        padding: '10px 12px',
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: '0.875rem',
-                      }}
-                    />
-                    {formData.ingredients.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeIngredient(index)}
-                        style={{ padding: '8px', minWidth: 'auto', color: 'var(--color-semantic-error)' }}
-                        aria-label="Remove ingredient"
-                      >
-                        <Trash2 size={18} />
-                      </Button>
-                    )}
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addIngredient}
-                  style={{ alignSelf: 'flex-start' }}
-                >
-                  <Plus size={16} />
-                  Add Ingredient
-                </Button>
-              </div>
-              {fieldErrors.ingredients && (
-                <span className={styles.errorText}>{fieldErrors.ingredients}</span>
-              )}
-              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '4px' }}>
-                Press Enter to quickly add another ingredient
-              </span>
-            </div>
-
-            <div className={styles.formGroup}>
-              <label htmlFor="instructions" className={styles.label}>
-                Instructions
-              </label>
-              <textarea
-                id="instructions"
-                name="instructions"
-                value={formData.instructions}
-                onChange={handleChange}
-                className={styles.textarea}
-                placeholder="Enter preparation steps..."
-                rows={4}
-              />
-            </div>
-          </div>
-
-          {/* Details */}
-          <div className={styles.formSection}>
-            <h3 className={styles.sectionTitle}>Details</h3>
-
-            <Input
-              label="Glass Type"
-              name="glass"
-              value={formData.glass}
-              onChange={handleChange}
-              fullWidth
-              placeholder="e.g., Coupe, Rocks, Highball"
-            />
-
-            <Input
-              label="Category"
-              name="category"
-              value={formData.category}
-              onChange={handleChange}
-              fullWidth
-              placeholder="e.g., Classic, Modern, Tiki"
-            />
-
-            <Input
-              label="Spirit Type"
-              name="spirit_type"
-              value={formData.spirit_type}
-              onChange={handleChange}
-              fullWidth
-              placeholder="e.g., Tequila, Gin, Vodka"
-            />
-
-            <div className={styles.formGroup}>
-              <label htmlFor="collection_id" className={styles.label}>
-                Collection (Optional)
-              </label>
-              <select
-                id="collection_id"
-                name="collection_id"
-                value={formData.collection_id}
-                onChange={handleChange}
-                className={styles.select}
-              >
-                <option value="">Uncategorized</option>
-                {collections.map((collection) => (
-                  <option key={collection.id} value={collection.id}>
-                    {collection.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className={styles.modalActions}>
-            <Button
-              type="button"
-              variant="outline"
+    <>
+      {showSuccess && (
+        <SuccessCheckmark
+          message="Recipe added successfully!"
+          onComplete={handleClose}
+        />
+      )}
+      <div className={styles.overlay} onClick={handleClose}>
+        <div
+          className={styles.modal}
+          onClick={(e) => e.stopPropagation()}
+          ref={modalRef}
+          role="dialog"
+          aria-labelledby="add-recipe-title"
+          aria-modal="true"
+        >
+          {/* Header */}
+          <div className={styles.header}>
+            <h2 className={styles.title} id="add-recipe-title">Add Recipe</h2>
+            <button
+              className={styles.closeBtn}
               onClick={handleClose}
-              disabled={loading}
+              aria-label="Close modal"
+              type="button"
             >
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" disabled={loading}>
-              {loading ? (
-                <>
-                  <Spinner size="sm" />
-                  Adding...
-                </>
-              ) : (
-                <>
-                  <Plus size={18} />
-                  Add Recipe
-                </>
-              )}
-            </Button>
+              <X size={20} />
+            </button>
           </div>
-        </form>
+
+          {/* Content */}
+          <form onSubmit={handleSubmit} className={styles.form}>
+            <div className={styles.content}>
+              {/* Name */}
+              <div className={styles.fieldGroup}>
+                <label className={styles.label}>
+                  Name <span className={styles.required}>*</span>
+                </label>
+                <input
+                  ref={firstInputRef}
+                  type="text"
+                  className={styles.input}
+                  value={formData.name}
+                  onChange={(e) => handleChange('name', e.target.value)}
+                  placeholder="e.g., Jungle Bird"
+                />
+              </div>
+
+              {/* Base Spirit(s) */}
+              <div className={styles.fieldGroup}>
+                <div className={styles.labelRow}>
+                  <label className={styles.label}>
+                    Base Spirit{formData.spirits.length > 1 ? 's' : ''}
+                  </label>
+                  {formData.spirits.length > 1 && (
+                    <span className={styles.labelHint}>
+                      Primary: {primarySpirit?.label}
+                    </span>
+                  )}
+                </div>
+                <div className={styles.spiritGrid}>
+                  {SPIRITS.map((spirit) => {
+                    const isSelected = formData.spirits.includes(spirit.value);
+                    const isPrimary = formData.spirits[0] === spirit.value;
+                    return (
+                      <button
+                        key={spirit.value}
+                        type="button"
+                        className={`${styles.spiritBtn} ${isSelected ? styles.spiritBtnSelected : ''}`}
+                        onClick={() => handleSpiritToggle(spirit.value)}
+                        style={isSelected ? { borderColor: spirit.color } : {}}
+                      >
+                        <span
+                          className={styles.spiritDot}
+                          style={{
+                            backgroundColor: spirit.color,
+                            boxShadow: isPrimary ? `0 0 0 2px white, 0 0 0 3px ${spirit.color}` : 'none'
+                          }}
+                        />
+                        {spirit.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {formData.spirits.length > 1 && (
+                  <p className={styles.fieldHint}>
+                    First selected = primary color for recipe card
+                  </p>
+                )}
+              </div>
+
+              {/* Ingredients */}
+              <div className={styles.fieldGroup}>
+                <div className={styles.labelRow}>
+                  <label className={styles.label}>
+                    Ingredients <span className={styles.required}>*</span>
+                  </label>
+                  {ingredientCount > 0 && (
+                    <span className={styles.labelHint}>
+                      {ingredientCount} ingredient{ingredientCount !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+                <textarea
+                  className={styles.ingredientsTextarea}
+                  value={formData.ingredients}
+                  onChange={(e) => handleChange('ingredients', e.target.value)}
+                  placeholder={"2 oz Rum\n0.75 oz Campari\n1.5 oz Pineapple juice\n0.5 oz Lime juice\n0.5 oz Simple syrup"}
+                  rows={5}
+                />
+                <p className={styles.fieldHint}>One ingredient per line</p>
+              </div>
+
+              {/* Instructions */}
+              <div className={styles.fieldGroup}>
+                <label className={styles.label}>
+                  Instructions <span className={styles.optional}>(optional)</span>
+                </label>
+                <textarea
+                  className={styles.textarea}
+                  value={formData.instructions}
+                  onChange={(e) => handleChange('instructions', e.target.value)}
+                  placeholder="Shake all ingredients with ice and strain into a rocks glass over fresh ice. Garnish with pineapple."
+                  rows={3}
+                />
+              </div>
+
+              {/* Collection */}
+              {collections.length > 0 && (
+                <div className={styles.fieldGroup}>
+                  <label className={styles.label}>
+                    Collection <span className={styles.optional}>(optional)</span>
+                  </label>
+                  <div className={styles.collectionGrid}>
+                    {collections.map((col) => (
+                      <button
+                        key={col.id}
+                        type="button"
+                        className={`${styles.collectionTag} ${formData.collection_id === col.id.toString() ? styles.collectionTagSelected : ''}`}
+                        onClick={() => handleChange('collection_id', formData.collection_id === col.id.toString() ? '' : col.id.toString())}
+                      >
+                        {col.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Expand for more details */}
+              <button
+                type="button"
+                className={styles.detailsToggle}
+                onClick={() => setShowDetails(!showDetails)}
+                aria-expanded={showDetails}
+              >
+                <span>{showDetails ? 'Hide details' : 'More details'}</span>
+                {showDetails ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
+
+              {/* Collapsible Details */}
+              {showDetails && (
+                <div className={styles.detailsSection}>
+                  {/* Glass Type */}
+                  <div className={styles.fieldGroup}>
+                    <label className={styles.label}>Glass</label>
+                    <GlassSelector
+                      value={formData.glass}
+                      onChange={(glass) => handleChange('glass', glass)}
+                    />
+                  </div>
+
+                  {/* Notes */}
+                  <div className={styles.fieldGroup}>
+                    <label className={styles.label}>Notes</label>
+                    <textarea
+                      className={styles.textarea}
+                      rows={2}
+                      placeholder="Variations, history, or personal tips..."
+                      value={formData.notes}
+                      onChange={(e) => handleChange('notes', e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Error Message */}
+              {error && (
+                <div className={styles.error}>
+                  <AlertCircle size={14} />
+                  <span>{error}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className={styles.footer}>
+              <button
+                type="button"
+                className={styles.cancelBtn}
+                onClick={handleClose}
+                disabled={loading}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className={styles.submitBtn}
+                disabled={loading || !formData.name.trim() || !formData.ingredients.trim()}
+              >
+                {loading ? (
+                  'Adding...'
+                ) : (
+                  <>
+                    {formData.spirits.length > 0 && (
+                      <span className={styles.submitDots}>
+                        {formData.spirits.slice(0, 3).map((spiritValue, i) => {
+                          const spirit = SPIRITS.find(s => s.value === spiritValue);
+                          return (
+                            <span
+                              key={spiritValue}
+                              className={styles.submitDot}
+                              style={{
+                                backgroundColor: spirit?.color,
+                                marginLeft: i > 0 ? '-2px' : 0,
+                              }}
+                            />
+                          );
+                        })}
+                      </span>
+                    )}
+                    Add Recipe
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

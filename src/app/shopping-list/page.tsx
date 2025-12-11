@@ -10,21 +10,21 @@ import { ItemDetailModal } from '@/components/modals/ItemDetailModal';
 import type { Recipe, InventoryItem } from '@/types';
 import styles from './shopping-list.module.css';
 
-interface ShoppingItem {
-  id: number;
-  name: string;
-  checked: boolean;
-}
-
 export default function ShoppingListPage() {
   const { isValidating, isAuthenticated } = useAuthGuard();
   const {
     shoppingListSuggestions,
     shoppingListStats,
+    shoppingListItems,
     craftableRecipes,
     nearMissRecipes,
     isLoadingShoppingList,
     fetchShoppingList,
+    fetchShoppingListItems,
+    addShoppingListItem,
+    toggleShoppingListItem,
+    removeShoppingListItem,
+    clearCheckedItems,
     recipes,
     inventoryItems,
     fetchRecipes,
@@ -37,7 +37,6 @@ export default function ShoppingListPage() {
   } = useStore();
 
   const [expandedIngredient, setExpandedIngredient] = useState<number | null>(null);
-  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [customItemInput, setCustomItemInput] = useState('');
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -105,11 +104,12 @@ export default function ShoppingListPage() {
   useEffect(() => {
     if (isAuthenticated && !isValidating) {
       fetchShoppingList().catch(console.error);
+      fetchShoppingListItems().catch(console.error);
       fetchRecipes().catch(console.error);
       fetchItems().catch(console.error);
       fetchFavorites().catch(console.error);
     }
-  }, [isAuthenticated, isValidating, fetchShoppingList, fetchRecipes, fetchItems, fetchFavorites]);
+  }, [isAuthenticated, isValidating, fetchShoppingList, fetchShoppingListItems, fetchRecipes, fetchItems, fetchFavorites]);
 
   // Re-fetch shopping list whenever inventory changes
   useEffect(() => {
@@ -126,34 +126,46 @@ export default function ShoppingListPage() {
     setExpandedIngredient(expandedIngredient === id ? null : id);
   };
 
-  const addToList = (name: string) => {
-    if (shoppingList.some((item) => item.name.toLowerCase() === name.toLowerCase())) return;
-    setShoppingList([...shoppingList, { id: Date.now(), name, checked: false }]);
+  const addToList = async (name: string) => {
+    if (shoppingListItems.some((item) => item.name.toLowerCase() === name.toLowerCase())) return;
+    try {
+      await addShoppingListItem(name);
+    } catch (error) {
+      console.error('Failed to add item:', error);
+    }
   };
 
-  const toggleChecked = (id: number) => {
-    setShoppingList(
-      shoppingList.map((item) =>
-        item.id === id ? { ...item, checked: !item.checked } : item
-      )
-    );
+  const toggleChecked = async (id: number) => {
+    try {
+      await toggleShoppingListItem(id);
+    } catch (error) {
+      console.error('Failed to toggle item:', error);
+    }
   };
 
-  const removeFromList = (id: number) => {
-    setShoppingList(shoppingList.filter((item) => item.id !== id));
+  const removeFromList = async (id: number) => {
+    try {
+      await removeShoppingListItem(id);
+    } catch (error) {
+      console.error('Failed to remove item:', error);
+    }
   };
 
-  const clearCompleted = () => {
-    setShoppingList(shoppingList.filter((item) => !item.checked));
+  const clearCompleted = async () => {
+    try {
+      await clearCheckedItems();
+    } catch (error) {
+      console.error('Failed to clear completed:', error);
+    }
   };
 
   const isInList = (name: string) => {
-    return shoppingList.some((item) => item.name.toLowerCase() === name.toLowerCase());
+    return shoppingListItems.some((item) => item.name.toLowerCase() === name.toLowerCase());
   };
 
-  const handleAddCustomItem = () => {
+  const handleAddCustomItem = async () => {
     if (customItemInput.trim()) {
-      addToList(customItemInput.trim());
+      await addToList(customItemInput.trim());
       setCustomItemInput('');
     }
   };
@@ -218,7 +230,8 @@ export default function ShoppingListPage() {
   };
 
   // Calculate impact summary
-  const uncheckedItems = shoppingList.filter((item) => !item.checked);
+  const uncheckedItems = shoppingListItems.filter((item) => !item.checked);
+  const checkedItems = shoppingListItems.filter((item) => item.checked);
   const totalUnlocks = uncheckedItems.reduce((sum, item) => {
     const rec = recommendations.find(
       (r) => r.name.toLowerCase() === item.name.toLowerCase()
@@ -426,7 +439,7 @@ export default function ShoppingListPage() {
                   </span>
                 </div>
 
-                {shoppingList.length === 0 ? (
+                {shoppingListItems.length === 0 ? (
                   <div className={styles.emptyList}>
                     <p className={styles.emptyListText}>No items yet</p>
                     <p className={styles.emptyListHint}>Click &quot;+ Add&quot; on recommendations</p>
@@ -451,32 +464,30 @@ export default function ShoppingListPage() {
                     ))}
 
                     {/* Checked items */}
-                    {shoppingList
-                      .filter((item) => item.checked)
-                      .map((item) => (
-                        <div key={item.id} className={`${styles.shoppingItem} ${styles.checkedItem}`}>
-                          <button
-                            className={`${styles.checkbox} ${styles.checkboxChecked}`}
-                            onClick={() => toggleChecked(item.id)}
-                          >
-                            <Check size={12} />
-                          </button>
-                          <span className={`${styles.itemName} ${styles.checkedName}`}>
-                            {item.name}
-                          </span>
-                          <button
-                            className={styles.removeBtn}
-                            onClick={() => removeFromList(item.id)}
-                          >
-                            <X size={16} />
-                          </button>
-                        </div>
-                      ))}
+                    {checkedItems.map((item) => (
+                      <div key={item.id} className={`${styles.shoppingItem} ${styles.checkedItem}`}>
+                        <button
+                          className={`${styles.checkbox} ${styles.checkboxChecked}`}
+                          onClick={() => toggleChecked(item.id)}
+                        >
+                          <Check size={12} />
+                        </button>
+                        <span className={`${styles.itemName} ${styles.checkedName}`}>
+                          {item.name}
+                        </span>
+                        <button
+                          className={styles.removeBtn}
+                          onClick={() => removeFromList(item.id)}
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
 
                 {/* Clear completed */}
-                {shoppingList.some((item) => item.checked) && (
+                {checkedItems.length > 0 && (
                   <div className={styles.clearCompletedRow}>
                     <button className={styles.clearCompletedBtn} onClick={clearCompleted}>
                       Clear Completed

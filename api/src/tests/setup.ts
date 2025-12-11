@@ -130,6 +130,18 @@ export function createTestDatabase(): Database.Database {
     )
   `);
 
+  // Shopping list items table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS shopping_list_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      checked INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
   // Token blacklist table for logout tests
   db.exec(`
     CREATE TABLE IF NOT EXISTS token_blacklist (
@@ -147,6 +159,7 @@ export function createTestDatabase(): Database.Database {
   db.exec('CREATE INDEX IF NOT EXISTS idx_recipes_memmachine_uid ON recipes(memmachine_uid)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites(user_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_favorites_recipe_id ON favorites(recipe_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_shopping_list_items_user_id ON shopping_list_items(user_id)');
 
   // Store the database path on the instance for cleanup
   (db as any).__testDbPath = uniqueDbPath;

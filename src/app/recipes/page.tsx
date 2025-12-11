@@ -6,27 +6,15 @@ import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { Button, useToast, Spinner } from '@/components/ui';
 import { Card } from '@/components/ui/Card';
-import { Search, Star, ChevronLeft, ChevronRight, Trash2, FolderOpen, Plus, Check, Martini, Upload } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, FolderOpen, Plus, Martini, Upload } from 'lucide-react';
 import { CSVUploadModal, RecipeDetailModal, DeleteConfirmModal, CollectionModal, AddRecipeModal } from '@/components/modals';
-import { RecipeMolecule } from '@/components/RecipeMolecule';
+import { RecipeCard } from '@/components/RecipeCard';
 import { recipeApi } from '@/lib/api';
 import type { Recipe, Collection } from '@/types';
 import { matchesSpiritCategory, SpiritCategory } from '@/lib/spirits';
 import styles from './recipes.module.css';
 
-// Spirit colors for card borders
-const SPIRIT_COLORS: Record<string, string> = {
-  'Gin': '#0EA5E9',
-  'Whiskey': '#D97706',
-  'Tequila': '#0D9488',
-  'Rum': '#65A30D',
-  'Vodka': '#94A3B8',
-  'Brandy': '#8B5CF6',
-  'Liqueur': '#EC4899',
-  'Other Spirits': '#64748B',
-};
-
-// Spirit keywords for ingredient detection
+// Spirit keywords for ingredient detection (used for filter dropdown)
 const SPIRIT_KEYWORDS: Record<string, string[]> = {
   'Gin': ['gin', 'london dry', 'plymouth', 'navy strength', 'sloe gin'],
   'Whiskey': ['whiskey', 'whisky', 'bourbon', 'rye', 'scotch', 'irish whiskey', 'japanese whisky'],
@@ -37,20 +25,18 @@ const SPIRIT_KEYWORDS: Record<string, string[]> = {
   'Liqueur': ['liqueur', 'amaretto', 'cointreau', 'triple sec', 'curacao', 'chartreuse', 'benedictine', 'campari', 'aperol', 'kahlua', 'baileys', 'frangelico', 'maraschino', 'absinthe', 'st germain', 'grand marnier', 'drambuie', 'midori', 'galliano', 'sambuca', 'limoncello'],
 };
 
-// Get all spirit colors from ingredients
+// Get spirit types from ingredients (used for filter dropdown)
 const getIngredientSpirits = (ingredients: string[]): string[] => {
   const foundSpirits = new Set<string>();
-
   for (const ingredient of ingredients) {
     const lowerIngredient = ingredient.toLowerCase();
     for (const [spirit, keywords] of Object.entries(SPIRIT_KEYWORDS)) {
       if (keywords.some(keyword => lowerIngredient.includes(keyword))) {
         foundSpirits.add(spirit);
-        break; // Only match one spirit per ingredient
+        break;
       }
     }
   }
-
   return Array.from(foundSpirits);
 };
 
@@ -652,61 +638,18 @@ function RecipesPageContent() {
 
                 {/* Recipe Grid */}
                 <div className={styles.recipesGrid}>
-                  {filteredRecipes.slice(0, 8).map((recipe) => {
-                    const ingredients = parseIngredients(recipe.ingredients);
-                    const spirits = getIngredientSpirits(ingredients);
-                    const spiritColors = spirits.length > 0
-                      ? spirits.map(s => SPIRIT_COLORS[s] || '#94A3B8')
-                      : ['#94A3B8']; // Default gray if no spirits found
-                    const craftable = isRecipeCraftable(recipe);
-                    const isSelected = selectedRecipes.has(recipe.id!);
-
-                    return (
-                      <div
-                        key={recipe.id}
-                        className={styles.recipeCard}
-                        onClick={() => setSelectedRecipe(recipe)}
-                      >
-                        <div className={styles.recipeImage}>
-                          <button
-                            className={`${styles.selectionCheckbox} ${isSelected ? styles.selected : ''}`}
-                            onClick={(e) => { e.stopPropagation(); toggleRecipeSelection(recipe.id!); }}
-                          >
-                            {isSelected && <Check size={12} />}
-                          </button>
-                          {craftable && <div className={styles.craftableDot} title="Craftable" />}
-                          <RecipeMolecule recipe={recipe} size="thumbnail" showLegend={false} />
-                        </div>
-                        <div className={styles.recipeContent}>
-                          <div className={styles.recipeHeader}>
-                            <h3 className={styles.recipeName}>{recipe.name}</h3>
-                            <button
-                              className={`${styles.favoriteBtn} ${isFavorited(recipe.id!) ? styles.favorited : ''}`}
-                              onClick={(e) => { e.stopPropagation(); handleToggleFavorite(recipe); }}
-                            >
-                              <Star size={16} fill={isFavorited(recipe.id!) ? 'currentColor' : 'none'} />
-                            </button>
-                          </div>
-                          {spirits.length > 0 && (
-                            <div className={styles.spiritBadges}>
-                              {spirits.map((spirit, idx) => (
-                                <span
-                                  key={idx}
-                                  className={styles.spiritBadge}
-                                  style={{ backgroundColor: `${SPIRIT_COLORS[spirit]}15`, color: SPIRIT_COLORS[spirit] }}
-                                >
-                                  {spirit}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                          <p className={styles.ingredients}>
-                            {ingredients.slice(0, 2).join(' · ')}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {filteredRecipes.slice(0, 8).map((recipe) => (
+                    <RecipeCard
+                      key={recipe.id}
+                      recipe={recipe}
+                      isFavorited={isFavorited(recipe.id!)}
+                      isSelected={selectedRecipes.has(recipe.id!)}
+                      isCraftable={isRecipeCraftable(recipe)}
+                      onSelect={() => setSelectedRecipe(recipe)}
+                      onToggleSelection={() => toggleRecipeSelection(recipe.id!)}
+                      onToggleFavorite={() => handleToggleFavorite(recipe)}
+                    />
+                  ))}
                 </div>
               </div>
             )}
@@ -765,57 +708,18 @@ function RecipesPageContent() {
             </div>
 
             <div className={styles.recipesGrid}>
-              {displayedRecipes.map((recipe) => {
-                const ingredients = parseIngredients(recipe.ingredients);
-                const spirits = getIngredientSpirits(ingredients);
-                const spiritColors = spirits.length > 0
-                  ? spirits.map(s => SPIRIT_COLORS[s] || '#94A3B8')
-                  : ['#94A3B8'];
-                const craftable = isRecipeCraftable(recipe);
-                const isSelected = selectedRecipes.has(recipe.id!);
-
-                return (
-                  <div
-                    key={recipe.id}
-                    className={styles.recipeCard}
-                    onClick={() => setSelectedRecipe(recipe)}
-                  >
-                    <div className={styles.recipeImage}>
-                      <button
-                        className={`${styles.selectionCheckbox} ${isSelected ? styles.selected : ''}`}
-                        onClick={(e) => { e.stopPropagation(); toggleRecipeSelection(recipe.id!); }}
-                      >
-                        {isSelected && <Check size={12} />}
-                      </button>
-                      {craftable && <div className={styles.craftableDot} title="Craftable" />}
-                      <RecipeMolecule recipe={recipe} size="thumbnail" showLegend={false} />
-                    </div>
-                    <div className={styles.recipeContent}>
-                      <div className={styles.recipeHeader}>
-                        <h3 className={styles.recipeName}>{recipe.name}</h3>
-                        <button
-                          className={`${styles.favoriteBtn} ${isFavorited(recipe.id!) ? styles.favorited : ''}`}
-                          onClick={(e) => { e.stopPropagation(); handleToggleFavorite(recipe); }}
-                        >
-                          <Star size={16} fill={isFavorited(recipe.id!) ? 'currentColor' : 'none'} />
-                        </button>
-                      </div>
-                      {spirits.length > 0 && (
-                        <div className={styles.spiritBadges}>
-                          {spirits.map((spirit, idx) => (
-                            <span key={idx} className={styles.spiritBadge} style={{ backgroundColor: `${SPIRIT_COLORS[spirit]}15`, color: SPIRIT_COLORS[spirit] }}>
-                              {spirit}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      <p className={styles.ingredients}>
-                        {ingredients.slice(0, 2).join(' · ')}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
+              {displayedRecipes.map((recipe) => (
+                <RecipeCard
+                  key={recipe.id}
+                  recipe={recipe}
+                  isFavorited={isFavorited(recipe.id!)}
+                  isSelected={selectedRecipes.has(recipe.id!)}
+                  isCraftable={isRecipeCraftable(recipe)}
+                  onSelect={() => setSelectedRecipe(recipe)}
+                  onToggleSelection={() => toggleRecipeSelection(recipe.id!)}
+                  onToggleFavorite={() => handleToggleFavorite(recipe)}
+                />
+              ))}
             </div>
 
             {/* Collection pagination */}
@@ -875,57 +779,18 @@ function RecipesPageContent() {
               </Card>
             ) : (
               <div className={styles.recipesGrid}>
-                {filteredRecipes.map((recipe) => {
-                  const ingredients = parseIngredients(recipe.ingredients);
-                  const spirits = getIngredientSpirits(ingredients);
-                  const spiritColors = spirits.length > 0
-                    ? spirits.map(s => SPIRIT_COLORS[s] || '#94A3B8')
-                    : ['#94A3B8'];
-                  const craftable = isRecipeCraftable(recipe);
-                  const isSelected = selectedRecipes.has(recipe.id!);
-
-                  return (
-                    <div
-                      key={recipe.id}
-                      className={styles.recipeCard}
-                      onClick={() => setSelectedRecipe(recipe)}
-                    >
-                      <div className={styles.recipeImage}>
-                        <button
-                          className={`${styles.selectionCheckbox} ${isSelected ? styles.selected : ''}`}
-                          onClick={(e) => { e.stopPropagation(); toggleRecipeSelection(recipe.id!); }}
-                        >
-                          {isSelected && <Check size={12} />}
-                        </button>
-                        {craftable && <div className={styles.craftableDot} title="Craftable" />}
-                        <RecipeMolecule recipe={recipe} size="thumbnail" showLegend={false} />
-                      </div>
-                      <div className={styles.recipeContent}>
-                        <div className={styles.recipeHeader}>
-                          <h3 className={styles.recipeName}>{recipe.name}</h3>
-                          <button
-                            className={`${styles.favoriteBtn} ${isFavorited(recipe.id!) ? styles.favorited : ''}`}
-                            onClick={(e) => { e.stopPropagation(); handleToggleFavorite(recipe); }}
-                          >
-                            <Star size={16} fill={isFavorited(recipe.id!) ? 'currentColor' : 'none'} />
-                          </button>
-                        </div>
-                        {spirits.length > 0 && (
-                          <div className={styles.spiritBadges}>
-                            {spirits.map((spirit, idx) => (
-                              <span key={idx} className={styles.spiritBadge} style={{ backgroundColor: `${SPIRIT_COLORS[spirit]}15`, color: SPIRIT_COLORS[spirit] }}>
-                                {spirit}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <p className={styles.ingredients}>
-                          {ingredients.slice(0, 2).join(' · ')}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
+                {filteredRecipes.map((recipe) => (
+                  <RecipeCard
+                    key={recipe.id}
+                    recipe={recipe}
+                    isFavorited={isFavorited(recipe.id!)}
+                    isSelected={selectedRecipes.has(recipe.id!)}
+                    isCraftable={isRecipeCraftable(recipe)}
+                    onSelect={() => setSelectedRecipe(recipe)}
+                    onToggleSelection={() => toggleRecipeSelection(recipe.id!)}
+                    onToggleFavorite={() => handleToggleFavorite(recipe)}
+                  />
+                ))}
               </div>
             )}
 

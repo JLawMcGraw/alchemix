@@ -5,22 +5,24 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '@/lib/store';
-import { Home, Wine, Sparkles, BookOpen, ShoppingCart, Star, LogOut, Menu, X, User, Settings } from 'lucide-react';
+import { Settings, LogOut } from 'lucide-react';
 import { AlcheMixLogo, VerificationBanner } from '@/components/ui';
 import styles from './TopNav.module.css';
 
 export const TopNav: React.FC = () => {
   const pathname = usePathname();
   const router = useRouter();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Use shallow comparison to prevent rerenders from unrelated state changes
-  const { user, isAuthenticated, logout } = useStore(
+  const { user, isAuthenticated, logout, favorites, shoppingListItems } = useStore(
     useShallow((state) => ({
       user: state.user,
       isAuthenticated: state.isAuthenticated,
       logout: state.logout,
+      favorites: state.favorites,
+      shoppingListItems: state.shoppingListItems,
     }))
   );
 
@@ -28,52 +30,61 @@ export const TopNav: React.FC = () => {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setMenuOpen(false);
+        setUserMenuOpen(false);
       }
     };
 
-    if (menuOpen) {
+    if (userMenuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [menuOpen]);
+  }, [userMenuOpen]);
 
   // Close menu on route change
   useEffect(() => {
-    setMenuOpen(false);
+    setUserMenuOpen(false);
   }, [pathname]);
 
+  // Get user initials for avatar
+  const getUserInitials = (): string => {
+    if (!user?.email) return '?';
+    const email = user.email;
+    const username = email.split('@')[0];
+    if (username.length >= 2) {
+      return username.substring(0, 2).toUpperCase();
+    }
+    return username.charAt(0).toUpperCase();
+  };
+
   const handleLogout = () => {
-    setMenuOpen(false);
+    setUserMenuOpen(false);
     logout();
     router.push('/login');
   };
 
-  const toggleMenu = () => {
-    setMenuOpen(!menuOpen);
-  };
-
-  // Don't show nav on login page
-  if (pathname === '/login') {
-    return null;
-  }
-
-  // If not authenticated, don't show nav
-  if (!isAuthenticated) {
-    return null;
-  }
+  // Badge counts
+  const favoritesCount = Array.isArray(favorites) ? favorites.length : 0;
+  // Count only unchecked items in shopping list
+  const shoppingListCount = Array.isArray(shoppingListItems)
+    ? shoppingListItems.filter(item => !item.checked).length
+    : 0;
 
   const navItems = [
-    { href: '/dashboard', label: 'Dashboard', Icon: Home },
-    { href: '/bar', label: 'My Bar', Icon: Wine },
-    { href: '/ai', label: 'AI Bartender', Icon: Sparkles },
-    { href: '/recipes', label: 'Recipes', Icon: BookOpen },
-    { href: '/shopping-list', label: 'Shopping List', Icon: ShoppingCart },
-    { href: '/favorites', label: 'Favorites', Icon: Star },
+    { href: '/dashboard', label: 'Dashboard' },
+    { href: '/bar', label: 'My Bar' },
+    { href: '/ai', label: 'AI Bartender', indicator: true },
+    { href: '/recipes', label: 'Recipes' },
+    { href: '/shopping-list', label: 'Shopping List', badge: shoppingListCount > 0 ? shoppingListCount : undefined },
+    { href: '/favorites', label: 'Favorites', badge: favoritesCount > 0 ? favoritesCount : undefined },
   ];
+
+  // Don't show nav on login page or if not authenticated
+  if (pathname === '/login' || !isAuthenticated) {
+    return null;
+  }
 
   return (
     <>
@@ -86,69 +97,65 @@ export const TopNav: React.FC = () => {
 
           {/* Navigation Links */}
           <div className={styles.navLinks}>
-            {navItems.map((item) => {
-              const Icon = item.Icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`${styles.navLink} ${
-                    pathname === item.href ? styles.active : ''
-                  }`}
-                >
-                  <Icon className={styles.navIcon} size={18} />
-                  <span className={styles.navLabel}>{item.label}</span>
-                </Link>
-              );
-            })}
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`${styles.navLink} ${
+                  pathname === item.href ? styles.active : ''
+                }`}
+              >
+                {item.indicator && <span className={styles.aiIndicator} />}
+                <span className={styles.navLabel}>{item.label}</span>
+                {item.badge !== undefined && (
+                  <span className={styles.badge}>{item.badge}</span>
+                )}
+              </Link>
+            ))}
           </div>
 
-          {/* Hamburger Menu */}
+          {/* User Avatar */}
           <div className={styles.menuContainer} ref={menuRef}>
             <button
-              onClick={toggleMenu}
-              className={styles.hamburgerBtn}
-              aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-              aria-expanded={menuOpen}
+              onClick={() => setUserMenuOpen(!userMenuOpen)}
+              className={`${styles.avatar} ${userMenuOpen ? styles.avatarOpen : ''}`}
+              aria-label="User menu"
+              aria-expanded={userMenuOpen}
             >
-              {menuOpen ? <X size={24} /> : <Menu size={24} />}
+              {getUserInitials()}
             </button>
 
             {/* Dropdown Menu */}
-            <div className={`${styles.dropdownMenu} ${menuOpen ? styles.dropdownOpen : ''}`}>
-              {/* User Email */}
+            <div className={`${styles.dropdownMenu} ${userMenuOpen ? styles.dropdownOpen : ''}`}>
+              {/* User Info */}
               <div className={styles.menuHeader}>
-                <span className={styles.menuEmail}>{user?.email}</span>
+                <div className={styles.menuName}>{user?.email?.split('@')[0] || 'User'}</div>
+                <div className={styles.menuEmail}>{user?.email}</div>
               </div>
 
               <div className={styles.menuDivider} />
 
               {/* Menu Items */}
-              <Link
-                href="/account"
-                className={styles.menuItem}
-                onClick={() => setMenuOpen(false)}
-              >
-                <User size={18} />
-                <span>Account</span>
-              </Link>
-
-              <Link
-                href="/settings"
-                className={styles.menuItem}
-                onClick={() => setMenuOpen(false)}
-              >
-                <Settings size={18} />
-                <span>Settings</span>
-              </Link>
+              <div className={styles.menuSection}>
+                <Link
+                  href="/account"
+                  className={styles.menuItem}
+                  onClick={() => setUserMenuOpen(false)}
+                >
+                  <Settings size={16} className={styles.menuIcon} />
+                  <span>Settings</span>
+                </Link>
+              </div>
 
               <div className={styles.menuDivider} />
 
               {/* Logout */}
-              <button onClick={handleLogout} className={styles.menuItem}>
-                <LogOut size={18} />
-                <span>Logout</span>
-              </button>
+              <div className={styles.menuSection}>
+                <button onClick={handleLogout} className={`${styles.menuItem} ${styles.danger}`}>
+                  <LogOut size={16} className={styles.menuIcon} />
+                  <span>Log Out</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

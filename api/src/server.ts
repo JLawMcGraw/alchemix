@@ -71,6 +71,7 @@ import favoritesRoutes from './routes/favorites';
 import messagesRoutes from './routes/messages';
 import shoppingListRoutes from './routes/shoppingList';
 import healthRoutes from './routes/health';
+import glassesRoutes from './routes/glasses';
 
 // Import CSRF middleware for cookie-based auth protection
 import { csrfMiddleware } from './middleware/csrf';
@@ -518,6 +519,7 @@ app.use('/auth', authRoutes);                  // Mount auth routes
 app.use('/api/inventory-items', csrfMiddleware, inventoryItemsRoutes);  // Inventory system with categories
 app.use('/api/recipes', csrfMiddleware, recipesRoutes);
 app.use('/api/collections', csrfMiddleware, collectionsRoutes);
+app.use('/api/glasses', csrfMiddleware, glassesRoutes);                 // Custom glassware types
 app.use('/api/shopping-list', csrfMiddleware, shoppingListRoutes);
 app.use('/api/favorites', csrfMiddleware, favoritesRoutes);
 app.use('/api/messages', aiLimiter, csrfMiddleware, messagesRoutes);    // 30 messages/hour (AI cost control)

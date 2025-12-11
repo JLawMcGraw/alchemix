@@ -1,116 +1,93 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Edit2, X, AlertCircle } from 'lucide-react';
-import { Button, Input, Spinner, SuccessCheckmark } from '@/components/ui';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { X, ChevronDown, ChevronUp, AlertCircle, Plus, Minus, Trash2 } from 'lucide-react';
+import { SuccessCheckmark } from '@/components/ui';
 import type { InventoryItem, InventoryCategory } from '@/types';
-import styles from './BottleFormModal.module.css';
+import styles from './EditBottleModal.module.css';
 
 interface EditBottleModalProps {
   isOpen: boolean;
   onClose: () => void;
   bottle: InventoryItem | null;
   onUpdate: (id: number, item: Partial<InventoryItem>) => Promise<void>;
+  onDelete?: (id: number) => Promise<void>;
 }
 
-type FormDataState = {
+type FormState = {
   name: string;
   category: InventoryCategory;
   type: string;
+  quantity: number;
   abv: string;
-  stock_number: string;
-  spirit_classification: string;
-  distillation_method: string;
-  distillery_location: string;
-  age_statement: string;
-  additional_notes: string;
-  profile_nose: string;
-  palate: string;
-  finish: string;
+  origin: string;
+  notes: string;
 };
 
-export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottleModalProps) {
-  const [formData, setFormData] = useState<FormDataState>({
+const CATEGORIES: { value: InventoryCategory; label: string }[] = [
+  { value: 'spirit', label: 'Spirit' },
+  { value: 'liqueur', label: 'Liqueur' },
+  { value: 'mixer', label: 'Mixer' },
+  { value: 'syrup', label: 'Syrup' },
+  { value: 'garnish', label: 'Garnish' },
+  { value: 'other', label: 'Other' },
+];
+
+export function EditBottleModal({ isOpen, onClose, bottle, onUpdate, onDelete }: EditBottleModalProps) {
+  const [formData, setFormData] = useState<FormState>({
     name: '',
     category: 'spirit',
     type: '',
+    quantity: 1,
     abv: '',
-    stock_number: '',
-    spirit_classification: '',
-    distillation_method: '',
-    distillery_location: '',
-    age_statement: '',
-    additional_notes: '',
-    profile_nose: '',
-    palate: '',
-    finish: '',
+    origin: '',
+    notes: '',
   });
 
+  const [originalData, setOriginalData] = useState<FormState | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [isDirty, setIsDirty] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   const modalRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
 
+  // Populate form when bottle changes
   useEffect(() => {
     if (bottle) {
-      const stockValue = bottle.stock_number !== null && bottle.stock_number !== undefined
-        ? bottle.stock_number.toString()
-        : '0';
-
-      setFormData({
+      const data: FormState = {
         name: bottle.name || '',
         category: bottle.category || 'spirit',
         type: bottle.type || '',
+        quantity: bottle.stock_number ?? 1,
         abv: bottle.abv?.toString() || '',
-        stock_number: stockValue,
-        spirit_classification: bottle.spirit_classification || '',
-        distillation_method: bottle.distillation_method || '',
-        distillery_location: bottle.distillery_location || '',
-        age_statement: bottle.age_statement || '',
-        additional_notes: bottle.additional_notes || '',
-        profile_nose: bottle.profile_nose || '',
-        palate: bottle.palate || '',
-        finish: bottle.finish || '',
-      });
-      // Reset scroll position when bottle changes
-      if (contentRef.current) {
-        contentRef.current.scrollTop = 0;
-      }
+        origin: bottle.distillery_location || '',
+        notes: bottle.tasting_notes || bottle.additional_notes || '',
+      };
+      setFormData(data);
+      setOriginalData(data);
+      setShowDetails(false);
     }
   }, [bottle]);
 
-  // Focus management and keyboard shortcuts
   useEffect(() => {
     if (isOpen) {
-      // Lock body scroll
+      setShowSuccess(false);
       document.body.style.overflow = 'hidden';
 
-      // Reset content scroll position
-      if (contentRef.current) {
-        contentRef.current.scrollTop = 0;
-      }
-
-      // Auto-focus first input
       setTimeout(() => firstInputRef.current?.focus(), 100);
 
-      // Handle keyboard events
       const handleKeyDown = (e: KeyboardEvent) => {
-        // ESC to close
         if (e.key === 'Escape') {
           e.preventDefault();
           handleClose();
           return;
         }
 
-        // Tab key focus trapping
         if (e.key === 'Tab' && modalRef.current) {
           const focusableElements = modalRef.current.querySelectorAll<HTMLElement>(
-            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            'button, input, textarea, [tabindex]:not([tabindex="-1"])'
           );
           const firstElement = focusableElements[0];
           const lastElement = focusableElements[focusableElements.length - 1];
@@ -128,54 +105,49 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
       document.addEventListener('keydown', handleKeyDown);
       return () => {
         document.removeEventListener('keydown', handleKeyDown);
-        // Unlock body scroll when modal closes
         document.body.style.overflow = '';
       };
     } else {
-      // Ensure body scroll is unlocked when modal is closed
       document.body.style.overflow = '';
     }
   }, [isOpen]);
 
+  // Calculate changed fields
+  const changedFields = useMemo(() => {
+    if (!originalData) return [];
+    return Object.keys(formData).filter(
+      key => formData[key as keyof FormState] !== originalData[key as keyof FormState]
+    );
+  }, [formData, originalData]);
+
+  const hasChanges = changedFields.length > 0;
+
+  // Check if details section has changes
+  const detailsHaveChanges = changedFields.some(f => ['abv', 'origin', 'notes'].includes(f));
+
   if (!isOpen || !bottle) return null;
 
-  const validateField = (field: string, value: string): string => {
-    switch (field) {
-      case 'name':
-        return !value.trim() ? 'Name is required' : '';
-      case 'stock_number': {
-        if (!value) return '';
-        const num = parseInt(value);
-        if (isNaN(num)) return 'Must be a valid number';
-        if (num < 0) return 'Cannot be negative';
-        return '';
-      }
-      case 'abv': {
-        if (!value) return '';
-        const num = parseFloat(value);
-        if (isNaN(num)) return 'Must be a valid number';
-        if (num < 0 || num > 100) return 'Must be between 0 and 100';
-        return '';
-      }
-      default:
-        return '';
-    }
-  };
-
-  const handleChange = (field: string, value: string) => {
+  const handleChange = <K extends keyof FormState>(field: K, value: FormState[K]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    setIsDirty(true); // Mark form as dirty
-
-    // Validate the field
-    const error = validateField(field, value);
-    setFieldErrors((prev) => ({
-      ...prev,
-      [field]: error,
-    }));
   };
+
+  const handleQuantityChange = (delta: number) => {
+    const newValue = Math.max(0, formData.quantity + delta);
+    handleChange('quantity', newValue);
+  };
+
+  const isFieldChanged = (field: keyof FormState) => changedFields.includes(field);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.name.trim()) {
+      setError('Name is required');
+      return;
+    }
+
+    if (!hasChanges) return;
+
     setLoading(true);
     setError(null);
 
@@ -184,26 +156,44 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
         name: formData.name,
         category: formData.category,
         type: formData.type || undefined,
+        stock_number: formData.quantity,
         abv: formData.abv || undefined,
-        stock_number: formData.stock_number !== '' ? parseInt(formData.stock_number) : undefined,
-        spirit_classification: formData.spirit_classification || undefined,
-        distillation_method: formData.distillation_method || undefined,
-        distillery_location: formData.distillery_location || undefined,
-        age_statement: formData.age_statement || undefined,
-        additional_notes: formData.additional_notes || undefined,
-        profile_nose: formData.profile_nose || undefined,
-        palate: formData.palate || undefined,
-        finish: formData.finish || undefined,
+        distillery_location: formData.origin || undefined,
+        tasting_notes: formData.notes || undefined,
       };
 
       await onUpdate(bottle.id!, updates);
-      setIsDirty(false); // Reset dirty flag on successful save
-      setShowSuccess(true); // Show success animation
+      setShowSuccess(true);
     } catch (err: unknown) {
       if (err instanceof Error) {
-        setError(err.message || 'Failed to update bottle');
+        setError(err.message || 'Failed to update item');
       } else {
-        setError('Failed to update bottle');
+        setError('Failed to update item');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!onDelete || !bottle.id) return;
+
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete "${bottle.name}"? This action cannot be undone.`
+    );
+    if (!confirmDelete) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      await onDelete(bottle.id);
+      onClose();
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || 'Failed to delete item');
+      } else {
+        setError('Failed to delete item');
       }
     } finally {
       setLoading(false);
@@ -211,17 +201,17 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
   };
 
   const handleClose = () => {
-    // Confirm if there are unsaved changes
-    if (isDirty && !loading) {
+    if (hasChanges && !loading && !showSuccess) {
       const confirmClose = window.confirm(
-        'You have unsaved changes. Are you sure you want to close this form?'
+        'You have unsaved changes. Are you sure you want to close?'
       );
       if (!confirmClose) return;
     }
 
     setError(null);
     setLoading(false);
-    setIsDirty(false);
+    setShowSuccess(false);
+    setShowDetails(false);
     onClose();
   };
 
@@ -229,7 +219,7 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
     <>
       {showSuccess && (
         <SuccessCheckmark
-          message="Bottle updated successfully!"
+          message="Item updated successfully!"
           onComplete={handleClose}
         />
       )}
@@ -238,187 +228,228 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate }: EditBottl
           className={styles.modal}
           onClick={(e) => e.stopPropagation()}
           ref={modalRef}
-        role="dialog"
-        aria-labelledby="edit-bottle-title"
-        aria-describedby="edit-bottle-desc"
-        aria-modal="true"
-      >
-        <div className={styles.header}>
-          <h2 className={styles.title} id="edit-bottle-title">
-            <Edit2 size={24} style={{ marginRight: '12px', verticalAlign: 'middle' }} />
-            Edit Bottle
-          </h2>
-          <button
-            className={styles.closeBtn}
-            onClick={handleClose}
-            aria-label="Close modal"
-          >
-            <X size={24} />
-          </button>
-        </div>
+          role="dialog"
+          aria-labelledby="edit-bottle-title"
+          aria-modal="true"
+        >
+          {/* Header */}
+          <div className={styles.header}>
+            <div className={styles.headerContent}>
+              <h2 className={styles.title} id="edit-bottle-title">Edit Item</h2>
+              {hasChanges && (
+                <span className={styles.changeCount}>
+                  {changedFields.length} field{changedFields.length !== 1 ? 's' : ''} changed
+                </span>
+              )}
+            </div>
+            <button
+              className={styles.closeBtn}
+              onClick={handleClose}
+              aria-label="Close modal"
+              type="button"
+            >
+              <X size={20} />
+            </button>
+          </div>
 
-        <form onSubmit={handleSubmit} className={styles.form}>
-          <div className={styles.content} id="edit-bottle-desc" ref={contentRef}>
-            <div className={styles.formGrid}>
-              {/* Basic Information */}
-              <div className={styles.formSection}>
-                <h3 className={styles.sectionTitle}>Basic Information</h3>
-                <Input
+          {/* Content */}
+          <form onSubmit={handleSubmit} className={styles.form}>
+            <div className={styles.content}>
+              {/* Quick Quantity Adjust */}
+              <div className={styles.quantityCard}>
+                <div className={styles.quantityInfo}>
+                  <div className={styles.quantityLabel}>
+                    Quantity
+                    {isFieldChanged('quantity') && <span className={styles.changeIndicator} />}
+                  </div>
+                  <div className={styles.quantityHint}>Quick adjust stock level</div>
+                </div>
+                <div className={styles.quantityStepper}>
+                  <button
+                    type="button"
+                    className={styles.stepperBtn}
+                    onClick={() => handleQuantityChange(-1)}
+                    disabled={formData.quantity <= 0}
+                    aria-label="Decrease quantity"
+                  >
+                    <Minus size={16} />
+                  </button>
+                  <input
+                    type="text"
+                    className={`${styles.quantityInput} ${isFieldChanged('quantity') ? styles.inputChanged : ''}`}
+                    value={formData.quantity}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9]/g, '');
+                      handleChange('quantity', parseInt(val) || 0);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className={styles.stepperBtn}
+                    onClick={() => handleQuantityChange(1)}
+                    aria-label="Increase quantity"
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Name */}
+              <div className={styles.fieldGroup}>
+                <label className={styles.label}>
+                  Name <span className={styles.required}>*</span>
+                  {isFieldChanged('name') && <span className={styles.changeIndicator} />}
+                </label>
+                <input
                   ref={firstInputRef}
-                  label="Name *"
+                  type="text"
+                  className={`${styles.input} ${isFieldChanged('name') ? styles.inputChanged : ''}`}
                   value={formData.name}
                   onChange={(e) => handleChange('name', e.target.value)}
-                  placeholder="e.g., Maker's Mark Bourbon"
-                  required
-                  fullWidth
-                  error={fieldErrors.name}
                 />
-                <Input
-                  label="Stock Number"
+              </div>
+
+              {/* Category */}
+              <div className={styles.fieldGroup}>
+                <label className={styles.label}>
+                  Category
+                  {isFieldChanged('category') && <span className={styles.changeIndicator} />}
+                </label>
+                <div className={styles.categoryGrid}>
+                  {CATEGORIES.map((cat) => (
+                    <button
+                      key={cat.value}
+                      type="button"
+                      className={`${styles.categoryBtn} ${formData.category === cat.value ? styles.categoryBtnActive : ''}`}
+                      onClick={() => handleChange('category', cat.value)}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Type */}
+              <div className={styles.fieldGroup}>
+                <label className={styles.label}>
+                  Type
+                  {isFieldChanged('type') && <span className={styles.changeIndicator} />}
+                </label>
+                <input
                   type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={formData.stock_number}
-                  onChange={(e) => {
-                    // Only allow digits
-                    const value = e.target.value.replace(/[^0-9]/g, '');
-                    handleChange('stock_number', value);
-                  }}
-                  placeholder="e.g., 0, 1, 2..."
-                  fullWidth
-                  error={fieldErrors.stock_number}
-                />
-                <Input
-                  label="Type"
+                  className={`${styles.input} ${isFieldChanged('type') ? styles.inputChanged : ''}`}
+                  placeholder="e.g., Bourbon, London Dry"
                   value={formData.type}
                   onChange={(e) => handleChange('type', e.target.value)}
-                  placeholder="e.g., Bourbon, Gin, Citrus"
-                  fullWidth
                 />
               </div>
 
-              {/* Classification & Details */}
-              <div className={styles.formSection}>
-                <h3 className={styles.sectionTitle}>Classification & Details</h3>
-                <Input
-                  label="Detailed Spirit Classification"
-                  value={formData.spirit_classification}
-                  onChange={(e) => handleChange('spirit_classification', e.target.value)}
-                  placeholder="e.g., Kentucky Straight Bourbon"
-                  fullWidth
-                />
-                <Input
-                  label="Distillation Method"
-                  value={formData.distillation_method}
-                  onChange={(e) => handleChange('distillation_method', e.target.value)}
-                  placeholder="e.g., Pot Still, Column Still"
-                  fullWidth
-                />
-                <Input
-                  label="ABV (%)"
-                  type="number"
-                  step="0.1"
-                  value={formData.abv}
-                  onChange={(e) => handleChange('abv', e.target.value)}
-                  placeholder="e.g., 40, 43.5"
-                  fullWidth
-                  error={fieldErrors.abv}
-                />
-              </div>
+              {/* Expand for more details */}
+              <button
+                type="button"
+                className={styles.detailsToggle}
+                onClick={() => setShowDetails(!showDetails)}
+                aria-expanded={showDetails}
+              >
+                {showDetails ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                <span>{showDetails ? 'Hide details' : 'More details'}</span>
+                {detailsHaveChanges && !showDetails && <span className={styles.changeIndicator} />}
+              </button>
 
-              {/* Location & Age */}
-              <div className={styles.formSection}>
-                <h3 className={styles.sectionTitle}>Location & Age</h3>
-                <Input
-                  label="Distillery Location"
-                  value={formData.distillery_location}
-                  onChange={(e) => handleChange('distillery_location', e.target.value)}
-                  placeholder="e.g., Kentucky, USA"
-                  fullWidth
-                />
-                <Input
-                  label="Age Statement or Barrel Finish"
-                  value={formData.age_statement}
-                  onChange={(e) => handleChange('age_statement', e.target.value)}
-                  placeholder="e.g., 12 Year, Sherry Cask Finish"
-                  fullWidth
-                />
-              </div>
+              {/* Collapsible Details */}
+              {showDetails && (
+                <div className={styles.detailsSection}>
+                  {/* ABV */}
+                  <div className={styles.fieldGroup}>
+                    <label className={styles.label}>
+                      ABV %
+                      {isFieldChanged('abv') && <span className={styles.changeIndicator} />}
+                    </label>
+                    <input
+                      type="text"
+                      className={`${styles.input} ${styles.inputSmall} ${isFieldChanged('abv') ? styles.inputChanged : ''}`}
+                      placeholder="40"
+                      value={formData.abv}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9.]/g, '');
+                        handleChange('abv', val);
+                      }}
+                    />
+                  </div>
 
-              {/* Tasting Profile */}
-              <div className={styles.formSection}>
-                <h3 className={styles.sectionTitle}>Tasting Profile</h3>
-                <div className={styles.textareaWrapper}>
-                  <label className={styles.textareaLabel}>Profile (Nose)</label>
-                  <textarea
-                    className={styles.textarea}
-                    value={formData.profile_nose}
-                    onChange={(e) => handleChange('profile_nose', e.target.value)}
-                    placeholder="Aroma notes, e.g., vanilla, oak, caramel"
-                    rows={2}
-                  />
-                </div>
-                <div className={styles.textareaWrapper}>
-                  <label className={styles.textareaLabel}>Palate</label>
-                  <textarea
-                    className={styles.textarea}
-                    value={formData.palate}
-                    onChange={(e) => handleChange('palate', e.target.value)}
-                    placeholder="Flavor notes, e.g., honey, spice, fruit"
-                    rows={2}
-                  />
-                </div>
-                <div className={styles.textareaWrapper}>
-                  <label className={styles.textareaLabel}>Finish</label>
-                  <textarea
-                    className={styles.textarea}
-                    value={formData.finish}
-                    onChange={(e) => handleChange('finish', e.target.value)}
-                    placeholder="Finish notes, e.g., long, smooth, warming"
-                    rows={2}
-                  />
-                </div>
-              </div>
+                  {/* Origin */}
+                  <div className={styles.fieldGroup}>
+                    <label className={styles.label}>
+                      Origin / Distillery
+                      {isFieldChanged('origin') && <span className={styles.changeIndicator} />}
+                    </label>
+                    <input
+                      type="text"
+                      className={`${styles.input} ${isFieldChanged('origin') ? styles.inputChanged : ''}`}
+                      placeholder="e.g., Kentucky, Islay"
+                      value={formData.origin}
+                      onChange={(e) => handleChange('origin', e.target.value)}
+                    />
+                  </div>
 
-              {/* Additional Notes */}
-              <div className={styles.formSection}>
-                <h3 className={styles.sectionTitle}>Additional Information</h3>
-                <div className={styles.textareaWrapper}>
-                  <label className={styles.textareaLabel}>Additional Notes</label>
-                  <textarea
-                    className={styles.textarea}
-                    value={formData.additional_notes}
-                    onChange={(e) => handleChange('additional_notes', e.target.value)}
-                    placeholder="Any other notes or comments"
-                    rows={3}
-                  />
+                  {/* Notes */}
+                  <div className={styles.fieldGroup}>
+                    <label className={styles.label}>
+                      Notes
+                      {isFieldChanged('notes') && <span className={styles.changeIndicator} />}
+                    </label>
+                    <textarea
+                      className={`${styles.textarea} ${isFieldChanged('notes') ? styles.inputChanged : ''}`}
+                      rows={3}
+                      placeholder="Tasting notes, cocktail ideas..."
+                      value={formData.notes}
+                      onChange={(e) => handleChange('notes', e.target.value)}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Error Message */}
+              {error && (
+                <div className={styles.error}>
+                  <AlertCircle size={14} />
+                  <span>{error}</span>
+                </div>
+              )}
             </div>
 
-            {error && (
-              <div className={styles.error}>
-                <AlertCircle size={18} />
-                <span>{error}</span>
-              </div>
-            )}
-          </div>
-
-          <div className={styles.footer}>
-            <Button type="button" variant="outline" onClick={handleClose} disabled={loading}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" disabled={loading}>
-              {loading ? (
-                <>
-                  <Spinner size="sm" color="white" /> Saving...
-                </>
-              ) : (
-                'Save Changes'
+            {/* Footer */}
+            <div className={styles.footer}>
+              {onDelete && (
+                <button
+                  type="button"
+                  className={styles.deleteBtn}
+                  onClick={handleDelete}
+                  disabled={loading}
+                >
+                  <Trash2 size={14} />
+                  Delete Item
+                </button>
               )}
-            </Button>
-          </div>
-        </form>
+              <div className={styles.footerActions}>
+                <button
+                  type="button"
+                  className={styles.cancelBtn}
+                  onClick={handleClose}
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className={styles.submitBtn}
+                  disabled={loading || !formData.name.trim() || !hasChanges}
+                >
+                  {loading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          </form>
         </div>
       </div>
     </>

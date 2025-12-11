@@ -1,0 +1,24 @@
+<svg viewBox="0 0 180 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- AlcheMix Text Logo (Wordmark only) -->
+
+  <g transform="translate(0, 30)">
+    <!-- ALCHE - Regular weight, gray -->
+    <text
+      font-family="Inter, -apple-system, BlinkMacSystemFont, sans-serif"
+      font-size="32"
+      font-weight="400"
+      fill="#6B6B6B"
+      letter-spacing="0.05em"
+    >ALCHE</text>
+
+    <!-- MIX - Bold, monospace, dark -->
+    <text
+      x="95"
+      font-family="'JetBrains Mono', 'SF Mono', Consolas, monospace"
+      font-size="37"
+      font-weight="700"
+      fill="#1A1A1A"
+      letter-spacing="0.1em"
+    >MIX</text>
+  </g>
+</svg>

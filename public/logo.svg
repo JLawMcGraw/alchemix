@@ -1,0 +1,48 @@
+<svg viewBox="0 0 280 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- AlcheMix Logo - Icon + Wordmark -->
+
+  <!-- Y-shaped molecular structure (icon) -->
+  <g transform="translate(0, 0)">
+    <!-- Bonds -->
+    <g stroke="#3D3D3D" stroke-width="4" stroke-linecap="round">
+      <line x1="50" y1="45" x2="25" y2="18" />
+      <line x1="50" y1="45" x2="75" y2="18" />
+      <line x1="50" y1="45" x2="50" y2="78" />
+    </g>
+
+    <!-- Terminal Nodes -->
+    <!-- Green node (top-left) - Cane -->
+    <circle cx="25" cy="18" r="10" fill="#65A30D" stroke="#3D3D3D" stroke-width="2.5" />
+
+    <!-- Blue node (top-right) - Juniper -->
+    <circle cx="75" cy="18" r="10" fill="#0EA5E9" stroke="#3D3D3D" stroke-width="2.5" />
+
+    <!-- Amber node (bottom) - Grain -->
+    <circle cx="50" cy="78" r="10" fill="#D97706" stroke="#3D3D3D" stroke-width="2.5" />
+
+    <!-- Center junction node (Pink - Botanical) -->
+    <circle cx="50" cy="45" r="7" fill="#EC4899" stroke="#3D3D3D" stroke-width="2" />
+  </g>
+
+  <!-- Wordmark -->
+  <g transform="translate(95, 58)">
+    <!-- ALCHE - Regular weight, gray -->
+    <text
+      font-family="Inter, -apple-system, BlinkMacSystemFont, sans-serif"
+      font-size="32"
+      font-weight="400"
+      fill="#6B6B6B"
+      letter-spacing="0.05em"
+    >ALCHE</text>
+
+    <!-- MIX - Bold, monospace, dark -->
+    <text
+      x="95"
+      font-family="'JetBrains Mono', 'SF Mono', Consolas, monospace"
+      font-size="37"
+      font-weight="700"
+      fill="#1A1A1A"
+      letter-spacing="0.1em"
+    >MIX</text>
+  </g>
+</svg>

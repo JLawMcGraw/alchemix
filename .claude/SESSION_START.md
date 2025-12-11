@@ -21,9 +21,9 @@
 
 | Field | Value |
 |-------|-------|
-| Version | v1.29.0 |
-| Phase | Visual Redesign - "Molecular Mixology" (**COMPLETE**) |
-| Last Updated | December 9, 2025 |
+| Version | v1.30.0 |
+| Phase | Feature Development |
+| Last Updated | December 10, 2025 |
 | Blockers | None |
 | Tests | 142 recipe-molecule tests passing |
 | Active Branch | `alchemix-redesign` |
@@ -178,9 +178,13 @@ NEXT_PUBLIC_API_URL=http://localhost:3000
 - **My Bar**: Category tabs (9), card grid, ItemDetailModal with view/edit modes
 - **Recipes**: Collections (folders), bulk operations, CSV import, mastery filters
 - **AI Bartender**: MemMachine semantic search, clickable recipe recommendations, 98% cost reduction
-- **Shopping List**: 6 recipe buckets, near-miss algorithm, ranked recommendations
+- **Shopping List**: Persistent items CRUD, 6 recipe buckets, near-miss algorithm, ranked recommendations
+- **Custom Glasses**: User-defined glassware types API
+- **Account**: Settings (theme/units), Export/Import data, Change password, Delete account
+- **TopNav**: Horizontal nav with badges, user avatar dropdown
 - **Security**: 8-layer defense, token blacklist, rate limiting, prompt injection protection
 - **Auth**: JWT with database-backed token versioning, simplified password policy (8+ chars)
+- **Logo Assets**: SVG icon, full logo, text-only wordmark in public/
 
 ---
 
@@ -197,7 +201,15 @@ NEXT_PUBLIC_API_URL=http://localhost:3000
 
 ### Next Steps
 
-**Redesign Complete** - All 10 phases finished. Potential future work:
+**Recent Major Updates** (Dec 10, 2025):
+- Shopping List Items CRUD with database persistence
+- Custom Glasses API
+- Account page with Settings, Export/Import
+- TopNav redesign with avatar dropdown
+- All modals restyled
+- Logo SVG assets created
+
+**Potential Future Work**:
 1. Apply Brownian motion animations to Recipe Molecule nodes
 2. Use stagger animations on card grids
 3. Integrate formatters into more components

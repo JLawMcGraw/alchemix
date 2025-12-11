@@ -1,25 +1,75 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
-import { X, Star, Martini, Edit2, Save, Trash2, FolderOpen, Plus, Download } from 'lucide-react';
+import { X, Star, Edit2, Save, Trash2, FolderOpen, Plus, Download } from 'lucide-react';
 import { Button, useToast } from '@/components/ui';
 import { useStore } from '@/lib/store';
 import { RecipeMolecule } from '@/components/RecipeMolecule';
+import { GlassSelector } from '@/components/GlassSelector';
 import { classifyIngredient, parseIngredient, generateFormula, toOunces, TYPE_COLORS, type IngredientType } from '@alchemix/recipe-molecule';
 import type { Recipe, Collection } from '@/types';
 import styles from './RecipeDetailModal.module.css';
 
+// Spirit colors for top border (matching ItemDetailModal category colors)
+const SPIRIT_COLORS: Record<string, string> = {
+  rum: '#65A30D',
+  tequila: '#0D9488',
+  mezcal: '#0D9488',
+  whiskey: '#D97706',
+  bourbon: '#D97706',
+  rye: '#D97706',
+  scotch: '#D97706',
+  gin: '#0EA5E9',
+  vodka: '#94A3B8',
+  brandy: '#8B5CF6',
+  cognac: '#8B5CF6',
+  liqueur: '#8B5CF6',
+  vermouth: '#10B981',
+  amaro: '#10B981',
+  default: '#64748B',
+};
+
+// Get spirit color from recipe ingredients or category
+function getSpiritColor(recipe: Recipe): string {
+  // Try to detect spirit from ingredients
+  const ingredients = Array.isArray(recipe.ingredients)
+    ? recipe.ingredients
+    : typeof recipe.ingredients === 'string'
+      ? (() => { try { return JSON.parse(recipe.ingredients); } catch { return [recipe.ingredients]; } })()
+      : [];
+
+  for (const ing of ingredients) {
+    const ingLower = (typeof ing === 'string' ? ing : '').toLowerCase();
+    for (const [spirit, color] of Object.entries(SPIRIT_COLORS)) {
+      if (spirit !== 'default' && ingLower.includes(spirit)) {
+        return color;
+      }
+    }
+  }
+
+  // Fallback to category
+  const category = (recipe.category || '').toLowerCase();
+  for (const [spirit, color] of Object.entries(SPIRIT_COLORS)) {
+    if (spirit !== 'default' && category.includes(spirit)) {
+      return color;
+    }
+  }
+
+  return SPIRIT_COLORS.default;
+}
+
 // Map ingredient types to CSS variable names for bond colors
+// Aligned with design system from globals.css
 const TYPE_TO_CSS_VAR: Record<IngredientType, string> = {
-  spirit: '--bond-neutral',
-  acid: '--bond-acid',
-  sweet: '--bond-sugar',
-  bitter: '--bond-botanical',
-  salt: '--bond-acid',
-  dilution: '--bond-carbonation',
-  garnish: '--bond-cane',
-  dairy: '--bond-dairy',
-  egg: '--bond-dairy',
+  spirit: '--bond-agave',          // Teal #0D9488 - base spirits
+  acid: '--bond-acid',            // Yellow #F59E0B - citrus/acids
+  sweet: '--bond-sweet',          // Sky Blue #0EA5E9 - syrups/liqueurs
+  bitter: '--bond-botanical',     // Pink #EC4899 - amaro/bitters
+  salt: '--bond-salt',            // Red #EF4444 - salt/spices
+  dilution: '--bond-carbonation', // Silver #A1A1AA - soda/tonic
+  garnish: '--bond-garnish',      // Emerald #10B981 - herbs/garnishes
+  dairy: '--bond-dairy',          // Light Gray #E5E5E5 - cream
+  egg: '--bond-egg',              // Warm Yellow #FDE68A - eggs
   junction: '--fg-tertiary',
 };
 
@@ -54,18 +104,18 @@ function formatBalanceValue(value: number): string {
   return value.toFixed(1);  // Show 1 decimal for larger values
 }
 
-// Color values for export (matching CSS variables)
+// Color values for export (matching CSS variables from globals.css)
 const TYPE_COLORS_HEX: Record<IngredientType, string> = {
-  spirit: '#71717A',
-  acid: '#84CC16',
-  sweet: '#F59E0B',
-  bitter: '#10B981',
-  salt: '#84CC16',
-  dilution: '#06B6D4',
-  garnish: '#A3A3A3',
-  dairy: '#E879F9',
-  egg: '#E879F9',
-  junction: '#71717A',
+  spirit: '#0D9488',  // Teal/Agave - base spirits
+  acid: '#F59E0B',    // Yellow/Amber - citrus/acids
+  sweet: '#0EA5E9',   // Sky Blue - syrups/liqueurs
+  bitter: '#EC4899',  // Pink - amaro/bitters
+  salt: '#EF4444',    // Red - salt/spices
+  dilution: '#A1A1AA', // Silver - soda/tonic
+  garnish: '#10B981', // Emerald - herbs/garnishes
+  dairy: '#E5E5E5',   // Light Gray - cream
+  egg: '#FDE68A',     // Warm Yellow - eggs
+  junction: '#64748B',
 };
 
 export function RecipeDetailModal({
@@ -413,16 +463,18 @@ export function RecipeDetailModal({
         {/* Header */}
         <div className={styles.header}>
           <div className={styles.titleSection}>
-            <Martini size={28} className={styles.titleIcon} />
             <div>
               {isEditMode ? (
-                <input
-                  type="text"
-                  value={editedRecipe.name || ''}
-                  onChange={(e) => setEditedRecipe({ ...editedRecipe, name: e.target.value })}
-                  className={styles.titleInput}
-                  placeholder="Recipe name"
-                />
+                <>
+                  <div className={styles.editingLabel}>Editing</div>
+                  <input
+                    type="text"
+                    value={editedRecipe.name || ''}
+                    onChange={(e) => setEditedRecipe({ ...editedRecipe, name: e.target.value })}
+                    className={styles.titleInput}
+                    placeholder="Recipe name"
+                  />
+                </>
               ) : (
                 <>
                   <h2 className={styles.title} id="recipe-detail-title">
@@ -445,7 +497,7 @@ export function RecipeDetailModal({
                 title="Edit recipe"
                 aria-label="Edit recipe"
               >
-                <Edit2 size={20} />
+                <Edit2 size={16} />
               </button>
             )}
             <button
@@ -453,7 +505,7 @@ export function RecipeDetailModal({
               onClick={onClose}
               aria-label="Close modal"
             >
-              <X size={24} />
+              <X size={20} />
             </button>
           </div>
         </div>
@@ -473,19 +525,6 @@ export function RecipeDetailModal({
             </section>
           )}
 
-          {/* Category (Edit Mode Only) */}
-          {isEditMode && (
-            <section className={styles.section}>
-              <h3 className={styles.sectionTitle}>Category</h3>
-              <input
-                type="text"
-                value={editedRecipe.category || ''}
-                onChange={(e) => setEditedRecipe({ ...editedRecipe, category: e.target.value })}
-                className={styles.textInput}
-                placeholder="e.g., Classic, Sour, Tiki"
-              />
-            </section>
-          )}
 
           {/* Ingredients */}
           <section className={styles.section}>
@@ -561,48 +600,37 @@ export function RecipeDetailModal({
           </section>
 
           {/* Instructions */}
-          <section className={styles.section}>
-            <h3 className={styles.sectionTitle}>Instructions</h3>
-            {isEditMode ? (
-              <textarea
-                value={editedRecipe.instructions || ''}
-                onChange={(e) => setEditedRecipe({ ...editedRecipe, instructions: e.target.value })}
-                className={styles.textarea}
-                placeholder="Describe how to make this cocktail..."
-                rows={4}
-              />
-            ) : (
-              <>
-                {recipe.instructions ? (
-                  <p className={styles.instructions}>{recipe.instructions}</p>
-                ) : (
-                  <p className={styles.emptyText}>No instructions provided</p>
-                )}
-              </>
-            )}
-          </section>
+          {(isEditMode || recipe.instructions) && (
+            <section className={styles.section}>
+              <h3 className={styles.sectionTitle}>Instructions</h3>
+              {isEditMode ? (
+                <textarea
+                  value={editedRecipe.instructions || ''}
+                  onChange={(e) => setEditedRecipe({ ...editedRecipe, instructions: e.target.value })}
+                  className={styles.textarea}
+                  placeholder="Describe how to make this cocktail..."
+                  rows={3}
+                />
+              ) : (
+                <p className={styles.instructions}>{recipe.instructions}</p>
+              )}
+            </section>
+          )}
 
           {/* Glass Type */}
-          <section className={styles.section}>
-            <h3 className={styles.sectionTitle}>Serve In</h3>
-            {isEditMode ? (
-              <input
-                type="text"
-                value={editedRecipe.glass || ''}
-                onChange={(e) => setEditedRecipe({ ...editedRecipe, glass: e.target.value })}
-                className={styles.textInput}
-                placeholder="e.g., Rocks glass, Coupe, Highball"
-              />
-            ) : (
-              <>
-                {recipe.glass ? (
-                  <p className={styles.glassType}>{recipe.glass}</p>
-                ) : (
-                  <p className={styles.emptyText}>No glass type specified</p>
-                )}
-              </>
-            )}
-          </section>
+          {(isEditMode || recipe.glass) && (
+            <section className={styles.section}>
+              <h3 className={styles.sectionTitle}>Serve In</h3>
+              {isEditMode ? (
+                <GlassSelector
+                  value={editedRecipe.glass || ''}
+                  onChange={(glass) => setEditedRecipe({ ...editedRecipe, glass })}
+                />
+              ) : (
+                <span className={styles.glassChip}>{recipe.glass}</span>
+              )}
+            </section>
+          )}
 
           {/* Stoichiometric Balance */}
           {!isEditMode && ingredientsArray.length > 0 && (() => {
@@ -641,7 +669,7 @@ export function RecipeDetailModal({
                         className={styles.balanceFill}
                         style={{
                           width: `${(balanceCounts.spirit / maxValue) * 100}%`,
-                          backgroundColor: 'var(--bond-neutral)'
+                          backgroundColor: 'var(--bond-agave)'
                         }}
                       />
                     </div>
@@ -667,7 +695,7 @@ export function RecipeDetailModal({
                         className={styles.balanceFill}
                         style={{
                           width: `${(balanceCounts.sweet / maxValue) * 100}%`,
-                          backgroundColor: 'var(--bond-sugar)'
+                          backgroundColor: 'var(--bond-sweet)'
                         }}
                       />
                     </div>
@@ -728,54 +756,45 @@ export function RecipeDetailModal({
             <section className={styles.section}>
               <h3 className={styles.sectionTitle}>Collection</h3>
               {showCollectionSelect ? (
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <div className={styles.collectionPicker}>
                   <select
                     value={selectedCollectionId ?? ''}
                     onChange={(e) => setSelectedCollectionId(e.target.value ? parseInt(e.target.value, 10) : null)}
-                    style={{
-                      flex: 1,
-                      padding: '8px 12px',
-                      fontSize: '14px',
-                      fontFamily: 'var(--font-body)',
-                      color: 'var(--color-text-body)',
-                      backgroundColor: 'var(--color-ui-bg-surface)',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: 'var(--radius)',
-                      cursor: 'pointer',
-                    }}
+                    className={styles.collectionSelect}
                   >
-                    <option value="">No Collection</option>
+                    <option value="">No collection</option>
                     {(Array.isArray(collections) ? collections : []).map((collection) => (
                       <option key={collection.id} value={collection.id}>
                         {collection.name}
                       </option>
                     ))}
                   </select>
-                  <Button variant="primary" size="sm" onClick={handleAssignCollection}>
-                    Save
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setShowCollectionSelect(false);
-                      setSelectedCollectionId(recipe?.collection_id || null);
-                    }}
-                  >
-                    Cancel
-                  </Button>
+                  <div className={styles.collectionActions}>
+                    <button onClick={handleAssignCollection} className={styles.collectionSaveBtn}>
+                      Save
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowCollectionSelect(false);
+                        setSelectedCollectionId(recipe?.collection_id || null);
+                      }}
+                      className={styles.collectionCancelBtn}
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ color: 'var(--color-text-subtle)' }}>
+                <div className={styles.collectionDisplay}>
+                  <span className={styles.collectionName}>
                     {recipe?.collection_id
-                      ? (Array.isArray(collections) ? collections : []).find((c) => c.id === recipe.collection_id)?.name || 'Unknown Collection'
-                      : 'Not in a collection'}
+                      ? (Array.isArray(collections) ? collections : []).find((c) => c.id === recipe.collection_id)?.name || 'Unknown'
+                      : 'None'}
                   </span>
-                  <Button variant="outline" size="sm" onClick={() => setShowCollectionSelect(true)}>
-                    <FolderOpen size={16} style={{ marginRight: '6px' }} />
+                  <button onClick={() => setShowCollectionSelect(true)} className={styles.collectionChangeBtn}>
+                    <FolderOpen size={12} />
                     Change
-                  </Button>
+                  </button>
                 </div>
               )}
             </section>
@@ -786,43 +805,40 @@ export function RecipeDetailModal({
         <div className={styles.footer}>
           {isEditMode ? (
             <>
-              <Button
-                variant="outline"
+              <button
                 onClick={handleDelete}
-                className={styles.deleteBtn}
+                className={styles.deleteLink}
               >
-                <Trash2 size={18} style={{ marginRight: '8px' }} />
                 Delete
-              </Button>
+              </button>
               <div style={{ flex: 1 }} />
-              <Button variant="outline" onClick={handleCancel}>
+              <button onClick={handleCancel} className={styles.cancelBtn}>
                 Cancel
-              </Button>
-              <Button variant="primary" onClick={handleSave}>
-                <Save size={18} style={{ marginRight: '8px' }} />
-                Save Changes
-              </Button>
+              </button>
+              <button onClick={handleSave} className={styles.saveBtn}>
+                Save
+              </button>
             </>
           ) : (
             <>
-              <Button
-                variant={isFavorited ? 'outline' : 'primary'}
+              <button
                 onClick={onToggleFavorite}
+                className={styles.favoriteBtn}
               >
                 <Star
-                  size={18}
+                  size={16}
                   fill={isFavorited ? 'currentColor' : 'none'}
-                  style={{ marginRight: '8px' }}
                 />
-                {isFavorited ? 'Remove from Favorites' : 'Add to Favorites'}
-              </Button>
-              <Button variant="outline" onClick={handleExport}>
-                <Download size={18} style={{ marginRight: '8px' }} />
+                {isFavorited ? 'Favorited' : 'Add to Favorites'}
+              </button>
+              <div style={{ flex: 1 }} />
+              <button onClick={handleExport} className={styles.exportBtn}>
+                <Download size={16} />
                 Export
-              </Button>
-              <Button variant="outline" onClick={onClose}>
+              </button>
+              <button onClick={onClose} className={styles.closeTextBtn}>
                 Close
-              </Button>
+              </button>
             </>
           )}
         </div>

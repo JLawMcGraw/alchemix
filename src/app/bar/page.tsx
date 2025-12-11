@@ -6,6 +6,7 @@ import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { Button, useToast } from '@/components/ui';
 import { Card } from '@/components/ui/Card';
+import { BottleCard } from '@/components/BottleCard';
 import { Wine, Upload, Plus, Martini, X, ChevronLeft, ChevronRight, Trash2, Grid3X3, List, FlaskConical } from 'lucide-react';
 import { CSVUploadModal, AddBottleModal, ItemDetailModal } from '@/components/modals';
 import { PeriodicTable } from '@/components/PeriodicTable';
@@ -458,77 +459,15 @@ function BarPageContent() {
         ) : (
           <div className={styles.itemsGrid}>
             {filteredItems.map((item) => {
-              if (!item.id) return null; // Skip items without IDs
+              if (!item.id) return null;
               return (
-              <Card
-                key={item.id}
-                padding="md"
-                hover
-                className={`${styles.itemCard} ${selectedIds.has(item.id) ? styles.itemCardSelected : ''}`}
-              >
-                <div className={styles.cardHeader}>
-                  <div className={styles.cardHeaderLeft}>
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.has(item.id)}
-                      onChange={(e) => {
-                        e.stopPropagation();
-                        toggleSelection(item.id);
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      className={styles.checkbox}
-                    />
-                    <h3
-                      className={styles.itemName}
-                      onClick={() => handleCardClick(item)}
-                    >
-                      {item.name}
-                    </h3>
-                  </div>
-                  <span className={styles.categoryBadge}>
-                    {item.category}
-                  </span>
-                </div>
-
-                <div className={styles.cardBody}>
-                  {item.type && (
-                    <div className={styles.itemDetail}>
-                      <span className={styles.detailLabel}>Type:</span>
-                      <span className={styles.detailValue}>{item.type}</span>
-                    </div>
-                  )}
-
-                  {item.abv && (
-                    <div className={styles.itemDetail}>
-                      <span className={styles.detailLabel}>ABV:</span>
-                      <span className={styles.detailValue}>
-                        {item.abv}{item.abv.toString().includes('%') ? '' : '%'}
-                      </span>
-                    </div>
-                  )}
-
-                  {item.profile_nose && (
-                    <div className={styles.itemDetail}>
-                      <span className={styles.detailLabel}>Profile:</span>
-                      <span className={styles.detailValue}>{item.profile_nose}</span>
-                    </div>
-                  )}
-
-                  {item.distillery_location && (
-                    <div className={styles.itemDetail}>
-                      <span className={styles.detailLabel}>Location:</span>
-                      <span className={styles.detailValue}>{item.distillery_location}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className={styles.cardFooter}>
-                  <span className={styles.cardHint}>Click to view details</span>
-                  <span className={styles.stockNumber}>
-                    Stock: {item.stock_number ?? 0}
-                  </span>
-                </div>
-              </Card>
+                <BottleCard
+                  key={item.id}
+                  item={item}
+                  isSelected={selectedIds.has(item.id)}
+                  onSelect={toggleSelection}
+                  onClick={handleCardClick}
+                />
               );
             })}
           </div>

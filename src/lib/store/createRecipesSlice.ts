@@ -1,11 +1,11 @@
 /**
  * Recipes Slice
- * Manages recipes, collections, and favorites state and CRUD operations
+ * Manages recipes, collections, favorites, and custom glasses state and CRUD operations
  */
 
 import { StateCreator } from 'zustand';
 import type { Recipe, Collection, Favorite } from '@/types';
-import { recipeApi, collectionsApi, favoritesApi } from '../api';
+import { recipeApi, collectionsApi, favoritesApi, glassesApi, type CustomGlass } from '../api';
 import { AxiosError } from 'axios';
 
 /** Extract error message from Axios or standard Error */
@@ -24,6 +24,7 @@ export interface RecipesSlice {
   recipes: Recipe[];
   collections: Collection[];
   favorites: Favorite[];
+  customGlasses: CustomGlass[];
 
   // Recipe Actions
   fetchRecipes: (page?: number, limit?: number) => Promise<Recipe[]>;
@@ -42,6 +43,11 @@ export interface RecipesSlice {
   fetchFavorites: () => Promise<void>;
   addFavorite: (recipeName: string, recipeId?: number) => Promise<void>;
   removeFavorite: (id: number) => Promise<void>;
+
+  // Custom Glasses Actions
+  fetchCustomGlasses: () => Promise<void>;
+  addCustomGlass: (name: string) => Promise<CustomGlass>;
+  deleteCustomGlass: (id: number) => Promise<void>;
 }
 
 export const createRecipesSlice: StateCreator<
@@ -54,6 +60,7 @@ export const createRecipesSlice: StateCreator<
   recipes: [],
   collections: [],
   favorites: [],
+  customGlasses: [],
 
   // Recipe Actions
   fetchRecipes: async (page: number = 1, limit: number = 50) => {
@@ -218,6 +225,39 @@ export const createRecipesSlice: StateCreator<
       }));
     } catch (error) {
       throw new Error(getErrorMessage(error, 'Failed to remove favorite'));
+    }
+  },
+
+  // Custom Glasses Actions
+  fetchCustomGlasses: async () => {
+    try {
+      const customGlasses = await glassesApi.getAll();
+      set({ customGlasses });
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Failed to fetch custom glasses'));
+    }
+  },
+
+  addCustomGlass: async (name) => {
+    try {
+      const newGlass = await glassesApi.add(name);
+      set((state) => ({
+        customGlasses: [...state.customGlasses, newGlass],
+      }));
+      return newGlass;
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Failed to add custom glass'));
+    }
+  },
+
+  deleteCustomGlass: async (id) => {
+    try {
+      await glassesApi.delete(id);
+      set((state) => ({
+        customGlasses: state.customGlasses.filter((g) => g.id !== id),
+      }));
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Failed to delete custom glass'));
     }
   },
 });

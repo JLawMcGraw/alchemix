@@ -45,3 +45,4 @@ docker-credential-ecr-login
 
 # Docker
 /docker/.env
+.env.docker

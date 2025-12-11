@@ -28,8 +28,8 @@
   border-radius: var(--radius-card);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
   width: 100%;
-  max-width: 640px;
-  max-height: 90vh;
+  max-width: 680px;
+  max-height: 92vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -51,7 +51,7 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  padding: var(--space-3) var(--space-4);
+  padding: 20px 24px;
   border-bottom: 1px solid var(--color-border-default);
   gap: var(--space-3);
 }
@@ -59,19 +59,26 @@
 .titleSection {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-3);
   flex: 1;
+  min-width: 0;
 }
 
-.titleIcon {
-  color: var(--color-primary);
-  flex-shrink: 0;
-  margin-top: 2px;
+.titleSection > div {
+  width: 100%;
+}
+
+.editingLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
 }
 
 .title {
   font-family: var(--font-sans);
-  font-size: 1.25rem;
+  font-size: 1.375rem;
   font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--color-text-body);
@@ -124,23 +131,23 @@
 }
 
 .editBtn {
-  background: none;
-  border: 1px solid transparent;
+  width: 32px;
+  height: 32px;
+  background: white;
+  border: 1px solid var(--color-border-default);
   color: var(--color-text-muted);
   cursor: pointer;
-  padding: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all var(--transition-fast);
-  border-radius: var(--radius);
+  transition: all 0.1s ease;
+  border-radius: 2px;
   flex-shrink: 0;
 }
 
 .editBtn:hover {
-  color: var(--color-primary);
-  background: var(--selected-bg);
-  border-color: var(--color-primary);
+  color: var(--fg-primary);
+  border-color: var(--fg-primary);
 }
 
 .closeBtn {
@@ -164,7 +171,7 @@
 }
 
 .content {
-  padding: var(--space-4);
+  padding: 24px;
   overflow-y: auto;
   flex: 1;
 }
@@ -179,7 +186,7 @@
 }
 
 .section {
-  margin-bottom: var(--space-4);
+  margin-bottom: 24px;
 }
 
 .section:last-child {
@@ -189,21 +196,21 @@
 .sectionTitle {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 12px;
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-size: 10px;
   font-weight: 500;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
   color: var(--color-text-muted);
-  margin: 0 0 var(--space-2) 0;
+  margin: 0 0 12px 0;
 }
 
 .sectionTitle::after {
   content: '';
   flex: 1;
   height: 1px;
-  background: var(--color-border-default);
+  background: var(--color-border-default, #E2E8F0);
 }
 
 .ingredientsList {
@@ -218,8 +225,8 @@
 .ingredientItem {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: 6px 10px;
+  gap: 10px;
+  padding: 8px 12px;
   font-family: var(--font-mono);
   font-size: 0.8125rem;
   color: var(--color-text-body);
@@ -231,17 +238,18 @@
 /* Ingredient Pip (colored dot) */
 .ingredientPip {
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--font-mono);
-  font-size: 0.5rem;
+  font-size: 0.5625rem;
   font-weight: 600;
   color: white;
   text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .ingredientText {
@@ -257,16 +265,52 @@
   margin: 0;
 }
 
-.glassType {
+.glassType,
+.glassChip {
   display: inline-block;
-  padding: var(--space-2) var(--space-3);
-  background: var(--color-ui-bg-base);
+  padding: 8px 14px;
+  background: white;
   border: 1px solid var(--color-border-default);
-  border-radius: var(--radius);
-  font-family: var(--font-mono);
-  font-size: 0.8125rem;
-  color: var(--color-text-body);
-  margin: 0;
+  border-radius: 2px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--fg-primary);
+}
+
+/* Glass selector grid */
+.glassGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.glassOption {
+  padding: 8px 14px;
+  background: white;
+  border: 1px solid var(--color-border-default);
+  border-radius: 2px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.glassOption:hover {
+  border-color: var(--fg-primary);
+  color: var(--fg-primary);
+}
+
+.glassOptionSelected {
+  background: var(--fg-primary, #1E293B);
+  border-color: var(--fg-primary, #1E293B);
+  color: white;
+}
+
+.glassOptionSelected:hover {
+  background: #0F172A;
+  border-color: #0F172A;
+  color: white;
 }
 
 .compatibility {
@@ -306,9 +350,9 @@
 
 .balanceRow {
   display: grid;
-  grid-template-columns: 60px 1fr 40px;
+  grid-template-columns: 52px 1fr 36px;
   align-items: center;
-  gap: var(--space-2);
+  gap: 10px;
 }
 
 .balanceLabel {
@@ -372,20 +416,20 @@
 .titleInput {
   width: 100%;
   font-family: var(--font-sans);
-  font-size: 1.25rem;
+  font-size: 1.125rem;
   font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--color-text-body);
-  padding: var(--space-2);
+  padding: 8px 12px;
   border: 1px solid var(--color-border-default);
-  border-radius: var(--radius);
-  background: var(--color-ui-bg-surface);
-  transition: border-color var(--transition-fast);
+  border-radius: 2px;
+  background: white;
+  transition: border-color 0.1s ease;
 }
 
 .titleInput:focus {
   outline: none;
-  border-color: var(--color-border-emphasis);
+  border-color: var(--fg-primary, #1E293B);
 }
 
 .textInput {
@@ -430,7 +474,7 @@
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
+  padding: 16px 24px;
   border-top: 1px solid var(--color-border-default);
   background: var(--color-ui-bg-base);
 }
@@ -442,6 +486,214 @@
 .deleteBtn:hover {
   background: rgba(239, 68, 68, 0.08);
   border-color: #DC2626;
+}
+
+/* New footer button styles */
+.deleteLink {
+  background: none;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #EF4444;
+  cursor: pointer;
+  padding: 8px 0;
+  transition: color 0.1s ease;
+}
+
+.deleteLink:hover {
+  color: #DC2626;
+}
+
+.cancelBtn {
+  background: none;
+  border: none;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 10px 16px;
+  transition: color 0.1s ease;
+}
+
+.cancelBtn:hover {
+  color: var(--fg-primary);
+}
+
+.saveBtn {
+  background: var(--bond-agave, #0D9488);
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: white;
+  cursor: pointer;
+  padding: 10px 20px;
+  border-radius: 2px;
+  transition: background 0.1s ease;
+}
+
+.saveBtn:hover {
+  background: #0F766E;
+}
+
+.favoriteBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--fg-primary, #1E293B);
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: white;
+  cursor: pointer;
+  padding: 10px 16px;
+  border-radius: 2px;
+  transition: background 0.1s ease;
+}
+
+.favoriteBtn:hover {
+  background: #0F172A;
+}
+
+.exportBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  border: 1px solid var(--color-border-default);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--fg-primary);
+  cursor: pointer;
+  padding: 10px 16px;
+  border-radius: 2px;
+  transition: border-color 0.1s ease;
+}
+
+.exportBtn:hover {
+  border-color: var(--fg-primary);
+}
+
+.closeTextBtn {
+  background: none;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 10px 16px;
+  transition: color 0.1s ease;
+}
+
+.closeTextBtn:hover {
+  color: var(--fg-primary);
+}
+
+/* Collection picker styles */
+.collectionPicker {
+  background: #F8FAFC;
+  border: 1px solid var(--color-border-default);
+  border-radius: 2px;
+  padding: 12px;
+}
+
+.collectionSelect {
+  width: 100%;
+  padding: 10px 12px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--fg-primary);
+  background: white;
+  border: 1px solid var(--color-border-default);
+  border-radius: 2px;
+  cursor: pointer;
+  margin-bottom: 10px;
+}
+
+.collectionSelect:focus {
+  outline: none;
+  border-color: var(--fg-primary);
+}
+
+.collectionActions {
+  display: flex;
+  gap: 8px;
+}
+
+.collectionSaveBtn {
+  background: var(--fg-primary, #1E293B);
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: white;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 2px;
+  transition: background 0.1s ease;
+}
+
+.collectionSaveBtn:hover {
+  background: #0F172A;
+}
+
+.collectionCancelBtn {
+  background: none;
+  border: none;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 6px 12px;
+  transition: color 0.1s ease;
+}
+
+.collectionCancelBtn:hover {
+  color: var(--fg-primary);
+}
+
+.collectionDisplay {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.collectionName {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--fg-primary);
+}
+
+.collectionChangeBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid var(--color-border-default);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 2px;
+  transition: all 0.1s ease;
+}
+
+.collectionChangeBtn:hover {
+  border-color: var(--fg-primary);
+  color: var(--fg-primary);
 }
 
 /* Mobile responsive */
@@ -458,15 +710,15 @@
   }
 
   .content {
-    padding: var(--space-3);
+    padding: 16px;
   }
 
   .header {
-    padding: var(--space-3);
+    padding: 16px;
   }
 
   .footer {
-    padding: var(--space-3);
+    padding: 16px;
   }
 
   .title {

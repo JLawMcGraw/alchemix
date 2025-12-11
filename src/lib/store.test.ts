@@ -32,6 +32,13 @@ vi.mock('./api', () => ({
   aiApi: {
     sendMessage: vi.fn(),
   },
+  shoppingListApi: {
+    getItems: vi.fn(),
+    addItem: vi.fn(),
+    updateItem: vi.fn(),
+    removeItem: vi.fn(),
+    clearChecked: vi.fn(),
+  },
 }));
 
 // Mock aiPersona
@@ -587,6 +594,192 @@ describe('Zustand Store', () => {
 
       useStore.getState().setError(null);
       expect(useStore.getState().error).toBeNull();
+    });
+  });
+
+  describe('Shopping List Items Actions', () => {
+    beforeEach(() => {
+      useStore.setState({
+        shoppingListItems: [],
+      });
+    });
+
+    describe('fetchShoppingListItems', () => {
+      it('should fetch shopping list items successfully', async () => {
+        const { shoppingListApi } = await import('./api');
+        const mockItems = [
+          { id: 1, name: 'Angostura Bitters', checked: false, createdAt: '2025-12-10' },
+          { id: 2, name: 'Simple Syrup', checked: true, createdAt: '2025-12-10' },
+        ];
+
+        (shoppingListApi.getItems as any).mockResolvedValue(mockItems);
+
+        await useStore.getState().fetchShoppingListItems();
+
+        const state = useStore.getState();
+        expect(state.shoppingListItems).toEqual(mockItems);
+      });
+
+      it('should handle fetch error', async () => {
+        const { shoppingListApi } = await import('./api');
+
+        (shoppingListApi.getItems as any).mockRejectedValue(new Error('Network error'));
+
+        // getErrorMessage extracts error.message from Error instances
+        await expect(useStore.getState().fetchShoppingListItems()).rejects.toThrow('Network error');
+      });
+    });
+
+    describe('addShoppingListItem', () => {
+      it('should add item to state', async () => {
+        const { shoppingListApi } = await import('./api');
+        const newItem = { id: 1, name: 'Angostura Bitters', checked: false, createdAt: '2025-12-10' };
+
+        (shoppingListApi.addItem as any).mockResolvedValue(newItem);
+
+        await useStore.getState().addShoppingListItem('Angostura Bitters');
+
+        const state = useStore.getState();
+        expect(state.shoppingListItems).toHaveLength(1);
+        expect(state.shoppingListItems[0]).toEqual(newItem);
+      });
+
+      it('should prepend new item to list', async () => {
+        const { shoppingListApi } = await import('./api');
+
+        useStore.setState({
+          shoppingListItems: [
+            { id: 1, name: 'Existing Item', checked: false, createdAt: '2025-12-09' },
+          ],
+        });
+
+        const newItem = { id: 2, name: 'New Item', checked: false, createdAt: '2025-12-10' };
+        (shoppingListApi.addItem as any).mockResolvedValue(newItem);
+
+        await useStore.getState().addShoppingListItem('New Item');
+
+        const state = useStore.getState();
+        expect(state.shoppingListItems).toHaveLength(2);
+        expect(state.shoppingListItems[0]).toEqual(newItem); // New item first
+        expect(state.shoppingListItems[1].name).toBe('Existing Item');
+      });
+
+      it('should handle add error', async () => {
+        const { shoppingListApi } = await import('./api');
+
+        (shoppingListApi.addItem as any).mockRejectedValue(new Error('Duplicate'));
+
+        // getErrorMessage extracts error.message from Error instances
+        await expect(useStore.getState().addShoppingListItem('Test')).rejects.toThrow('Duplicate');
+      });
+    });
+
+    describe('toggleShoppingListItem', () => {
+      it('should toggle item checked status', async () => {
+        const { shoppingListApi } = await import('./api');
+
+        useStore.setState({
+          shoppingListItems: [
+            { id: 1, name: 'Test Item', checked: false, createdAt: '2025-12-10' },
+          ],
+        });
+
+        const updatedItem = { id: 1, name: 'Test Item', checked: true, createdAt: '2025-12-10' };
+        (shoppingListApi.updateItem as any).mockResolvedValue(updatedItem);
+
+        await useStore.getState().toggleShoppingListItem(1);
+
+        const state = useStore.getState();
+        expect(state.shoppingListItems[0].checked).toBe(true);
+      });
+
+      it('should do nothing for non-existent item', async () => {
+        const { shoppingListApi } = await import('./api');
+
+        useStore.setState({
+          shoppingListItems: [
+            { id: 1, name: 'Test Item', checked: false, createdAt: '2025-12-10' },
+          ],
+        });
+
+        await useStore.getState().toggleShoppingListItem(999);
+
+        // Should not call API for non-existent item
+        expect(shoppingListApi.updateItem).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('removeShoppingListItem', () => {
+      it('should remove item from state', async () => {
+        const { shoppingListApi } = await import('./api');
+
+        (shoppingListApi.removeItem as any).mockResolvedValue(undefined);
+
+        useStore.setState({
+          shoppingListItems: [
+            { id: 1, name: 'Item 1', checked: false, createdAt: '2025-12-10' },
+            { id: 2, name: 'Item 2', checked: false, createdAt: '2025-12-10' },
+          ],
+        });
+
+        await useStore.getState().removeShoppingListItem(1);
+
+        const state = useStore.getState();
+        expect(state.shoppingListItems).toHaveLength(1);
+        expect(state.shoppingListItems[0].id).toBe(2);
+      });
+
+      it('should handle remove error', async () => {
+        const { shoppingListApi } = await import('./api');
+
+        (shoppingListApi.removeItem as any).mockRejectedValue(new Error('Not found'));
+
+        useStore.setState({
+          shoppingListItems: [
+            { id: 1, name: 'Item 1', checked: false, createdAt: '2025-12-10' },
+          ],
+        });
+
+        // getErrorMessage extracts error.message from Error instances
+        await expect(useStore.getState().removeShoppingListItem(1)).rejects.toThrow('Not found');
+      });
+    });
+
+    describe('clearCheckedItems', () => {
+      it('should remove all checked items from state', async () => {
+        const { shoppingListApi } = await import('./api');
+
+        (shoppingListApi.clearChecked as any).mockResolvedValue(2);
+
+        useStore.setState({
+          shoppingListItems: [
+            { id: 1, name: 'Checked 1', checked: true, createdAt: '2025-12-10' },
+            { id: 2, name: 'Unchecked', checked: false, createdAt: '2025-12-10' },
+            { id: 3, name: 'Checked 2', checked: true, createdAt: '2025-12-10' },
+          ],
+        });
+
+        await useStore.getState().clearCheckedItems();
+
+        const state = useStore.getState();
+        expect(state.shoppingListItems).toHaveLength(1);
+        expect(state.shoppingListItems[0].name).toBe('Unchecked');
+      });
+
+      it('should handle empty list', async () => {
+        const { shoppingListApi } = await import('./api');
+
+        (shoppingListApi.clearChecked as any).mockResolvedValue(0);
+
+        useStore.setState({
+          shoppingListItems: [],
+        });
+
+        await useStore.getState().clearCheckedItems();
+
+        const state = useStore.getState();
+        expect(state.shoppingListItems).toEqual([]);
+      });
     });
   });
 });

@@ -8,6 +8,7 @@ import type {
   ChatMessage,
   ShoppingListSuggestion,
   ShoppingListStats,
+  ShoppingListItem,
   CraftableRecipe,
   NearMissRecipe,
   NeedFewRecipe,
@@ -32,6 +33,7 @@ export interface ChatSlice {
   chatHistory: ChatMessage[];
   shoppingListSuggestions: ShoppingListSuggestion[];
   shoppingListStats: ShoppingListStats | null;
+  shoppingListItems: ShoppingListItem[];
   craftableRecipes: CraftableRecipe[];
   nearMissRecipes: NearMissRecipe[];
   needFewRecipes: NeedFewRecipe[];
@@ -46,6 +48,12 @@ export interface ChatSlice {
   clearChat: () => void;
   fetchShoppingList: () => Promise<void>;
   fetchDashboardInsight: () => Promise<void>;
+  // Shopping List Items CRUD
+  fetchShoppingListItems: () => Promise<void>;
+  addShoppingListItem: (name: string) => Promise<void>;
+  toggleShoppingListItem: (id: number) => Promise<void>;
+  removeShoppingListItem: (id: number) => Promise<void>;
+  clearCheckedItems: () => Promise<void>;
 }
 
 export const createChatSlice: StateCreator<
@@ -58,6 +66,7 @@ export const createChatSlice: StateCreator<
   chatHistory: [],
   shoppingListSuggestions: [],
   shoppingListStats: null,
+  shoppingListItems: [],
   craftableRecipes: [],
   nearMissRecipes: [],
   needFewRecipes: [],
@@ -146,6 +155,66 @@ export const createChatSlice: StateCreator<
       console.error('Failed to fetch dashboard insight:', error);
       // Keep default greeting on error
       set({ isDashboardInsightLoading: false });
+    }
+  },
+
+  // Shopping List Items CRUD
+  fetchShoppingListItems: async () => {
+    try {
+      const items = await shoppingListApi.getItems();
+      set({ shoppingListItems: items });
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Failed to fetch shopping list items'));
+    }
+  },
+
+  addShoppingListItem: async (name: string) => {
+    try {
+      const newItem = await shoppingListApi.addItem(name);
+      set((state) => ({
+        shoppingListItems: [newItem, ...state.shoppingListItems],
+      }));
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Failed to add item'));
+    }
+  },
+
+  toggleShoppingListItem: async (id: number) => {
+    const currentItems = get().shoppingListItems;
+    const item = currentItems.find((i) => i.id === id);
+    if (!item) return;
+
+    try {
+      const updated = await shoppingListApi.updateItem(id, { checked: !item.checked });
+      set((state) => ({
+        shoppingListItems: state.shoppingListItems.map((i) =>
+          i.id === id ? updated : i
+        ),
+      }));
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Failed to update item'));
+    }
+  },
+
+  removeShoppingListItem: async (id: number) => {
+    try {
+      await shoppingListApi.removeItem(id);
+      set((state) => ({
+        shoppingListItems: state.shoppingListItems.filter((i) => i.id !== id),
+      }));
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Failed to remove item'));
+    }
+  },
+
+  clearCheckedItems: async () => {
+    try {
+      await shoppingListApi.clearChecked();
+      set((state) => ({
+        shoppingListItems: state.shoppingListItems.filter((i) => !i.checked),
+      }));
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Failed to clear checked items'));
     }
   },
 });

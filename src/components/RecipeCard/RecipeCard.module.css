@@ -1,0 +1,260 @@
+/* RecipeCard - Molecular Mixology Design System */
+
+.card {
+  background: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 2px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.1s ease, border-color 0.1s ease;
+  width: 100%;
+}
+
+.card:hover {
+  transform: scale(1.02);
+  border-color: #CBD5E1;
+}
+
+.cardSelected {
+  border-color: #0D9488;
+}
+
+/* Thumbnail Area */
+.thumbnail {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border-bottom: 1px solid #F1F5F9;
+  height: 160px;
+  overflow: hidden;
+}
+
+/* Content Area */
+.content {
+  padding: 16px;
+}
+
+/* Top Row Layout */
+.topRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/* Checkbox */
+.checkbox {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  border: 1px solid #CBD5E1;
+  border-radius: 2px;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.1s ease;
+}
+
+.checkbox:hover {
+  border-color: #94A3B8;
+}
+
+.checkboxChecked {
+  background: #0D9488;
+  border-color: #0D9488;
+}
+
+.checkboxChecked svg {
+  color: white;
+}
+
+/* Name Section */
+.nameSection {
+  flex: 1;
+  min-width: 0;
+}
+
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.craftableDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10B981;
+  flex-shrink: 0;
+}
+
+.name {
+  font-family: 'Inter', var(--font-sans), sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1E293B;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.formula {
+  font-family: 'JetBrains Mono', var(--font-mono), monospace;
+  font-size: 10px;
+  color: #94A3B8;
+  margin: 2px 0 0 0;
+}
+
+/* Favorite Button */
+.favoriteBtn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #CBD5E1;
+  flex-shrink: 0;
+  transition: color 0.1s ease;
+}
+
+.favoriteBtn:hover {
+  color: #F59E0B;
+}
+
+.favoriteBtnActive {
+  color: #F59E0B;
+}
+
+/* Badges Row */
+.badgesRow {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* Spirit Badge */
+.spiritBadge {
+  display: inline-block;
+  padding: 2px 6px;
+  font-family: 'JetBrains Mono', var(--font-mono), monospace;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 2px;
+}
+
+/* Ingredients Preview */
+.ingredients {
+  font-family: 'JetBrains Mono', var(--font-mono), monospace;
+  font-size: 11px;
+  color: #64748B;
+  margin: 8px 0 0 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.4;
+}
+
+/* Missing Section */
+.missingSection {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #F1F5F9;
+}
+
+.missingText {
+  font-family: 'JetBrains Mono', var(--font-mono), monospace;
+  font-size: 10px;
+  color: #EF4444;
+}
+
+/* Dark Mode */
+[data-theme="dark"] .card {
+  background: #1E293B;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .card:hover {
+  border-color: #475569;
+}
+
+[data-theme="dark"] .cardSelected {
+  border-color: #14B8A6;
+}
+
+[data-theme="dark"] .thumbnail {
+  background: #1E293B;
+  border-bottom-color: #334155;
+}
+
+[data-theme="dark"] .checkbox {
+  background: #1E293B;
+  border-color: #475569;
+}
+
+[data-theme="dark"] .checkbox:hover {
+  border-color: #64748B;
+}
+
+[data-theme="dark"] .checkboxChecked {
+  background: #14B8A6;
+  border-color: #14B8A6;
+}
+
+[data-theme="dark"] .name {
+  color: #F1F5F9;
+}
+
+[data-theme="dark"] .formula {
+  color: #64748B;
+}
+
+[data-theme="dark"] .favoriteBtn {
+  color: #475569;
+}
+
+[data-theme="dark"] .favoriteBtn:hover {
+  color: #F59E0B;
+}
+
+[data-theme="dark"] .ingredients {
+  color: #94A3B8;
+}
+
+[data-theme="dark"] .missingSection {
+  border-top-color: #334155;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .thumbnail {
+    padding: 20px 0;
+  }
+
+  .content {
+    padding: 12px;
+  }
+
+  .name {
+    font-size: 13px;
+  }
+
+  .spiritBadge {
+    font-size: 8px;
+    padding: 1px 5px;
+  }
+
+  .ingredients {
+    font-size: 10px;
+  }
+}

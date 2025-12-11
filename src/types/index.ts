@@ -125,6 +125,13 @@ export interface ShoppingListStats {
   missing4plus?: number;
 }
 
+export interface ShoppingListItem {
+  id: number;
+  name: string;
+  checked: boolean;
+  createdAt: string;
+}
+
 export interface CraftableRecipe {
   id: number;
   name: string;

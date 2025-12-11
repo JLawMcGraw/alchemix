@@ -496,6 +496,44 @@ export function initializeDatabase() {
   `);
 
   /**
+   * Shopping List Items Table
+   *
+   * Stores user's shopping list items (ingredients to buy).
+   *
+   * Columns:
+   * - id: Auto-increment primary key
+   * - user_id: Foreign key to users table
+   * - name: Item name (REQUIRED, e.g., "Angostura Bitters")
+   * - checked: Whether item has been purchased/checked off
+   * - created_at: Item added timestamp
+   *
+   * Constraints:
+   * - user_id NOT NULL: Every item belongs to a user
+   * - name NOT NULL: Every item needs a name
+   * - FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+   *   - If user is deleted, their shopping list is deleted too
+   *
+   * Example Row:
+   * {
+   *   id: 1,
+   *   user_id: 1,
+   *   name: "Angostura Bitters",
+   *   checked: 0,
+   *   created_at: "2025-12-10 14:32:05"
+   * }
+   */
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS shopping_list_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      checked INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  /**
    * Token Blacklist Table
    *
    * Persists revoked JWT tokens so revocations survive restarts
@@ -888,8 +926,41 @@ export function initializeDatabase() {
     }
   }
 
+  /**
+   * Custom Glasses Table
+   *
+   * Stores user-defined glassware types.
+   * Users can add custom glass types beyond the default set.
+   *
+   * Columns:
+   * - id: Auto-increment primary key
+   * - user_id: Foreign key to users table
+   * - name: Glass name (REQUIRED, e.g., "Hurricane", "Zombie Glass")
+   * - created_at: Glass added timestamp
+   *
+   * Constraints:
+   * - user_id NOT NULL: Every custom glass belongs to a user
+   * - name NOT NULL: Every glass needs a name
+   * - UNIQUE (user_id, name): Prevent duplicate glass names per user
+   * - FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+   *   - If user is deleted, their custom glasses are deleted too
+   *
+   * Default glasses are hardcoded in frontend, this table only stores custom additions.
+   */
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS custom_glasses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (user_id, name),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
   db.exec(`
     -- Core lookup indexes (user data isolation)
+    CREATE INDEX IF NOT EXISTS idx_custom_glasses_user_id ON custom_glasses(user_id);
     CREATE INDEX IF NOT EXISTS idx_inventory_items_user_id ON inventory_items(user_id);
     CREATE INDEX IF NOT EXISTS idx_inventory_items_category ON inventory_items(category);
     CREATE INDEX IF NOT EXISTS idx_collections_user_id ON collections(user_id);
@@ -897,6 +968,7 @@ export function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_recipes_collection_id ON recipes(collection_id);
     CREATE INDEX IF NOT EXISTS idx_recipes_memmachine_uid ON recipes(memmachine_uid);
     CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites(user_id);
+    CREATE INDEX IF NOT EXISTS idx_shopping_list_items_user_id ON shopping_list_items(user_id);
 
     -- Token blacklist index (fast expiry lookups for cleanup)
     CREATE INDEX IF NOT EXISTS idx_token_blacklist_expires ON token_blacklist(expires_at);
