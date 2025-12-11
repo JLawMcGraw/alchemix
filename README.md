@@ -6,7 +6,7 @@
 
 Modern cocktail inventory and recipe management system with AI-powered bartender recommendations. Features a "Molecular Mixology" design system that treats cocktails as chemical formulas and ingredients as periodic table elements.
 
-**Version:** v1.29.0 | **Last Updated:** December 9, 2025
+**Version:** v1.30.0 | **Last Updated:** December 10, 2025
 
 ## Features
 
@@ -65,6 +65,11 @@ alchemix/
 ├── src/                    # Next.js frontend
 │   ├── app/               # Pages (login, dashboard, bar, recipes, ai, settings, etc.)
 │   ├── components/        # UI components and modals
+│   │   ├── BottleCard/    # Inventory bottle display component
+│   │   ├── RecipeCard/    # Recipe card with molecule visualization
+│   │   ├── GlassSelector/ # Glassware selection component
+│   │   ├── layout/        # TopNav, navigation components
+│   │   └── modals/        # AddBottle, AddRecipe, EditBottle, CSVUpload, etc.
 │   ├── hooks/             # Custom hooks (useAuthGuard, useVerificationGuard)
 │   ├── lib/               # API client, store, utilities
 │   └── styles/            # globals.css (design system tokens)
@@ -115,6 +120,7 @@ alchemix/
 - `DELETE /api/recipes/bulk` - Bulk delete (up to 500)
 - `GET/POST/PUT/DELETE /api/collections` - Recipe collections
 - `GET/POST/DELETE /api/favorites` - Favorites
+- `GET/POST/DELETE /api/glasses` - Custom glassware types
 - `POST /api/messages` - AI Bartender chat
 - `GET /api/shopping-list/smart` - Smart shopping recommendations
 
