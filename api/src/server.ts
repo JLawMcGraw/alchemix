@@ -60,11 +60,16 @@ import {
   authLimiter,
   aiLimiter,
   passwordResetLimiter,
+  logoutLimiter,
+  changePasswordLimiter,
+  verificationLimiter,
+  bulkOperationsLimiter,
 } from './config/rateLimiter';
 
 // Import API route handlers
 import authRoutes from './routes/auth';
 import inventoryItemsRoutes from './routes/inventoryItems';
+import classificationsRoutes from './routes/classifications';
 import recipesRoutes from './routes/recipes';
 import collectionsRoutes from './routes/collections';
 import favoritesRoutes from './routes/favorites';
@@ -509,13 +514,23 @@ app.use(healthRoutes);
 // Rate limiters imported from ./config/rateLimiter.ts
 app.use('/auth/login', authLimiter);           // 5 attempts per 15 min (brute-force protection)
 app.use('/auth/signup', authLimiter);          // 5 attempts per 15 min (abuse prevention)
+app.use('/auth/logout', logoutLimiter);        // 10 per 15 min (blacklist exhaustion prevention)
 app.use('/auth/forgot-password', passwordResetLimiter);  // 3 per hour (email enumeration prevention)
 app.use('/auth/reset-password', passwordResetLimiter);   // 3 per hour (token abuse prevention)
+app.use('/auth/change-password', changePasswordLimiter); // 3 per hour (brute-force prevention)
+app.use('/auth/resend-verification', verificationLimiter); // 3 per hour (email spam prevention)
 app.use('/auth', authRoutes);                  // Mount auth routes
 
 // Protected API routes (require authentication + CSRF protection)
 // Note: Routes already include authMiddleware internally (sets req.user)
 // CSRF middleware validates X-CSRF-Token header for state-changing requests (POST/PUT/DELETE)
+
+// Apply bulk operations rate limiting to dangerous delete endpoints
+app.use('/api/inventory-items/bulk', bulkOperationsLimiter);  // 10 per 15 min (mass deletion prevention)
+app.use('/api/recipes/bulk', bulkOperationsLimiter);          // 10 per 15 min (mass deletion prevention)
+app.use('/api/recipes/all', bulkOperationsLimiter);           // 10 per 15 min (delete all prevention)
+
+app.use('/api/inventory-items', csrfMiddleware, classificationsRoutes);  // Periodic Table classifications (before inventoryItems to match /classifications first)
 app.use('/api/inventory-items', csrfMiddleware, inventoryItemsRoutes);  // Inventory system with categories
 app.use('/api/recipes', csrfMiddleware, recipesRoutes);
 app.use('/api/collections', csrfMiddleware, collectionsRoutes);
@@ -648,7 +663,14 @@ const server = app.listen(PORT, () => {
   console.log('  POST /api/messages              - AI bartender (30/hr)');
   console.log('');
   console.log('🔒 Security: All /api/* routes require JWT authentication');
-  console.log('⏱️  Rate Limits: Auth 5/15min, Password 3/hr, AI 30/hr');
+  console.log('⏱️  Rate Limits:');
+  console.log('   • Auth (login/signup): 5/15min');
+  console.log('   • Password reset: 3/hr');
+  console.log('   • Password change: 3/hr');
+  console.log('   • Logout: 10/15min');
+  console.log('   • Verification: 3/hr');
+  console.log('   • AI messages: 30/hr');
+  console.log('   • Bulk operations: 10/15min');
   console.log('📊 Logging: Structured logging with Winston (logs/ directory)');
   console.log('🆔 Request IDs: Correlation tracking enabled');
   console.log('✅ Environment: Validated on startup');

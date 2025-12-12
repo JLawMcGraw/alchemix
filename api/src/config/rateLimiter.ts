@@ -187,3 +187,124 @@ export const passwordResetLimiter = rateLimit({
     });
   },
 });
+
+/**
+ * Logout Rate Limiter
+ *
+ * Prevents token blacklist exhaustion attacks.
+ * Limit: 10 logouts per 15 minutes per user.
+ *
+ * Attack Scenario:
+ * - Attacker performs rapid login → logout cycles
+ * - Fills token blacklist cache (10,000 tokens)
+ * - Causes CPU/disk overhead from constant evictions
+ *
+ * Use case: Prevent DoS via blacklist exhaustion
+ */
+export const logoutLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 logouts per window
+  message: 'Too many logout requests.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipInTest,
+  handler: (req: Request, res: Response) => {
+    res.status(429).json({
+      success: false,
+      error: 'Too many logout requests',
+      message: 'Please wait before logging out again',
+      retryAfter: 900,
+    });
+  },
+  keyGenerator: (req) => {
+    const userId = req.user?.userId;
+    return userId ? `logout:${userId}` : `logout:${req.ip || 'unknown'}`;
+  },
+});
+
+/**
+ * Change Password Rate Limiter
+ *
+ * Prevents brute-force attacks on password change.
+ * Limit: 3 attempts per hour per user.
+ *
+ * Use case: Prevent password change abuse if attacker has session
+ */
+export const changePasswordLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3, // 3 attempts per hour
+  message: 'Too many password change attempts.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipInTest,
+  handler: (req: Request, res: Response) => {
+    res.status(429).json({
+      success: false,
+      error: 'Too many password change attempts',
+      message: 'Please wait before trying to change your password again',
+      retryAfter: 3600,
+    });
+  },
+  keyGenerator: (req) => {
+    const userId = req.user?.userId;
+    return userId ? `changepw:${userId}` : `changepw:${req.ip || 'unknown'}`;
+  },
+});
+
+/**
+ * Email Verification Rate Limiter
+ *
+ * Prevents email spam via verification resend.
+ * Limit: 3 requests per hour per user.
+ *
+ * Use case: Prevent email spam and abuse
+ */
+export const verificationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3, // 3 requests per hour
+  message: 'Too many verification email requests.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipInTest,
+  handler: (req: Request, res: Response) => {
+    res.status(429).json({
+      success: false,
+      error: 'Too many verification requests',
+      message: 'Please wait before requesting another verification email',
+      retryAfter: 3600,
+    });
+  },
+  keyGenerator: (req) => {
+    const userId = req.user?.userId;
+    return userId ? `verify:${userId}` : `verify:${req.ip || 'unknown'}`;
+  },
+});
+
+/**
+ * Bulk Operations Rate Limiter
+ *
+ * Prevents abuse of bulk delete operations.
+ * Limit: 10 bulk operations per 15 minutes per user.
+ *
+ * Use case: Prevent mass deletion DoS attacks
+ */
+export const bulkOperationsLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 bulk operations per window
+  message: 'Too many bulk operations.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipInTest,
+  handler: (req: Request, res: Response) => {
+    res.status(429).json({
+      success: false,
+      error: 'Too many bulk operations',
+      message: 'Please wait before performing another bulk operation',
+      retryAfter: 900,
+    });
+  },
+  keyGenerator: (req) => {
+    const userId = req.user?.userId;
+    return userId ? `bulk:${userId}` : `bulk:${req.ip || 'unknown'}`;
+  },
+});

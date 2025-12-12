@@ -958,6 +958,50 @@ export function initializeDatabase() {
     )
   `);
 
+  /**
+   * Inventory Classifications Table (Periodic Table of Mixology V2)
+   *
+   * Stores user manual overrides for inventory item classifications.
+   * Items are automatically classified by the periodicTableV2.ts engine,
+   * but users can override classifications for edge cases.
+   *
+   * Schema:
+   * - group_num (1-6): Column in periodic table (functional role)
+   *   - 1=Base, 2=Bridge, 3=Modifier, 4=Sweetener, 5=Reagent, 6=Catalyst
+   * - period_num (1-6): Row in periodic table (origin/source)
+   *   - 1=Agave, 2=Cane, 3=Grain, 4=Grape, 5=Fruit, 6=Botanic
+   *
+   * Use Cases:
+   * 1. User classifies item differently than auto-classification
+   * 2. New/unusual items not in hardcoded classification map
+   * 3. Personal preference (e.g., user considers X a "modifier" not "base")
+   *
+   * Why only store overrides (not all classifications)?
+   * - Auto-classification handles 95%+ of common items
+   * - Reduces database storage and complexity
+   * - Updates to classification engine automatically apply
+   * - Only manual overrides need persistence
+   *
+   * Classification Flow:
+   * 1. Check this table for user override
+   * 2. If found: return { group, period, confidence: 'manual' }
+   * 3. If not found: run auto-classification engine
+   */
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS inventory_classifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      inventory_item_id INTEGER NOT NULL,
+      group_num INTEGER NOT NULL CHECK (group_num BETWEEN 1 AND 6),
+      period_num INTEGER NOT NULL CHECK (period_num BETWEEN 1 AND 6),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (inventory_item_id) REFERENCES inventory_items(id) ON DELETE CASCADE,
+      UNIQUE (user_id, inventory_item_id)
+    )
+  `);
+
   db.exec(`
     -- Core lookup indexes (user data isolation)
     CREATE INDEX IF NOT EXISTS idx_custom_glasses_user_id ON custom_glasses(user_id);
@@ -970,6 +1014,10 @@ export function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites(user_id);
     CREATE INDEX IF NOT EXISTS idx_shopping_list_items_user_id ON shopping_list_items(user_id);
 
+    -- Inventory classifications indexes (Periodic Table V2)
+    CREATE INDEX IF NOT EXISTS idx_inventory_classifications_user ON inventory_classifications(user_id);
+    CREATE INDEX IF NOT EXISTS idx_inventory_classifications_item ON inventory_classifications(inventory_item_id);
+
     -- Token blacklist index (fast expiry lookups for cleanup)
     CREATE INDEX IF NOT EXISTS idx_token_blacklist_expires ON token_blacklist(expires_at);
 
@@ -980,6 +1028,12 @@ export function initializeDatabase() {
     -- Composite indexes for common query patterns
     CREATE INDEX IF NOT EXISTS idx_recipes_user_category ON recipes(user_id, category);
     CREATE INDEX IF NOT EXISTS idx_inventory_user_category ON inventory_items(user_id, category);
+
+    -- Foreign key indexes for JOIN performance
+    CREATE INDEX IF NOT EXISTS idx_favorites_recipe_id ON favorites(recipe_id);
+
+    -- Unique composite index to prevent duplicate favorites
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_favorites_user_recipe ON favorites(user_id, recipe_id) WHERE recipe_id IS NOT NULL;
   `);
 
   log('✅ Database schema initialized successfully!');

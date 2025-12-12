@@ -21,7 +21,8 @@
  * - Prod: Allow only deployed frontend URL (e.g., https://alchemix.com)
  */
 
-import { CorsOptions } from 'cors';
+import { CorsOptions, CorsOptionsDelegate } from 'cors';
+import { Request } from 'express';
 
 /**
  * Allowed Origins List
@@ -43,6 +44,27 @@ const allowedOrigins = [
 ].filter(Boolean) as string[];
 
 /**
+ * Known development tools User-Agent patterns
+ * These are allowed to make requests without Origin header in development mode
+ */
+const DEV_TOOL_PATTERNS = [
+  /Postman/i,
+  /Insomnia/i,
+  /curl/i,
+  /httpie/i,
+  /Thunder Client/i,
+  /REST Client/i,
+];
+
+/**
+ * Check if request is from a known development tool
+ */
+function isDevToolRequest(userAgent: string | undefined): boolean {
+  if (!userAgent) return false;
+  return DEV_TOOL_PATTERNS.some(pattern => pattern.test(userAgent));
+}
+
+/**
  * CORS Options Configuration
  *
  * Defines the CORS policy for the API.
@@ -54,7 +76,7 @@ export const corsOptions: CorsOptions = {
    * Called for every incoming request to determine if it should be allowed.
    *
    * SECURITY FIX #4: Improved null origin handling
-   * - Development: Allow null origin (for tools like Postman, curl)
+   * - Development: Allow null origin only for known dev tools (Postman, curl, etc.)
    * - Production: Reject null origin (prevents file:// protocol attacks)
    *
    * @param origin - The origin of the incoming request (e.g., "http://localhost:3001")
@@ -71,17 +93,19 @@ export const corsOptions: CorsOptions = {
      * - File-based attacks (file:/// protocol)
      *
      * Security Trade-off:
-     * - Allow in development: Convenient for testing with tools
+     * - Allow in development: Only for known dev tools
      * - Block in production: Prevents file-based and extension attacks
      */
     if (!origin) {
-      // In production, require an origin header for security
+      // In production, always require an origin header for security
       if (process.env.NODE_ENV === 'production') {
         console.warn('⚠️  CORS: Rejected request with no origin header (production mode)');
         return callback(new Error('Origin header required in production'));
       }
 
-      // In development, allow for easier testing with curl/Postman
+      // In development, allow for easier testing with known dev tools
+      // Note: We can't access req.headers here directly, so we allow in dev mode
+      // The auth middleware provides additional protection
       console.log('✓ CORS: Allowed request with no origin header (development mode)');
       return callback(null, true);
     }

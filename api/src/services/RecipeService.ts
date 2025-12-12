@@ -636,30 +636,83 @@ export class RecipeService {
   }
 
   /**
-   * Process ingredients input to JSON string
+   * Process and validate recipe ingredients
+   *
+   * Validates:
+   * - Maximum 100 ingredients
+   * - Each ingredient must be a non-empty string
+   * - Each ingredient max 500 characters
+   * - Total JSON string max 50KB
    */
   private processIngredients(ingredients: unknown): { valid: boolean; str?: string; error?: string } {
+    // Empty ingredients allowed (returns empty array)
     if (!ingredients) {
       return { valid: true, str: '[]' };
     }
 
+    let ingredientArray: unknown[];
+
+    // Parse string input
     if (typeof ingredients === 'string') {
+      // Check max size before parsing (prevent DoS via huge JSON)
+      if (ingredients.length > 50000) {
+        return { valid: false, error: 'Ingredients data too large (maximum 50KB)' };
+      }
+
       try {
-        JSON.parse(ingredients);
-        return { valid: true, str: ingredients };
+        const parsed = JSON.parse(ingredients);
+        if (!Array.isArray(parsed)) {
+          return { valid: false, error: 'Ingredients must be an array' };
+        }
+        ingredientArray = parsed;
       } catch {
         return { valid: false, error: 'Ingredients string is not valid JSON' };
       }
+    } else if (Array.isArray(ingredients)) {
+      ingredientArray = ingredients;
+    } else {
+      return { valid: false, error: 'Ingredients must be a JSON string or array' };
     }
 
-    if (Array.isArray(ingredients)) {
-      if (ingredients.length > 100) {
-        return { valid: false, error: 'Too many ingredients (maximum 100)' };
+    // Validate array length
+    if (ingredientArray.length > 100) {
+      return { valid: false, error: 'Too many ingredients (maximum 100)' };
+    }
+
+    // Validate each ingredient
+    const sanitizedIngredients: string[] = [];
+    for (let i = 0; i < ingredientArray.length; i++) {
+      const ingredient = ingredientArray[i];
+
+      // Must be a string
+      if (typeof ingredient !== 'string') {
+        return { valid: false, error: `Ingredient at index ${i} must be a string` };
       }
-      return { valid: true, str: JSON.stringify(ingredients) };
+
+      // Trim and check for empty
+      const trimmed = ingredient.trim();
+      if (trimmed.length === 0) {
+        return { valid: false, error: `Ingredient at index ${i} cannot be empty` };
+      }
+
+      // Check max length per ingredient
+      if (trimmed.length > 500) {
+        return { valid: false, error: `Ingredient at index ${i} too long (maximum 500 characters)` };
+      }
+
+      // Sanitize (remove HTML/script tags)
+      const sanitized = sanitizeString(trimmed, 500, true);
+      sanitizedIngredients.push(sanitized);
     }
 
-    return { valid: true, str: JSON.stringify(ingredients) };
+    const jsonStr = JSON.stringify(sanitizedIngredients);
+
+    // Final size check
+    if (jsonStr.length > 50000) {
+      return { valid: false, error: 'Ingredients data too large after sanitization (maximum 50KB)' };
+    }
+
+    return { valid: true, str: jsonStr };
   }
 
   /**

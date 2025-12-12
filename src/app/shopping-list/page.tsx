@@ -51,11 +51,11 @@ export default function ShoppingListPage() {
   const safeFavorites = Array.isArray(favorites) ? favorites : [];
 
   // Merge partial recipe data from shopping-list API with full recipe details from the store
-  const enrichRecipe = (recipe: any): Recipe => {
+  const enrichRecipe = (recipe: Partial<Recipe> & { id?: number; name?: string }): Recipe => {
     const fromStore = Array.isArray(recipes)
       ? recipes.find((r) => r.id === recipe.id) || recipes.find((r) => r.name === recipe.name)
       : null;
-    return fromStore ? { ...fromStore, ...recipe } : recipe;
+    return fromStore ? { ...fromStore, ...recipe } : (recipe as Recipe);
   };
 
   // Build recommendations with their unlocked recipes

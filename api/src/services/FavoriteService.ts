@@ -13,6 +13,21 @@ import { sanitizeString, validateNumber } from '../utils/inputValidator';
 import { Favorite } from '../types';
 
 /**
+ * Pagination result
+ */
+export interface PaginatedFavorites {
+  favorites: Favorite[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}
+
+/**
  * Input for creating a favorite
  */
 export interface CreateFavoriteInput {
@@ -45,12 +60,51 @@ export interface CreateFavoriteResult {
  */
 export class FavoriteService {
   /**
-   * Get all favorites for a user
+   * Get all favorites for a user (no pagination - backwards compatible)
    */
   getAll(userId: number): Favorite[] {
     return db.prepare(
       'SELECT * FROM favorites WHERE user_id = ? ORDER BY created_at DESC'
     ).all(userId) as Favorite[];
+  }
+
+  /**
+   * Get paginated favorites for a user
+   *
+   * @param userId - User ID
+   * @param page - Page number (1-indexed, default 1)
+   * @param limit - Items per page (default 50, max 100)
+   */
+  getPaginated(userId: number, page: number = 1, limit: number = 50): PaginatedFavorites {
+    // Validate and clamp parameters
+    const safePage = Math.max(1, Math.floor(page));
+    const safeLimit = Math.min(100, Math.max(1, Math.floor(limit)));
+    const offset = (safePage - 1) * safeLimit;
+
+    // Get total count
+    const countResult = db.prepare(
+      'SELECT COUNT(*) as total FROM favorites WHERE user_id = ?'
+    ).get(userId) as { total: number };
+
+    const total = countResult.total;
+    const totalPages = Math.ceil(total / safeLimit);
+
+    // Get paginated results
+    const favorites = db.prepare(
+      'SELECT * FROM favorites WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
+    ).all(userId, safeLimit, offset) as Favorite[];
+
+    return {
+      favorites,
+      pagination: {
+        page: safePage,
+        limit: safeLimit,
+        total,
+        totalPages,
+        hasNextPage: safePage < totalPages,
+        hasPreviousPage: safePage > 1
+      }
+    };
   }
 
   /**

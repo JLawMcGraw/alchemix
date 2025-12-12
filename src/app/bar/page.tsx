@@ -9,11 +9,10 @@ import { Card } from '@/components/ui/Card';
 import { BottleCard } from '@/components/BottleCard';
 import { Wine, Upload, Plus, Martini, X, ChevronLeft, ChevronRight, Trash2, Grid3X3, List, FlaskConical } from 'lucide-react';
 import { CSVUploadModal, AddBottleModal, ItemDetailModal } from '@/components/modals';
-import { PeriodicTable } from '@/components/PeriodicTable';
+import { PeriodicTable } from '@/components/PeriodicTableV2';
 import { inventoryApi } from '@/lib/api';
 import type { InventoryCategory, InventoryItem, InventoryItemInput } from '@/types';
 import { categorizeSpirit, matchesSpiritCategory, SpiritCategory } from '@/lib/spirits';
-import { type PeriodicElement, countInventoryForElement } from '@/lib/periodicTable';
 import styles from './bar.module.css';
 
 type CategoryTab = {
@@ -48,8 +47,6 @@ function BarPageContent() {
 
   // View mode: 'periodic' (periodic table) or 'list' (traditional list)
   const [viewMode, setViewMode] = useState<'periodic' | 'list'>('periodic');
-  // Selected element from periodic table for filtering
-  const [selectedElement, setSelectedElement] = useState<PeriodicElement | null>(null);
 
   // Selection state for bulk operations
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -107,37 +104,9 @@ function BarPageContent() {
       );
     }
 
-    // Filter by selected periodic element
-    if (selectedElement) {
-      items = items.filter(item => {
-        const count = countInventoryForElement(selectedElement, [{ name: item.name, type: item.type }]);
-        return count > 0;
-      });
-    }
-
     return items;
-  }, [itemsArray, spiritTypeFilter, selectedElement]);
+  }, [itemsArray, spiritTypeFilter]);
 
-  // Inventory items formatted for periodic table
-  const periodicTableItems = useMemo(() =>
-    itemsArray.map(item => ({ name: item.name, type: item.type })),
-    [itemsArray]
-  );
-
-  // Handler for element click
-  const handleElementClick = (element: PeriodicElement) => {
-    if (selectedElement?.symbol === element.symbol) {
-      // Clicking same element clears selection
-      setSelectedElement(null);
-    } else {
-      setSelectedElement(element);
-    }
-  };
-
-  // Clear element selection
-  const handleClearElement = () => {
-    setSelectedElement(null);
-  };
 
   // Early return after all hooks have been called
   if (isValidating || !isAuthenticated) {
@@ -256,19 +225,16 @@ function BarPageContent() {
             <div className={styles.subtitleContainer}>
               <p className={styles.subtitle}>
                 {filteredItems.length} {filteredItems.length === 1 ? 'item' : 'items'}
-                {selectedElement
-                  ? ` in ${selectedElement.name}`
-                  : spiritTypeFilter
+                {spiritTypeFilter
                   ? ` - ${spiritTypeFilter}`
                   : activeCategory !== 'all' && ` in ${CATEGORIES.find(c => c.id === activeCategory)?.label}`
                 }
               </p>
-              {(spiritTypeFilter || selectedElement) && (
+              {spiritTypeFilter && (
                 <button
                   className={styles.clearFilterBtn}
                   onClick={() => {
                     setSpiritTypeFilter(null);
-                    setSelectedElement(null);
                   }}
                   title="Clear filter"
                 >
@@ -334,15 +300,10 @@ function BarPageContent() {
           </div>
         </div>
 
-        {/* Periodic Table View */}
+        {/* Periodic Table View (V2 - 6x6 Grid by Function × Origin) */}
         {viewMode === 'periodic' && (
           <PeriodicTable
-            inventoryItems={periodicTableItems}
-            selectedElement={selectedElement}
-            onElementClick={handleElementClick}
-            onClearSelection={handleClearElement}
-            showLegend={true}
-            compact={false}
+            inventoryItems={itemsArray}
           />
         )}
 
@@ -360,7 +321,6 @@ function BarPageContent() {
                       setActiveCategory(category.id);
                       setCurrentPage(1);
                       setSpiritTypeFilter(null);
-                      setSelectedElement(null);
                     }}
                   >
                     {category.label}

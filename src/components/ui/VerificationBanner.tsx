@@ -44,9 +44,10 @@ export function VerificationBanner() {
     try {
       await authApi.resendVerification();
       setResendSuccess(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { data?: { error?: string } } };
       setResendError(
-        error.response?.data?.error || 'Failed to send verification email. Please try again.'
+        axiosError.response?.data?.error || 'Failed to send verification email. Please try again.'
       );
     } finally {
       setResending(false);

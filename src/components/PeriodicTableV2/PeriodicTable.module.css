@@ -1,0 +1,177 @@
+/* Periodic Table of Mixology V2 - Main Grid Styles */
+
+.container {
+  background: var(--color-ui-bg-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-card);
+  padding: var(--space-4);
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.titleSection h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-text-body);
+  margin: 0;
+}
+
+.subtitle {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  color: var(--color-text-muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+/* Group Labels Row (Column Headers) */
+.groupLabelsRow {
+  display: grid;
+  grid-template-columns: 80px repeat(6, 1fr);
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.cornerCell {
+  /* Empty corner cell */
+}
+
+.groupHeader {
+  text-align: center;
+  padding: var(--space-2) var(--space-1);
+}
+
+.groupNumeral {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--group-color);
+}
+
+.groupName {
+  font-size: 0.625rem;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+/* Period Rows */
+.row {
+  display: grid;
+  grid-template-columns: 80px repeat(6, 1fr);
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+/* Period Label (Row Header) */
+.periodLabel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--space-2);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--period-color) 10%, transparent);
+}
+
+.periodNumber {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--period-color);
+}
+
+.periodName {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--color-text-body);
+  margin-top: 2px;
+}
+
+.periodProfile {
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+/* Legend */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border-default);
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.legendDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.legendLabel {
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .container {
+    padding: var(--space-3);
+  }
+
+  .groupLabelsRow,
+  .row {
+    grid-template-columns: 64px repeat(6, 1fr);
+    gap: var(--space-1);
+  }
+
+  .periodLabel {
+    padding: var(--space-1);
+  }
+
+  .periodProfile {
+    display: none;
+  }
+
+  .groupName {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: var(--space-2);
+    overflow-x: auto;
+  }
+
+  .groupLabelsRow,
+  .row {
+    grid-template-columns: 56px repeat(6, minmax(72px, 1fr));
+    min-width: 500px;
+  }
+
+  .header {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .legend {
+    gap: var(--space-2);
+  }
+}

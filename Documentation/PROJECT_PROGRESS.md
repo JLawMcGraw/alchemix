@@ -1,13 +1,13 @@
 # Project Development Progress
 
-Last updated: 2025-12-10
+Last updated: 2025-12-11
 
 ---
 
 ## Current Status
 
-**Version**: v1.29.0
-**Phase**: Visual Redesign - "Molecular Mixology" (**ALL PHASES COMPLETE**)
+**Version**: v1.30.0
+**Phase**: Feature Development - Periodic Table V2 Improvements
 **Branch**: `alchemix-redesign`
 **Blockers**: None
 
@@ -19,7 +19,62 @@ Last updated: 2025-12-10
 
 ---
 
-## Recent Session (2025-12-10): Major Feature Updates + Logo Assets
+## Recent Session (2025-12-11): Periodic Table V2 Refinements
+
+### Summary
+Major improvements to the Periodic Table V2 component: fixed double popup issue, improved classification matching accuracy with word boundary matching, changed dropdown to show element TYPES (not user bottles), added grayed-out state for elements not in bar, and enabled element swapping from dropdown.
+
+### Work Completed
+
+#### 1. Fixed Double Popup Issue
+- Removed ElementDetailPanel from PeriodicTable.tsx (bar page already opens ItemDetailModal)
+- Now clicking an item only opens one modal
+
+#### 2. Improved Classification Matching Accuracy
+- Rewrote `matchItemToElements()` function in `periodicTableV2.ts`
+- Added `isWordBoundaryMatch()` helper using regex `\b` anchors
+- Prevents false matches like "gin" matching "ginger" or "apple" matching "pineapple"
+- Multi-word phrases get highest score (20 points), single words require strict boundary match (10 points)
+- Added two-phase matching: element keywords first, then CLASSIFICATION_MAP fallback
+
+#### 3. Dropdown Shows Element TYPES (Not User Bottles)
+- Changed dropdown to show predefined element types (Vodka, Sake, Genever, etc.)
+- NOT the user's actual bottle names (Grey Goose, Hakutsuru, etc.)
+- Added `onElementSelect` callback replacing `onItemClick`
+- Each dropdown item shows: Symbol, Name, and Spec (ABV/Brix/pH)
+
+#### 4. Visual Improvements for Bar Stock Reflection
+- Added `ownedElementSymbols` Set to track which elements user actually has
+- Cells showing elements user doesn't own are grayed out (50% opacity on symbol/name/spec)
+- Dropdown items for unowned elements also grayed out
+- Dropdown itself always fully visible (not affected by cell opacity)
+
+#### 5. Element Swapping from Dropdown
+- Clicking an element in dropdown swaps it to the front (becomes displayed element)
+- Added local state `selectedElement` with `useEffect` to reset on prop change
+- Selected element gets highlighted styling in dropdown (accent border, background)
+
+#### 6. UI Polish
+- Increased font sizes: Symbol (1.75rem), Name (0.8125rem), Spec (0.75rem), Badge (0.75rem)
+- Increased cell size to 100px min-height
+- Count badge now shows total count consistently (no more +N inconsistency)
+
+### Files Modified
+- `src/lib/periodicTableV2.ts` - Added `isWordBoundaryMatch()`, updated `matchItemToElements()`, added `CellDisplayData` interface with `ownedElementSymbols`
+- `src/components/PeriodicTableV2/PeriodicTable.tsx` - Changed to `onElementSelect`, pass `ownedElementSymbols`
+- `src/components/PeriodicTableV2/ElementCell.tsx` - Complete rewrite for element types, swapping, owned state
+- `src/components/PeriodicTableV2/ElementCell.module.css` - Added `.notOwned`, `.itemNotOwned`, `.itemSelected` styles, increased font sizes
+- `src/app/bar/page.tsx` - Removed `onItemClick` handler
+
+### Next Steps (Potential Future Work)
+- Further refinement of element matching keywords
+- Add ability to reclassify items manually
+- Persist element swap selection per cell
+- Add search/filter within periodic table
+
+---
+
+## Previous Session (2025-12-10): Major Feature Updates + Logo Assets
 
 ### Summary
 Comprehensive session with multiple major features: Shopping List Items CRUD (database persistence), Custom Glasses API, Account Page redesign with Settings/Export/Import, TopNav redesign with user avatar dropdown, Modal redesigns (ItemDetailModal, AddBottleModal, EditBottleModal, AddRecipeModal, CSVUploadModal, RecipeDetailModal), and logo asset creation with favicon update.

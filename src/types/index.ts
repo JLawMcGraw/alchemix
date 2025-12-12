@@ -84,6 +84,7 @@ export interface Recipe {
   spirit_type?: string;
   compatibility?: number;
   missing?: string[];
+  formula?: string;  // Chemical formula notation (e.g., "Ry₂ · Sv₁")
   created_at?: string;
 }
 

@@ -41,11 +41,12 @@ function VerifyEmailContent() {
         setTimeout(() => {
           router.push('/dashboard');
         }, 3000);
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (cancelled) return;
         setStatus('error');
+        const axiosError = error as { response?: { data?: { error?: string } } };
         setErrorMessage(
-          error.response?.data?.error || 'Failed to verify email. The link may be invalid or expired.'
+          axiosError.response?.data?.error || 'Failed to verify email. The link may be invalid or expired.'
         );
       }
     };
@@ -62,10 +63,11 @@ function VerifyEmailContent() {
     try {
       await authApi.resendVerification();
       setResendSuccess(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // User might not be logged in
+      const axiosError = error as { response?: { data?: { error?: string } } };
       setErrorMessage(
-        error.response?.data?.error || 'Unable to resend verification email. Please log in and try again.'
+        axiosError.response?.data?.error || 'Unable to resend verification email. Please log in and try again.'
       );
     } finally {
       setResending(false);

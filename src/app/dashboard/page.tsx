@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import DOMPurify from 'isomorphic-dompurify';
 import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { InsightSkeleton } from '@/components/ui/Skeleton';
@@ -12,57 +13,16 @@ import styles from './dashboard.module.css';
 
 /**
  * Safely render HTML content with only allowed tags
- * Prevents XSS attacks from AI-generated content
+ * Uses DOMPurify for robust XSS prevention
  */
 const sanitizeAndRenderHTML = (html: string): string => {
   if (!html) return '';
 
-  const entityMap: Record<string, string> = {
-    '&lt;': '<',
-    '&gt;': '>',
-    '&amp;': '&',
-    '&quot;': '"',
-    '&#x27;': "'",
-    '&#39;': "'",
-  };
-
-  let decoded = html;
-  for (const [entity, char] of Object.entries(entityMap)) {
-    decoded = decoded.replace(new RegExp(entity, 'g'), char);
-  }
-
-  const allowedTags = ['strong', 'em', 'b', 'i', 'br'];
-  const placeholders: { placeholder: string; tag: string }[] = [];
-  let placeholderIndex = 0;
-
-  for (const tag of allowedTags) {
-    decoded = decoded.replace(new RegExp(`<${tag}(\\s[^>]*)?>`, 'gi'), () => {
-      const placeholder = `__ALLOWED_TAG_${placeholderIndex++}__`;
-      placeholders.push({ placeholder, tag: `<${tag}>` });
-      return placeholder;
-    });
-
-    decoded = decoded.replace(new RegExp(`</${tag}>`, 'gi'), () => {
-      const placeholder = `__ALLOWED_TAG_${placeholderIndex++}__`;
-      placeholders.push({ placeholder, tag: `</${tag}>` });
-      return placeholder;
-    });
-
-    decoded = decoded.replace(new RegExp(`<${tag}\\s*/>`, 'gi'), () => {
-      const placeholder = `__ALLOWED_TAG_${placeholderIndex++}__`;
-      placeholders.push({ placeholder, tag: `<${tag}/>` });
-      return placeholder;
-    });
-  }
-
-  decoded = decoded.replace(/<[^>]*>/g, '');
-  decoded = decoded.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-  for (const { placeholder, tag } of placeholders) {
-    decoded = decoded.replace(placeholder, tag);
-  }
-
-  return decoded;
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['strong', 'em', 'b', 'i', 'br'],
+    ALLOWED_ATTR: [],
+    KEEP_CONTENT: true,
+  });
 };
 
 const renderGreetingContent = (greeting: string): React.ReactNode => {
@@ -178,8 +138,9 @@ export default function DashboardPage() {
         }
         await fetchRecipes();
       }
-    } catch (error: any) {
-      showToast('error', error.message || 'Failed to import CSV');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to import CSV';
+      showToast('error', errorMessage);
       throw error;
     }
   }, [csvModalType, showToast, fetchRecipes]);

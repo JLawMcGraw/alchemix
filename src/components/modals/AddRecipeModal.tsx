@@ -302,12 +302,12 @@ export function AddRecipeModal({ isOpen, onClose, onAdd, collections = [] }: Add
                     Collection <span className={styles.optional}>(optional)</span>
                   </label>
                   <div className={styles.collectionGrid}>
-                    {collections.map((col) => (
+                    {collections.filter((col) => col.id !== undefined).map((col) => (
                       <button
                         key={col.id}
                         type="button"
-                        className={`${styles.collectionTag} ${formData.collection_id === col.id.toString() ? styles.collectionTagSelected : ''}`}
-                        onClick={() => handleChange('collection_id', formData.collection_id === col.id.toString() ? '' : col.id.toString())}
+                        className={`${styles.collectionTag} ${formData.collection_id === String(col.id) ? styles.collectionTagSelected : ''}`}
+                        onClick={() => handleChange('collection_id', formData.collection_id === String(col.id) ? '' : String(col.id))}
                       >
                         {col.name}
                       </button>

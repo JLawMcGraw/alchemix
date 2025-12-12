@@ -29,7 +29,7 @@ export default function LoginPage() {
   const passwordChecks = checkPasswordRequirements(password);
   const showPasswordRequirements = isSignupMode && (passwordFocused || password.length > 0);
 
-  // Validate existing token on mount
+  // Validate existing session on mount (uses httpOnly cookie, not localStorage)
   useEffect(() => {
     const checkExistingAuth = async () => {
       // Wait for hydration
@@ -37,14 +37,16 @@ export default function LoginPage() {
         return;
       }
 
-      // Check if there's a token to validate
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      if (token) {
+      // Validate session via httpOnly cookie (handled by validateToken API call)
+      // No localStorage token check needed - auth uses secure cookies
+      try {
         const isValid = await validateToken();
         if (isValid) {
           router.push('/dashboard');
           return;
         }
+      } catch {
+        // Token validation failed, stay on login page
       }
 
       // Mark auth check as complete

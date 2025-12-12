@@ -23,7 +23,7 @@
 |-------|-------|
 | Version | v1.30.0 |
 | Phase | Feature Development |
-| Last Updated | December 10, 2025 |
+| Last Updated | December 11, 2025 |
 | Blockers | None |
 | Tests | 142 recipe-molecule tests passing |
 | Active Branch | `alchemix-redesign` |
@@ -201,19 +201,21 @@ NEXT_PUBLIC_API_URL=http://localhost:3000
 
 ### Next Steps
 
-**Recent Major Updates** (Dec 10, 2025):
-- Shopping List Items CRUD with database persistence
-- Custom Glasses API
-- Account page with Settings, Export/Import
-- TopNav redesign with avatar dropdown
-- All modals restyled
-- Logo SVG assets created
+**Recent Major Updates** (Dec 11, 2025):
+- Periodic Table V2 refinements:
+  - Fixed double popup issue
+  - Improved classification matching with word boundary regex
+  - Dropdown shows element TYPES not user bottles
+  - Grayed-out state for elements not in bar
+  - Element swapping from dropdown
+  - Increased font sizes for readability
 
 **Potential Future Work**:
-1. Apply Brownian motion animations to Recipe Molecule nodes
-2. Use stagger animations on card grids
-3. Integrate formatters into more components
-4. Add skip link to layout for accessibility
+1. Further refinement of element matching keywords
+2. Add ability to reclassify items manually
+3. Persist element swap selection per cell
+4. Add search/filter within periodic table
+5. Apply Brownian motion animations to Recipe Molecule nodes
 
 ---
 

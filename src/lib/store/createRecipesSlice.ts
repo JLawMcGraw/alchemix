@@ -25,6 +25,7 @@ export interface RecipesSlice {
   collections: Collection[];
   favorites: Favorite[];
   customGlasses: CustomGlass[];
+  isLoadingRecipes: boolean;
 
   // Recipe Actions
   fetchRecipes: (page?: number, limit?: number) => Promise<Recipe[]>;
@@ -50,55 +51,79 @@ export interface RecipesSlice {
   deleteCustomGlass: (id: number) => Promise<void>;
 }
 
+// Request deduplication - prevents multiple concurrent fetches
+let fetchRecipesPromise: Promise<Recipe[]> | null = null;
+
 export const createRecipesSlice: StateCreator<
   RecipesSlice,
   [],
   [],
   RecipesSlice
-> = (set) => ({
+> = (set, get) => ({
   // Initial State
   recipes: [],
   collections: [],
   favorites: [],
   customGlasses: [],
+  isLoadingRecipes: false,
 
   // Recipe Actions
   fetchRecipes: async (page: number = 1, limit: number = 50) => {
-    try {
-      // When requesting the default page, fetch the entire collection to keep UI in sync
-      if (page === 1) {
-        const aggregated: Recipe[] = [];
-        let currentPage = page;
-        let hasMore = true;
+    // Deduplicate concurrent requests for full recipe list
+    if (page === 1 && fetchRecipesPromise) {
+      return fetchRecipesPromise;
+    }
 
-        while (hasMore) {
-          const { recipes: pageRecipes, pagination } = await recipeApi.getAll(currentPage, limit);
-          if (Array.isArray(pageRecipes)) {
-            aggregated.push(...pageRecipes);
+    const fetchAll = async (): Promise<Recipe[]> => {
+      set({ isLoadingRecipes: true });
+      try {
+        // When requesting the default page, fetch the entire collection to keep UI in sync
+        if (page === 1) {
+          const aggregated: Recipe[] = [];
+          let currentPage = page;
+          let hasMore = true;
+
+          while (hasMore) {
+            const { recipes: pageRecipes, pagination } = await recipeApi.getAll(currentPage, limit);
+            if (Array.isArray(pageRecipes)) {
+              aggregated.push(...pageRecipes);
+            }
+
+            const shouldContinue =
+              Boolean(pagination?.hasNextPage) &&
+              Boolean(pageRecipes?.length);
+
+            if (shouldContinue) {
+              currentPage += 1;
+            } else {
+              hasMore = false;
+            }
           }
 
-          const shouldContinue =
-            Boolean(pagination?.hasNextPage) &&
-            Boolean(pageRecipes?.length);
-
-          if (shouldContinue) {
-            currentPage += 1;
-          } else {
-            hasMore = false;
-          }
+          set({ recipes: aggregated, isLoadingRecipes: false });
+          return aggregated;
         }
 
-        set({ recipes: aggregated });
-        return aggregated;
+        // Fallback: fetch a single requested page
+        const { recipes } = await recipeApi.getAll(page, limit);
+        set({ recipes, isLoadingRecipes: false });
+        return recipes;
+      } catch (error) {
+        set({ isLoadingRecipes: false });
+        throw new Error(getErrorMessage(error, 'Failed to fetch recipes'));
       }
+    };
 
-      // Fallback: fetch a single requested page
-      const { recipes } = await recipeApi.getAll(page, limit);
-      set({ recipes });
-      return recipes;
-    } catch (error) {
-      throw new Error(getErrorMessage(error, 'Failed to fetch recipes'));
+    // Set up request deduplication for page 1 (full fetch)
+    if (page === 1) {
+      fetchRecipesPromise = fetchAll();
+      fetchRecipesPromise.finally(() => {
+        fetchRecipesPromise = null;
+      });
+      return fetchRecipesPromise;
     }
+
+    return fetchAll();
   },
 
   addRecipe: async (recipe) => {

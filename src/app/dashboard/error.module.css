@@ -1,0 +1,109 @@
+.errorContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem;
+  background-color: var(--color-bg-primary);
+}
+
+.errorCard {
+  max-width: 480px;
+  padding: 2.5rem;
+  text-align: center;
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+}
+
+.iconWrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  margin-bottom: 1.5rem;
+  color: var(--color-warning, #f59e0b);
+  background-color: rgba(245, 158, 11, 0.1);
+  border-radius: 50%;
+}
+
+.title {
+  margin: 0 0 0.75rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.message {
+  margin: 0 0 1.5rem;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.details {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  text-align: left;
+  background-color: rgba(239, 68, 68, 0.1);
+  border-radius: 8px;
+  font-size: 0.875rem;
+}
+
+.details summary {
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.details pre {
+  margin: 0.5rem 0 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--color-error, #ef4444);
+}
+
+.actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.retryButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--color-bg-primary);
+  background-color: var(--color-accent-primary);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.retryButton:hover {
+  opacity: 0.9;
+}
+
+.homeLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  background-color: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  text-decoration: none;
+  transition: background-color 0.2s;
+}
+
+.homeLink:hover {
+  background-color: var(--color-bg-tertiary);
+}

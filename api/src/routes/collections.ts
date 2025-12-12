@@ -30,21 +30,31 @@ router.use(authMiddleware);
 /**
  * GET /api/collections - List User's Collections
  *
- * Returns all collections owned by authenticated user.
+ * Returns collections owned by authenticated user with optional pagination.
  *
- * Response (200 OK):
+ * Query Parameters:
+ * - page: Page number (default: 1)
+ * - limit: Items per page (default: 50, max: 100)
+ * - all: Set to 'true' to skip pagination and get all collections (backwards compatible)
+ *
+ * Response (200 OK) - Paginated:
  * {
  *   "success": true,
- *   "data": [
- *     {
- *       "id": 1,
- *       "user_id": 1,
- *       "name": "Classic Cocktails",
- *       "description": "Traditional recipes",
- *       "recipe_count": 15,
- *       "created_at": "2025-11-15T18:45:00.000Z"
- *     }
- *   ]
+ *   "data": [...],
+ *   "pagination": {
+ *     "page": 1,
+ *     "limit": 50,
+ *     "total": 25,
+ *     "totalPages": 1,
+ *     "hasNextPage": false,
+ *     "hasPreviousPage": false
+ *   }
+ * }
+ *
+ * Response (200 OK) - Non-paginated (all=true):
+ * {
+ *   "success": true,
+ *   "data": [...]
  * }
  */
 router.get('/', asyncHandler(async (req: Request, res: Response) => {
@@ -57,11 +67,27 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  const collections = collectionService.getAll(userId);
+  // Check if pagination should be skipped (backwards compatibility)
+  const skipPagination = req.query.all === 'true';
+
+  if (skipPagination) {
+    const collections = collectionService.getAll(userId);
+    return res.json({
+      success: true,
+      data: collections
+    });
+  }
+
+  // Parse pagination parameters
+  const page = parseInt(req.query.page as string, 10) || 1;
+  const limit = parseInt(req.query.limit as string, 10) || 50;
+
+  const result = collectionService.getPaginated(userId, page, limit);
 
   res.json({
     success: true,
-    data: collections
+    data: result.collections,
+    pagination: result.pagination
   });
 }));
 

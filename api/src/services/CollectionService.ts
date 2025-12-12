@@ -56,13 +56,28 @@ export interface UpdateResult {
 }
 
 /**
+ * Pagination result for collections
+ */
+export interface PaginatedCollections {
+  collections: CollectionWithCount[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}
+
+/**
  * Collection Service
  *
  * Handles all collection business logic independent of HTTP layer.
  */
 export class CollectionService {
   /**
-   * Get all collections for a user with recipe counts
+   * Get all collections for a user with recipe counts (no pagination - backwards compatible)
    */
   getAll(userId: number): CollectionWithCount[] {
     return db.prepare(`
@@ -75,6 +90,53 @@ export class CollectionService {
       GROUP BY c.id
       ORDER BY c.created_at DESC
     `).all(userId) as CollectionWithCount[];
+  }
+
+  /**
+   * Get paginated collections for a user with recipe counts
+   *
+   * @param userId - User ID
+   * @param page - Page number (1-indexed, default 1)
+   * @param limit - Items per page (default 50, max 100)
+   */
+  getPaginated(userId: number, page: number = 1, limit: number = 50): PaginatedCollections {
+    // Validate and clamp parameters
+    const safePage = Math.max(1, Math.floor(page));
+    const safeLimit = Math.min(100, Math.max(1, Math.floor(limit)));
+    const offset = (safePage - 1) * safeLimit;
+
+    // Get total count
+    const countResult = db.prepare(
+      'SELECT COUNT(*) as total FROM collections WHERE user_id = ?'
+    ).get(userId) as { total: number };
+
+    const total = countResult.total;
+    const totalPages = Math.ceil(total / safeLimit);
+
+    // Get paginated results with recipe counts
+    const collections = db.prepare(`
+      SELECT
+        c.*,
+        COUNT(r.id) as recipe_count
+      FROM collections c
+      LEFT JOIN recipes r ON r.collection_id = c.id
+      WHERE c.user_id = ?
+      GROUP BY c.id
+      ORDER BY c.created_at DESC
+      LIMIT ? OFFSET ?
+    `).all(userId, safeLimit, offset) as CollectionWithCount[];
+
+    return {
+      collections,
+      pagination: {
+        page: safePage,
+        limit: safeLimit,
+        total,
+        totalPages,
+        hasNextPage: safePage < totalPages,
+        hasPreviousPage: safePage > 1
+      }
+    };
   }
 
   /**

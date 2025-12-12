@@ -247,7 +247,8 @@ describe('RecipeService', () => {
       }, userId);
 
       expect(result.valid).toBe(true);
-      expect(result.data!.ingredientsStr).toBe('["Gin", "Tonic"]');
+      // JSON.stringify produces compact JSON without spaces
+      expect(result.data!.ingredientsStr).toBe('["Gin","Tonic"]');
     });
 
     it('should fail for invalid JSON string ingredients', () => {

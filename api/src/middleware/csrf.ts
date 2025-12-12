@@ -33,6 +33,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
+import { timingSafeEqual as cryptoTimingSafeEqual } from 'crypto';
 
 /**
  * List of HTTP methods that are safe (read-only, no side effects)
@@ -97,36 +98,36 @@ export function csrfMiddleware(req: Request, res: Response, next: NextFunction) 
 }
 
 /**
- * Constant-time string comparison
+ * Constant-time string comparison using Node.js crypto module
  *
- * Prevents timing attacks by always taking the same amount of time
- * regardless of how many characters match.
+ * Uses the built-in crypto.timingSafeEqual for proper constant-time comparison
+ * that prevents timing attacks on token validation.
  *
  * Why timing attacks matter:
  * - Normal comparison: "abc" vs "abd" stops at 'c' vs 'd'
  * - Attacker can measure time to guess characters one by one
- * - Constant-time: Always compares all characters
+ * - Constant-time: Always takes the same time regardless of match position
  *
  * @param a First string
  * @param b Second string
  * @returns true if strings are equal
  */
 function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) {
-    // Still do a dummy comparison to maintain constant time
-    // This prevents length-based timing attacks
-    let result = 0;
-    for (let i = 0; i < a.length; i++) {
-      result |= a.charCodeAt(i) ^ a.charCodeAt(0); // Dummy comparison
-    }
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+
+  // If lengths differ, we still need constant-time behavior
+  // Pad the shorter buffer to match the longer one's length
+  if (bufA.length !== bufB.length) {
+    const maxLen = Math.max(bufA.length, bufB.length);
+    const paddedA = Buffer.concat([bufA, Buffer.alloc(maxLen - bufA.length)]);
+    const paddedB = Buffer.concat([bufB, Buffer.alloc(maxLen - bufB.length)]);
+    // Compare padded buffers but always return false for length mismatch
+    cryptoTimingSafeEqual(paddedA, paddedB);
     return false;
   }
 
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return result === 0;
+  return cryptoTimingSafeEqual(bufA, bufB);
 }
 
 export default csrfMiddleware;

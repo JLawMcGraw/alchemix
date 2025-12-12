@@ -228,6 +228,7 @@ describe('InventoryService', () => {
         profile_nose: 'Clean',
         palate: 'Smooth',
         finish: 'Crisp',
+        tasting_notes: null,
       };
 
       const item = inventoryService.create(userId, data);
@@ -255,6 +256,7 @@ describe('InventoryService', () => {
         profile_nose: null,
         palate: null,
         finish: null,
+        tasting_notes: null,
       };
 
       const item = inventoryService.create(userId, data);
@@ -279,6 +281,7 @@ describe('InventoryService', () => {
         profile_nose: null,
         palate: null,
         finish: null,
+        tasting_notes: null,
       };
 
       const item = inventoryService.create(userId, data);
@@ -301,6 +304,7 @@ describe('InventoryService', () => {
         profile_nose: null,
         palate: null,
         finish: null,
+        tasting_notes: null,
       };
 
       const item = inventoryService.create(userId, data);
@@ -330,6 +334,7 @@ describe('InventoryService', () => {
         profile_nose: null,
         palate: null,
         finish: null,
+        tasting_notes: null,
       };
 
       const item = inventoryService.update(itemId, userId, data);
@@ -355,6 +360,7 @@ describe('InventoryService', () => {
         profile_nose: null,
         palate: null,
         finish: null,
+        tasting_notes: null,
       };
 
       const item = inventoryService.update(99999, userId, data);
@@ -387,6 +393,7 @@ describe('InventoryService', () => {
         profile_nose: null,
         palate: null,
         finish: null,
+        tasting_notes: null,
       };
 
       const item = inventoryService.update(itemId, userId, data);

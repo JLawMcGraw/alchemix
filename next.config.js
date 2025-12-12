@@ -75,15 +75,30 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: [
-              "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              "font-src 'self' https://fonts.gstatic.com",
-              "img-src 'self' data: blob:",
-              "connect-src 'self' http://localhost:3000 http://localhost:8080",
-              "frame-ancestors 'none'",
-            ].join('; '),
+            value: process.env.NODE_ENV === 'production'
+              ? [
+                  // Production: Stricter CSP (unsafe-eval still needed for Next.js)
+                  "default-src 'self'",
+                  "script-src 'self' 'unsafe-inline'", // Removed unsafe-eval for production
+                  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+                  "font-src 'self' https://fonts.gstatic.com",
+                  "img-src 'self' data: blob:",
+                  "connect-src 'self'", // Production uses relative URLs
+                  "frame-ancestors 'none'",
+                  "base-uri 'self'",
+                  "form-action 'self'",
+                  "upgrade-insecure-requests",
+                ].join('; ')
+              : [
+                  // Development: More permissive for hot reload and dev tools
+                  "default-src 'self'",
+                  "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+                  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+                  "font-src 'self' https://fonts.gstatic.com",
+                  "img-src 'self' data: blob:",
+                  "connect-src 'self' http://localhost:3000 http://localhost:8080 ws://localhost:3001",
+                  "frame-ancestors 'none'",
+                ].join('; '),
           },
         ],
       },

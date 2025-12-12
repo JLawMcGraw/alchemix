@@ -1,0 +1,350 @@
+/* Element Cell - Periodic Table Card Style */
+
+.cell {
+  aspect-ratio: 1;
+  min-height: 100px;
+  background: var(--color-ui-bg-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius);
+  padding: 12px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.cell:hover {
+  transform: scale(1.02);
+  box-shadow: var(--shadow-hover);
+  border-color: var(--color-border-hover);
+}
+
+.cell:focus {
+  outline: 2px solid var(--group-color);
+  outline-offset: 2px;
+}
+
+/* Has Items State */
+.hasItems {
+  /* Default styling when has items */
+}
+
+/* Empty State */
+.empty {
+  opacity: 0.4;
+  cursor: default;
+  background: var(--color-ui-bg-base);
+}
+
+.empty:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Not Owned State - element user doesn't have in bar */
+.notOwned .symbol,
+.notOwned .name,
+.notOwned .spec,
+.notOwned .countBadge {
+  opacity: 0.5;
+}
+
+.notOwned .symbol,
+.notOwned .name,
+.notOwned .spec {
+  color: var(--color-text-muted);
+}
+
+/* Dropdown should never be grayed out */
+.notOwned .dropdown {
+  opacity: 1;
+}
+
+/* Expanded State */
+.expanded {
+  border-color: var(--group-color);
+  box-shadow: 0 0 0 1px var(--group-color);
+  z-index: 10;
+}
+
+/* Period Indicator Dot */
+.periodDot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+/* Count Badge */
+.countBadge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--group-color) 15%, transparent);
+  color: var(--group-color);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.countBadge:hover,
+.expanded .countBadge {
+  background: var(--group-color);
+  color: white;
+}
+
+/* Element Symbol */
+.symbol {
+  font-family: var(--font-mono);
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--group-color);
+}
+
+.empty .symbol {
+  color: var(--color-text-muted);
+}
+
+/* Element Name */
+.name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-body);
+  margin-top: 4px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Element Spec (ABV, Brix, etc.) */
+.spec {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: auto;
+}
+
+/* Expanded Dropdown */
+.dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--color-ui-bg-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  max-height: 240px;
+  overflow-y: auto;
+  min-width: 180px;
+  animation: dropdownSlide 0.15s ease;
+}
+
+@keyframes dropdownSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dropdownHeader {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-border-default);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dropdownTitle {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--color-text-body);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dropdownCount {
+  font-weight: 400;
+  color: var(--color-text-muted);
+  text-transform: none;
+}
+
+.dropdownBadges {
+  display: flex;
+  gap: 6px;
+}
+
+.groupBadge,
+.periodBadge {
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--badge-color) 15%, transparent);
+  color: var(--badge-color);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.itemList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.item {
+  padding: var(--space-2);
+  cursor: pointer;
+  border-bottom: 1px solid var(--color-border-subtle);
+  transition: background var(--transition-fast);
+}
+
+.item:last-child {
+  border-bottom: none;
+}
+
+.item:hover {
+  background: var(--color-ui-bg-base);
+}
+
+.item:focus {
+  background: var(--color-ui-bg-base);
+  outline: none;
+}
+
+/* Not owned item in dropdown */
+.itemNotOwned {
+  opacity: 0.5;
+}
+
+.itemNotOwned .itemSymbol,
+.itemNotOwned .itemName {
+  color: var(--color-text-muted);
+}
+
+/* Selected/active item in dropdown */
+.itemSelected {
+  background: color-mix(in srgb, var(--group-color) 10%, transparent);
+  border-left: 2px solid var(--group-color);
+}
+
+.itemSelected .itemSymbol {
+  color: var(--group-color);
+}
+
+.itemSelected .itemName {
+  color: var(--color-text-body);
+  font-weight: 600;
+}
+
+.itemSymbol {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--group-color);
+  margin-right: var(--space-2);
+  min-width: 24px;
+  display: inline-block;
+}
+
+.itemName {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-body);
+}
+
+.itemType {
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  margin-left: var(--space-2);
+}
+
+.itemSpec {
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  color: var(--color-text-tertiary);
+  margin-top: 2px;
+  margin-left: 0;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .cell {
+    min-height: 72px;
+    padding: 8px;
+  }
+
+  .symbol {
+    font-size: 1.125rem;
+  }
+
+  .name {
+    font-size: 0.5rem;
+  }
+
+  .spec {
+    font-size: 0.5rem;
+  }
+
+  .countBadge {
+    font-size: 0.5rem;
+    padding: 1px 4px;
+  }
+}
+
+@media (max-width: 768px) {
+  .cell {
+    min-height: 64px;
+    padding: 6px;
+  }
+
+  .symbol {
+    font-size: 1rem;
+  }
+
+  .periodDot {
+    width: 5px;
+    height: 5px;
+    top: 5px;
+    right: 5px;
+  }
+
+  .dropdown {
+    min-width: 160px;
+    left: auto;
+    right: 0;
+  }
+}
+
+/* Dark Mode Adjustments */
+:global([data-theme="dark"]) .cell {
+  background: var(--color-ui-bg-surface);
+}
+
+:global([data-theme="dark"]) .empty {
+  background: var(--color-ui-bg-base);
+  opacity: 0.5;
+}
+
+:global([data-theme="dark"]) .dropdown {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}

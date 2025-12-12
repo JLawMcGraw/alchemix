@@ -100,31 +100,53 @@ const PROMPT_INJECTION_PATTERNS = [
   /ignore\s+(all\s+)?(previous|prior|above)\s+(instructions|prompts?|rules?)/gi,
   /disregard\s+(all\s+)?(previous|prior|above)\s+(instructions|prompts?|rules?)/gi,
   /forget\s+(everything|all|your\s+(instructions|prompts?|rules?))/gi,
+  /override\s+(your\s+)?(instructions?|rules?|guidelines?)/gi,
+  /bypass\s+(your\s+)?(instructions?|rules?|guidelines?|safety)/gi,
 
   // Role hijacking attempts
   /you\s+are\s+now\s+(a|an)\s+/gi,
   /act\s+as\s+(a|an)\s+/gi,
   /pretend\s+(to\s+be|you\s+are)\s+/gi,
   /roleplay\s+as\s+/gi,
+  /from\s+now\s+on\s+(you\s+are|be)\s+/gi,
+  /new\s+persona|new\s+identity|new\s+mode/gi,
+
+  // DAN/Jailbreak attempts (OWASP LLM Top 10)
+  /\bDAN\b|\bDo\s+Anything\s+Now\b/gi,
+  /jailbreak|jail\s+break|unlock\s+mode/gi,
+  /developer\s+mode|god\s+mode|admin\s+mode/gi,
+  /evil\s+mode|unrestricted\s+mode|no\s+limits/gi,
 
   // System exposure attempts
   /repeat\s+(your\s+)?(system\s+)?(prompt|instructions?)/gi,
   /show\s+(me\s+)?(your\s+)?(system\s+)?(prompt|instructions?)/gi,
   /what\s+(are|is)\s+your\s+(system\s+)?(prompt|instructions?)/gi,
   /reveal\s+your\s+(prompt|instructions?)/gi,
+  /output\s+(your\s+)?(initial|system)\s+(prompt|instructions?)/gi,
+  /print\s+(your\s+)?(system\s+)?(prompt|instructions?)/gi,
 
-  // Template injection (chat format tokens)
+  // Template injection (chat format tokens - multiple LLM formats)
   /<\|im_start\|>|<\|im_end\|>/gi,
   /\[SYSTEM\]|\[INST\]|\[\/INST\]|\[ASSISTANT\]/gi,
   /<\|system\|>|<\|user\|>|<\|assistant\|>/gi,
+  /<<SYS>>|<\/SYS>>/gi,
+  /\[Human\]|\[AI\]|\[Claude\]/gi,
 
   // Command injection attempts
   /execute\s+(command|code|script)/gi,
   /run\s+(command|code|script)/gi,
+  /eval\s*\(|exec\s*\(|system\s*\(/gi,
 
   // JSON/code injection
   /assistant\s*:\s*\{/gi,
-  /```(python|javascript|bash|sql)/gi,
+  /```(python|javascript|bash|sql|sh|powershell|cmd)/gi,
+  /<script|<iframe|javascript:/gi,
+
+  // Encoding/obfuscation attempts (prevent bypass via encoding)
+  /base64|atob\s*\(|btoa\s*\(|fromCharCode/gi,
+  /\\u[0-9a-fA-F]{4}/gi, // Unicode escapes
+  /&#x?[0-9a-fA-F]+;/gi, // HTML entities
+  /\\x[0-9a-fA-F]{2}/gi, // Hex escapes
 
   // Database/system access attempts
   /\bSELECT\s+.+\s+FROM\b/gi,
@@ -135,7 +157,11 @@ const PROMPT_INJECTION_PATTERNS = [
   /\bCREATE\s+TABLE\b/gi,
   /\bALTER\s+TABLE\b/gi,
   /\bDATABASE\b/gi,
-  /process\.env|require\(|import\s+/gi
+  /process\.env|require\s*\(|import\s+/gi,
+
+  // API/credential extraction attempts
+  /api[_\s]?key|secret[_\s]?key|access[_\s]?token/gi,
+  /\.env|config\.json|credentials/gi
 ];
 
 /**

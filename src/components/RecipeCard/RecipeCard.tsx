@@ -1,5 +1,6 @@
 'use client';
 
+import React, { memo } from 'react';
 import { Star, Check } from 'lucide-react';
 import type { Recipe } from '@/types';
 import { RecipeMolecule } from '@/components/RecipeMolecule';
@@ -69,7 +70,7 @@ interface RecipeCardProps {
   onToggleFavorite?: () => void;
 }
 
-export function RecipeCard({
+function RecipeCardComponent({
   recipe,
   isFavorited = false,
   isSelected = false,
@@ -178,3 +179,22 @@ export function RecipeCard({
     </div>
   );
 }
+
+/**
+ * Memoized RecipeCard component to prevent unnecessary re-renders.
+ * Only re-renders when recipe data or interaction state changes.
+ */
+export const RecipeCard = memo(RecipeCardComponent, (prevProps, nextProps) => {
+  // Custom comparison for performance optimization
+  return (
+    prevProps.recipe.id === nextProps.recipe.id &&
+    prevProps.recipe.name === nextProps.recipe.name &&
+    prevProps.recipe.ingredients === nextProps.recipe.ingredients &&
+    prevProps.recipe.formula === nextProps.recipe.formula &&
+    prevProps.isFavorited === nextProps.isFavorited &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.isCraftable === nextProps.isCraftable &&
+    prevProps.missingIngredients?.length === nextProps.missingIngredients?.length &&
+    prevProps.missingIngredients?.join(',') === nextProps.missingIngredients?.join(',')
+  );
+});
