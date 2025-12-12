@@ -81,6 +81,8 @@ export function createTestDatabase(): Database.Database {
       palate TEXT,
       finish TEXT,
       tasting_notes TEXT,
+      periodic_group TEXT CHECK(periodic_group IN ('Base', 'Bridge', 'Modifier', 'Sweetener', 'Reagent', 'Catalyst')),
+      periodic_period TEXT CHECK(periodic_period IN ('Agave', 'Cane', 'Grain', 'Grape', 'Fruit', 'Botanic')),
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )

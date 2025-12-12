@@ -4,7 +4,8 @@ import { useEffect, useRef, useState, useMemo } from 'react';
 import { X, Pencil, Plus, Minus } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { useToast } from '@/components/ui';
-import type { InventoryCategory, InventoryItem } from '@/types';
+import type { InventoryCategory, InventoryItem, PeriodicGroup, PeriodicPeriod } from '@/types';
+import { getPeriodicTags, PERIODIC_GROUPS, PERIODIC_PERIODS } from '@/lib/periodicTableV2';
 import styles from './ItemDetailModal.module.css';
 
 interface ItemDetailModalProps {
@@ -21,6 +22,8 @@ type FormState = {
   abv: string;
   origin: string;
   tasting_notes: string; // Combined nose/palate/finish for AI recommendations
+  periodic_group: PeriodicGroup;
+  periodic_period: PeriodicPeriod;
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -64,6 +67,8 @@ export function ItemDetailModal({ isOpen, onClose, item }: ItemDetailModalProps)
     abv: '',
     origin: '',
     tasting_notes: '',
+    periodic_group: 'Base',
+    periodic_period: 'Grain',
   });
 
   // Original data for comparison
@@ -82,6 +87,11 @@ export function ItemDetailModal({ isOpen, onClose, item }: ItemDetailModalProps)
         combinedNotes = parts.join('\n');
       }
 
+      // Get periodic tags from item or auto-detect
+      const tags = item.periodic_group && item.periodic_period
+        ? { group: item.periodic_group, period: item.periodic_period }
+        : getPeriodicTags(item);
+
       const data: FormState = {
         name: item.name || '',
         category: item.category || 'spirit',
@@ -90,6 +100,8 @@ export function ItemDetailModal({ isOpen, onClose, item }: ItemDetailModalProps)
         abv: item.abv?.toString() || '',
         origin: item.distillery_location || '',
         tasting_notes: combinedNotes,
+        periodic_group: tags.group,
+        periodic_period: tags.period,
       };
       setFormData(data);
       setOriginalData(data);
@@ -168,6 +180,8 @@ export function ItemDetailModal({ isOpen, onClose, item }: ItemDetailModalProps)
         abv: formData.abv || undefined,
         distillery_location: formData.origin || undefined,
         tasting_notes: formData.tasting_notes || undefined,
+        periodic_group: formData.periodic_group,
+        periodic_period: formData.periodic_period,
       });
       await fetchItems();
       setOriginalData(formData);
@@ -250,17 +264,29 @@ export function ItemDetailModal({ isOpen, onClose, item }: ItemDetailModalProps)
               </h2>
             )}
 
-            {/* Category Badge - colored tag below name */}
+            {/* Category and Periodic Badges - colored tags below name */}
             {!isEditMode && (
-              <span
-                className={styles.categoryBadge}
-                style={{
-                  backgroundColor: `${categoryColor}15`,
-                  color: categoryColor,
-                }}
-              >
-                {formData.category}
-              </span>
+              <div className={styles.tagRow}>
+                <span
+                  className={styles.categoryBadge}
+                  style={{
+                    backgroundColor: `${categoryColor}15`,
+                    color: categoryColor,
+                  }}
+                >
+                  {formData.category}
+                </span>
+                {formData.periodic_group && (
+                  <span className={`${styles.periodicBadge} ${styles.periodicGroup}`}>
+                    {formData.periodic_group}
+                  </span>
+                )}
+                {formData.periodic_period && (
+                  <span className={`${styles.periodicBadge} ${styles.periodicPeriod}`}>
+                    {formData.periodic_period}
+                  </span>
+                )}
+              </div>
             )}
           </div>
 
@@ -390,6 +416,44 @@ export function ItemDetailModal({ isOpen, onClose, item }: ItemDetailModalProps)
                   value={formData.tasting_notes}
                   onChange={(e) => handleChange('tasting_notes', e.target.value)}
                 />
+              </div>
+
+              {/* Periodic Table Classification */}
+              <div className={styles.fieldGroup}>
+                <div className={styles.labelRow}>
+                  <label className={styles.label}>Periodic Classification</label>
+                  <span className={styles.labelHint}>Position in Periodic Table</span>
+                </div>
+                <div className={styles.periodicRow}>
+                  <div className={styles.periodicField}>
+                    <span className={styles.periodicLabel}>Function</span>
+                    <select
+                      className={styles.select}
+                      value={formData.periodic_group}
+                      onChange={(e) => handleChange('periodic_group', e.target.value as PeriodicGroup)}
+                    >
+                      {PERIODIC_GROUPS.map((g) => (
+                        <option key={g.value} value={g.value}>
+                          {g.label} ({g.desc})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className={styles.periodicField}>
+                    <span className={styles.periodicLabel}>Origin</span>
+                    <select
+                      className={styles.select}
+                      value={formData.periodic_period}
+                      onChange={(e) => handleChange('periodic_period', e.target.value as PeriodicPeriod)}
+                    >
+                      {PERIODIC_PERIODS.map((p) => (
+                        <option key={p.value} value={p.value}>
+                          {p.label} ({p.desc})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
             </div>
           ) : (

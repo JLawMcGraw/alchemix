@@ -1,6 +1,6 @@
 'use client';
 
-import type { InventoryItem } from '@/types';
+import type { InventoryItem, PeriodicGroup, PeriodicPeriod } from '@/types';
 import styles from './BottleCard.module.css';
 
 interface BottleCardProps {
@@ -19,6 +19,30 @@ const CATEGORY_COLORS: Record<string, string> = {
   wine: '#BE185D',
   beer: '#CA8A04',
   other: '#94A3B8',
+};
+
+/**
+ * Color mapping for periodic groups (function/role)
+ */
+const GROUP_COLORS: Record<PeriodicGroup, string> = {
+  Base: '#1E293B',      // dark slate
+  Bridge: '#7C3AED',    // violet
+  Modifier: '#EC4899',  // pink
+  Sweetener: '#6366F1', // indigo
+  Reagent: '#F59E0B',   // yellow
+  Catalyst: '#EF4444',  // red
+};
+
+/**
+ * Color mapping for periodic periods (origin/source)
+ */
+const PERIOD_COLORS: Record<PeriodicPeriod, string> = {
+  Agave: '#0D9488',   // teal
+  Cane: '#65A30D',    // green
+  Grain: '#D97706',   // amber
+  Grape: '#8B5CF6',   // violet
+  Fruit: '#F43F5E',   // rose
+  Botanic: '#0EA5E9', // sky
 };
 
 export function BottleCard({ item, isSelected = false, onSelect, onClick }: BottleCardProps) {
@@ -73,19 +97,37 @@ export function BottleCard({ item, isSelected = false, onSelect, onClick }: Bott
             {item.name}
           </h3>
         </div>
-
-        {/* Category Badge */}
-        <span
-          className={styles.categoryBadge}
-          style={{
-            color: color,
-            borderColor: color,
-            backgroundColor: `${color}08`,
-          }}
-        >
-          {item.category}
-        </span>
       </div>
+
+      {/* Periodic Tags Row - Below Name */}
+      {(item.periodic_group || item.periodic_period) && (
+        <div className={styles.periodicTags}>
+          {item.periodic_group && (
+            <span
+              className={styles.periodicBadge}
+              style={{
+                color: GROUP_COLORS[item.periodic_group],
+                borderColor: GROUP_COLORS[item.periodic_group],
+                backgroundColor: `${GROUP_COLORS[item.periodic_group]}15`,
+              }}
+            >
+              {item.periodic_group}
+            </span>
+          )}
+          {item.periodic_period && (
+            <span
+              className={styles.periodicBadge}
+              style={{
+                color: PERIOD_COLORS[item.periodic_period],
+                borderColor: PERIOD_COLORS[item.periodic_period],
+                backgroundColor: `${PERIOD_COLORS[item.periodic_period]}15`,
+              }}
+            >
+              {item.periodic_period}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Details */}
       <div className={styles.details}>

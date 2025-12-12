@@ -23,9 +23,9 @@
 |-------|-------|
 | Version | v1.30.0 |
 | Phase | Feature Development |
-| Last Updated | December 11, 2025 |
+| Last Updated | December 12, 2025 |
 | Blockers | None |
-| Tests | 142 recipe-molecule tests passing |
+| Tests | 206 frontend tests passing |
 | Active Branch | `alchemix-redesign` |
 
 ### Visual Redesign Status: COMPLETE
@@ -201,14 +201,14 @@ NEXT_PUBLIC_API_URL=http://localhost:3000
 
 ### Next Steps
 
-**Recent Major Updates** (Dec 11, 2025):
-- Periodic Table V2 refinements:
-  - Fixed double popup issue
-  - Improved classification matching with word boundary regex
-  - Dropdown shows element TYPES not user bottles
-  - Grayed-out state for elements not in bar
-  - Element swapping from dropdown
-  - Increased font sizes for readability
+**Recent Major Updates** (Dec 12, 2025):
+- Bug fixes and UX improvements:
+  - Fixed Agave Nectar false positive in Periodic Table (removed generic 'agave' keyword)
+  - Fixed spirit filter dropdown on Recipes page (now checks ingredients, not spirit_type field)
+  - Fixed "ginger beer" matching "Gin" filter (added word boundary matching)
+  - Fixed loading state flicker on Bar/Recipes pages (hasInitiallyLoaded + spinners)
+  - Added periodic tags display to BottleCard (below name) and ItemDetailModal
+  - Removed category badge from BottleCard (now only shows in modal)
 
 **Potential Future Work**:
 1. Further refinement of element matching keywords

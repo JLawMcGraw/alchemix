@@ -90,8 +90,38 @@
   color: var(--bond-agave, #0D9488);
 }
 
+/* Badges Container */
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex-shrink: 0;
+  justify-content: flex-end;
+}
+
 /* Category Badge */
 .categoryBadge {
+  padding: 3px 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* Periodic Tags Row */
+.periodicTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 16px 0;
+}
+
+/* Periodic Badge (Group/Period) */
+.periodicBadge {
   padding: 3px 8px;
   font-family: var(--font-mono);
   font-size: 10px;

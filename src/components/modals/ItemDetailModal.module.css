@@ -63,6 +63,13 @@
   min-width: 0;
 }
 
+.tagRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
 .categoryBadge {
   display: inline-flex;
   align-items: center;
@@ -74,6 +81,31 @@
   letter-spacing: 0.05em;
   border-radius: 2px;
   width: fit-content;
+}
+
+.periodicBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 2px;
+  border: 1px solid;
+}
+
+.periodicGroup {
+  color: #1E293B;
+  border-color: #1E293B;
+  background-color: rgba(30, 41, 59, 0.1);
+}
+
+.periodicPeriod {
+  color: #0D9488;
+  border-color: #0D9488;
+  background-color: rgba(13, 148, 136, 0.1);
 }
 
 .editingLabel {
@@ -471,6 +503,53 @@
   color: var(--color-text-muted, #94A3B8);
 }
 
+/* Select (for periodic dropdowns) */
+.select {
+  width: 100%;
+  padding: 10px 12px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--fg-primary, #1E293B);
+  background: white;
+  border: 1px solid var(--color-border-default, #E2E8F0);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: border-color 0.1s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748B' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 20px;
+  padding-right: 36px;
+}
+
+.select:focus {
+  outline: none;
+  border-color: var(--fg-primary, #1E293B);
+}
+
+/* Periodic Table Classification */
+.periodicRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.periodicField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.periodicLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-text-muted, #64748B);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 /* Delete Confirmation */
 .deleteConfirm {
   display: flex;
@@ -767,6 +846,21 @@
 [data-theme="dark"] .input::placeholder,
 [data-theme="dark"] .textarea::placeholder {
   color: var(--fg-secondary, #64748B);
+}
+
+[data-theme="dark"] .select {
+  background: var(--bg-paper, #0F172A);
+  border-color: var(--border-hairline, #334155);
+  color: var(--fg-primary, #F1F5F9);
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394A3B8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+}
+
+[data-theme="dark"] .select:focus {
+  border-color: var(--fg-primary, #F1F5F9);
+}
+
+[data-theme="dark"] .periodicLabel {
+  color: var(--fg-secondary, #94A3B8);
 }
 
 [data-theme="dark"] .deleteConfirm {

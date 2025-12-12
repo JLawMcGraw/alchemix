@@ -927,6 +927,48 @@ export function initializeDatabase() {
   }
 
   /**
+   * Schema Migration: Add Periodic Table tags to inventory_items
+   *
+   * Adds columns for Periodic Table of Mixology classification:
+   * - periodic_group: Function/role (Base, Bridge, Modifier, Sweetener, Reagent, Catalyst)
+   * - periodic_period: Origin/source (Agave, Cane, Grain, Grape, Fruit, Botanic)
+   *
+   * These tags determine where an item appears in the Periodic Table grid:
+   * - Group = Column (what the ingredient DOES)
+   * - Period = Row (where the ingredient COMES FROM)
+   *
+   * Auto-detection:
+   * - New items get auto-classified based on name/type using periodicTableV2.ts
+   * - Users can manually override via dropdown in add/edit modals
+   *
+   * Examples:
+   * - Gin: periodic_group='Base', periodic_period='Botanic'
+   * - Simple Syrup: periodic_group='Sweetener', periodic_period='Grain'
+   * - Angostura: periodic_group='Catalyst', periodic_period='Grain'
+   *
+   * Safe to run multiple times (will fail silently if columns exist).
+   */
+  try {
+    db.exec(`ALTER TABLE inventory_items ADD COLUMN periodic_group TEXT CHECK(periodic_group IN ('Base', 'Bridge', 'Modifier', 'Sweetener', 'Reagent', 'Catalyst'))`);
+    log('✅ Added periodic_group column to inventory_items table');
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes('duplicate column name')) {
+      console.error('Migration warning (periodic_group):', message);
+    }
+  }
+
+  try {
+    db.exec(`ALTER TABLE inventory_items ADD COLUMN periodic_period TEXT CHECK(periodic_period IN ('Agave', 'Cane', 'Grain', 'Grape', 'Fruit', 'Botanic'))`);
+    log('✅ Added periodic_period column to inventory_items table');
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes('duplicate column name')) {
+      console.error('Migration warning (periodic_period):', message);
+    }
+  }
+
+  /**
    * Custom Glasses Table
    *
    * Stores user-defined glassware types.

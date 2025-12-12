@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, ChevronDown, ChevronUp, AlertCircle, Plus, Minus } from 'lucide-react';
 import { SuccessCheckmark } from '@/components/ui';
-import type { InventoryCategory, InventoryItemInput } from '@/types';
+import type { InventoryCategory, InventoryItemInput, PeriodicGroup, PeriodicPeriod } from '@/types';
+import { getPeriodicTags, PERIODIC_GROUPS, PERIODIC_PERIODS } from '@/lib/periodicTableV2';
 import styles from './AddBottleModal.module.css';
 
 interface AddBottleModalProps {
@@ -27,6 +28,8 @@ type FormState = {
   palate: string;
   finish: string;
   tasting_notes: string;
+  periodic_group: PeriodicGroup;
+  periodic_period: PeriodicPeriod;
 };
 
 const createInitialFormState = (): FormState => ({
@@ -44,6 +47,8 @@ const createInitialFormState = (): FormState => ({
   palate: '',
   finish: '',
   tasting_notes: '',
+  periodic_group: 'Base',
+  periodic_period: 'Grain',
 });
 
 const CATEGORIES: { value: InventoryCategory; label: string }[] = [
@@ -68,6 +73,22 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
 
   const modalRef = useRef<HTMLDivElement>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-detect periodic tags when name or category changes
+  useEffect(() => {
+    if (formData.name.trim()) {
+      const tags = getPeriodicTags({
+        name: formData.name,
+        category: formData.category,
+        type: formData.type || undefined,
+      });
+      setFormData(prev => ({
+        ...prev,
+        periodic_group: tags.group,
+        periodic_period: tags.period,
+      }));
+    }
+  }, [formData.name, formData.category, formData.type]);
 
   useEffect(() => {
     if (isOpen) {
@@ -146,6 +167,8 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
         palate: formData.palate || undefined,
         finish: formData.finish || undefined,
         tasting_notes: formData.tasting_notes || undefined,
+        periodic_group: formData.periodic_group,
+        periodic_period: formData.periodic_period,
       };
 
       await onAdd(item);
@@ -325,6 +348,42 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
                       placeholder="Personal tasting notes..."
                       rows={3}
                     />
+                  </div>
+
+                  {/* Periodic Table Classification */}
+                  <div className={styles.fieldGroup}>
+                    <label className={styles.label}>Periodic Table Classification</label>
+                    <p className={styles.fieldHint}>Auto-detected based on name. Override if needed.</p>
+                    <div className={styles.periodicRow}>
+                      <div className={styles.periodicField}>
+                        <span className={styles.periodicLabel}>Function</span>
+                        <select
+                          className={styles.select}
+                          value={formData.periodic_group}
+                          onChange={(e) => handleChange('periodic_group', e.target.value as PeriodicGroup)}
+                        >
+                          {PERIODIC_GROUPS.map((g) => (
+                            <option key={g.value} value={g.value}>
+                              {g.label} ({g.desc})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className={styles.periodicField}>
+                        <span className={styles.periodicLabel}>Origin</span>
+                        <select
+                          className={styles.select}
+                          value={formData.periodic_period}
+                          onChange={(e) => handleChange('periodic_period', e.target.value as PeriodicPeriod)}
+                        >
+                          {PERIODIC_PERIODS.map((p) => (
+                            <option key={p.value} value={p.value}>
+                              {p.label} ({p.desc})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

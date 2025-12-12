@@ -9,7 +9,7 @@
  */
 
 import { db as defaultDb } from '../database/db';
-import { InventoryItem } from '../types';
+import { InventoryItem, PeriodicGroup, PeriodicPeriod } from '../types';
 import type Database from 'better-sqlite3';
 
 /**
@@ -23,6 +23,16 @@ export type IDatabase = Database.Database;
  */
 export const VALID_CATEGORIES = ['spirit', 'liqueur', 'mixer', 'garnish', 'syrup', 'wine', 'beer', 'other'] as const;
 export type InventoryCategory = typeof VALID_CATEGORIES[number];
+
+/**
+ * Valid periodic table groups (columns) - What the ingredient DOES
+ */
+export const VALID_GROUPS = ['Base', 'Bridge', 'Modifier', 'Sweetener', 'Reagent', 'Catalyst'] as const;
+
+/**
+ * Valid periodic table periods (rows) - Where the ingredient COMES FROM
+ */
+export const VALID_PERIODS = ['Agave', 'Cane', 'Grain', 'Grape', 'Fruit', 'Botanic'] as const;
 
 /**
  * Pagination options
@@ -85,6 +95,8 @@ export interface SanitizedInventoryItem {
   palate: string | null;
   finish: string | null;
   tasting_notes: string | null;
+  periodic_group: PeriodicGroup | null;
+  periodic_period: PeriodicPeriod | null;
 }
 
 /**
@@ -242,8 +254,9 @@ export class InventoryService {
         user_id, name, category, type, abv,
         stock_number, spirit_classification, distillation_method,
         distillery_location, age_statement, additional_notes,
-        profile_nose, palate, finish, tasting_notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        profile_nose, palate, finish, tasting_notes,
+        periodic_group, periodic_period
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       userId,
       data.name,
@@ -259,7 +272,9 @@ export class InventoryService {
       data.profile_nose || null,
       data.palate || null,
       data.finish || null,
-      data.tasting_notes || null
+      data.tasting_notes || null,
+      data.periodic_group || null,
+      data.periodic_period || null
     );
 
     return this.db.prepare(
@@ -297,7 +312,9 @@ export class InventoryService {
         profile_nose = ?,
         palate = ?,
         finish = ?,
-        tasting_notes = ?
+        tasting_notes = ?,
+        periodic_group = ?,
+        periodic_period = ?
       WHERE id = ? AND user_id = ?
     `).run(
       data.name,
@@ -314,6 +331,8 @@ export class InventoryService {
       data.palate || null,
       data.finish || null,
       data.tasting_notes || null,
+      data.periodic_group || null,
+      data.periodic_period || null,
       itemId,
       userId
     );
@@ -441,6 +460,36 @@ export class InventoryService {
       return { isValid: false, errors };
     }
 
+    // Parse periodic group and period fields (use unique names to avoid conflicts with other fields)
+    const periodicGroupRaw = safeString(this.findField(record, ['periodic_group', 'periodicGroup', 'Periodic Group', 'periodic group']));
+    const periodicPeriodRaw = safeString(this.findField(record, ['periodic_period', 'periodicPeriod', 'Periodic Period', 'periodic period']));
+
+    // Validate periodic group if provided
+    let periodicGroup: PeriodicGroup | null = null;
+    if (periodicGroupRaw) {
+      // Try to match case-insensitively
+      const matched = VALID_GROUPS.find(g => g.toLowerCase() === periodicGroupRaw.toLowerCase());
+      if (matched) {
+        periodicGroup = matched;
+      } else {
+        errors.push(`Invalid periodic_group: "${periodicGroupRaw}". Must be one of: ${VALID_GROUPS.join(', ')}`);
+        return { isValid: false, errors };
+      }
+    }
+
+    // Validate periodic period if provided
+    let periodicPeriod: PeriodicPeriod | null = null;
+    if (periodicPeriodRaw) {
+      // Try to match case-insensitively
+      const matched = VALID_PERIODS.find(p => p.toLowerCase() === periodicPeriodRaw.toLowerCase());
+      if (matched) {
+        periodicPeriod = matched;
+      } else {
+        errors.push(`Invalid periodic_period: "${periodicPeriodRaw}". Must be one of: ${VALID_PERIODS.join(', ')}`);
+        return { isValid: false, errors };
+      }
+    }
+
     // Build sanitized data
     const sanitized: SanitizedInventoryItem = {
       name: name!,
@@ -457,6 +506,8 @@ export class InventoryService {
       palate: safeString(this.findField(record, ['palate', 'Palate', 'Taste', 'taste', 'Flavor', 'flavor'])),
       finish: safeString(this.findField(record, ['finish', 'Finish', 'Aftertaste', 'aftertaste'])),
       tasting_notes: safeString(this.findField(record, ['tasting_notes', 'Tasting Notes', 'tasting notes', 'Tasting', 'Profile', 'profile'])),
+      periodic_group: periodicGroup,
+      periodic_period: periodicPeriod,
     };
 
     return { isValid: true, errors: [], sanitized };
@@ -576,6 +627,216 @@ export class InventoryService {
    */
   isValidCategory(category: string): category is InventoryCategory {
     return VALID_CATEGORIES.includes(category as InventoryCategory);
+  }
+
+  /**
+   * Auto-classify an item into periodic group and period
+   * Based on the Periodic Table of Mixology V2 classification logic
+   */
+  autoClassifyPeriodicTags(item: InventoryItem): { group: PeriodicGroup; period: PeriodicPeriod } {
+    const combined = `${item.name || ''} ${item.type || ''} ${item.spirit_classification || ''}`.toLowerCase();
+
+    // Check the classification map for matches
+    const classification = this.getClassificationFromKeywords(combined);
+    if (classification) {
+      return classification;
+    }
+
+    // Fallback based on category
+    return this.getCategoryFallback(item.category);
+  }
+
+  /**
+   * Get classification from keyword matching
+   * Uses the same logic as periodicTableV2.ts CLASSIFICATION_MAP
+   */
+  private getClassificationFromKeywords(text: string): { group: PeriodicGroup; period: PeriodicPeriod } | null {
+    // Group 1: Base spirits (high-proof backbone)
+    // Period 1: Agave
+    if (/\b(tequila|mezcal|raicilla|sotol|bacanora)\b/.test(text)) {
+      return { group: 'Base', period: 'Agave' };
+    }
+    // Period 2: Cane
+    if (/\b(rum|cachaca|cachaça|rhum agricole|agricole|clairin)\b/.test(text)) {
+      return { group: 'Base', period: 'Cane' };
+    }
+    // Period 3: Grain
+    if (/\b(whiskey|whisky|bourbon|rye|scotch|vodka|genever|soju|sake|baijiu|shochu)\b/.test(text)) {
+      return { group: 'Base', period: 'Grain' };
+    }
+    // Period 4: Grape
+    if (/\b(brandy|cognac|armagnac|pisco|grappa)\b/.test(text)) {
+      return { group: 'Base', period: 'Grape' };
+    }
+    // Period 5: Fruit
+    if (/\b(applejack|calvados|eau de vie|kirsch|pommeau|umeshu)\b/.test(text)) {
+      return { group: 'Base', period: 'Fruit' };
+    }
+    // Period 6: Botanic (neutral base, botanical defines character)
+    if (/\b(gin|absinthe|aquavit|akvavit)\b/.test(text)) {
+      return { group: 'Base', period: 'Botanic' };
+    }
+
+    // Group 2: Bridge (fortified/aromatized wines)
+    if (/\b(vermouth|sherry|port|madeira|marsala|dubonnet)\b/.test(text)) {
+      return { group: 'Bridge', period: 'Grape' };
+    }
+    if (/\b(amaro|aperol|campari|cynar|fernet|lillet|cocchi americano)\b/.test(text)) {
+      return { group: 'Bridge', period: 'Botanic' };
+    }
+    if (/\b(irish cream|baileys|drambuie)\b/.test(text)) {
+      return { group: 'Bridge', period: 'Grain' };
+    }
+
+    // Group 3: Modifier (sweetened liqueurs)
+    if (/\b(agavero|damiana)\b/.test(text)) {
+      return { group: 'Modifier', period: 'Agave' };
+    }
+    if (/\b(falernum|coconut rum|malibu|pimento dram|allspice dram)\b/.test(text)) {
+      return { group: 'Modifier', period: 'Cane' };
+    }
+    if (/\b(kahlua|kahlúa|coffee liqueur|mr black|tia maria|amaretto|frangelico)\b/.test(text)) {
+      return { group: 'Modifier', period: 'Grain' };
+    }
+    if (/\b(grand marnier|chambord|maraschino|luxardo|cherry heering|cassis)\b/.test(text)) {
+      return { group: 'Modifier', period: 'Grape' };
+    }
+    if (/\b(triple sec|cointreau|curacao|curaçao|orange liqueur|banana liqueur|midori|limoncello)\b/.test(text)) {
+      return { group: 'Modifier', period: 'Fruit' };
+    }
+    if (/\b(st-germain|st germain|elderflower|chartreuse|benedictine|galliano|pernod|pastis|ouzo|sambuca)\b/.test(text)) {
+      return { group: 'Modifier', period: 'Botanic' };
+    }
+    // Generic liqueur check
+    if (/\b(liqueur)\b/.test(text)) {
+      return { group: 'Modifier', period: 'Botanic' };
+    }
+
+    // Group 4: Sweetener (0% ABV, primarily sugar)
+    if (/\b(agave nectar|agave syrup)\b/.test(text)) {
+      return { group: 'Sweetener', period: 'Agave' };
+    }
+    if (/\b(demerara|molasses|panela|piloncillo|cane syrup)\b/.test(text)) {
+      return { group: 'Sweetener', period: 'Cane' };
+    }
+    if (/\b(simple syrup|sugar syrup|orgeat|almond syrup|rice syrup)\b/.test(text)) {
+      return { group: 'Sweetener', period: 'Grain' };
+    }
+    if (/\b(honey|honey syrup|balsamic)\b/.test(text)) {
+      return { group: 'Sweetener', period: 'Grape' };
+    }
+    if (/\b(grenadine|passion fruit syrup|raspberry syrup|strawberry syrup)\b/.test(text)) {
+      return { group: 'Sweetener', period: 'Fruit' };
+    }
+    if (/\b(ginger syrup|cinnamon syrup|vanilla syrup|lavender syrup)\b/.test(text)) {
+      return { group: 'Sweetener', period: 'Botanic' };
+    }
+    // Generic syrup check
+    if (/\b(syrup)\b/.test(text)) {
+      return { group: 'Sweetener', period: 'Grain' };
+    }
+
+    // Group 5: Reagent (acids/juices)
+    if (/\b(lime|lime juice)\b/.test(text)) {
+      return { group: 'Reagent', period: 'Agave' };
+    }
+    if (/\b(grapefruit|grapefruit juice)\b/.test(text)) {
+      return { group: 'Reagent', period: 'Cane' };
+    }
+    if (/\b(lemon|lemon juice|verjus|citric acid)\b/.test(text)) {
+      return { group: 'Reagent', period: 'Grape' };
+    }
+    if (/\b(orange juice|pineapple|passion fruit|mango|cranberry|yuzu)\b/.test(text)) {
+      return { group: 'Reagent', period: 'Fruit' };
+    }
+    if (/\b(ginger juice|cucumber|tomato juice|celery juice)\b/.test(text)) {
+      return { group: 'Reagent', period: 'Botanic' };
+    }
+    // Generic juice check
+    if (/\b(juice)\b/.test(text)) {
+      return { group: 'Reagent', period: 'Fruit' };
+    }
+
+    // Group 6: Catalyst (bitters/extracts)
+    if (/\b(mole bitters|habanero bitters|hellfire)\b/.test(text)) {
+      return { group: 'Catalyst', period: 'Agave' };
+    }
+    if (/\b(tiki bitters)\b/.test(text)) {
+      return { group: 'Catalyst', period: 'Cane' };
+    }
+    if (/\b(angostura|aromatic bitters|walnut bitters|chocolate bitters)\b/.test(text)) {
+      return { group: 'Catalyst', period: 'Grain' };
+    }
+    if (/\b(peychaud|creole bitters)\b/.test(text)) {
+      return { group: 'Catalyst', period: 'Grape' };
+    }
+    if (/\b(orange bitters|grapefruit bitters|cherry bitters|rhubarb bitters)\b/.test(text)) {
+      return { group: 'Catalyst', period: 'Fruit' };
+    }
+    if (/\b(celery bitters|lavender bitters|cardamom)\b/.test(text)) {
+      return { group: 'Catalyst', period: 'Botanic' };
+    }
+    // Generic bitters check
+    if (/\b(bitters)\b/.test(text)) {
+      return { group: 'Catalyst', period: 'Botanic' };
+    }
+
+    return null;
+  }
+
+  /**
+   * Get fallback classification based on inventory category
+   */
+  private getCategoryFallback(category: InventoryCategory): { group: PeriodicGroup; period: PeriodicPeriod } {
+    switch (category) {
+      case 'spirit':
+        return { group: 'Base', period: 'Grain' };
+      case 'liqueur':
+        return { group: 'Modifier', period: 'Botanic' };
+      case 'mixer':
+        return { group: 'Reagent', period: 'Fruit' };
+      case 'syrup':
+        return { group: 'Sweetener', period: 'Grain' };
+      case 'garnish':
+        return { group: 'Catalyst', period: 'Botanic' };
+      case 'wine':
+        return { group: 'Bridge', period: 'Grape' };
+      case 'beer':
+        return { group: 'Base', period: 'Grain' };
+      default:
+        return { group: 'Modifier', period: 'Botanic' };
+    }
+  }
+
+  /**
+   * Backfill periodic tags for all items missing them
+   * Returns count of items updated
+   */
+  backfillPeriodicTags(userId: number): { updated: number; total: number } {
+    // Get all items without periodic tags for this user
+    const items = this.db.prepare(`
+      SELECT * FROM inventory_items
+      WHERE user_id = ?
+      AND (periodic_group IS NULL OR periodic_period IS NULL)
+    `).all(userId) as InventoryItem[];
+
+    const total = items.length;
+    let updated = 0;
+
+    // Classify and update each item
+    for (const item of items) {
+      const tags = this.autoClassifyPeriodicTags(item);
+
+      this.db.prepare(`
+        UPDATE inventory_items
+        SET periodic_group = ?, periodic_period = ?
+        WHERE id = ? AND user_id = ?
+      `).run(tags.group, tags.period, item.id, userId);
+
+      updated++;
+    }
+
+    return { updated, total };
   }
 }
 

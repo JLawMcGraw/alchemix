@@ -11,7 +11,7 @@ import { CSVUploadModal, RecipeDetailModal, DeleteConfirmModal, CollectionModal,
 import { RecipeCard } from '@/components/RecipeCard';
 import { recipeApi } from '@/lib/api';
 import type { Recipe, Collection } from '@/types';
-import { matchesSpiritCategory, SpiritCategory } from '@/lib/spirits';
+import type { SpiritCategory } from '@/lib/spirits';
 import styles from './recipes.module.css';
 
 // Spirit keywords for ingredient detection (used for filter dropdown)
@@ -25,13 +25,19 @@ const SPIRIT_KEYWORDS: Record<string, string[]> = {
   'Liqueur': ['liqueur', 'amaretto', 'cointreau', 'triple sec', 'curacao', 'chartreuse', 'benedictine', 'campari', 'aperol', 'kahlua', 'baileys', 'frangelico', 'maraschino', 'absinthe', 'st germain', 'grand marnier', 'drambuie', 'midori', 'galliano', 'sambuca', 'limoncello'],
 };
 
+// Check if keyword matches at word boundary (prevents "gin" matching "ginger")
+const isWordMatch = (text: string, keyword: string): boolean => {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+  return regex.test(text);
+};
+
 // Get spirit types from ingredients (used for filter dropdown)
 const getIngredientSpirits = (ingredients: string[]): string[] => {
   const foundSpirits = new Set<string>();
   for (const ingredient of ingredients) {
-    const lowerIngredient = ingredient.toLowerCase();
     for (const [spirit, keywords] of Object.entries(SPIRIT_KEYWORDS)) {
-      if (keywords.some(keyword => lowerIngredient.includes(keyword))) {
+      if (keywords.some(keyword => isWordMatch(ingredient, keyword))) {
         foundSpirits.add(spirit);
         break;
       }
@@ -73,10 +79,12 @@ function RecipesPageContent() {
     needFewRecipes,
     majorGapsRecipes,
     isLoadingShoppingList,
+    isLoadingRecipes,
     fetchShoppingList,
     fetchItems,
   } = useStore();
   const { showToast } = useToast();
+  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
 
   // State
   const [activeTab, setActiveTab] = useState<'collections' | 'all'>('collections');
@@ -136,6 +144,8 @@ function RecipesPageContent() {
       }
     } catch (error) {
       console.error('Failed to load recipes:', error);
+    } finally {
+      setHasInitiallyLoaded(true);
     }
   };
 
@@ -227,9 +237,12 @@ function RecipesPageContent() {
         ? recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           ingredientsText.includes(searchQuery.toLowerCase())
         : true;
+
+      // Check spirit filter against ingredients (not spirit_type field)
+      const recipeSpirits = getIngredientSpirits(ingredientsArray);
       const matchesSpirit =
         filterSpirit === 'all' ||
-        matchesSpiritCategory(recipe.spirit_type, filterSpirit as SpiritCategory);
+        recipeSpirits.includes(filterSpirit);
 
       // Apply mastery filter
       if (masteryFilter) {
@@ -654,8 +667,18 @@ function RecipesPageContent() {
               </div>
             )}
 
+            {/* Loading State */}
+            {(isLoadingRecipes && !hasInitiallyLoaded) && (
+              <Card padding="lg">
+                <div className={styles.emptyState}>
+                  <div className={styles.loadingSpinner} />
+                  <h3 className={styles.emptyTitle}>Loading your recipes...</h3>
+                </div>
+              </Card>
+            )}
+
             {/* Empty State */}
-            {collectionsArray.length === 0 && uncategorizedCount === 0 && (
+            {collectionsArray.length === 0 && uncategorizedCount === 0 && hasInitiallyLoaded && (
               <Card padding="lg">
                 <div className={styles.emptyState}>
                   <FolderOpen size={64} className={styles.emptyIcon} strokeWidth={1.5} />
@@ -765,7 +788,14 @@ function RecipesPageContent() {
               <span className={styles.recipeCount}>{filteredRecipes.length} recipes</span>
             </div>
 
-            {filteredRecipes.length === 0 ? (
+            {(isLoadingRecipes && !hasInitiallyLoaded) ? (
+              <Card padding="lg">
+                <div className={styles.emptyState}>
+                  <div className={styles.loadingSpinner} />
+                  <h3 className={styles.emptyTitle}>Loading your recipes...</h3>
+                </div>
+              </Card>
+            ) : filteredRecipes.length === 0 ? (
               <Card padding="lg">
                 <div className={styles.emptyState}>
                   <Martini size={64} className={styles.emptyIcon} strokeWidth={1.5} />

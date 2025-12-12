@@ -38,12 +38,13 @@ function BarPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isValidating, isAuthenticated } = useAuthGuard();
-  const { inventoryItems, inventoryPagination, fetchItems, addItem, deleteItem } = useStore();
+  const { inventoryItems, inventoryPagination, fetchItems, addItem, deleteItem, isLoading } = useStore();
   const { showToast } = useToast();
   const [activeCategory, setActiveCategory] = useState<InventoryCategory | 'all'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [spiritTypeFilter, setSpiritTypeFilter] = useState<SpiritCategory | null>(null);
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
+  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
 
   // View mode: 'periodic' (periodic table) or 'list' (traditional list)
   const [viewMode, setViewMode] = useState<'periodic' | 'list'>('periodic');
@@ -83,7 +84,25 @@ function BarPageContent() {
   // Fetch items when category or page changes (server-side filtering + pagination)
   useEffect(() => {
     if (isAuthenticated && !isValidating) {
-      fetchItems(currentPage, 50, activeCategory).catch(console.error);
+      const loadItems = async () => {
+        try {
+          await fetchItems(currentPage, 50, activeCategory);
+          // Backfill periodic tags for items that don't have them
+          if (!hasInitiallyLoaded) {
+            const result = await inventoryApi.backfillPeriodicTags();
+            if (result.updated > 0) {
+              console.log(`📊 Backfilled periodic tags for ${result.updated} items`);
+              // Refetch to get updated tags
+              await fetchItems(currentPage, 50, activeCategory);
+            }
+          }
+        } catch (err) {
+          console.error('Failed to load items:', err);
+        } finally {
+          setHasInitiallyLoaded(true);
+        }
+      };
+      loadItems();
       // Clear selections when page/category changes
       setSelectedIds(new Set());
     }
@@ -394,7 +413,14 @@ function BarPageContent() {
         )}
 
         {/* Items Grid */}
-        {filteredItems.length === 0 ? (
+        {(isLoading && !hasInitiallyLoaded) ? (
+          <Card padding="lg">
+            <div className={styles.emptyState}>
+              <div className={styles.loadingSpinner} />
+              <h3 className={styles.emptyTitle}>Loading your bar...</h3>
+            </div>
+          </Card>
+        ) : filteredItems.length === 0 ? (
           <Card padding="lg">
             <div className={styles.emptyState}>
               <Martini size={64} className={styles.emptyIcon} strokeWidth={1.5} />

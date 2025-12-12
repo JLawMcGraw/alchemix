@@ -33,6 +33,16 @@ export type InventoryCategory =
   | 'beer'
   | 'other';
 
+/**
+ * Periodic Table Group (Column) - What the ingredient DOES
+ */
+export type PeriodicGroup = 'Base' | 'Bridge' | 'Modifier' | 'Sweetener' | 'Reagent' | 'Catalyst';
+
+/**
+ * Periodic Table Period (Row) - Where the ingredient COMES FROM
+ */
+export type PeriodicPeriod = 'Agave' | 'Cane' | 'Grain' | 'Grape' | 'Fruit' | 'Botanic';
+
 // Base inventory item fields (for creating/updating)
 export interface InventoryItemInput {
   name: string;
@@ -49,6 +59,8 @@ export interface InventoryItemInput {
   palate?: string;
   finish?: string;
   tasting_notes?: string;  // User's personal tasting notes for enriched AI recommendations
+  periodic_group?: PeriodicGroup | null;  // Periodic Table column (function/role)
+  periodic_period?: PeriodicPeriod | null;  // Periodic Table row (origin/source)
 }
 
 // Full inventory item (from database - always has id, user_id, created_at)

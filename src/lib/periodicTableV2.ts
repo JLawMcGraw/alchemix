@@ -9,7 +9,7 @@
  * @date December 2025
  */
 
-import type { InventoryItem } from '@/types';
+import type { InventoryItem, PeriodicGroup, PeriodicPeriod } from '@/types';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -164,7 +164,7 @@ export const ELEMENTS: ElementType[] = [
   { symbol: 'Da', name: 'Damiana Liqueur', group: 3, period: 1, abv: '30%', keywords: ['damiana', 'damiana liqueur'] },
 
   // Group 4: Sweetener - Agave
-  { symbol: 'Ag', name: 'Agave Nectar', group: 4, period: 1, brix: '75', primary: true, keywords: ['agave', 'agave nectar', 'agave syrup'] },
+  { symbol: 'Ag', name: 'Agave Nectar', group: 4, period: 1, brix: '75', primary: true, keywords: ['agave nectar', 'agave syrup'] },
   { symbol: 'Sp', name: 'Spiced Agave', group: 4, period: 1, brix: '70', keywords: ['spiced agave'] },
 
   // Group 5: Reagent - Agave
@@ -613,7 +613,6 @@ export const CLASSIFICATION_MAP: Record<string, CellPosition> = {
   // Period 1: Agave
   'agave nectar': { group: 4, period: 1 },
   'agave syrup': { group: 4, period: 1 },
-  'agave': { group: 4, period: 1 },
 
   // Period 2: Cane
   'demerara syrup': { group: 4, period: 2 },
@@ -1262,5 +1261,81 @@ export function getCellDisplayData(
     count: allMatchedItems.length,
     isEmpty: allMatchedItems.length === 0,
     ownedElementSymbols,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PERIODIC TAG HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Valid periodic groups for dropdown options
+ */
+export const PERIODIC_GROUPS: { value: PeriodicGroup; label: string; desc: string }[] = [
+  { value: 'Base', label: 'Base', desc: 'Structure / Vol' },
+  { value: 'Bridge', label: 'Bridge', desc: 'Extension / Depth' },
+  { value: 'Modifier', label: 'Modifier', desc: 'Liqueur / Flavor' },
+  { value: 'Sweetener', label: 'Sweetener', desc: 'Syrups / Brix' },
+  { value: 'Reagent', label: 'Reagent', desc: 'Acids / Juices' },
+  { value: 'Catalyst', label: 'Catalyst', desc: 'Bitters / Extract' },
+];
+
+/**
+ * Valid periodic periods for dropdown options
+ */
+export const PERIODIC_PERIODS: { value: PeriodicPeriod; label: string; desc: string }[] = [
+  { value: 'Agave', label: 'Agave', desc: 'Smoke, Earth' },
+  { value: 'Cane', label: 'Cane', desc: 'Grass, Funk' },
+  { value: 'Grain', label: 'Grain', desc: 'Cereal, Bread' },
+  { value: 'Grape', label: 'Grape', desc: 'Tannin, Wine' },
+  { value: 'Fruit', label: 'Fruit', desc: 'Esters, Tropics' },
+  { value: 'Botanic', label: 'Botanic', desc: 'Herb, Spice' },
+];
+
+/**
+ * Color mapping for periodic groups (for tag display)
+ */
+export const GROUP_COLORS: Record<PeriodicGroup, string> = {
+  Base: '#1E293B',      // dark slate
+  Bridge: '#7C3AED',    // violet
+  Modifier: '#EC4899',  // pink
+  Sweetener: '#6366F1', // indigo
+  Reagent: '#F59E0B',   // yellow
+  Catalyst: '#EF4444',  // red
+};
+
+/**
+ * Color mapping for periodic periods (for tag display)
+ */
+export const PERIOD_COLORS: Record<PeriodicPeriod, string> = {
+  Agave: '#0D9488',   // teal
+  Cane: '#65A30D',    // green
+  Grain: '#D97706',   // amber
+  Grape: '#8B5CF6',   // violet
+  Fruit: '#F43F5E',   // rose
+  Botanic: '#0EA5E9', // sky
+};
+
+/**
+ * Auto-detect periodic tags for an item based on its name, type, and category.
+ * Returns human-readable group and period names.
+ *
+ * @param item - Partial inventory item with name, type, and/or category
+ * @returns Object with group and period
+ */
+export function getPeriodicTags(item: Partial<InventoryItem>): {
+  group: PeriodicGroup;
+  period: PeriodicPeriod;
+} {
+  // Use the existing classification engine
+  const classification = classifyInventoryItem(item as InventoryItem);
+
+  // Convert numeric group/period to human-readable names
+  const groupName = GROUPS[classification.group].name as PeriodicGroup;
+  const periodName = PERIODS[classification.period].name as PeriodicPeriod;
+
+  return {
+    group: groupName,
+    period: periodName,
   };
 }

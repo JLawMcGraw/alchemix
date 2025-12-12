@@ -312,6 +312,32 @@ router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
 }));
 
 /**
+ * POST /api/inventory-items/backfill-periodic-tags - Backfill Periodic Tags
+ *
+ * Auto-classifies all inventory items missing periodic_group and periodic_period tags.
+ * Uses the Periodic Table of Mixology V2 classification logic.
+ */
+router.post('/backfill-periodic-tags', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized'
+    });
+  }
+
+  const result = inventoryService.backfillPeriodicTags(userId);
+
+  res.json({
+    success: true,
+    message: `Successfully classified ${result.updated} of ${result.total} items`,
+    updated: result.updated,
+    total: result.total
+  });
+}));
+
+/**
  * POST /api/inventory-items/import - CSV Import
  */
 router.post('/import', upload.single('file'), asyncHandler(async (req: Request, res: Response) => {

@@ -1,13 +1,13 @@
 # Project Development Progress
 
-Last updated: 2025-12-11
+Last updated: 2025-12-12
 
 ---
 
 ## Current Status
 
 **Version**: v1.30.0
-**Phase**: Feature Development - Periodic Table V2 Improvements
+**Phase**: Feature Development - Bug Fixes & UX Improvements
 **Branch**: `alchemix-redesign`
 **Blockers**: None
 
@@ -19,7 +19,69 @@ Last updated: 2025-12-11
 
 ---
 
-## Recent Session (2025-12-11): Periodic Table V2 Refinements
+## Recent Session (2025-12-12): Bug Fixes & Periodic Tags UX
+
+### Summary
+Fixed several bugs related to Periodic Table matching and added periodic tags display to inventory items. Key fixes: Agave Nectar false positive in Periodic Table, spirit filter dropdown not working on Recipes page, "ginger beer" incorrectly matching "Gin" filter, loading state flicker on Bar/Recipes pages.
+
+### Work Completed
+
+#### 1. Fixed Periodic Tags Not Showing on Inventory Items
+- Added `backfillPeriodicTags()` call on Bar page initial load
+- Ensures existing items get their periodic_group and periodic_period populated
+
+#### 2. Fixed Loading State Flicker ("Empty Bar" / "Empty Recipes")
+- Added `hasInitiallyLoaded` state to Bar and Recipes pages
+- Shows loading spinner until initial fetch completes
+- Prevents brief flash of empty state on page refresh
+
+#### 3. BottleCard UI Updates
+- Removed category badge (spirit, liqueur, etc.) from card - now only shows in modal
+- Moved periodic tags (Group/Period) to new row below bottle name
+- Added `.periodicTags` CSS styles
+
+#### 4. ItemDetailModal Periodic Tags
+- Added periodic tags display in view mode (next to category badge)
+- Tags show Group (dark slate) and Period (teal) with colored badges
+
+#### 5. Fixed Agave Nectar False Positive in Periodic Table
+- Removed generic `'agave'` from Agave Nectar element keywords
+- Now only matches `'agave nectar'` or `'agave syrup'`
+- Removed `'agave': { group: 4, period: 1 }` from CLASSIFICATION_MAP
+- Prevents tequilas with "agave" in name from coloring Agave Nectar cell
+
+#### 6. Fixed Spirit Filter Dropdown on Recipes Page
+- Was checking `recipe.spirit_type` field (often empty)
+- Now uses `getIngredientSpirits()` to analyze actual ingredients
+- Consistent with how dropdown options are populated
+
+#### 7. Fixed "Ginger Beer" Matching "Gin" Filter
+- Added `isWordMatch()` helper with word boundary regex (`\b`)
+- Prevents "gin" from matching "ginger", "ginger beer", etc.
+- Applied to `getIngredientSpirits()` function
+
+### Files Modified
+- `api/src/tests/setup.ts` - Added periodic columns to test database
+- `src/lib/api.ts` - Added `backfillPeriodicTags()` method
+- `src/app/bar/page.tsx` - Added hasInitiallyLoaded, loading spinner, backfill call
+- `src/app/bar/bar.module.css` - Added loading spinner styles
+- `src/app/recipes/page.tsx` - Fixed spirit filter, added word boundary matching, hasInitiallyLoaded
+- `src/app/recipes/recipes.module.css` - Added loading spinner styles
+- `src/components/BottleCard/BottleCard.tsx` - Removed category badge, moved periodic tags
+- `src/components/BottleCard/BottleCard.module.css` - Added periodicTags styles
+- `src/components/modals/ItemDetailModal.tsx` - Added periodic tags in view mode
+- `src/components/modals/ItemDetailModal.module.css` - Added tag row and badge styles
+- `src/lib/periodicTableV2.ts` - Removed 'agave' from Agave Nectar keywords and CLASSIFICATION_MAP
+
+### Tests
+- All 206 frontend tests passing
+
+### Next Priority
+- Continue testing and bug fixes as reported
+
+---
+
+## Previous Session (2025-12-11): Periodic Table V2 Refinements
 
 ### Summary
 Major improvements to the Periodic Table V2 component: fixed double popup issue, improved classification matching accuracy with word boundary matching, changed dropdown to show element TYPES (not user bottles), added grayed-out state for elements not in bar, and enabled element swapping from dropdown.

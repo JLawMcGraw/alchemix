@@ -6,12 +6,13 @@
 
 Modern cocktail inventory and recipe management system with AI-powered bartender recommendations. Features a "Molecular Mixology" design system that treats cocktails as chemical formulas and ingredients as periodic table elements.
 
-**Version:** v1.30.0 | **Last Updated:** December 10, 2025
+**Version:** v1.30.0 | **Last Updated:** December 12, 2025
 
 ## Features
 
 ### Core Features
-- **My Bar** - Category-organized inventory with 9 tabs, card grid layout, CSV import
+- **My Bar** - Category-organized inventory with 9 tabs, card grid layout, CSV import, periodic tags
+- **Periodic Table of Mixology** - 6x6 grid classifying ingredients by function (Group) and origin (Period)
 - **Recipe Management** - Full CRUD, collections/folders, bulk operations, CSV import, spirit detection
 - **Recipe Molecule Visualization** - Chemical bond-style molecular diagrams for cocktail recipes
 - **Smart Shopping List** - Near-miss algorithm, ingredient recommendations, 6 recipe buckets
@@ -164,10 +165,10 @@ The project has comprehensive test coverage using Vitest:
 
 | Suite | Tests | Description |
 |-------|-------|-------------|
-| Frontend | 99 | API client, store, UI components (Button, Input, Modal) |
+| Frontend | 206 | API client, store, UI components, page tests |
 | Backend | 488 | Auth, inventory, recipes, collections, favorites, messages, shopping list |
 | Recipe Molecule | 124 | Ingredient parser, classifier, layout engine |
-| **Total** | **711** | |
+| **Total** | **818** | |
 
 ```bash
 # Run all tests

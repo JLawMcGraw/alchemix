@@ -229,6 +229,8 @@ describe('InventoryService', () => {
         palate: 'Smooth',
         finish: 'Crisp',
         tasting_notes: null,
+        periodic_group: null,
+        periodic_period: null,
       };
 
       const item = inventoryService.create(userId, data);
@@ -257,6 +259,8 @@ describe('InventoryService', () => {
         palate: null,
         finish: null,
         tasting_notes: null,
+        periodic_group: null,
+        periodic_period: null,
       };
 
       const item = inventoryService.create(userId, data);
@@ -282,6 +286,8 @@ describe('InventoryService', () => {
         palate: null,
         finish: null,
         tasting_notes: null,
+        periodic_group: null,
+        periodic_period: null,
       };
 
       const item = inventoryService.create(userId, data);
@@ -305,6 +311,8 @@ describe('InventoryService', () => {
         palate: null,
         finish: null,
         tasting_notes: null,
+        periodic_group: null,
+        periodic_period: null,
       };
 
       const item = inventoryService.create(userId, data);
@@ -335,6 +343,8 @@ describe('InventoryService', () => {
         palate: null,
         finish: null,
         tasting_notes: null,
+        periodic_group: null,
+        periodic_period: null,
       };
 
       const item = inventoryService.update(itemId, userId, data);
@@ -361,6 +371,8 @@ describe('InventoryService', () => {
         palate: null,
         finish: null,
         tasting_notes: null,
+        periodic_group: null,
+        periodic_period: null,
       };
 
       const item = inventoryService.update(99999, userId, data);
@@ -394,6 +406,8 @@ describe('InventoryService', () => {
         palate: null,
         finish: null,
         tasting_notes: null,
+        periodic_group: null,
+        periodic_period: null,
       };
 
       const item = inventoryService.update(itemId, userId, data);
