@@ -25,7 +25,61 @@ Last updated: 2025-12-15
 
 ---
 
-## Recent Session (2025-12-15): Bug Fixes, Collection Features, Docs & Docker Cleanup
+## Recent Session (2025-12-15 Evening): AI Bartender Improvements & API Key Sync
+
+### Summary
+Fixed AI Bartender recipe linking issues (apostrophe handling, fuzzy matching, text scanning), improved duplicate recommendation detection, fixed security filter false positives, and synced API keys across environment files.
+
+### Work Completed
+
+#### 1. API Key Synchronization
+- Synced ANTHROPIC_API_KEY from docker/.env to api/.env (was using old key)
+- Synced OPENAI_API_KEY across all .env files
+- Fixed 401 Unauthorized errors from Claude API
+
+#### 2. Security Filter Fix
+- **Issue**: AI responses blocked with "sensitive data patterns" false positives
+- **Cause**: Overly broad patterns matching words like "secret" (e.g., "secret ingredient")
+- **Fix**: Refined patterns to look for credential assignments (e.g., `api_key=`) not standalone words
+- **File**: `api/src/services/AIService.ts`
+
+#### 3. Recipe Linking Improvements (Frontend)
+- **Issue**: Recipes mentioned by AI not being linked (e.g., "Planter's Punch", "SC Hot Buttered Rum Batter")
+- **Fixes**:
+  - Added `normalizeApostrophes()` helper for curly vs straight quote handling
+  - Added `fuzzyRecipeMatch()` for prefix variations (SC, Classic, Traditional, etc.)
+  - Added `escapeForRegex()` to match any apostrophe variant in regex patterns
+  - Now scans full response text for recipe names, not just RECOMMENDATIONS line
+- **File**: `src/app/ai/page.tsx`
+
+#### 4. Duplicate Recommendation Detection (Backend)
+- **Issue**: AI recommending same drinks twice (e.g., "Kahiko Punch")
+- **Fixes**:
+  - Improved `extractAlreadyRecommendedRecipes()` with fuzzy matching
+  - Added extraction from dash-formatted lists (`- **Recipe** —`)
+  - Handles prefix variations, articles ("the"), and `#N` suffixes
+  - Changed logging from debug to info for visibility
+- **File**: `api/src/services/AIService.ts`
+
+#### 5. MemMachine Fork Sync
+- Fixed upstream remote (was pointing to wrong repo)
+- Merged 33 upstream commits (filter comparisons, Cohere reranker, LlamaIndex, security fixes)
+- Pushed to fork
+
+#### 6. Cleanup
+- Deleted temporary test scripts from root directory
+
+### Commits
+- `8dea522` fix(ai): improve recipe linking and duplicate detection
+- `e3c3162` chore: update package-lock files
+
+### Next Priority
+- Continue testing AI Bartender recipe linking
+- Monitor duplicate recommendation filtering
+
+---
+
+## Previous Session (2025-12-15): Bug Fixes, Collection Features, Docs & Docker Cleanup
 
 ### Summary
 Fixed multiple bugs (server startup crash, email verification double-request, CSV import issues), added collection management features (create during import, delete with recipes), improved README with prerequisites and troubleshooting, and cleaned up Docker folder by removing obsolete bar-server (MemMachine v2 migration complete).
