@@ -32,22 +32,68 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 - **Email Verification** - Secure signup flow with verification tokens
 - **Password Reset** - Secure reset flow with email delivery
 
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+| Requirement | Version | Check Command |
+|-------------|---------|---------------|
+| Node.js | 18.x or higher | `node --version` |
+| npm | 9.x or higher | `npm --version` |
+| Git | Any recent | `git --version` |
+| Docker | (Optional) For AI features | `docker --version` |
+
 ## Quick Start
 
+### 1. Clone and Install
+
 ```bash
-# Install dependencies
+git clone https://github.com/JLawMcGraw/alchemix.git
+cd alchemix
 npm run install:all
-
-# Configure environment
-cp api/.env.example api/.env
-# Edit api/.env - add JWT_SECRET and optionally ANTHROPIC_API_KEY, SMTP settings
-
-# Run both frontend and backend
-npm run dev:all
-
-# Frontend: http://localhost:3001
-# Backend: http://localhost:3000
 ```
+
+### 2. Configure Environment
+
+```bash
+# Copy the example environment file
+cp api/.env.example api/.env
+```
+
+Edit `api/.env` and set the required values:
+
+```env
+# REQUIRED - Generate a secure secret (minimum 32 characters)
+JWT_SECRET=your-super-secure-secret-key-at-least-32-chars
+
+# REQUIRED - Database location (auto-created)
+DATABASE_PATH=./data/alchemix.db
+
+# REQUIRED - Frontend URL for CORS
+FRONTEND_URL=http://localhost:3001
+```
+
+Optional settings for full functionality:
+- `ANTHROPIC_API_KEY` - Enable AI Bartender features
+- `SMTP_*` - Enable email verification and password reset
+- `MEMMACHINE_API_URL` - Enable semantic recipe search (requires Docker)
+
+### 3. Start Development Servers
+
+```bash
+npm run dev:all
+```
+
+This starts both servers:
+- **Frontend**: http://localhost:3001
+- **Backend**: http://localhost:3000
+
+### 4. Create an Account
+
+1. Open http://localhost:3001
+2. Click "Sign Up" and create an account
+3. If SMTP is not configured, check the terminal for the verification link
+4. Start adding inventory and recipes!
 
 ## Tech Stack
 
@@ -248,6 +294,176 @@ AlcheMix uses the "Molecular Mixology" design system - a clinical, scientific ae
 - `Documentation/railway-deployment/` - Railway deployment guide
 - `api/.env.example` - Full environment variable reference
 - `docker/.env.example` - Docker environment template
+
+## Troubleshooting
+
+### Installation Issues
+
+**`npm run install:all` fails**
+```bash
+# Clear npm cache and node_modules
+rm -rf node_modules api/node_modules packages/*/node_modules
+npm cache clean --force
+npm run install:all
+```
+
+**Node version errors**
+```bash
+# Check your Node version (requires 18+)
+node --version
+
+# Use nvm to install correct version
+nvm install 20
+nvm use 20
+```
+
+### Server Startup Issues
+
+**Port already in use (EADDRINUSE)**
+```bash
+# Find what's using port 3000 or 3001
+lsof -i :3000
+lsof -i :3001
+
+# Kill the process
+kill -9 <PID>
+
+# Or use different ports in api/.env
+PORT=3002
+FRONTEND_URL=http://localhost:3003
+```
+
+**JWT_SECRET error on startup**
+```
+Error: JWT_SECRET must be at least 32 characters
+```
+Edit `api/.env` and set a longer secret:
+```env
+JWT_SECRET=my-super-secure-secret-key-that-is-at-least-32-characters-long
+```
+
+**SQLite "no such table" error**
+```
+SqliteError: no such table: users
+```
+The database auto-creates on first run. If corrupted:
+```bash
+# Delete and recreate database
+rm -rf api/data/alchemix.db
+npm run dev:all
+```
+
+### Authentication Issues
+
+**"Invalid credentials" when logging in**
+- Passwords are case-sensitive
+- Minimum 8 characters required
+- Try resetting via "Forgot Password" if SMTP is configured
+
+**Email verification not working**
+1. Check if SMTP is configured in `api/.env`
+2. If not configured, verification links are logged to terminal:
+   ```
+   [EMAIL] Verification email would be sent to: user@example.com
+   [EMAIL] Verification URL: http://localhost:3001/verify-email?token=...
+   ```
+3. Copy the URL from terminal and open in browser
+
+**"Verification Failed" after clicking email link**
+- Links expire after 24 hours - request a new one
+- Links can only be used once
+- Make sure you're clicking the full URL
+
+### API & CORS Issues
+
+**CORS errors in browser console**
+```
+Access to fetch blocked by CORS policy
+```
+Ensure `FRONTEND_URL` in `api/.env` matches your frontend URL exactly:
+```env
+FRONTEND_URL=http://localhost:3001  # No trailing slash
+```
+
+**401 Unauthorized on API requests**
+- Session may have expired - try logging out and back in
+- Clear browser cookies for localhost
+- Check that both servers are running
+
+### AI Features Not Working
+
+**AI Bartender returns errors**
+1. Check `ANTHROPIC_API_KEY` is set in `api/.env`
+2. Verify your API key is valid at https://console.anthropic.com
+
+**MemMachine/semantic search not working**
+MemMachine requires Docker:
+```bash
+# Start infrastructure
+docker compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml up -d
+
+# Verify MemMachine is running
+curl http://localhost:8080/health
+```
+
+### Build & Type Errors
+
+**TypeScript errors**
+```bash
+# Check for type errors
+npm run type-check        # Frontend
+cd api && npm run type-check  # Backend
+```
+
+**Build fails**
+```bash
+# Clean build artifacts
+rm -rf .next api/dist
+
+# Rebuild
+npm run build
+cd api && npm run build
+```
+
+### Database Issues
+
+**Database locked errors**
+- Only one server instance should run at a time
+- Check for zombie Node processes: `ps aux | grep node`
+
+**Data not persisting**
+- Check `DATABASE_PATH` in `api/.env`
+- Ensure the `api/data/` directory is writable
+- Don't delete `api/data/alchemix.db` while server is running
+
+### Docker Issues
+
+**Docker containers won't start**
+```bash
+# Check Docker is running
+docker info
+
+# View container logs
+docker compose -f docker/docker-compose.yml logs
+
+# Restart with fresh state
+docker compose -f docker/docker-compose.yml down -v
+docker compose -f docker/docker-compose.yml up
+```
+
+**Neo4j or Postgres connection refused**
+Wait 30-60 seconds after starting Docker - databases take time to initialize.
+
+### Still Having Issues?
+
+1. Check the terminal output for detailed error messages
+2. Review `Documentation/DEV_NOTES.md` for known issues
+3. Search existing issues: https://github.com/JLawMcGraw/alchemix/issues
+4. Open a new issue with:
+   - Your Node.js version (`node --version`)
+   - Your OS (macOS, Windows, Linux)
+   - Full error message/stack trace
+   - Steps to reproduce
 
 ## License
 
