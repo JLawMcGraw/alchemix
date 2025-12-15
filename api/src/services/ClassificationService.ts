@@ -43,64 +43,89 @@ export interface ClassificationOverride {
 }
 
 // ============================================================================
-// Prepared Statements
+// Prepared Statements (Lazy Initialization)
 // ============================================================================
 
-const statements = {
-  /**
-   * Get all classification overrides for a user
-   */
-  getByUser: db.prepare<[number], ClassificationRow>(`
-    SELECT * FROM inventory_classifications
-    WHERE user_id = ?
-    ORDER BY updated_at DESC
-  `),
+/**
+ * Lazy-initialized prepared statements
+ *
+ * IMPORTANT: Statements are created on first access, not at module load time.
+ * This ensures the database tables exist before preparing statements.
+ *
+ * Why lazy initialization?
+ * - Database initialization (initializeDatabase) runs after imports
+ * - Eager preparation would fail with "no such table" error
+ * - Lazy init defers preparation until first actual use
+ */
+let _statements: {
+  getByUser: ReturnType<typeof db.prepare<[number], ClassificationRow>>;
+  getOne: ReturnType<typeof db.prepare<[number, number], ClassificationRow>>;
+  upsert: ReturnType<typeof db.prepare<[number, number, number, number]>>;
+  delete: ReturnType<typeof db.prepare<[number, number]>>;
+  deleteAll: ReturnType<typeof db.prepare<[number]>>;
+  count: ReturnType<typeof db.prepare<[number], { count: number }>>;
+} | null = null;
 
-  /**
-   * Get a single classification override
-   */
-  getOne: db.prepare<[number, number], ClassificationRow>(`
-    SELECT * FROM inventory_classifications
-    WHERE user_id = ? AND inventory_item_id = ?
-  `),
+function getStatements() {
+  if (!_statements) {
+    _statements = {
+      /**
+       * Get all classification overrides for a user
+       */
+      getByUser: db.prepare<[number], ClassificationRow>(`
+        SELECT * FROM inventory_classifications
+        WHERE user_id = ?
+        ORDER BY updated_at DESC
+      `),
 
-  /**
-   * Insert or update a classification override
-   * Uses SQLite's UPSERT syntax (INSERT OR REPLACE)
-   */
-  upsert: db.prepare<[number, number, number, number]>(`
-    INSERT INTO inventory_classifications (user_id, inventory_item_id, group_num, period_num)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(user_id, inventory_item_id) DO UPDATE SET
-      group_num = excluded.group_num,
-      period_num = excluded.period_num,
-      updated_at = CURRENT_TIMESTAMP
-  `),
+      /**
+       * Get a single classification override
+       */
+      getOne: db.prepare<[number, number], ClassificationRow>(`
+        SELECT * FROM inventory_classifications
+        WHERE user_id = ? AND inventory_item_id = ?
+      `),
 
-  /**
-   * Delete a classification override (revert to auto-classification)
-   */
-  delete: db.prepare<[number, number]>(`
-    DELETE FROM inventory_classifications
-    WHERE user_id = ? AND inventory_item_id = ?
-  `),
+      /**
+       * Insert or update a classification override
+       * Uses SQLite's UPSERT syntax (INSERT OR REPLACE)
+       */
+      upsert: db.prepare<[number, number, number, number]>(`
+        INSERT INTO inventory_classifications (user_id, inventory_item_id, group_num, period_num)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(user_id, inventory_item_id) DO UPDATE SET
+          group_num = excluded.group_num,
+          period_num = excluded.period_num,
+          updated_at = CURRENT_TIMESTAMP
+      `),
 
-  /**
-   * Delete all overrides for a user (bulk reset)
-   */
-  deleteAll: db.prepare<[number]>(`
-    DELETE FROM inventory_classifications
-    WHERE user_id = ?
-  `),
+      /**
+       * Delete a classification override (revert to auto-classification)
+       */
+      delete: db.prepare<[number, number]>(`
+        DELETE FROM inventory_classifications
+        WHERE user_id = ? AND inventory_item_id = ?
+      `),
 
-  /**
-   * Count overrides for a user
-   */
-  count: db.prepare<[number], { count: number }>(`
-    SELECT COUNT(*) as count FROM inventory_classifications
-    WHERE user_id = ?
-  `),
-};
+      /**
+       * Delete all overrides for a user (bulk reset)
+       */
+      deleteAll: db.prepare<[number]>(`
+        DELETE FROM inventory_classifications
+        WHERE user_id = ?
+      `),
+
+      /**
+       * Count overrides for a user
+       */
+      count: db.prepare<[number], { count: number }>(`
+        SELECT COUNT(*) as count FROM inventory_classifications
+        WHERE user_id = ?
+      `),
+    };
+  }
+  return _statements;
+}
 
 // ============================================================================
 // Service Functions
@@ -113,7 +138,7 @@ const statements = {
  * @returns Map of inventory item ID to CellPosition for use with classification engine
  */
 export function getUserOverrides(userId: number): Map<number, CellPosition> {
-  const rows = statements.getByUser.all(userId);
+  const rows = getStatements().getByUser.all(userId);
   const overrides = new Map<number, CellPosition>();
 
   for (const row of rows) {
@@ -133,7 +158,7 @@ export function getUserOverrides(userId: number): Map<number, CellPosition> {
  * @returns Array of classification overrides
  */
 export function getAll(userId: number): ClassificationOverride[] {
-  const rows = statements.getByUser.all(userId);
+  const rows = getStatements().getByUser.all(userId);
 
   return rows.map((row) => ({
     inventoryItemId: row.inventory_item_id,
@@ -155,7 +180,7 @@ export function getOne(
   userId: number,
   inventoryItemId: number
 ): ClassificationOverride | null {
-  const row = statements.getOne.get(userId, inventoryItemId);
+  const row = getStatements().getOne.get(userId, inventoryItemId);
 
   if (!row) return null;
 
@@ -191,7 +216,7 @@ export function setOverride(
     throw new Error(`Invalid period: ${period}. Must be 1-6.`);
   }
 
-  statements.upsert.run(userId, inventoryItemId, group, period);
+  getStatements().upsert.run(userId, inventoryItemId, group, period);
 
   // Fetch and return the updated row
   const result = getOne(userId, inventoryItemId);
@@ -213,7 +238,7 @@ export function deleteOverride(
   userId: number,
   inventoryItemId: number
 ): boolean {
-  const result = statements.delete.run(userId, inventoryItemId);
+  const result = getStatements().delete.run(userId, inventoryItemId);
   return result.changes > 0;
 }
 
@@ -224,7 +249,7 @@ export function deleteOverride(
  * @returns Number of overrides deleted
  */
 export function deleteAllOverrides(userId: number): number {
-  const result = statements.deleteAll.run(userId);
+  const result = getStatements().deleteAll.run(userId);
   return result.changes;
 }
 
@@ -235,7 +260,7 @@ export function deleteAllOverrides(userId: number): number {
  * @returns Number of overrides
  */
 export function countOverrides(userId: number): number {
-  const result = statements.count.get(userId);
+  const result = getStatements().count.get(userId);
   return result?.count ?? 0;
 }
 
