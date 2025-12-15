@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { CheckCircle, XCircle, Loader2, Mail } from 'lucide-react';
@@ -18,6 +18,9 @@ function VerifyEmailContent() {
   const [resending, setResending] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
 
+  // Use ref to prevent duplicate API calls in React StrictMode
+  const verificationAttempted = useRef(false);
+
   useEffect(() => {
     const token = searchParams.get('token');
 
@@ -27,14 +30,16 @@ function VerifyEmailContent() {
       return;
     }
 
-    // Guard against double execution in React Strict Mode
-    let cancelled = false;
+    // Prevent duplicate API calls (React StrictMode double-mount)
+    if (verificationAttempted.current) {
+      return;
+    }
+    verificationAttempted.current = true;
 
     // Verify the email
     const verifyEmail = async () => {
       try {
         await authApi.verifyEmail(token);
-        if (cancelled) return;
         setStatus('success');
 
         // Redirect to dashboard after 3 seconds
@@ -42,7 +47,6 @@ function VerifyEmailContent() {
           router.push('/dashboard');
         }, 3000);
       } catch (error: unknown) {
-        if (cancelled) return;
         setStatus('error');
         const axiosError = error as { response?: { data?: { error?: string } } };
         setErrorMessage(
@@ -52,10 +56,6 @@ function VerifyEmailContent() {
     };
 
     verifyEmail();
-
-    return () => {
-      cancelled = true;
-    };
   }, [searchParams, router]);
 
   const handleResendVerification = async () => {
