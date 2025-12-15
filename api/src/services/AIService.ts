@@ -137,12 +137,25 @@ const PROMPT_INJECTION_PATTERNS = [
 
 /**
  * Sensitive Content Patterns for Output Filtering
+ * Note: Patterns refined to avoid false positives in bartender context
+ * (e.g., "secret ingredient" should not trigger security filter)
  */
 const SENSITIVE_OUTPUT_PATTERNS = [
-  /password|api[_\s]?key|secret|token|credential|private[_\s]?key/gi,
-  /database|schema|sql\s+query|connection\s+string/gi,
-  /system[_\s]?(prompt|instruction)|my\s+instructions?/gi,
-  /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
+  // Specific credential patterns (not standalone words like "secret" or "token")
+  /api[_\s]?key\s*[:=]/gi,
+  /secret[_\s]?key\s*[:=]/gi,
+  /private[_\s]?key\s*[:=]/gi,
+  /password\s*[:=]/gi,
+  /credential\s*[:=]/gi,
+  /access[_\s]?token\s*[:=]/gi,
+  // Database connection strings
+  /connection\s+string\s*[:=]/gi,
+  /mongodb(\+srv)?:\/\//gi,
+  /postgres(ql)?:\/\//gi,
+  // System prompt leakage
+  /system[_\s]?(prompt|instruction)\s*[:=]/gi,
+  /my\s+instructions?\s+are/gi,
+  // SSN pattern (keep for PII protection)
   /\b\d{3}-\d{2}-\d{4}\b/g
 ];
 
@@ -235,6 +248,7 @@ class AIService {
   ): Set<string> {
     const recommended = new Set<string>();
 
+    // Build lookup map with all recipes
     const recipeNameMap = new Map<string, string>();
     for (const recipe of recipes) {
       if (recipe.name) {
@@ -242,31 +256,63 @@ class AIService {
       }
     }
 
+    // Helper for fuzzy matching (handles "the X", "X Punch" vs "X", prefixes like "SC")
+    const findMatchingRecipe = (text: string): string | null => {
+      const cleaned = text.toLowerCase().trim()
+        .replace(/\*\*/g, '')  // Remove bold markers
+        .replace(/^(the|a)\s+/i, '')  // Remove leading articles
+        .replace(/\s*#\d+$/i, '')  // Remove #N suffix
+        .trim();
+
+      // Exact match
+      if (recipeNameMap.has(cleaned)) {
+        return recipeNameMap.get(cleaned)!;
+      }
+
+      // Fuzzy match: check if any recipe name contains or is contained by the text
+      for (const [lowerName, originalName] of recipeNameMap.entries()) {
+        const strippedDbName = lowerName.replace(/^(sc|classic|traditional|original|the|a)\s+/i, '').trim();
+        if (cleaned === strippedDbName ||
+            cleaned.includes(lowerName) ||
+            lowerName.includes(cleaned) ||
+            cleaned.includes(strippedDbName) ||
+            strippedDbName.includes(cleaned)) {
+          return originalName;
+        }
+      }
+      return null;
+    };
+
     for (const entry of history) {
       if (entry.role === 'assistant') {
+        // Extract from RECOMMENDATIONS: line
         const recMatch = entry.content.match(/RECOMMENDATIONS:\s*(.+)/i);
         if (recMatch) {
           const recList = recMatch[1].split(',').map(r => r.trim());
           for (const rec of recList) {
-            const normalized = recipeNameMap.get(rec.toLowerCase());
-            if (normalized) {
-              recommended.add(normalized);
-            }
+            const match = findMatchingRecipe(rec);
+            if (match) recommended.add(match);
           }
         }
 
+        // Extract bold text mentions (**Recipe Name**)
         const boldMatches = entry.content.matchAll(/\*\*([^*]+)\*\*/g);
         for (const match of boldMatches) {
-          const normalized = recipeNameMap.get(match[1].toLowerCase());
-          if (normalized) {
-            recommended.add(normalized);
-          }
+          const found = findMatchingRecipe(match[1]);
+          if (found) recommended.add(found);
+        }
+
+        // Extract dash-formatted mentions (- **Name** — or - Name —)
+        const dashMatches = entry.content.matchAll(/[-•]\s*\**([^—\n*]+)\**\s*[—-]/g);
+        for (const match of dashMatches) {
+          const found = findMatchingRecipe(match[1]);
+          if (found) recommended.add(found);
         }
       }
     }
 
     if (recommended.size > 0) {
-      logger.debug('Already recommended in this conversation', { recipes: Array.from(recommended) });
+      logger.info('Already recommended in this conversation', { count: recommended.size, recipes: Array.from(recommended) });
     }
 
     return recommended;

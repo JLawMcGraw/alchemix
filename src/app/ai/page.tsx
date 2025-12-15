@@ -154,20 +154,34 @@ export default function AIPage() {
     setInput(prompt);
   };
 
-  const handleRecipeClick = (recipeName: string) => {
-    let recipe = recipesArray.find((r) =>
-      r.name.toLowerCase() === recipeName.toLowerCase()
-    );
+  // Normalize apostrophes (curly ' vs straight ')
+  const normalizeApostrophes = (text: string): string =>
+    text.replace(/[''`]/g, "'");
 
-    if (!recipe) {
-      recipe = recipesArray.find((r) => {
-        const cleanRecipeName = recipeName.replace(/\s*#\d+\s*$/i, '').trim().toLowerCase();
-        const cleanDbName = r.name.replace(/\s*#\d+\s*$/i, '').trim().toLowerCase();
-        return cleanDbName === cleanRecipeName ||
-               r.name.toLowerCase().includes(cleanRecipeName) ||
-               cleanRecipeName.includes(r.name.toLowerCase());
-      });
-    }
+  // Helper to match recipe names with common prefix variations (SC, Classic, etc.)
+  const fuzzyRecipeMatch = (aiName: string, dbName: string): boolean => {
+    const cleanAI = normalizeApostrophes(aiName).replace(/\s*#\d+\s*$/i, '').trim().toLowerCase();
+    const cleanDB = normalizeApostrophes(dbName).replace(/\s*#\d+\s*$/i, '').trim().toLowerCase();
+
+    // Exact match
+    if (cleanDB === cleanAI) return true;
+
+    // One contains the other
+    if (cleanDB.includes(cleanAI) || cleanAI.includes(cleanDB)) return true;
+
+    // Strip common prefixes and check again
+    const prefixes = /^(sc|classic|traditional|original|the|a)\s+/i;
+    const strippedAI = cleanAI.replace(prefixes, '');
+    const strippedDB = cleanDB.replace(prefixes, '');
+
+    if (strippedDB === strippedAI) return true;
+    if (strippedDB.includes(strippedAI) || strippedAI.includes(strippedDB)) return true;
+
+    return false;
+  };
+
+  const handleRecipeClick = (recipeName: string) => {
+    const recipe = recipesArray.find((r) => fuzzyRecipeMatch(recipeName, r.name));
 
     if (recipe) {
       setSelectedRecipe(recipe);
@@ -181,32 +195,59 @@ export default function AIPage() {
 
     const { explanation, recommendations } = parseAIResponse(message.content);
 
-    if (recommendations.length === 0) {
+    // Build a set of all linkable recipe names (from RECOMMENDATIONS + scanning text)
+    const linkableRecipes = new Set<string>();
+
+    // Add recipes from RECOMMENDATIONS line
+    recommendations.forEach((name) => {
+      const recipe = recipesArray.find((r) => fuzzyRecipeMatch(name, r.name));
+      if (recipe) linkableRecipes.add(recipe.name);
+    });
+
+    // Also scan explanation for recipe names from user's database
+    const normalizedExplanation = normalizeApostrophes(explanation).toLowerCase();
+    recipesArray.forEach((recipe) => {
+      const normalizedName = normalizeApostrophes(recipe.name).toLowerCase();
+      // Check if recipe name appears in the text (word boundary check)
+      const escapedName = normalizedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const nameRegex = new RegExp(`(?:^|[^\\w])${escapedName}(?:[^\\w]|$)`, 'i');
+      if (nameRegex.test(normalizedExplanation)) {
+        linkableRecipes.add(recipe.name);
+      }
+    });
+
+    if (linkableRecipes.size === 0) {
       return <div className={styles.messageText}>{message.content}</div>;
     }
 
     let displayText = explanation;
 
-    recommendations.forEach((recipeName) => {
-      const recipe = recipesArray.find((r) => {
-        const cleanRecipeName = recipeName.replace(/\s*#\d+\s*$/i, '').trim().toLowerCase();
-        const cleanDbName = r.name.replace(/\s*#\d+\s*$/i, '').trim().toLowerCase();
-        return cleanDbName === cleanRecipeName ||
-               r.name.toLowerCase().includes(cleanRecipeName) ||
-               cleanRecipeName.includes(r.name.toLowerCase());
-      });
+    // Wrap all linkable recipe names with markers
+    // Helper to create regex pattern that matches any apostrophe variant
+    const escapeForRegex = (name: string): string => {
+      return name
+        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        .replace(/['`']/g, "[''`]"); // Match any apostrophe variant
+    };
 
-      if (recipe) {
-        const escapedFullName = recipeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const fullNameRegex = new RegExp(`(?<!\\w)${escapedFullName}(?!\\w)`, 'gi');
-        displayText = displayText.replace(fullNameRegex, `__RECIPE__${recipeName}__RECIPE__`);
+    linkableRecipes.forEach((recipeName) => {
+      const escapedFullName = escapeForRegex(recipeName);
+      const fullNameRegex = new RegExp(`(?<!\\w)${escapedFullName}(?!\\w)`, 'gi');
+      displayText = displayText.replace(fullNameRegex, `__RECIPE__${recipeName}__RECIPE__`);
 
-        const baseName = recipeName.replace(/\s*#\d+\s*$/i, '').trim();
-        if (baseName !== recipeName) {
-          const escapedBaseName = baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const baseNameRegex = new RegExp(`(?<!\\w)${escapedBaseName}(?!\\w|\\s*#)`, 'gi');
-          displayText = displayText.replace(baseNameRegex, `__RECIPE__${recipeName}__RECIPE__`);
-        }
+      // Also try without common prefixes (SC, Classic, etc.)
+      const prefixes = /^(sc|classic|traditional|original|the|a)\s+/i;
+      const baseName = recipeName.replace(prefixes, '').trim();
+      if (baseName !== recipeName && baseName.length > 3) {
+        const escapedBaseName = escapeForRegex(baseName);
+        const baseNameRegex = new RegExp(`(?<!\\w)${escapedBaseName}(?!\\w)`, 'gi');
+        // Only replace if not already wrapped
+        displayText = displayText.replace(baseNameRegex, (match) => {
+          // Check if already wrapped
+          const before = displayText.substring(0, displayText.indexOf(match));
+          if (before.endsWith('__RECIPE__')) return match;
+          return `__RECIPE__${recipeName}__RECIPE__`;
+        });
       }
     });
 
@@ -215,8 +256,9 @@ export default function AIPage() {
     return (
       <div className={styles.messageText}>
         {parts.map((part, index) => {
-          const isRecipe = recommendations.some(
-            (r) => r.toLowerCase() === part.toLowerCase()
+          const normalizedPart = normalizeApostrophes(part).toLowerCase();
+          const isRecipe = Array.from(linkableRecipes).some(
+            (r) => normalizeApostrophes(r).toLowerCase() === normalizedPart
           );
 
           if (isRecipe) {
