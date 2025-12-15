@@ -7,7 +7,7 @@ Last updated: 2025-12-15
 ## Current Status
 
 **Version**: v1.30.0
-**Phase**: Feature Development - Bug Fixes & Collection Management
+**Phase**: Feature Development - Bug Fixes, Docs & Docker Cleanup
 **Branch**: `alchemix-redesign`
 **Blockers**: None
 
@@ -25,10 +25,10 @@ Last updated: 2025-12-15
 
 ---
 
-## Recent Session (2025-12-15): Bug Fixes, CSV Import & Collection Delete Feature
+## Recent Session (2025-12-15): Bug Fixes, Collection Features, Docs & Docker Cleanup
 
 ### Summary
-Fixed multiple bugs (server startup crash, email verification double-request, CSV import issues) and added new features for collection management including creating new collections during import and deleting collections with all their recipes.
+Fixed multiple bugs (server startup crash, email verification double-request, CSV import issues), added collection management features (create during import, delete with recipes), improved README with prerequisites and troubleshooting, and cleaned up Docker folder by removing obsolete bar-server (MemMachine v2 migration complete).
 
 ### Work Completed
 
@@ -82,10 +82,26 @@ Fixed multiple bugs (server startup crash, email verification double-request, CS
   - `src/app/recipes/page.tsx` - wired up handlers
   - `src/app/recipes/useRecipesPage.ts` - handleDeleteCollection with options
 
+#### 7. README Documentation Improvements
+- Added Prerequisites section with Node.js 18+, npm, Git requirements
+- Rewrote Quick Start with numbered step-by-step instructions
+- Added comprehensive Troubleshooting section (170+ lines) covering:
+  - Installation issues, server startup, authentication
+  - API & CORS, AI features, build errors
+  - Database issues, Docker troubleshooting
+- **File**: `README.md`
+
+#### 8. Docker Folder Cleanup (MemMachine v2 Migration)
+- Deleted obsolete `docker/bar-server/` folder (v1 middleware wrapper)
+- Fixed `docker/.env` URL: `bar-server:8001` → `memmachine:8080`
+- Rewrote `docker/README.md` - removed bar-server docs, added troubleshooting
+- Updated `Dockerfile.prod` version label: `1.22.0` → `1.30.0`
+- Removed deprecated `version: '3.8'` from `docker-compose.test.yml`
+- **Files**: `docker/README.md`, `docker/Dockerfile.prod`, `docker/docker-compose.test.yml`
+
 ### Next Steps
-1. Commit changes to GitHub
-2. Test delete collection with recipes in production
-3. Consider adding confirmation count (e.g., "This will delete 12 recipes")
+1. Test delete collection with recipes feature
+2. Consider adding confirmation count (e.g., "This will delete 12 recipes")
 
 ---
 

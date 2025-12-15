@@ -77,7 +77,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # Add OCI image metadata
 LABEL org.opencontainers.image.title="AlcheMix Frontend"
-LABEL org.opencontainers.image.version="1.22.0"
+LABEL org.opencontainers.image.version="1.30.0"
 LABEL org.opencontainers.image.description="Modern Cocktail Lab Management UI"
 LABEL org.opencontainers.image.vendor="AlcheMix"
 LABEL org.opencontainers.image.source="https://github.com/yourusername/alchemix"
