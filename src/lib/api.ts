@@ -411,8 +411,12 @@ export const collectionsApi = {
     return data.data;
   },
 
-  async delete(id: number): Promise<void> {
-    await apiClient.delete(`/api/collections/${id}`);
+  async delete(id: number, options?: { deleteRecipes?: boolean }): Promise<{ recipesDeleted?: number }> {
+    const params = options?.deleteRecipes ? '?deleteRecipes=true' : '';
+    const { data } = await apiClient.delete<{ success: boolean; message: string; recipesDeleted?: number }>(
+      `/api/collections/${id}${params}`
+    );
+    return { recipesDeleted: data.recipesDeleted };
   },
 };
 

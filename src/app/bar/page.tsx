@@ -143,6 +143,14 @@ function BarPageContent() {
       console.log('🔄 Starting CSV import...');
       const result = await inventoryApi.importCSV(file);
       console.log('✅ CSV import result:', result);
+
+      // Backfill periodic tags for any items that need them
+      console.log('🔄 Backfilling periodic tags...');
+      const backfillResult = await inventoryApi.backfillPeriodicTags();
+      if (backfillResult.updated > 0) {
+        console.log(`📊 Backfilled periodic tags for ${backfillResult.updated} items`);
+      }
+
       console.log('🔄 Fetching items after import...');
       await fetchItems();
       // Refresh category counts

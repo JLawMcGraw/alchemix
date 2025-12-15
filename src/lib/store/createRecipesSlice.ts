@@ -36,9 +36,9 @@ export interface RecipesSlice {
 
   // Collection Actions
   fetchCollections: () => Promise<void>;
-  addCollection: (collection: Collection) => Promise<void>;
+  addCollection: (collection: Collection) => Promise<Collection>;
   updateCollection: (id: number, collection: Partial<Collection>) => Promise<void>;
-  deleteCollection: (id: number) => Promise<void>;
+  deleteCollection: (id: number, options?: { deleteRecipes?: boolean }) => Promise<{ recipesDeleted?: number }>;
 
   // Favorites Actions
   fetchFavorites: () => Promise<void>;
@@ -192,6 +192,7 @@ export const createRecipesSlice: StateCreator<
       set((state) => ({
         collections: [...state.collections, newCollection],
       }));
+      return newCollection;
     } catch (error) {
       throw new Error(getErrorMessage(error, 'Failed to add collection'));
     }
@@ -210,12 +211,20 @@ export const createRecipesSlice: StateCreator<
     }
   },
 
-  deleteCollection: async (id) => {
+  deleteCollection: async (id, options) => {
     try {
-      await collectionsApi.delete(id);
-      set((state) => ({
-        collections: state.collections.filter((c) => c.id !== id),
-      }));
+      const result = await collectionsApi.delete(id, options);
+      set((state) => {
+        const newState: Partial<RecipesSlice> = {
+          collections: state.collections.filter((c) => c.id !== id),
+        };
+        // If recipes were deleted, also remove them from state
+        if (options?.deleteRecipes) {
+          newState.recipes = state.recipes.filter((r) => r.collection_id !== id);
+        }
+        return newState as RecipesSlice;
+      });
+      return result;
     } catch (error) {
       throw new Error(getErrorMessage(error, 'Failed to delete collection'));
     }

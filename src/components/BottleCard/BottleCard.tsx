@@ -147,15 +147,6 @@ export function BottleCard({ item, isSelected = false, onSelect, onClick }: Bott
           </div>
         )}
 
-        {item.tasting_notes && (
-          <div className={styles.detailRow}>
-            <span className={styles.detailLabel}>Profile:</span>
-            <span className={styles.detailValue} title={item.tasting_notes}>
-              {item.tasting_notes}
-            </span>
-          </div>
-        )}
-
         {item.distillery_location && (
           <div className={styles.detailRow}>
             <span className={styles.detailLabel}>Location:</span>

@@ -61,6 +61,7 @@
   padding: var(--space-5);
   overflow-y: auto;
   flex: 1;
+  min-height: 0; /* Allow shrinking in flex container for proper scroll */
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -239,6 +240,8 @@
   border: 1px solid var(--color-border);
   border-radius: 2px;
   overflow: hidden;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 .previewHeader {
@@ -256,9 +259,9 @@
 .previewRow {
   display: flex;
   align-items: center;
+  gap: var(--space-2);
   padding: 8px 12px;
   border-bottom: 1px solid var(--color-border-light);
-  font-size: 13px;
 }
 
 .previewRow:last-child {
@@ -266,10 +269,16 @@
 }
 
 .previewRowHeader {
+  position: sticky;
+  top: 0;
   background: var(--color-ui-bg);
   font-family: var(--font-mono);
+  font-size: 0.7rem;
   font-weight: 500;
-  color: var(--fg-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--fg-tertiary);
+  z-index: 1;
 }
 
 .previewRowInvalid {
@@ -277,32 +286,25 @@
 }
 
 .previewColStatus {
-  width: 32px;
+  width: 24px;
   flex-shrink: 0;
 }
 
-.previewColName {
+.previewColName,
+.previewColSecondary,
+.previewColCount {
   flex: 1;
+  min-width: 0;
   font-family: var(--font-sans);
-  color: var(--fg-primary);
+  font-size: var(--text-sm);
+  color: var(--fg-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.previewColSecondary {
-  width: 96px;
-  font-family: var(--font-sans);
-  color: var(--fg-secondary);
-  flex-shrink: 0;
-}
-
-.previewColCount {
-  width: 80px;
-  text-align: right;
-  font-family: var(--font-mono);
-  color: var(--fg-secondary);
-  flex-shrink: 0;
+.previewColName {
+  color: var(--fg-primary);
 }
 
 .iconValid {
@@ -370,14 +372,16 @@
 }
 
 .collectionLabel {
-  font-family: var(--font-sans);
-  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
   font-weight: 500;
-  color: var(--fg-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--fg-tertiary);
 }
 
 .collectionSelect {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--text-sm);
   padding: 10px 12px;
   border: 1px solid var(--color-border);
@@ -391,6 +395,29 @@
 .collectionSelect:focus {
   outline: none;
   border-color: var(--fg-primary);
+}
+
+.collectionInput {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+  background: var(--color-ui-bg-surface);
+  color: var(--fg-primary);
+  margin-top: var(--space-2);
+  width: 100%;
+  transition: border-color 0.1s ease;
+}
+
+.collectionInput:focus {
+  outline: none;
+  border-color: var(--fg-primary);
+}
+
+.collectionInput::placeholder {
+  color: var(--fg-tertiary);
+  font-family: var(--font-sans);
 }
 
 /* Footer */

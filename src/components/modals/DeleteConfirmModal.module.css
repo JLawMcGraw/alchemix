@@ -121,6 +121,51 @@
   margin: var(--space-2) 0 0 0;
 }
 
+/* Checkbox option for delete related items */
+.checkboxWrapper {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  margin: var(--space-3) 0;
+  background: var(--color-ui-bg-base);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.checkboxWrapper:hover {
+  border-color: var(--color-border-hover, var(--fg-tertiary));
+}
+
+.checkbox {
+  margin-top: 2px;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-semantic-error);
+  cursor: pointer;
+}
+
+.checkboxContent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.checkboxLabel {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--fg-primary);
+}
+
+.checkboxDescription {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--fg-tertiary);
+}
+
 .footer {
   display: flex;
   align-items: center;

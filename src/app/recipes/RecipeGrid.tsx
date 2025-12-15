@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ChevronLeft, ChevronRight, Martini, FolderOpen, Plus, Upload } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Martini, FolderOpen, Plus, Upload, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { Card } from '@/components/ui/Card';
 import { RecipeCard } from '@/components/RecipeCard';
@@ -148,14 +148,50 @@ export function CollectionsEmptyState({ onImportCSV, onCreateCollection }: Colle
 interface CollectionCardProps {
   collection: Collection;
   onClick: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
-export function CollectionCard({ collection, onClick }: CollectionCardProps) {
+export function CollectionCard({ collection, onClick, onEdit, onDelete }: CollectionCardProps) {
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onEdit?.();
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDelete?.();
+  };
+
   return (
     <div className={styles.collectionCard} onClick={onClick}>
       <div className={styles.collectionHeader}>
-        <FolderOpen size={20} className={styles.collectionIcon} />
-        <h3 className={styles.collectionName}>{collection.name}</h3>
+        <div className={styles.collectionTitleRow}>
+          <FolderOpen size={20} className={styles.collectionIcon} />
+          <h3 className={styles.collectionName}>{collection.name}</h3>
+        </div>
+        {(onEdit || onDelete) && (
+          <div className={styles.collectionActions}>
+            {onEdit && (
+              <button
+                className={styles.collectionActionBtn}
+                onClick={handleEdit}
+                aria-label="Edit collection"
+              >
+                <Pencil size={14} />
+              </button>
+            )}
+            {onDelete && (
+              <button
+                className={`${styles.collectionActionBtn} ${styles.collectionDeleteBtn}`}
+                onClick={handleDelete}
+                aria-label="Delete collection"
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
+          </div>
+        )}
       </div>
       {collection.description && (
         <p className={styles.collectionDescription}>{collection.description}</p>
@@ -190,12 +226,16 @@ interface CollectionsGridProps {
   collections: Collection[];
   onCollectionClick: (collection: Collection) => void;
   onNewCollectionClick: () => void;
+  onEditCollection?: (collection: Collection) => void;
+  onDeleteCollection?: (collection: Collection) => void;
 }
 
 export function CollectionsGrid({
   collections,
   onCollectionClick,
   onNewCollectionClick,
+  onEditCollection,
+  onDeleteCollection,
 }: CollectionsGridProps) {
   return (
     <div className={styles.collectionsGrid}>
@@ -204,6 +244,8 @@ export function CollectionsGrid({
           key={collection.id}
           collection={collection}
           onClick={() => onCollectionClick(collection)}
+          onEdit={onEditCollection ? () => onEditCollection(collection) : undefined}
+          onDelete={onDeleteCollection ? () => onDeleteCollection(collection) : undefined}
         />
       ))}
       <NewCollectionCard onClick={onNewCollectionClick} />

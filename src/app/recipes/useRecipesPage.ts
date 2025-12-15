@@ -332,11 +332,15 @@ export function useRecipesPage() {
     }
   }, [editingCollection, updateCollection, addCollection, fetchCollections, showToast]);
 
-  const handleDeleteCollection = useCallback(async () => {
+  const handleDeleteCollection = useCallback(async (options?: { deleteRelated?: boolean }) => {
     if (!deletingCollection || !deletingCollection.id) return;
     try {
-      await deleteCollection(deletingCollection.id);
-      showToast('success', 'Collection deleted successfully');
+      const result = await deleteCollection(deletingCollection.id, { deleteRecipes: options?.deleteRelated });
+      if (options?.deleteRelated && result.recipesDeleted) {
+        showToast('success', `Collection and ${result.recipesDeleted} recipe(s) deleted successfully`);
+      } else {
+        showToast('success', 'Collection deleted successfully');
+      }
       setShowCollectionDeleteConfirm(false);
       setDeletingCollection(null);
       await fetchCollections();

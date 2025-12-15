@@ -254,6 +254,27 @@ export class CollectionService {
     db.prepare('DELETE FROM collections WHERE id = ?').run(collectionId);
     return true;
   }
+
+  /**
+   * Delete a collection and all its recipes
+   *
+   * Returns the number of recipes deleted, or -1 if collection doesn't exist.
+   */
+  deleteWithRecipes(collectionId: number, userId: number): { success: boolean; recipesDeleted: number } {
+    if (!this.exists(collectionId, userId)) {
+      return { success: false, recipesDeleted: 0 };
+    }
+
+    // Delete recipes in this collection first
+    const deleteRecipesResult = db.prepare(
+      'DELETE FROM recipes WHERE collection_id = ? AND user_id = ?'
+    ).run(collectionId, userId);
+
+    // Then delete the collection
+    db.prepare('DELETE FROM collections WHERE id = ?').run(collectionId);
+
+    return { success: true, recipesDeleted: deleteRecipesResult.changes };
+  }
 }
 
 // Export singleton instance

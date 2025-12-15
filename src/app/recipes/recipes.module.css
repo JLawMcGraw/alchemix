@@ -351,12 +351,59 @@
 .collectionHeader {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   margin-bottom: 8px;
 }
 
+.collectionTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
 .collectionIcon {
   color: var(--color-text-body);
+  flex-shrink: 0;
+}
+
+.collectionActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.collectionCard:hover .collectionActions {
+  opacity: 1;
+}
+
+.collectionActionBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--color-ui-bg-base);
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.collectionActionBtn:hover {
+  border-color: var(--color-text-body);
+  color: var(--color-text-body);
+}
+
+.collectionDeleteBtn:hover {
+  border-color: var(--color-semantic-error);
+  color: var(--color-semantic-error);
+  background: rgba(239, 68, 68, 0.05);
 }
 
 .collectionName {

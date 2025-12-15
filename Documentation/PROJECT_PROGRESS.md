@@ -7,7 +7,7 @@ Last updated: 2025-12-15
 ## Current Status
 
 **Version**: v1.30.0
-**Phase**: Feature Development - Major Refactoring & Test Coverage
+**Phase**: Feature Development - Bug Fixes & Collection Management
 **Branch**: `alchemix-redesign`
 **Blockers**: None
 
@@ -25,7 +25,71 @@ Last updated: 2025-12-15
 
 ---
 
-## Recent Session (2025-12-15): Major Refactoring, Winston Logger & Test Coverage
+## Recent Session (2025-12-15): Bug Fixes, CSV Import & Collection Delete Feature
+
+### Summary
+Fixed multiple bugs (server startup crash, email verification double-request, CSV import issues) and added new features for collection management including creating new collections during import and deleting collections with all their recipes.
+
+### Work Completed
+
+#### 1. Server Startup Bug Fix
+- **Issue**: SqliteError "no such table: inventory_classifications" on server launch
+- **Cause**: ClassificationService.ts was preparing SQL statements at module load time before `initializeDatabase()` was called
+- **Fix**: Changed to lazy initialization pattern using `getStatements()` function that initializes on first call
+- **File**: `api/src/services/ClassificationService.ts`
+
+#### 2. Email Verification Bug Fix
+- **Issue**: Verification worked but showed "Verification Failed" page
+- **Cause**: React StrictMode causing two API calls - first succeeded, second failed
+- **Fix**: Used `useRef` to track if verification was already attempted
+- **File**: `src/app/verify-email/page.tsx`
+
+#### 3. CSV Import Fixes (Inventory)
+- Fixed preview showing stock at 0 and not identifying type correctly
+- Added flexible header matching with `findHeaderIndex()` function
+- Added auto-classification for periodic tags in `InventoryService.create()`
+- Combined profile_nose/palate/finish into tasting_notes during import
+- Added scroll to preview table with `min-height: 0` CSS fix
+- **Files**: `src/components/modals/CSVUploadModal.tsx`, `src/components/modals/CSVUploadModal.module.css`, `api/src/services/InventoryService.ts`
+
+#### 4. CSV Import Fixes (Recipes)
+- **Issue**: Wrong row count (2592 instead of ~150) due to multi-line quoted fields
+- **Fix**: Implemented proper CSV parser `parseCSVContent()` that handles quoted fields with embedded newlines
+- Updated preview to show Name, Ingredients, Instructions columns
+- **File**: `src/components/modals/CSVUploadModal.tsx`
+
+#### 5. New Collection Creation During Import
+- Added "+ Create new" option to collection dropdown during recipe CSV import
+- Added input field for new collection name
+- Updated store's `addCollection` to return the created collection
+- **Files**: `src/components/modals/CSVUploadModal.tsx`, `src/lib/store/createRecipesSlice.ts`
+
+#### 6. Delete Collection with Recipes Feature
+- Added `deleteWithRecipes()` method to CollectionService
+- Updated DELETE `/api/collections/:id` to accept `?deleteRecipes=true` query param
+- Updated frontend API and store to pass `deleteRecipes` option
+- Added checkbox to DeleteConfirmModal: "Also delete all recipes in this collection"
+- Added edit/delete buttons to collection cards (appear on hover)
+- **Files**:
+  - `api/src/services/CollectionService.ts` - deleteWithRecipes method
+  - `api/src/routes/collections.ts` - deleteRecipes query param
+  - `src/lib/api.ts` - collectionsApi.delete option
+  - `src/lib/store/createRecipesSlice.ts` - deleteCollection action
+  - `src/components/modals/DeleteConfirmModal.tsx` - checkboxOption prop
+  - `src/components/modals/DeleteConfirmModal.module.css` - checkbox styles
+  - `src/app/recipes/RecipeGrid.tsx` - CollectionCard edit/delete buttons
+  - `src/app/recipes/recipes.module.css` - action button styles
+  - `src/app/recipes/page.tsx` - wired up handlers
+  - `src/app/recipes/useRecipesPage.ts` - handleDeleteCollection with options
+
+### Next Steps
+1. Commit changes to GitHub
+2. Test delete collection with recipes in production
+3. Consider adding confirmation count (e.g., "This will delete 12 recipes")
+
+---
+
+## Previous Session (2025-12-15): Major Refactoring, Winston Logger & Test Coverage
 
 ### Summary
 Massive codebase refactoring session: split large monolithic files into modular components, migrated from console.log to Winston structured logging, added 10 new test files achieving 750 backend tests, created comprehensive architecture documentation, and cleaned up 30+ outdated files.

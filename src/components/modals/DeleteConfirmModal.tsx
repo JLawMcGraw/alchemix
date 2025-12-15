@@ -8,11 +8,16 @@ import styles from './DeleteConfirmModal.module.css';
 interface DeleteConfirmModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => Promise<void>;
+  onConfirm: (options?: { deleteRelated?: boolean }) => Promise<void>;
   title: string;
   message: string;
   itemName?: string;
   warningMessage?: string;
+  /** Optional checkbox for deleting related items */
+  checkboxOption?: {
+    label: string;
+    description?: string;
+  };
 }
 
 export function DeleteConfirmModal({
@@ -23,11 +28,20 @@ export function DeleteConfirmModal({
   message,
   itemName,
   warningMessage = 'This action cannot be undone.',
+  checkboxOption,
 }: DeleteConfirmModalProps) {
   const [loading, setLoading] = useState(false);
+  const [deleteRelated, setDeleteRelated] = useState(false);
 
   const modalRef = useRef<HTMLDivElement>(null);
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Reset checkbox state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setDeleteRelated(false);
+    }
+  }, [isOpen]);
 
   // Focus management and keyboard shortcuts
   useEffect(() => {
@@ -72,7 +86,7 @@ export function DeleteConfirmModal({
   const handleConfirm = async () => {
     setLoading(true);
     try {
-      await onConfirm();
+      await onConfirm(checkboxOption ? { deleteRelated } : undefined);
       onClose();
     } catch (err) {
       console.error('Delete failed:', err);
@@ -112,6 +126,22 @@ export function DeleteConfirmModal({
             <div className={styles.itemName}>
               <strong>{itemName}</strong>
             </div>
+          )}
+          {checkboxOption && (
+            <label className={styles.checkboxWrapper}>
+              <input
+                type="checkbox"
+                checked={deleteRelated}
+                onChange={(e) => setDeleteRelated(e.target.checked)}
+                className={styles.checkbox}
+              />
+              <span className={styles.checkboxContent}>
+                <span className={styles.checkboxLabel}>{checkboxOption.label}</span>
+                {checkboxOption.description && (
+                  <span className={styles.checkboxDescription}>{checkboxOption.description}</span>
+                )}
+              </span>
+            </label>
           )}
           <p className={styles.warning}>{warningMessage}</p>
         </div>

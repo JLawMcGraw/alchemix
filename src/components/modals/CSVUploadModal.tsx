@@ -8,8 +8,9 @@ import styles from './CSVUploadModal.module.css';
 
 interface PreviewRow {
   name: string;
-  secondary: string; // spirit for recipes, category for inventory
-  count: number; // ingredients count for recipes, stock for inventory
+  secondary: string; // ingredients (truncated) for recipes, type for inventory
+  tertiary: string; // instructions (truncated) for recipes, empty for inventory
+  count: number; // ingredient count for recipes, stock for inventory
   valid: boolean;
   error?: string;
 }
@@ -28,68 +29,172 @@ interface CSVUploadModalProps {
   onUpload: (file: File, collectionId?: number) => Promise<void>;
 }
 
+/**
+ * Find header index matching any of the possible names (case-insensitive)
+ */
+function findHeaderIndex(headers: string[], possibleNames: string[]): number {
+  const lowerNames = possibleNames.map(n => n.toLowerCase());
+  return headers.findIndex(h => lowerNames.includes(h.toLowerCase()));
+}
+
+/**
+ * Helper to truncate text for preview display
+ */
+function truncate(text: string, maxLen: number): string {
+  if (!text) return '';
+  // Replace newlines with spaces for display
+  const cleaned = text.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+  return cleaned.length > maxLen ? cleaned.substring(0, maxLen) + '...' : cleaned;
+}
+
+/**
+ * Parse CSV content handling quoted fields with embedded newlines/commas
+ * Returns array of rows, where each row is an array of cell values
+ */
+function parseCSVContent(content: string): string[][] {
+  const rows: string[][] = [];
+  let currentRow: string[] = [];
+  let currentCell = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < content.length; i++) {
+    const char = content[i];
+    const nextChar = content[i + 1];
+
+    if (inQuotes) {
+      if (char === '"' && nextChar === '"') {
+        // Escaped quote
+        currentCell += '"';
+        i++; // Skip next quote
+      } else if (char === '"') {
+        // End of quoted field
+        inQuotes = false;
+      } else {
+        currentCell += char;
+      }
+    } else {
+      if (char === '"') {
+        // Start of quoted field
+        inQuotes = true;
+      } else if (char === ',') {
+        // End of cell
+        currentRow.push(currentCell.trim());
+        currentCell = '';
+      } else if (char === '\n' || (char === '\r' && nextChar === '\n')) {
+        // End of row
+        currentRow.push(currentCell.trim());
+        if (currentRow.some(cell => cell.length > 0)) {
+          rows.push(currentRow);
+        }
+        currentRow = [];
+        currentCell = '';
+        if (char === '\r') i++; // Skip \n in \r\n
+      } else if (char !== '\r') {
+        currentCell += char;
+      }
+    }
+  }
+
+  // Don't forget last cell/row
+  if (currentCell || currentRow.length > 0) {
+    currentRow.push(currentCell.trim());
+    if (currentRow.some(cell => cell.length > 0)) {
+      rows.push(currentRow);
+    }
+  }
+
+  return rows;
+}
+
 // Parse CSV content for preview
 function parseCSVForPreview(content: string, type: 'items' | 'recipes'): PreviewData {
-  const lines = content.split('\n').filter(line => line.trim());
-  if (lines.length < 2) {
+  const rows = parseCSVContent(content);
+
+  if (rows.length < 2) {
     return { total: 0, valid: 0, invalid: 0, rows: [] };
   }
 
-  const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
-  const dataLines = lines.slice(1, 6); // First 5 data rows for preview
+  // First row is headers
+  const headers = rows[0];
+  const dataRows = rows.slice(1);
 
-  const rows: PreviewRow[] = dataLines.map(line => {
-    const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+  // Find name column index
+  const nameIdx = type === 'recipes'
+    ? findHeaderIndex(headers, [
+        'name', 'Name', 'NAME', 'Recipe Name', 'recipe name', 'Recipe', 'recipe',
+        'Cocktail', 'cocktail', 'Cocktail Name', 'cocktail name',
+        'Drink', 'drink', 'Drink Name', 'drink name'
+      ])
+    : findHeaderIndex(headers, [
+        'name', 'Name', 'item', 'Item',
+        'Spirit Name', 'spirit name', 'Spirit', 'spirit',
+        'Bottle Name', 'bottle name', 'Bottle', 'bottle',
+        'Product Name', 'product name', 'Product', 'product',
+        'Brand', 'brand'
+      ]);
 
+  // Filter rows that have a name value
+  const validDataRows = dataRows.filter(row => {
+    const name = nameIdx >= 0 ? row[nameIdx] : row[0];
+    return name && name.trim().length > 0;
+  });
+
+  // Preview first 5 valid rows
+  const previewRows: PreviewRow[] = validDataRows.slice(0, 5).map(row => {
     if (type === 'recipes') {
-      const nameIdx = headers.findIndex(h => h === 'name' || h === 'recipe');
-      const spiritIdx = headers.findIndex(h => h === 'spirit' || h === 'category' || h === 'base');
-      const ingredientsIdx = headers.findIndex(h => h === 'ingredients');
+      const ingredientsIdx = findHeaderIndex(headers, [
+        'ingredients', 'Ingredients', 'INGREDIENTS', 'Items', 'items',
+        'Recipe Items', 'recipe items', 'Components', 'components'
+      ]);
+      const instructionsIdx = findHeaderIndex(headers, [
+        'instructions', 'Instructions', 'INSTRUCTIONS', 'Method', 'method',
+        'Directions', 'directions', 'Steps', 'steps', 'How to Make', 'how to make',
+        'Preparation', 'preparation'
+      ]);
 
-      const name = nameIdx >= 0 ? values[nameIdx] : values[0];
-      const spirit = spiritIdx >= 0 ? values[spiritIdx] : values[1] || '';
-      const ingredients = ingredientsIdx >= 0 ? values[ingredientsIdx] : '';
-      const ingredientCount = ingredients ? ingredients.split(';').length : 0;
-
-      const valid = !!name && name.length > 0;
+      const name = (nameIdx >= 0 ? row[nameIdx] : row[0]) || '';
+      const ingredients = ingredientsIdx >= 0 ? row[ingredientsIdx] || '' : '';
+      const instructions = instructionsIdx >= 0 ? row[instructionsIdx] || '' : '';
 
       return {
-        name: name || '',
-        secondary: spirit,
-        count: ingredientCount,
-        valid,
-        error: !valid ? 'Missing name' : undefined,
+        name,
+        secondary: truncate(ingredients, 50),
+        tertiary: truncate(instructions, 40),
+        count: 0,
+        valid: true,
+        error: undefined,
       };
     } else {
-      // Inventory items
-      const nameIdx = headers.findIndex(h => h === 'name' || h === 'item');
-      const categoryIdx = headers.findIndex(h => h === 'category' || h === 'type');
-      const stockIdx = headers.findIndex(h => h === 'stock' || h === 'quantity' || h === 'amount');
+      const typeIdx = findHeaderIndex(headers, [
+        'type', 'Type', 'Liquor Type', 'liquor type',
+        'category', 'Category', 'Spirit Type', 'spirit type'
+      ]);
+      const stockIdx = findHeaderIndex(headers, [
+        'stock_number', 'Stock Number', 'stock number',
+        'Stock', 'stock', 'quantity', 'Quantity',
+        'amount', 'Amount', 'Number', '#'
+      ]);
 
-      const name = nameIdx >= 0 ? values[nameIdx] : values[0];
-      const category = categoryIdx >= 0 ? values[categoryIdx] : values[1] || '';
-      const stock = stockIdx >= 0 ? parseInt(values[stockIdx]) || 0 : 0;
-
-      const valid = !!name && name.length > 0;
+      const name = (nameIdx >= 0 ? row[nameIdx] : row[0]) || '';
+      const itemType = typeIdx >= 0 ? row[typeIdx] || '' : '';
+      const stock = stockIdx >= 0 ? parseInt(row[stockIdx]) || 0 : 0;
 
       return {
-        name: name || '',
-        secondary: category,
+        name,
+        secondary: itemType,
+        tertiary: '',
         count: stock,
-        valid,
-        error: !valid ? 'Missing name' : undefined,
+        valid: true,
+        error: undefined,
       };
     }
   });
 
-  const validCount = rows.filter(r => r.valid).length;
-  const totalDataRows = lines.length - 1; // Exclude header
-
   return {
-    total: totalDataRows,
-    valid: Math.round((validCount / rows.length) * totalDataRows), // Estimate based on preview
-    invalid: Math.round(((rows.length - validCount) / rows.length) * totalDataRows),
-    rows,
+    total: validDataRows.length,
+    valid: validDataRows.length,
+    invalid: 0,
+    rows: previewRows,
   };
 }
 
@@ -100,8 +205,9 @@ export function CSVUploadModal({ isOpen, onClose, type, onUpload }: CSVUploadMod
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedCollectionId, setSelectedCollectionId] = useState<number | undefined>(undefined);
+  const [newCollectionName, setNewCollectionName] = useState('');
 
-  const { collections, fetchCollections } = useStore();
+  const { collections, fetchCollections, addCollection } = useStore();
   const modalRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -133,6 +239,7 @@ export function CSVUploadModal({ isOpen, onClose, type, onUpload }: CSVUploadMod
     setError(null);
     setUploading(false);
     setSelectedCollectionId(undefined);
+    setNewCollectionName('');
     setIsDragging(false);
     onClose();
   }, [onClose]);
@@ -190,7 +297,20 @@ export function CSVUploadModal({ isOpen, onClose, type, onUpload }: CSVUploadMod
     setError(null);
 
     try {
-      await onUpload(file, selectedCollectionId);
+      let collectionId = selectedCollectionId;
+
+      // Create new collection if requested
+      if (selectedCollectionId === -1 && newCollectionName.trim()) {
+        const newCollection = await addCollection({
+          name: newCollectionName.trim(),
+        });
+        collectionId = newCollection.id;
+      } else if (selectedCollectionId === -1) {
+        // -1 but no name entered, treat as no collection
+        collectionId = undefined;
+      }
+
+      await onUpload(file, collectionId);
       handleClose();
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -355,10 +475,10 @@ export function CSVUploadModal({ isOpen, onClose, type, onUpload }: CSVUploadMod
                   <span className={styles.previewColStatus}></span>
                   <span className={styles.previewColName}>Name</span>
                   <span className={styles.previewColSecondary}>
-                    {type === 'recipes' ? 'Spirit' : 'Category'}
+                    {type === 'recipes' ? 'Ingredients' : 'Type'}
                   </span>
                   <span className={styles.previewColCount}>
-                    {type === 'recipes' ? 'Ingredients' : 'Stock'}
+                    {type === 'recipes' ? 'Instructions' : 'Stock'}
                   </span>
                 </div>
 
@@ -379,7 +499,9 @@ export function CSVUploadModal({ isOpen, onClose, type, onUpload }: CSVUploadMod
                       {row.name || row.error}
                     </span>
                     <span className={styles.previewColSecondary}>{row.secondary}</span>
-                    <span className={styles.previewColCount}>{row.count}</span>
+                    <span className={styles.previewColCount}>
+                      {type === 'recipes' ? row.tertiary : row.count}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -400,24 +522,43 @@ export function CSVUploadModal({ isOpen, onClose, type, onUpload }: CSVUploadMod
               )}
 
               {/* Collection Selector for Recipes */}
-              {type === 'recipes' && collections.length > 0 && (
+              {type === 'recipes' && (
                 <div className={styles.collectionSection}>
                   <label className={styles.collectionLabel}>
-                    Add to collection (optional)
+                    Collection (optional)
                   </label>
                   <select
                     className={styles.collectionSelect}
-                    value={selectedCollectionId ?? ''}
-                    onChange={(e) => setSelectedCollectionId(e.target.value ? parseInt(e.target.value, 10) : undefined)}
+                    value={selectedCollectionId === -1 ? 'new' : (selectedCollectionId ?? '')}
+                    onChange={(e) => {
+                      if (e.target.value === 'new') {
+                        setSelectedCollectionId(-1); // -1 signals "create new"
+                      } else {
+                        setSelectedCollectionId(e.target.value ? parseInt(e.target.value, 10) : undefined);
+                        setNewCollectionName('');
+                      }
+                    }}
                     disabled={uploading}
                   >
-                    <option value="">No Collection</option>
+                    <option value="">None</option>
+                    <option value="new">+ Create new</option>
                     {collections.map((collection) => (
                       <option key={collection.id} value={collection.id}>
                         {collection.name}
                       </option>
                     ))}
                   </select>
+                  {selectedCollectionId === -1 && (
+                    <input
+                      type="text"
+                      className={styles.collectionInput}
+                      placeholder="Enter collection name"
+                      value={newCollectionName}
+                      onChange={(e) => setNewCollectionName(e.target.value)}
+                      disabled={uploading}
+                      autoFocus
+                    />
+                  )}
                 </div>
               )}
             </>

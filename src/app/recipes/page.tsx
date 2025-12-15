@@ -63,6 +63,14 @@ function RecipesPageContent() {
                 state.setEditingCollection(null);
                 state.setCollectionModalOpen(true);
               }}
+              onEditCollection={(collection) => {
+                state.setEditingCollection(collection);
+                state.setCollectionModalOpen(true);
+              }}
+              onDeleteCollection={(collection) => {
+                state.setDeletingCollection(collection);
+                state.setShowCollectionDeleteConfirm(true);
+              }}
             />
 
             {/* Uncategorized Section */}
@@ -240,7 +248,11 @@ function RecipesPageContent() {
           title="Delete Collection?"
           message="Are you sure you want to delete this collection?"
           itemName={state.deletingCollection?.name || 'collection'}
-          warningMessage="Recipes in this collection will not be deleted."
+          warningMessage="This action cannot be undone."
+          checkboxOption={{
+            label: 'Also delete all recipes in this collection',
+            description: 'Unchecked: recipes will become uncategorized',
+          }}
         />
 
         <BulkMoveModal

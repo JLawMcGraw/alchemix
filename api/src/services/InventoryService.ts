@@ -249,6 +249,24 @@ export class InventoryService {
       ? null
       : data.stock_number;
 
+    // Auto-classify periodic tags if not provided
+    let periodicGroup = data.periodic_group;
+    let periodicPeriod = data.periodic_period;
+
+    if (!periodicGroup || !periodicPeriod) {
+      // Create a temporary item-like object for classification
+      const tempItem = {
+        name: data.name,
+        type: data.type,
+        spirit_classification: data.spirit_classification,
+        category: data.category,
+      } as InventoryItem;
+
+      const autoTags = this.autoClassifyPeriodicTags(tempItem);
+      periodicGroup = periodicGroup || autoTags.group;
+      periodicPeriod = periodicPeriod || autoTags.period;
+    }
+
     const result = this.db.prepare(`
       INSERT INTO inventory_items (
         user_id, name, category, type, abv,
@@ -273,8 +291,8 @@ export class InventoryService {
       data.palate || null,
       data.finish || null,
       data.tasting_notes || null,
-      data.periodic_group || null,
-      data.periodic_period || null
+      periodicGroup,
+      periodicPeriod
     );
 
     return this.db.prepare(
@@ -490,6 +508,22 @@ export class InventoryService {
       }
     }
 
+    // Extract individual tasting profile fields
+    const profileNose = safeString(this.findField(record, ['profile_nose', 'Profile (Nose)', 'Nose', 'nose', 'Aroma', 'aroma', 'Smell', 'smell']));
+    const palate = safeString(this.findField(record, ['palate', 'Palate', 'Taste', 'taste', 'Flavor', 'flavor']));
+    const finish = safeString(this.findField(record, ['finish', 'Finish', 'Aftertaste', 'aftertaste']));
+    let tastingNotes = safeString(this.findField(record, ['tasting_notes', 'Tasting Notes', 'tasting notes', 'Tasting', 'Profile', 'profile']));
+
+    // Combine individual fields into tasting_notes if not already set
+    // This ensures BottleCard can display the profile without requiring edit+save
+    if (!tastingNotes && (profileNose || palate || finish)) {
+      const parts: string[] = [];
+      if (profileNose) parts.push(`Nose: ${profileNose}`);
+      if (palate) parts.push(`Palate: ${palate}`);
+      if (finish) parts.push(`Finish: ${finish}`);
+      tastingNotes = parts.join('\n');
+    }
+
     // Build sanitized data
     const sanitized: SanitizedInventoryItem = {
       name: name!,
@@ -502,10 +536,10 @@ export class InventoryService {
       distillery_location: safeString(this.findField(record, ['distillery_location', 'Distillery Location', 'distillery location', 'Location', 'location', 'Origin', 'origin', 'Country', 'country'])),
       age_statement: safeString(this.findField(record, ['age_statement', 'Age Statement or Barrel Finish', 'Age Statement', 'age statement', 'Age', 'age', 'Barrel Finish', 'barrel finish'])),
       additional_notes: safeString(this.findField(record, ['additional_notes', 'Additional Notes', 'additional notes', 'Notes', 'notes', 'Description', 'description', 'Comments', 'comments'])),
-      profile_nose: safeString(this.findField(record, ['profile_nose', 'Profile (Nose)', 'Nose', 'nose', 'Aroma', 'aroma', 'Smell', 'smell'])),
-      palate: safeString(this.findField(record, ['palate', 'Palate', 'Taste', 'taste', 'Flavor', 'flavor'])),
-      finish: safeString(this.findField(record, ['finish', 'Finish', 'Aftertaste', 'aftertaste'])),
-      tasting_notes: safeString(this.findField(record, ['tasting_notes', 'Tasting Notes', 'tasting notes', 'Tasting', 'Profile', 'profile'])),
+      profile_nose: profileNose,
+      palate: palate,
+      finish: finish,
+      tasting_notes: tastingNotes,
       periodic_group: periodicGroup,
       periodic_period: periodicPeriod,
     };

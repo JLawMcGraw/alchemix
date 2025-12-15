@@ -199,13 +199,17 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
 /**
  * DELETE /api/collections/:id - Delete Collection
  *
- * Deletes collection. Recipes in this collection will have
+ * Deletes collection. By default, recipes in this collection will have
  * collection_id set to NULL (not deleted).
+ *
+ * Query Parameters:
+ * - deleteRecipes: Set to 'true' to also delete all recipes in the collection
  *
  * Response (200 OK):
  * {
  *   "success": true,
- *   "message": "Collection deleted successfully"
+ *   "message": "Collection deleted successfully",
+ *   "recipesDeleted": 0  // Only present when deleteRecipes=true
  * }
  */
 router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
@@ -226,6 +230,27 @@ router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
+  // Check if user wants to delete recipes along with collection
+  const deleteRecipes = req.query.deleteRecipes === 'true';
+
+  if (deleteRecipes) {
+    const result = collectionService.deleteWithRecipes(collectionId, userId);
+
+    if (!result.success) {
+      return res.status(404).json({
+        success: false,
+        error: 'Collection not found or access denied'
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: `Collection and ${result.recipesDeleted} recipe(s) deleted successfully`,
+      recipesDeleted: result.recipesDeleted
+    });
+  }
+
+  // Default behavior: just delete collection, orphan recipes
   const deleted = collectionService.delete(collectionId, userId);
 
   if (!deleted) {
