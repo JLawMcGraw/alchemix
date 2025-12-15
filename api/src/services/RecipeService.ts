@@ -12,6 +12,7 @@ import { db as defaultDb } from '../database/db';
 import { sanitizeString } from '../utils/inputValidator';
 import { Recipe } from '../types';
 import { memoryService as defaultMemoryService } from './MemoryService';
+import { logger } from '../utils/logger';
 import type Database from 'better-sqlite3';
 
 /**
@@ -418,7 +419,7 @@ export class RecipeService {
     // Delete from MemMachine
     if (recipe.memmachine_uid) {
       this.memoryService.deleteUserRecipeByUid(userId, recipe.memmachine_uid, recipe.name).catch(err => {
-        console.error('Failed to delete recipe from MemMachine:', err);
+        logger.error('Failed to delete recipe from MemMachine', { error: err instanceof Error ? err.message : 'Unknown error' });
       });
     } else {
       this.memoryService.deleteUserRecipe(userId, recipe.name);
@@ -463,7 +464,7 @@ export class RecipeService {
       this.autoSyncMemMachine(userId, `bulk delete ${result.changes} recipes`);
     } else if (uidsToDelete.length > 0) {
       this.memoryService.deleteUserRecipesBatch(userId, uidsToDelete).catch(err => {
-        console.error('Failed to batch delete recipes from MemMachine:', err);
+        logger.error('Failed to batch delete recipes from MemMachine', { error: err instanceof Error ? err.message : 'Unknown error' });
       });
     }
 
@@ -630,7 +631,7 @@ export class RecipeService {
           : recipe.ingredients
       };
     } catch {
-      console.warn(`Failed to parse ingredients for recipe ${recipe.id}`);
+      logger.warn('Failed to parse ingredients for recipe', { recipeId: recipe.id });
       return recipe;
     }
   }
@@ -739,10 +740,10 @@ export class RecipeService {
     }).then(uid => {
       if (uid) {
         this.db.prepare('UPDATE recipes SET memmachine_uid = ? WHERE id = ?').run(uid, recipeId);
-        console.log(`💾 Stored MemMachine UID for recipe ${recipeId}: ${uid}`);
+        logger.debug('Stored MemMachine UID for recipe', { recipeId, uid });
       }
     }).catch(err => {
-      console.error('Failed to store recipe in MemMachine (non-critical):', err);
+      logger.error('Failed to store recipe in MemMachine (non-critical)', { error: err instanceof Error ? err.message : 'Unknown error' });
     });
   }
 
@@ -774,7 +775,7 @@ export class RecipeService {
 
     this.memoryService.storeUserRecipesBatch(userId, recipesForApi).then(result => {
       if (result.uidMap.size > 0) {
-        console.log(`💾 Storing ${result.uidMap.size} MemMachine UIDs in database...`);
+        logger.debug('Storing MemMachine UIDs in database', { count: result.uidMap.size });
 
         const updateStmt = this.db.prepare('UPDATE recipes SET memmachine_uid = ? WHERE id = ?');
         const updates: Array<{ id: number; uid: string }> = [];
@@ -799,13 +800,13 @@ export class RecipeService {
 
         try {
           updateMany(updates);
-          console.log(`✅ Stored ${updates.length} MemMachine UIDs in database`);
+          logger.info('Stored MemMachine UIDs in database', { count: updates.length });
         } catch (err) {
-          console.error('Failed to store MemMachine UIDs in database:', err);
+          logger.error('Failed to store MemMachine UIDs in database', { error: err instanceof Error ? err.message : 'Unknown error' });
         }
       }
     }).catch(err => {
-      console.error('Failed to batch upload recipes to MemMachine:', err);
+      logger.error('Failed to batch upload recipes to MemMachine', { error: err instanceof Error ? err.message : 'Unknown error' });
     });
   }
 
@@ -813,12 +814,12 @@ export class RecipeService {
    * Auto-sync MemMachine after significant changes
    */
   private autoSyncMemMachine(userId: number, reason: string): void {
-    console.log(`🔄 Auto-triggering MemMachine sync for user ${userId} (reason: ${reason})`);
+    logger.info('Auto-triggering MemMachine sync', { userId, reason });
 
     this.syncMemMachine(userId).then(stats => {
-      console.log(`✅ Auto-sync complete for user ${userId}: ${stats.uploaded} recipes uploaded, ${stats.failed} failed`);
+      logger.info('Auto-sync complete', { userId, uploaded: stats.uploaded, failed: stats.failed });
     }).catch(err => {
-      console.error(`❌ Auto-sync error for user ${userId}:`, err);
+      logger.error('Auto-sync error', { userId, error: err instanceof Error ? err.message : 'Unknown error' });
     });
   }
 

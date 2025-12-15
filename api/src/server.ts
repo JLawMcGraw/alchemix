@@ -117,7 +117,7 @@ if (process.env.NODE_ENV === 'production') {
     if (req.header('x-forwarded-proto') !== 'https') {
       // Redirect to HTTPS version of the URL
       const httpsUrl = `https://${req.header('host')}${req.url}`;
-      console.log(`🔒 Redirecting HTTP → HTTPS: ${httpsUrl}`);
+      logger.info('Redirecting HTTP to HTTPS', { httpsUrl });
       return res.redirect(301, httpsUrl); // 301 = Permanent redirect
     }
     // Request is already HTTPS, proceed
@@ -768,13 +768,13 @@ process.on('uncaughtException', (error: Error) => {
 });
 
 // Handle unhandled promise rejections
-process.on('unhandledRejection', (reason: any) => {
+process.on('unhandledRejection', (reason: unknown) => {
   logger.error('Unhandled Promise Rejection - Process will exit', {
     reason: reason instanceof Error ? {
       name: reason.name,
       message: reason.message,
       stack: reason.stack
-    } : reason
+    } : String(reason)
   });
   process.exit(1);
 });

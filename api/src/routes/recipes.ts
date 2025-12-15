@@ -30,6 +30,7 @@ import { authMiddleware } from '../middleware/auth';
 import { validateNumber } from '../utils/inputValidator';
 import { asyncHandler } from '../utils/asyncHandler';
 import { recipeService } from '../services/RecipeService';
+import { logger } from '../utils/logger';
 
 const router = Router();
 
@@ -264,12 +265,12 @@ router.post('/memmachine/sync', asyncHandler(async (req: Request, res: Response)
     });
   }
 
-  console.log(`🔄 User ${userId} requested MemMachine sync - starting cleanup...`);
+  logger.info('MemMachine sync requested', { userId });
 
   try {
     const stats = await recipeService.syncMemMachine(userId);
 
-    console.log(`✅ MemMachine sync complete for user ${userId}`);
+    logger.info('MemMachine sync complete', { userId });
 
     res.json({
       success: true,
@@ -298,7 +299,7 @@ router.delete('/memmachine/clear', asyncHandler(async (req: Request, res: Respon
     });
   }
 
-  console.log(`🧹 User ${userId} requested MemMachine recipe memory cleanup`);
+  logger.info('MemMachine recipe memory cleanup requested', { userId });
 
   const success = await recipeService.clearMemMachine(userId);
 

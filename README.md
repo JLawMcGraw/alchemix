@@ -6,7 +6,7 @@
 
 Modern cocktail inventory and recipe management system with AI-powered bartender recommendations. Features a "Molecular Mixology" design system that treats cocktails as chemical formulas and ingredients as periodic table elements.
 
-**Version:** v1.30.0 | **Last Updated:** December 12, 2025
+**Version:** v1.30.0 | **Last Updated:** December 15, 2025
 
 ## Features
 
@@ -68,28 +68,32 @@ alchemix/
 │   ├── components/        # UI components and modals
 │   │   ├── BottleCard/    # Inventory bottle display component
 │   │   ├── RecipeCard/    # Recipe card with molecule visualization
+│   │   ├── PeriodicTableV2/ # Periodic table of mixology
 │   │   ├── GlassSelector/ # Glassware selection component
 │   │   ├── layout/        # TopNav, navigation components
 │   │   └── modals/        # AddBottle, AddRecipe, EditBottle, CSVUpload, etc.
-│   ├── hooks/             # Custom hooks (useAuthGuard, useVerificationGuard)
-│   ├── lib/               # API client, store, utilities
+│   ├── hooks/             # Custom hooks (useAuthGuard, useSettings)
+│   ├── lib/               # API client, store/, periodicTable/, utilities
 │   └── styles/            # globals.css (design system tokens)
 ├── api/                    # Express backend
 │   ├── src/
-│   │   ├── routes/        # API endpoints
-│   │   ├── services/      # Business logic (RecipeService, EmailService, etc.)
-│   │   ├── middleware/    # Auth, error handling
+│   │   ├── routes/        # API endpoints (auth/, inventory, recipes, etc.)
+│   │   ├── services/      # Business logic (AIService, MemoryService, ClassificationService, etc.)
+│   │   ├── middleware/    # Auth, CSRF, rate limiting, request logging
+│   │   ├── config/        # Environment, rate limiters
+│   │   ├── utils/         # Logger, validators, token blacklist
 │   │   └── database/      # SQLite setup
 │   └── .env               # Environment configuration
 ├── packages/               # Shared packages
-│   └── recipe-molecule/   # Chemical bond-style recipe visualization
-│       └── src/core/      # Parser, classifier, layout engine
+│   ├── recipe-molecule/   # Chemical bond-style recipe visualization
+│   └── types/             # Shared TypeScript definitions
 ├── docker/                 # Docker configuration
 │   ├── docker-compose.yml # Main compose file
 │   ├── Dockerfile.*       # Frontend/backend Dockerfiles
 │   ├── memmachine/        # MemMachine config templates
 │   └── .env.example       # Docker env template
 ├── Documentation/          # Project docs
+│   ├── ARCHITECTURE.md    # System architecture & dependency maps
 │   ├── REDESIGN_PLAN.md   # Visual redesign phases & progress
 │   ├── PROJECT_PROGRESS.md # Session history
 │   ├── DEV_NOTES.md       # Technical decisions
@@ -166,9 +170,9 @@ The project has comprehensive test coverage using Vitest:
 | Suite | Tests | Description |
 |-------|-------|-------------|
 | Frontend | 206 | API client, store, UI components, page tests |
-| Backend | 488 | Auth, inventory, recipes, collections, favorites, messages, shopping list |
+| Backend | 750 | Auth, inventory, recipes, collections, favorites, messages, shopping list, middleware, services |
 | Recipe Molecule | 124 | Ingredient parser, classifier, layout engine |
-| **Total** | **818** | |
+| **Total** | **1,080** | |
 
 ```bash
 # Run all tests
@@ -237,6 +241,7 @@ AlcheMix uses the "Molecular Mixology" design system - a clinical, scientific ae
 ## Documentation
 
 - `alchemix-design-system.md` - Full "Molecular Mixology" design specification
+- `Documentation/ARCHITECTURE.md` - System architecture, dependency maps, security
 - `Documentation/REDESIGN_PLAN.md` - Visual redesign phases and progress
 - `Documentation/PROJECT_PROGRESS.md` - Session history and progress
 - `Documentation/DEV_NOTES.md` - Technical decisions and gotchas

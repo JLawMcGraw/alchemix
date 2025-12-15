@@ -45,6 +45,11 @@
  */
 
 /**
+ * Error details type - structured additional context for errors
+ */
+export type ErrorDetails = Record<string, unknown>;
+
+/**
  * Base Application Error Class
  *
  * All custom errors should extend this class
@@ -52,13 +57,13 @@
 export class AppError extends Error {
   public readonly statusCode: number;
   public readonly isOperational: boolean;
-  public readonly details?: any;
+  public readonly details?: ErrorDetails;
 
   constructor(
     message: string,
     statusCode: number,
     isOperational: boolean = true,
-    details?: any
+    details?: ErrorDetails
   ) {
     super(message);
 
@@ -77,7 +82,7 @@ export class AppError extends Error {
   /**
    * Convert error to JSON for API responses
    */
-  toJSON(): Record<string, any> {
+  toJSON(): { success: false; error: string; details?: ErrorDetails } {
     return {
       success: false,
       error: this.message,
@@ -95,7 +100,7 @@ export class AppError extends Error {
  *   throw new ValidationError('Invalid email format', { field: 'email', value: 'not-an-email' });
  */
 export class ValidationError extends AppError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: ErrorDetails) {
     super(message, 400, true, details);
   }
 }
@@ -139,7 +144,7 @@ export class ForbiddenError extends AppError {
  *   throw new NotFoundError('User', { userId: 123 });
  */
 export class NotFoundError extends AppError {
-  constructor(resource: string, details?: any) {
+  constructor(resource: string, details?: ErrorDetails) {
     super(`${resource} not found`, 404, true, details);
   }
 }
@@ -154,7 +159,7 @@ export class NotFoundError extends AppError {
  *   throw new ConflictError('Bottle with this Stock Number already exists');
  */
 export class ConflictError extends AppError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: ErrorDetails) {
     super(message, 409, true, details);
   }
 }
@@ -169,7 +174,7 @@ export class ConflictError extends AppError {
  *   throw new RateLimitError('Too many login attempts', { retryAfter: 900 });
  */
 export class RateLimitError extends AppError {
-  constructor(message: string = 'Too many requests', details?: any) {
+  constructor(message: string = 'Too many requests', details?: ErrorDetails) {
     super(message, 429, true, details);
   }
 }
@@ -184,7 +189,7 @@ export class RateLimitError extends AppError {
  *   throw new InternalError('Database connection failed');
  */
 export class InternalError extends AppError {
-  constructor(message: string = 'Internal server error', details?: any) {
+  constructor(message: string = 'Internal server error', details?: ErrorDetails) {
     super(message, 500, false, details); // Not operational - indicates programming error
   }
 }
@@ -192,13 +197,13 @@ export class InternalError extends AppError {
 /**
  * Type guard to check if error is an AppError
  */
-export function isAppError(error: any): error is AppError {
+export function isAppError(error: unknown): error is AppError {
   return error instanceof AppError;
 }
 
 /**
  * Type guard to check if error is operational (safe to show to client)
  */
-export function isOperationalError(error: any): boolean {
+export function isOperationalError(error: unknown): boolean {
   return isAppError(error) && error.isOperational;
 }

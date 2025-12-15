@@ -130,7 +130,7 @@ export const createRecipesSlice: StateCreator<
     try {
       const newRecipe = await recipeApi.add(recipe);
       set((state) => ({
-        recipes: [...state.recipes, newRecipe],
+        recipes: [newRecipe, ...state.recipes],
       }));
     } catch (error) {
       throw new Error(getErrorMessage(error, 'Failed to add recipe'));

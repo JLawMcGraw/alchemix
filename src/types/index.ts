@@ -1,205 +1,78 @@
-// AlcheMix TypeScript Types
+// AlcheMix Frontend Types
+// Re-exports shared types and defines frontend-specific types
 
-// User & Authentication
-export interface User {
-  id: number;
-  email: string;
-  created_at?: string;
-  is_verified?: boolean;  // Email verification status (false = soft block)
-}
+// Re-export all shared types from @alchemix/types
+export type {
+  // User & Auth
+  User,
+  LoginCredentials,
+  SignupCredentials,
 
-export interface AuthResponse {
-  token: string;
-  user: User;
-}
+  // Inventory
+  InventoryCategory,
+  PeriodicGroup,
+  PeriodicPeriod,
+  InventoryItemInput,
+  InventoryItem,
+  Bottle,
 
-export interface LoginCredentials {
-  email: string;
-  password: string;
-}
+  // Recipes & Collections
+  Collection,
+  Recipe,
+  Favorite,
 
-export interface SignupCredentials {
-  email: string;
-  password: string;
-}
+  // Chat
+  ChatMessage,
+  ChatSession,
 
-export type InventoryCategory =
-  | 'spirit'
-  | 'liqueur'
-  | 'mixer'
-  | 'garnish'
-  | 'syrup'
-  | 'wine'
-  | 'beer'
-  | 'other';
+  // Shopping List
+  ShoppingListItem,
+  ShoppingListSuggestion,
+  ShoppingListStats,
+  CraftableRecipe,
+  NearMissRecipe,
+  NeedFewRecipe,
+  MajorGapsRecipe,
+} from '@alchemix/types';
+
+export type {
+  // API types
+  ApiResponse,
+  PaginationMetadata,
+  AuthResponse,
+  ShoppingListResponse,
+} from '@alchemix/types';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FRONTEND-SPECIFIC TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+
+import type {
+  User,
+  InventoryCategory,
+  InventoryItemInput,
+  InventoryItem,
+  Recipe,
+  Collection,
+  Favorite,
+  ChatMessage,
+  LoginCredentials,
+  SignupCredentials,
+  ShoppingListSuggestion,
+  ShoppingListStats,
+  CraftableRecipe,
+  NearMissRecipe,
+  NeedFewRecipe,
+  MajorGapsRecipe,
+  PaginationMetadata,
+} from '@alchemix/types';
 
 /**
- * Periodic Table Group (Column) - What the ingredient DOES
+ * Zustand Store State Interface
+ *
+ * Defines the complete state shape and actions for the AlcheMix frontend store.
+ * This is frontend-specific and not shared with the backend.
  */
-export type PeriodicGroup = 'Base' | 'Bridge' | 'Modifier' | 'Sweetener' | 'Reagent' | 'Catalyst';
-
-/**
- * Periodic Table Period (Row) - Where the ingredient COMES FROM
- */
-export type PeriodicPeriod = 'Agave' | 'Cane' | 'Grain' | 'Grape' | 'Fruit' | 'Botanic';
-
-// Base inventory item fields (for creating/updating)
-export interface InventoryItemInput {
-  name: string;
-  category: InventoryCategory;  // Required categories enforced by union
-  type?: string;  // Item classification (e.g., "Bourbon", "Gin", "Citrus")
-  abv?: string | number;  // Alcohol by volume
-  stock_number?: number;
-  spirit_classification?: string;
-  distillation_method?: string;
-  distillery_location?: string;
-  age_statement?: string;
-  additional_notes?: string;
-  profile_nose?: string;
-  palate?: string;
-  finish?: string;
-  tasting_notes?: string;  // User's personal tasting notes for enriched AI recommendations
-  periodic_group?: PeriodicGroup | null;  // Periodic Table column (function/role)
-  periodic_period?: PeriodicPeriod | null;  // Periodic Table row (origin/source)
-}
-
-// Full inventory item (from database - always has id, user_id, created_at)
-export interface InventoryItem extends InventoryItemInput {
-  id: number;
-  user_id: number;
-  created_at: string;
-}
-
-// Backwards compatibility alias
-export type Bottle = InventoryItem;
-
-// Collection
-export interface Collection {
-  id?: number;
-  user_id?: number;
-  name: string;
-  description?: string;
-  recipe_count?: number;
-  created_at?: string;
-}
-
-// Recipe
-export interface Recipe {
-  id?: number;
-  user_id?: number;
-  collection_id?: number;
-  name: string;
-  ingredients: string | string[];  // JSON string or array
-  instructions?: string;
-  glass?: string;
-  category?: string;
-  spirit_type?: string;
-  compatibility?: number;
-  missing?: string[];
-  formula?: string;  // Chemical formula notation (e.g., "Ry₂ · Sv₁")
-  created_at?: string;
-}
-
-// Favorite
-export interface Favorite {
-  id?: number;
-  user_id?: number;
-  recipe_name: string;
-  recipe_id?: number;
-  created_at?: string;
-}
-
-// History/Chat
-export interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp?: string;
-}
-
-export interface ChatSession {
-  id: string;
-  title: string;
-  messages: ChatMessage[];
-  created_at: string;
-}
-
-// Shopping List
-export interface ShoppingListSuggestion {
-  ingredient: string;
-  unlocks: number;
-}
-
-export interface ShoppingListStats {
-  totalRecipes: number;
-  craftable: number;
-  nearMisses: number;
-  inventoryItems: number;
-  missing2to3?: number;
-  missing4plus?: number;
-}
-
-export interface ShoppingListItem {
-  id: number;
-  name: string;
-  checked: boolean;
-  createdAt: string;
-}
-
-export interface CraftableRecipe {
-  id: number;
-  name: string;
-  ingredients: string[];
-}
-
-export interface NearMissRecipe {
-  id: number;
-  name: string;
-  ingredients: string[];
-  missingIngredient: string;
-}
-
-export interface NeedFewRecipe {
-  id: number;
-  name: string;
-  ingredients: string[];
-  missingCount: number;
-}
-
-export interface MajorGapsRecipe {
-  id: number;
-  name: string;
-  ingredients: string[];
-  missingCount: number;
-}
-
-export interface ShoppingListResponse {
-  data: ShoppingListSuggestion[];
-  stats: ShoppingListStats;
-  craftableRecipes: CraftableRecipe[];
-  nearMissRecipes: NearMissRecipe[];
-  needFewRecipes: NeedFewRecipe[];
-  majorGapsRecipes: MajorGapsRecipe[];
-}
-
-// Pagination Types
-export interface PaginationMetadata {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-}
-
-// API Response Types
-export interface ApiResponse<T = any> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  message?: string;
-}
-
-// State Types (for Zustand)
 export interface AppState {
   // Auth
   user: User | null;

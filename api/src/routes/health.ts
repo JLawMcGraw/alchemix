@@ -15,6 +15,7 @@
 
 import { Router, Request, Response } from 'express';
 import { db } from '../database/db';
+import { logger } from '../utils/logger';
 
 const router = Router();
 
@@ -22,6 +23,15 @@ const router = Router();
  * Application version (should match package.json)
  */
 const APP_VERSION = '1.22.0';
+
+/**
+ * Health check result type
+ */
+interface HealthCheckResult {
+  status: 'ok' | 'failed' | 'warning';
+  message?: string;
+  value?: { heapUsedMB: number; heapTotalMB: number };
+}
 
 /**
  * Liveness Probe - GET /health/live
@@ -55,7 +65,7 @@ router.get('/health/live', (req: Request, res: Response) => {
  * Failure: Traffic routed away from this instance
  */
 router.get('/health/ready', (req: Request, res: Response) => {
-  const checks: Record<string, { status: string; message?: string; value?: any }> = {};
+  const checks: Record<string, HealthCheckResult> = {};
 
   try {
     // Check 1: Database connectivity
@@ -66,8 +76,9 @@ router.get('/health/ready', (req: Request, res: Response) => {
       } else {
         checks.database = { status: 'failed', message: 'Unexpected query result' };
       }
-    } catch (dbError: any) {
-      checks.database = { status: 'failed', message: dbError.message };
+    } catch (dbError: unknown) {
+      const message = dbError instanceof Error ? dbError.message : 'Unknown database error';
+      checks.database = { status: 'failed', message };
     }
 
     // Check 2: Required environment variables
@@ -112,11 +123,12 @@ router.get('/health/ready', (req: Request, res: Response) => {
       checks,
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
-    console.error('Health check error:', error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Health check error', { error: errorMessage });
     res.status(503).json({
       status: 'error',
-      error: error.message,
+      error: errorMessage,
       timestamp: new Date().toISOString(),
     });
   }

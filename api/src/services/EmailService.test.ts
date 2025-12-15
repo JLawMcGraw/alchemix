@@ -3,10 +3,31 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // Store original env values
 const originalEnv = { ...process.env };
 
+// Create shared mock functions that persist across module resets
+const mockInfo = vi.fn();
+const mockWarn = vi.fn();
+const mockError = vi.fn();
+const mockDebug = vi.fn();
+
+// Mock the logger module with shared mock functions
+vi.mock('../utils/logger', () => ({
+  logger: {
+    info: mockInfo,
+    warn: mockWarn,
+    error: mockError,
+    debug: mockDebug,
+  },
+}));
+
 describe('EmailService', () => {
   beforeEach(() => {
     // Reset modules to pick up env changes
     vi.resetModules();
+    // Clear mock call history
+    mockInfo.mockClear();
+    mockWarn.mockClear();
+    mockError.mockClear();
+    mockDebug.mockClear();
     // Clear env vars
     delete process.env.SMTP_HOST;
     delete process.env.SMTP_PORT;
@@ -19,7 +40,6 @@ describe('EmailService', () => {
   afterEach(() => {
     // Restore original env
     process.env = { ...originalEnv };
-    vi.restoreAllMocks();
   });
 
   describe('isConfigured', () => {
@@ -63,216 +83,216 @@ describe('EmailService', () => {
   });
 
   describe('sendVerificationEmail', () => {
-    it('should not throw when SMTP is not configured (logs to console)', async () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
+    it('should not throw when SMTP is not configured (logs via logger)', async () => {
       const { emailService } = await import('./EmailService');
 
       await expect(
         emailService.sendVerificationEmail('test@example.com', 'abc123token')
       ).resolves.not.toThrow();
 
-      // Verify it logged to console
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('EMAIL')
+      // Verify it logged via logger
+      expect(mockInfo).toHaveBeenCalledWith(
+        'EMAIL (SMTP not configured - logging to console)',
+        expect.objectContaining({
+          to: 'test@example.com',
+        })
       );
-
-      consoleSpy.mockRestore();
     });
 
     it('should include the token in the verification URL', async () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
       const { emailService } = await import('./EmailService');
       const testToken = 'test-verification-token-12345';
 
       await emailService.sendVerificationEmail('test@example.com', testToken);
 
       // Check that the token was included in the logged output
-      const loggedCalls = consoleSpy.mock.calls.flat().join(' ');
-      expect(loggedCalls).toContain(testToken);
-
-      consoleSpy.mockRestore();
+      expect(mockInfo).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          body: expect.stringContaining(testToken),
+        })
+      );
     });
 
     it('should include recipient email in log output', async () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
       const { emailService } = await import('./EmailService');
 
       await emailService.sendVerificationEmail('recipient@example.com', 'token123');
 
-      const loggedCalls = consoleSpy.mock.calls.flat().join(' ');
-      expect(loggedCalls).toContain('recipient@example.com');
-
-      consoleSpy.mockRestore();
+      expect(mockInfo).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          to: 'recipient@example.com',
+        })
+      );
     });
 
     it('should use FRONTEND_URL env var for verification link', async () => {
       process.env.FRONTEND_URL = 'https://myapp.com';
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
       const { emailService } = await import('./EmailService');
 
       await emailService.sendVerificationEmail('test@example.com', 'token');
 
-      const loggedCalls = consoleSpy.mock.calls.flat().join(' ');
-      expect(loggedCalls).toContain('https://myapp.com/verify-email');
-
-      consoleSpy.mockRestore();
+      expect(mockInfo).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          body: expect.stringContaining('https://myapp.com/verify-email'),
+        })
+      );
     });
 
     it('should default to localhost:3001 when FRONTEND_URL not set', async () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
       const { emailService } = await import('./EmailService');
 
       await emailService.sendVerificationEmail('test@example.com', 'token');
 
-      const loggedCalls = consoleSpy.mock.calls.flat().join(' ');
-      expect(loggedCalls).toContain('http://localhost:3001/verify-email');
-
-      consoleSpy.mockRestore();
+      expect(mockInfo).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          body: expect.stringContaining('http://localhost:3001/verify-email'),
+        })
+      );
     });
   });
 
   describe('sendPasswordResetEmail', () => {
-    it('should not throw when SMTP is not configured (logs to console)', async () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
+    it('should not throw when SMTP is not configured (logs via logger)', async () => {
       const { emailService } = await import('./EmailService');
 
       await expect(
         emailService.sendPasswordResetEmail('test@example.com', 'reset-token-123')
       ).resolves.not.toThrow();
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('EMAIL')
+      expect(mockInfo).toHaveBeenCalledWith(
+        'EMAIL (SMTP not configured - logging to console)',
+        expect.objectContaining({
+          to: 'test@example.com',
+        })
       );
-
-      consoleSpy.mockRestore();
     });
 
     it('should include the token in the reset URL', async () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
       const { emailService } = await import('./EmailService');
       const resetToken = 'password-reset-token-xyz';
 
       await emailService.sendPasswordResetEmail('test@example.com', resetToken);
 
-      const loggedCalls = consoleSpy.mock.calls.flat().join(' ');
-      expect(loggedCalls).toContain(resetToken);
-
-      consoleSpy.mockRestore();
+      expect(mockInfo).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          body: expect.stringContaining(resetToken),
+        })
+      );
     });
 
     it('should include recipient email in log output', async () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
       const { emailService } = await import('./EmailService');
 
       await emailService.sendPasswordResetEmail('user@domain.com', 'token');
 
-      const loggedCalls = consoleSpy.mock.calls.flat().join(' ');
-      expect(loggedCalls).toContain('user@domain.com');
-
-      consoleSpy.mockRestore();
+      expect(mockInfo).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          to: 'user@domain.com',
+        })
+      );
     });
 
     it('should use FRONTEND_URL env var for reset link', async () => {
       process.env.FRONTEND_URL = 'https://production.app';
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
       const { emailService } = await import('./EmailService');
 
       await emailService.sendPasswordResetEmail('test@example.com', 'token');
 
-      const loggedCalls = consoleSpy.mock.calls.flat().join(' ');
-      expect(loggedCalls).toContain('https://production.app/reset-password');
-
-      consoleSpy.mockRestore();
+      expect(mockInfo).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          body: expect.stringContaining('https://production.app/reset-password'),
+        })
+      );
     });
 
     it('should default to localhost:3001 when FRONTEND_URL not set', async () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
       const { emailService } = await import('./EmailService');
 
       await emailService.sendPasswordResetEmail('test@example.com', 'token');
 
-      const loggedCalls = consoleSpy.mock.calls.flat().join(' ');
-      expect(loggedCalls).toContain('http://localhost:3001/reset-password');
-
-      consoleSpy.mockRestore();
+      expect(mockInfo).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          body: expect.stringContaining('http://localhost:3001/reset-password'),
+        })
+      );
     });
 
     it('should mention security tip about device logout', async () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
       const { emailService } = await import('./EmailService');
 
       await emailService.sendPasswordResetEmail('test@example.com', 'token');
 
-      const loggedCalls = consoleSpy.mock.calls.flat().join(' ');
       // The security tip mentions being logged out of all devices
-      expect(loggedCalls).toContain('logged out');
-
-      consoleSpy.mockRestore();
+      expect(mockInfo).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          body: expect.stringContaining('logged out'),
+        })
+      );
     });
   });
 
   describe('Email Content', () => {
     it('should include 24-hour expiry message in verification email', async () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
       const { emailService } = await import('./EmailService');
 
       await emailService.sendVerificationEmail('test@example.com', 'token');
 
-      const loggedCalls = consoleSpy.mock.calls.flat().join(' ');
-      expect(loggedCalls).toContain('24 hours');
-
-      consoleSpy.mockRestore();
+      expect(mockInfo).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          body: expect.stringContaining('24 hours'),
+        })
+      );
     });
 
     it('should include 1-hour expiry message in password reset email', async () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
       const { emailService } = await import('./EmailService');
 
       await emailService.sendPasswordResetEmail('test@example.com', 'token');
 
-      const loggedCalls = consoleSpy.mock.calls.flat().join(' ');
-      expect(loggedCalls).toContain('1 hour');
-
-      consoleSpy.mockRestore();
+      expect(mockInfo).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          body: expect.stringContaining('1 hour'),
+        })
+      );
     });
 
     it('should include AlcheMix branding in verification email', async () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
       const { emailService } = await import('./EmailService');
 
       await emailService.sendVerificationEmail('test@example.com', 'token');
 
-      const loggedCalls = consoleSpy.mock.calls.flat().join(' ');
-      expect(loggedCalls).toContain('AlcheMix');
-
-      consoleSpy.mockRestore();
+      expect(mockInfo).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          body: expect.stringContaining('AlcheMix'),
+        })
+      );
     });
 
     it('should include AlcheMix branding in password reset email', async () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
       const { emailService } = await import('./EmailService');
 
       await emailService.sendPasswordResetEmail('test@example.com', 'token');
 
-      const loggedCalls = consoleSpy.mock.calls.flat().join(' ');
-      expect(loggedCalls).toContain('AlcheMix');
-
-      consoleSpy.mockRestore();
+      expect(mockInfo).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          body: expect.stringContaining('AlcheMix'),
+        })
+      );
     });
   });
 });

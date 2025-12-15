@@ -1,15 +1,21 @@
 # Project Development Progress
 
-Last updated: 2025-12-12
+Last updated: 2025-12-15
 
 ---
 
 ## Current Status
 
 **Version**: v1.30.0
-**Phase**: Feature Development - Bug Fixes & UX Improvements
+**Phase**: Feature Development - Major Refactoring & Test Coverage
 **Branch**: `alchemix-redesign`
 **Blockers**: None
+
+**Test Coverage**:
+- Backend: 750 tests (29 test files)
+- Frontend: 206 tests
+- Recipe-Molecule: 124 tests
+- **Total: 1,080 tests**
 
 **Redesign Progress**:
 - Phase 1-4 (Batch A - Foundation): **Complete**
@@ -19,7 +25,168 @@ Last updated: 2025-12-12
 
 ---
 
-## Recent Session (2025-12-12): Bug Fixes & Periodic Tags UX
+## Recent Session (2025-12-15): Major Refactoring, Winston Logger & Test Coverage
+
+### Summary
+Massive codebase refactoring session: split large monolithic files into modular components, migrated from console.log to Winston structured logging, added 10 new test files achieving 750 backend tests, created comprehensive architecture documentation, and cleaned up 30+ outdated files.
+
+### Work Completed
+
+#### 1. Backend Route Splitting
+Split monolithic route files into modular services and smaller route handlers:
+
+**auth.ts (1,585 lines) → auth/ folder:**
+- `index.ts` - Router setup and exports
+- `login.ts` - Login endpoint
+- `signup.ts` - Signup with email verification
+- `password.ts` - Password reset and change
+- `account.ts` - Account management (delete, export, import)
+- `verification.ts` - Email verification endpoints
+- `utils.ts` - Shared auth utilities
+
+**messages.ts → messages.ts + AIService.ts:**
+- Extracted AI/Claude logic into dedicated AIService.ts
+- Cleaner separation of HTTP handling and business logic
+
+**shoppingList.ts → shoppingList.ts + ShoppingListService.ts:**
+- Extracted shopping list business logic into service
+- Route file now focused on HTTP concerns
+
+#### 2. Frontend Component Splitting
+**recipes/page.tsx → Modular Components:**
+- `page.tsx` - Main page component (reduced from ~1400 lines to ~300)
+- `useRecipesPage.ts` - Custom hook with all state/logic (18KB)
+- `RecipeFilters.tsx` - Filter dropdowns and search
+- `RecipeGrid.tsx` - Recipe card grid display
+- `RecipeActions.tsx` - Bulk action buttons
+- `BulkMoveModal.tsx` - Collection move modal
+- `recipeUtils.ts` - Utility functions
+
+**periodicTableV2.ts → periodicTable/ folder:**
+- `types.ts` - TypeScript interfaces
+- `constants.ts` - Element groups, periods, colors
+- `elements.ts` - Element definitions (Vodka, Gin, etc.)
+- `classificationMap.ts` - Ingredient→Element mapping
+- `engine.ts` - Classification matching engine
+- `index.ts` - Public exports
+
+#### 3. New Services Created
+- `api/src/services/AIService.ts` - Claude AI integration logic
+- `api/src/services/ShoppingListService.ts` - Shopping list business logic
+- `api/src/services/ClassificationService.ts` - Periodic table classification CRUD
+
+#### 4. Winston Logger Migration
+Replaced all `console.log/warn/error` with structured Winston logging:
+- Created `api/src/utils/logger.ts` with Winston configuration
+- Added log levels: error, warn, info, http, debug
+- Added structured metadata (requestId, userId, timestamps)
+- Added `logMetric()` for performance tracking
+- Added `logSecurityEvent()` for security audit trail
+
+#### 5. New Test Files (10 files, ~262 new tests)
+| Test File | Tests | Coverage |
+|-----------|-------|----------|
+| rateLimiter.test.ts | 11 | Rate limiter middleware exports |
+| csrf.test.ts | 15 | CSRF token validation |
+| requestId.test.ts | 8 | Request ID middleware |
+| requestLogger.test.ts | 21 | Request/error logging |
+| userRateLimit.test.ts | 12 | User-based rate limiting |
+| classifications.test.ts | 28 | Classification API routes |
+| health.test.ts | 6 | Health check endpoint |
+| ClassificationService.test.ts | 18 | Classification service |
+| MemoryService.test.ts | 24 | MemMachine integration |
+| logger.test.ts | 19 | Winston logger utils |
+
+#### 6. Test Fixes (vi.hoisted pattern)
+Fixed Vitest mock hoisting issues in multiple test files:
+```typescript
+// Pattern: Use vi.hoisted() for mocks needed during vi.mock()
+const { mockFn } = vi.hoisted(() => ({
+  mockFn: vi.fn(),
+}));
+
+vi.mock('./module', () => ({
+  exportedFn: mockFn,
+}));
+```
+
+Applied to: requestLogger.test.ts, ClassificationService.test.ts, rateLimiter.test.ts
+
+#### 7. Documentation Created
+- `Documentation/ARCHITECTURE.md` - Full system architecture with:
+  - Dependency maps (ASCII diagrams + tables)
+  - Security architecture (middleware stack, rate limiters)
+  - Module relationships
+  - Data flow diagrams
+- `Documentation/CODEBASE_ANALYSIS.md` - Codebase structure analysis
+
+#### 8. New Shared Types Package
+Created `packages/types/` for shared TypeScript definitions:
+- Allows type sharing between frontend, backend, and packages
+- Prevents type duplication across the monorepo
+
+#### 9. Major Cleanup (30+ files deleted)
+**Deleted outdated documentation:**
+- Documentation/ACTIVE_TASKS.md
+- Documentation/PROJECT_STATUS.md
+- Documentation/SESSION_HISTORY.md
+- Documentation/archives/* (15+ files)
+- Documentation/archives/migrations/* (8 files)
+- Documentation/metrics/prompt-effectiveness.md
+
+**Deleted obsolete files:**
+- Dockerfile.dev
+- docker-compose.yml (root level - kept docker/ version)
+- docker-start.sh
+- kill-ports.bat
+- molecular-ball-stick.html
+- molecular-mixology.html
+- src/lib/store.ts.backup
+
+### Files Modified/Created
+**New Files (25+):**
+- api/src/routes/auth/* (7 files)
+- api/src/services/AIService.ts
+- api/src/services/ShoppingListService.ts
+- api/src/services/ClassificationService.ts
+- api/src/config/rateLimiter.test.ts
+- api/src/middleware/*.test.ts (4 files)
+- api/src/routes/*.test.ts (2 new)
+- api/src/services/*.test.ts (2 new)
+- api/src/utils/logger.test.ts
+- src/app/recipes/*.tsx (5 new components)
+- src/lib/periodicTable/* (6 files)
+- packages/types/*
+- Documentation/ARCHITECTURE.md
+- Documentation/CODEBASE_ANALYSIS.md
+
+**Major Refactors:**
+- api/src/routes/messages.ts (reduced ~1200 lines)
+- api/src/routes/shoppingList.ts (reduced ~1000 lines)
+- api/src/types/index.ts (cleaned up, moved types)
+- src/app/recipes/page.tsx (reduced ~1100 lines)
+- src/lib/periodicTableV2.ts (reduced ~1300 lines)
+
+### Tests
+- **Backend**: 750 tests passing (29 test files)
+- **Frontend**: 206 tests passing
+- **Recipe-Molecule**: 124 tests passing
+- **Total**: 1,080 tests passing
+
+### Technical Decisions
+1. **vi.hoisted()** - Required pattern for Vitest when mocks need to be available during module load
+2. **Service Layer** - Business logic extracted from routes for better testability
+3. **Custom Hooks** - Complex page logic extracted into reusable hooks
+4. **Modular Files** - Large files split by concern (types, constants, logic, UI)
+
+### Next Priority
+- Continue feature development
+- Consider adding integration tests for new services
+- Monitor for any regressions from refactoring
+
+---
+
+## Previous Session (2025-12-12): Bug Fixes & Periodic Tags UX
 
 ### Summary
 Fixed several bugs related to Periodic Table matching and added periodic tags display to inventory items. Key fixes: Agave Nectar false positive in Periodic Table, spirit filter dropdown not working on Recipes page, "ginger beer" incorrectly matching "Gin" filter, loading state flicker on Bar/Recipes pages.

@@ -37,9 +37,9 @@
 
     <!-- MIX - Bold, monospace, dark -->
     <text
-      x="95"
+      x="115"
       font-family="'JetBrains Mono', 'SF Mono', Consolas, monospace"
-      font-size="37"
+      font-size="36"
       font-weight="700"
       fill="#1A1A1A"
       letter-spacing="0.1em"

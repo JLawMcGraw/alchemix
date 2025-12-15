@@ -31,6 +31,7 @@ import { db } from '../database/db';
 import { authMiddleware } from '../middleware/auth';
 import { validateNumber } from '../utils/inputValidator';
 import { Bottle } from '../types';
+import { logger } from '../utils/logger';
 
 const router = Router();
 
@@ -265,7 +266,7 @@ router.get('/', (req: Request, res: Response) => {
      * Log detailed error server-side.
      * Return generic error to client (don't leak internals).
      */
-    console.error('Get bottles error:', error);
+    logger.error('Get bottles error', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(500).json({
       success: false,
       error: 'Failed to fetch bottles'
@@ -347,7 +348,7 @@ router.post('/', (req: Request, res: Response) => {
      */
     const validation = validateBottleData(req.body);
 
-    if (!validation.isValid) {
+    if (!validation.isValid || !validation.sanitized) {
       return res.status(400).json({
         success: false,
         error: 'Validation failed',
@@ -424,7 +425,7 @@ router.post('/', (req: Request, res: Response) => {
      * - Database constraint violation (e.g., invalid user_id)
      * - SQLite error (database locked, disk full)
      */
-    console.error('Add bottle error:', error);
+    logger.error('Add bottle error', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(500).json({
       success: false,
       error: 'Failed to add bottle'
@@ -528,7 +529,7 @@ router.put('/:id', (req: Request, res: Response) => {
      */
     const validation = validateBottleData(req.body);
 
-    if (!validation.isValid) {
+    if (!validation.isValid || !validation.sanitized) {
       return res.status(400).json({
         success: false,
         error: 'Validation failed',
@@ -603,7 +604,7 @@ router.put('/:id', (req: Request, res: Response) => {
      * - Database constraint violation
      * - SQLite error
      */
-    console.error('Update bottle error:', error);
+    logger.error('Update bottle error', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(500).json({
       success: false,
       error: 'Failed to update bottle'
@@ -720,7 +721,7 @@ router.delete('/:id', (req: Request, res: Response) => {
      * - Database constraint violation (e.g., foreign key if we add them)
      * - SQLite error (database locked)
      */
-    console.error('Delete bottle error:', error);
+    logger.error('Delete bottle error', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(500).json({
       success: false,
       error: 'Failed to delete bottle'
@@ -729,9 +730,41 @@ router.delete('/:id', (req: Request, res: Response) => {
 });
 
 /**
+ * CSV record type - dynamic string keys from CSV columns
+ */
+type CSVRecord = Record<string, string | number | null | undefined>;
+
+/**
+ * Sanitized bottle data from CSV import
+ */
+interface SanitizedBottleData {
+  name: string | null;
+  'Stock Number': number | null;
+  'Liquor Type': string | null;
+  'Detailed Spirit Classification': string | null;
+  'Distillation Method': string | null;
+  'ABV (%)': string | null;
+  'Distillery Location': string | null;
+  'Age Statement or Barrel Finish': string | null;
+  'Additional Notes': string | null;
+  'Profile (Nose)': string | null;
+  'Palate': string | null;
+  'Finish': string | null;
+}
+
+/**
+ * Validation result for bottle data
+ */
+interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
+  sanitized?: SanitizedBottleData;
+}
+
+/**
  * Helper function to find a field value from record using multiple possible column names
  */
-function findField(record: any, possibleNames: string[]): any {
+function findField(record: CSVRecord, possibleNames: string[]): string | number | null {
   for (const name of possibleNames) {
     const value = record[name];
     if (value !== undefined && value !== null && value !== '') {
@@ -745,7 +778,7 @@ function findField(record: any, possibleNames: string[]): any {
  * Helper function to validate and sanitize bottle data from CSV
  * Very flexible - handles any column names and missing fields
  */
-function validateBottleData(record: any): { isValid: boolean; errors: string[]; sanitized?: any } {
+function validateBottleData(record: CSVRecord): ValidationResult {
   const errors: string[] = [];
 
   // Try to find the name field with various possible column names
@@ -769,8 +802,9 @@ function validateBottleData(record: any): { isValid: boolean; errors: string[]; 
   }
 
   // Helper to safely convert to string and trim
-  const safeString = (val: any) => val ? String(val).trim() : null;
-  const safeNumber = (val: any) => {
+  const safeString = (val: string | number | null): string | null => val ? String(val).trim() : null;
+  const safeNumber = (val: string | number | null): number | null => {
+    if (val === null) return null;
     const num = parseInt(String(val));
     return isNaN(num) ? null : num;
   };
@@ -839,19 +873,20 @@ router.post('/import', upload.single('file'), async (req: Request, res: Response
 
     // Parse CSV
     const csvContent = req.file.buffer.toString('utf-8');
-    let records: any[];
+    let records: CSVRecord[];
 
     try {
       records = parse(csvContent, {
         columns: true, // First row is headers
         skip_empty_lines: true,
         trim: true,
-      });
-    } catch (parseError: any) {
+      }) as CSVRecord[];
+    } catch (parseError: unknown) {
+      const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown parse error';
       return res.status(400).json({
         success: false,
         error: 'Failed to parse CSV file',
-        details: parseError.message
+        details: errorMessage
       });
     }
 
@@ -883,10 +918,10 @@ router.post('/import', upload.single('file'), async (req: Request, res: Response
         // Validate bottle data
         const validation = validateBottleData(record);
 
-        if (!validation.isValid) {
+        if (!validation.isValid || !validation.sanitized) {
           errors.push({
             row: rowNumber,
-            error: validation.errors.join(', ')
+            error: validation.errors.join(', ') || 'Validation failed'
           });
           continue;
         }
@@ -919,10 +954,11 @@ router.post('/import', upload.single('file'), async (req: Request, res: Response
         );
 
         imported++;
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to import row';
         errors.push({
           row: rowNumber,
-          error: error.message || 'Failed to import row'
+          error: errorMessage
         });
       }
     }
@@ -934,12 +970,13 @@ router.post('/import', upload.single('file'), async (req: Request, res: Response
       failed: errors.length,
       errors: errors.length > 0 ? errors : undefined
     });
-  } catch (error: any) {
-    console.error('CSV import error:', error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('CSV import error', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(500).json({
       success: false,
       error: 'Failed to import CSV',
-      details: error.message
+      details: errorMessage
     });
   }
 });

@@ -7,7 +7,7 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { Button, useToast } from '@/components/ui';
 import { Card } from '@/components/ui/Card';
 import { BottleCard } from '@/components/BottleCard';
-import { Wine, Upload, Plus, Martini, X, ChevronLeft, ChevronRight, Trash2, Grid3X3, List, FlaskConical } from 'lucide-react';
+import { Wine, Upload, Plus, Martini, X, ChevronLeft, ChevronRight, Trash2, Grid3X3, List } from 'lucide-react';
 import { CSVUploadModal, AddBottleModal, ItemDetailModal } from '@/components/modals';
 import { PeriodicTable } from '@/components/PeriodicTableV2';
 import { inventoryApi } from '@/lib/api';
@@ -237,10 +237,7 @@ function BarPageContent() {
         {/* Header */}
         <div className={styles.header}>
           <div>
-            <h1 className={styles.title}>
-              <FlaskConical size={28} className={styles.titleIcon} />
-              My Bar
-            </h1>
+            <h1 className={styles.title}>My Bar</h1>
             <div className={styles.subtitleContainer}>
               <p className={styles.subtitle}>
                 {filteredItems.length} {filteredItems.length === 1 ? 'item' : 'items'}

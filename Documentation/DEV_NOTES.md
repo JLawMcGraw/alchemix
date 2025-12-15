@@ -4,6 +4,59 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-12-15 - Vitest Mock Hoisting with vi.hoisted()
+
+### The Problem
+When mocking modules that create instances at module load time (like prepared statements from better-sqlite3), standard `vi.mock()` fails because mock variables aren't available during hoisting.
+
+### Error Symptoms
+```
+ReferenceError: Cannot access 'mockLogger' before initialization
+```
+or tests show "0 tests" because the module fails to load.
+
+### The Solution
+Use `vi.hoisted()` to create mock functions BEFORE the vi.mock() factory executes:
+
+```typescript
+// ✅ CORRECT: Use vi.hoisted() for mocks needed during vi.mock()
+const { mockGet, mockAll, mockRun } = vi.hoisted(() => ({
+  mockGet: vi.fn(),
+  mockAll: vi.fn(),
+  mockRun: vi.fn(),
+}));
+
+vi.mock('../database/db', () => ({
+  db: {
+    prepare: vi.fn(() => ({
+      get: mockGet,
+      all: mockAll,
+      run: mockRun,
+    })),
+  },
+}));
+
+// Import AFTER mock setup
+import { MyService } from './MyService';
+```
+
+### Why This Works
+- `vi.hoisted()` runs BEFORE all other code in the file
+- Mock variables are available when `vi.mock()` factory executes
+- Import statements come after mocks are set up
+
+### Common Use Cases
+1. Database modules with `db.prepare()` called at module load
+2. Logger utilities imported at module level
+3. Any service that initializes on import
+
+### Files Using This Pattern
+- `ClassificationService.test.ts` - Database mock
+- `requestLogger.test.ts` - Logger mock
+- `rateLimiter.test.ts` - Express middleware mock
+
+---
+
 ## 2025-12-05 - MemMachine v2 API Response Structure
 
 ### The Gotcha

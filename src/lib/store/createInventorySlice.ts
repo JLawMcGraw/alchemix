@@ -98,7 +98,7 @@ export const createInventorySlice: StateCreator<
       set({ isLoading: true, error: null });
       const newItem = await inventoryApi.add(item);
       set((state) => ({
-        inventoryItems: [...state.inventoryItems, newItem],
+        inventoryItems: [newItem, ...state.inventoryItems],
         isLoading: false,
         inventoryVersion: state.inventoryVersion + 1,
       }));

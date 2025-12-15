@@ -28,9 +28,8 @@ vi.mock('../utils/tokenBlacklist', () => ({
   },
 }));
 
-// Mock axios for Anthropic API calls
-vi.mock('axios');
-import axios from 'axios';
+// Mock global fetch for Anthropic API calls
+const mockFetch = vi.fn();
 
 import messagesRoutes from './messages';
 import { errorHandler } from '../middleware/errorHandler';
@@ -68,7 +67,8 @@ describe('Messages Routes Integration Tests', () => {
 
     server = createServer(app);
 
-    // Reset axios mock
+    // Set up global fetch mock
+    global.fetch = mockFetch;
     vi.clearAllMocks();
   });
 
@@ -235,10 +235,10 @@ describe('Messages Routes Integration Tests', () => {
         expect(response.body.data).toBeDefined();
       }
 
-      // Skip axios verification if no API key configured
+      // Skip fetch verification if no API key configured
       if (response.status !== 503) {
         // Verify Anthropic API was called (only if we have mock or real key)
-        // expect(axios.post).toHaveBeenCalled();
+        // expect(mockFetch).toHaveBeenCalled();
       }
     });
 
@@ -253,10 +253,11 @@ describe('Messages Routes Integration Tests', () => {
       );
 
       // Mock successful Anthropic API response
-      vi.mocked(axios.post).mockResolvedValueOnce({
-        data: {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
           content: [{ text: 'With your Makers Mark and Angostura Bitters, you can make an Old Fashioned!' }],
-        },
+        }),
       });
 
       const response = await request(server!)
@@ -270,11 +271,10 @@ describe('Messages Routes Integration Tests', () => {
 
     it('should handle Anthropic API errors gracefully', async () => {
       // Mock API error
-      vi.mocked(axios.post).mockRejectedValueOnce({
-        response: {
-          status: 500,
-          data: { error: 'API Error' },
-        },
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
       });
 
       const response = await request(server!)
@@ -289,11 +289,10 @@ describe('Messages Routes Integration Tests', () => {
 
     it('should handle rate limit errors from Anthropic', async () => {
       // Mock rate limit error
-      vi.mocked(axios.post).mockRejectedValueOnce({
-        response: {
-          status: 429,
-          data: { error: { type: 'rate_limit_error' } },
-        },
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
       });
 
       const response = await request(server!)
@@ -337,10 +336,11 @@ describe('Messages Routes Integration Tests', () => {
       );
 
       // Mock successful Anthropic API response
-      vi.mocked(axios.post).mockResolvedValueOnce({
-        data: {
-          content: [{ text: 'You have a great collection! With 2 spirits and 2 recipes, you\'re ready to make classic cocktails.' }],
-        },
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          content: [{ text: '{"greeting": "Welcome back!", "insight": "You have a great collection! With 2 spirits and 2 recipes, you\'re ready to make classic cocktails."}' }],
+        }),
       });
 
       const response = await request(server!)
@@ -367,11 +367,10 @@ describe('Messages Routes Integration Tests', () => {
 
     it('should handle API errors gracefully', async () => {
       // Mock API error
-      vi.mocked(axios.post).mockRejectedValueOnce({
-        response: {
-          status: 500,
-          data: { error: 'API Error' },
-        },
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
       });
 
       const response = await request(server!)

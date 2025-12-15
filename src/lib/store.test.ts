@@ -327,7 +327,8 @@ describe('Zustand Store', () => {
 
         const state = useStore.getState();
         expect(state.inventoryItems).toHaveLength(3);
-        expect(state.inventoryItems[2]).toEqual(newItem);
+        // New items are prepended (newest first)
+        expect(state.inventoryItems[0]).toEqual(newItem);
       });
     });
 
@@ -419,7 +420,8 @@ describe('Zustand Store', () => {
 
         const state = useStore.getState();
         expect(state.recipes).toHaveLength(3);
-        expect(state.recipes[2]).toEqual(newRecipe);
+        // New recipes are prepended (newest first)
+        expect(state.recipes[0]).toEqual(newRecipe);
       });
     });
 

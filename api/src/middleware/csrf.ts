@@ -34,6 +34,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { timingSafeEqual as cryptoTimingSafeEqual } from 'crypto';
+import { logSecurityEvent } from '../utils/logger';
 
 /**
  * List of HTTP methods that are safe (read-only, no side effects)
@@ -77,7 +78,12 @@ export function csrfMiddleware(req: Request, res: Response, next: NextFunction) 
 
   // Validate CSRF token
   if (!headerToken || !cookieToken) {
-    console.warn(`⚠️ CSRF validation failed: Missing token (header: ${!!headerToken}, cookie: ${!!cookieToken})`);
+    logSecurityEvent('CSRF validation failed: Missing token', {
+      hasHeaderToken: !!headerToken,
+      hasCookieToken: !!cookieToken,
+      path: req.path,
+      method: req.method
+    });
     return res.status(403).json({
       success: false,
       error: 'CSRF token missing'
@@ -86,7 +92,10 @@ export function csrfMiddleware(req: Request, res: Response, next: NextFunction) 
 
   // Constant-time comparison to prevent timing attacks
   if (!timingSafeEqual(headerToken, cookieToken)) {
-    console.warn('⚠️ CSRF validation failed: Token mismatch');
+    logSecurityEvent('CSRF validation failed: Token mismatch', {
+      path: req.path,
+      method: req.method
+    });
     return res.status(403).json({
       success: false,
       error: 'Invalid CSRF token'

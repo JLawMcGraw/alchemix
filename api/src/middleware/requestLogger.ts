@@ -81,12 +81,12 @@ const SENSITIVE_QUERY_KEYS = [
  * @param query - Request query parameters
  * @returns Sanitized query object with sensitive fields redacted
  */
-function sanitizeQueryParams(query: any): any {
+export function sanitizeQueryParams(query: Record<string, unknown>): Record<string, unknown> | undefined {
   if (!query || Object.keys(query).length === 0) {
     return undefined;
   }
 
-  const sanitized: any = {};
+  const sanitized: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(query)) {
     const lowerKey = key.toLowerCase();

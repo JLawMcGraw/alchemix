@@ -20,6 +20,7 @@ import crypto from 'crypto';
 import { JWTPayload } from '../types';
 import { tokenBlacklist } from '../utils/tokenBlacklist';
 import { db } from '../database/db';
+import { logger, logSecurityEvent } from '../utils/logger';
 
 /**
  * Extend Express Request Type
@@ -260,7 +261,8 @@ export function getTokenVersion(userId: number): number {
     const result = db.prepare('SELECT token_version FROM users WHERE id = ?').get(userId) as { token_version: number } | undefined;
     return result?.token_version ?? 0;
   } catch (error) {
-    console.error(`❌ Error fetching token version for user ${userId}:`, error);
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Error fetching token version', { userId, error: errorMsg });
     // Return 0 as fallback (rejects all tokens with tv !== 0)
     return 0;
   }
@@ -319,12 +321,17 @@ export function incrementTokenVersion(userId: number): number {
     // Persist to database (survives restarts)
     db.prepare('UPDATE users SET token_version = ? WHERE id = ?').run(newVersion, userId);
 
-    console.log(`🔐 Token version incremented for user ${userId}: ${currentVersion} → ${newVersion} (persisted to DB)`);
-    console.log('   All existing tokens for this user are now invalid permanently');
+    logSecurityEvent('Token version incremented - all sessions invalidated', {
+      userId,
+      oldVersion: currentVersion,
+      newVersion,
+      action: 'token_version_increment'
+    });
 
     return newVersion;
   } catch (error) {
-    console.error(`❌ Error incrementing token version for user ${userId}:`, error);
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Error incrementing token version', { userId, error: errorMsg });
     throw new Error('Failed to invalidate user sessions');
   }
 }
@@ -494,9 +501,12 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
     const currentVersion = getTokenVersion(decoded.userId);
 
     if (tokenVersion !== currentVersion) {
-      console.log(`🔐 Token version mismatch for user ${decoded.userId}:`);
-      console.log(`   Token version: ${tokenVersion}, Current version: ${currentVersion}`);
-      console.log('   This usually means password was changed or user logged out from all devices');
+      logSecurityEvent('Token version mismatch - token invalidated', {
+        userId: decoded.userId,
+        tokenVersion,
+        currentVersion,
+        reason: 'password_changed_or_logout_all'
+      });
 
       return res.status(401).json({
         success: false,
@@ -544,7 +554,8 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
     }
 
     // Unexpected error during authentication - log and return generic error
-    console.error('Authentication error:', error);
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Authentication error', { error: errorMsg });
     return res.status(500).json({
       success: false,
       error: 'Authentication failed'

@@ -48,6 +48,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
+import { logger, logSecurityEvent } from '../utils/logger';
 
 /**
  * Request Tracking Storage
@@ -183,11 +184,12 @@ for (const [bucketKey, timestamps] of userRequests.entries()) {
   const entriesRemoved = totalEntriesBefore - totalEntriesAfter;
 
   if (entriesRemoved > 0 || usersRemoved > 0) {
-    console.log('🧹 User rate limit cleanup:');
-    console.log(`   Removed ${entriesRemoved} old request entries`);
-    console.log(`   Removed ${usersRemoved} inactive users`);
-    console.log(`   Active users: ${userRequests.size}`);
-    console.log(`   Total request entries: ${totalEntriesAfter}`);
+    logger.debug('User rate limit cleanup', {
+      entriesRemoved,
+      usersRemoved,
+      activeUsers: userRequests.size,
+      totalEntries: totalEntriesAfter
+    });
   }
 }, CLEANUP_INTERVAL_MS);
 
@@ -208,7 +210,7 @@ for (const [bucketKey, timestamps] of userRequests.entries()) {
  */
 export function shutdownUserRateLimit(): void {
   clearInterval(cleanupInterval);
-  console.log('🔒 User rate limiter shutdown complete');
+  logger.info('User rate limiter shutdown complete');
 }
 
 /**
@@ -297,9 +299,11 @@ export function userRateLimit(
      * 3. Route handler (actual logic)
      */
     if (!req.user?.userId) {
-      console.error('⚠️  userRateLimit middleware requires authMiddleware to run first');
-      console.error('   req.user is undefined - cannot enforce user-based rate limit');
-      console.error('   Falling back to allowing request (WARNING: Rate limit not enforced)');
+      logger.error('userRateLimit middleware requires authMiddleware to run first', {
+        warning: 'Rate limit not enforced - req.user is undefined',
+        path: req.path,
+        method: req.method
+      });
 
       // Allow request but log warning
       // In production, consider rejecting with 500 (misconfiguration)
@@ -346,10 +350,14 @@ export function userRateLimit(
       const resetTime = oldestTimestamp + windowMs;
       const retryAfterSeconds = Math.ceil((resetTime - now) / 1000);
 
-      console.log(`⚠️  Rate limit exceeded for user ${userId} on ${scope}:`);
-      console.log(`   Requests in last ${windowMinutes} min: ${timestamps.length}`);
-      console.log(`   Maximum allowed: ${maxRequests}`);
-      console.log(`   Retry after: ${retryAfterSeconds} seconds`);
+      logSecurityEvent('Rate limit exceeded', {
+        userId,
+        scope,
+        requestCount: timestamps.length,
+        windowMinutes,
+        maxRequests,
+        retryAfterSeconds
+      });
 
       // Set rate limit headers (RFC 6585 standard)
       res.set('X-RateLimit-Limit', maxRequests.toString());
@@ -380,7 +388,7 @@ export function userRateLimit(
         userRequests.delete(sortedEntries[i].key);
       }
 
-      console.log(`🧹 Rate limiter memory protection: evicted ${entriesToEvict} oldest entries`);
+      logger.info('Rate limiter memory protection: evicted oldest entries', { entriesEvicted: entriesToEvict });
     }
 
     /**
@@ -522,7 +530,7 @@ export function resetUserRateLimit(userId: number): void {
       removed++;
     }
   }
-  console.log(`🔓 Rate limit reset for user ${userId} (cleared ${removed} bucket(s))`);
+  logger.info('Rate limit reset for user', { userId, bucketsCleared: removed });
 }
 
 /**

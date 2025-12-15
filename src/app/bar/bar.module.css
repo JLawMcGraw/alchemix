@@ -35,10 +35,6 @@
   margin: 0;
 }
 
-.titleIcon {
-  color: var(--color-primary);
-}
-
 .subtitleContainer {
   display: flex;
   align-items: center;

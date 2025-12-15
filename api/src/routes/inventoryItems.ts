@@ -28,6 +28,7 @@ import { authMiddleware } from '../middleware/auth';
 import { validateNumber } from '../utils/inputValidator';
 import { asyncHandler } from '../utils/asyncHandler';
 import { inventoryService, VALID_CATEGORIES } from '../services/InventoryService';
+import { logger } from '../utils/logger';
 
 const router = Router();
 
@@ -132,7 +133,7 @@ router.get('/category-counts', asyncHandler(async (req: Request, res: Response) 
 
   const counts = inventoryService.getCategoryCounts(userId);
 
-  console.log('📊 Category counts calculated:', counts);
+  logger.debug('Category counts calculated', { counts });
 
   res.json({
     success: true,

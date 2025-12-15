@@ -24,8 +24,8 @@
  * @date December 2, 2025
  */
 
-import axios, { AxiosInstance } from 'axios';
 import type Database from 'better-sqlite3';
+import { logger } from '../utils/logger';
 import {
   AddMemoriesRequest,
   AddMemoriesResponse,
@@ -43,6 +43,25 @@ import {
 } from '../types/memmachine';
 
 const { ORG_ID, DEFAULT_SEARCH_LIMIT, MAX_PROMPT_RECIPES } = MEMMACHINE_CONSTANTS;
+
+/**
+ * Custom HTTP Error for fetch responses
+ */
+class HttpError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'HttpError';
+    this.status = status;
+  }
+}
+
+/**
+ * Check if error is an HTTP error with specific status
+ */
+function isHttpError(error: unknown): error is HttpError {
+  return error instanceof HttpError;
+}
 
 /**
  * MemoryService Configuration
@@ -77,17 +96,62 @@ export interface CollectionData {
  * Provides type-safe interface to MemMachine v2 API
  */
 export class MemoryService {
-  private client: AxiosInstance;
+  private baseURL: string;
+  private timeout: number;
   private projectCache: Set<string> = new Set(); // Cache of created projects
 
   constructor(config: MemoryServiceConfig) {
-    this.client = axios.create({
-      baseURL: config.baseURL,
-      timeout: config.timeout || 120000, // 120 seconds for batch operations
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    this.baseURL = config.baseURL;
+    this.timeout = config.timeout || 120000; // 120 seconds for batch operations
+  }
+
+  /**
+   * Make HTTP POST request using native fetch
+   */
+  private async post<T>(path: string, body: unknown): Promise<T> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+
+    try {
+      const response = await fetch(`${this.baseURL}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new HttpError(`HTTP ${response.status}: ${response.statusText}`, response.status);
+      }
+
+      return await response.json() as T;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  /**
+   * Make HTTP GET request using native fetch
+   */
+  private async get<T>(path: string): Promise<T> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+
+    try {
+      const response = await fetch(`${this.baseURL}${path}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new HttpError(`HTTP ${response.status}: ${response.statusText}`, response.status);
+      }
+
+      return await response.json() as T;
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
   /**
@@ -116,11 +180,11 @@ export class MemoryService {
         description: `${projectType} for user ${userId}`,
       };
 
-      await this.client.post('/api/v2/projects', request);
+      await this.post('/api/v2/projects', request);
       this.projectCache.add(projectId);
-      console.log(`📁 MemMachine: Created project ${projectId}`);
+      logger.info('MemMachine: Created project', { projectId });
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.status === 409) {
+      if (isHttpError(error) && error.status === 409) {
         // 409 Conflict = project already exists, which is fine
         this.projectCache.add(projectId);
       } else {
@@ -251,20 +315,19 @@ export class MemoryService {
         ],
       };
 
-      const response = await this.client.post<AddMemoriesResponse>('/api/v2/memories', request);
+      const response = await this.post<AddMemoriesResponse>('/api/v2/memories', request);
 
-      const uid = response.data.results?.[0]?.uid;
+      const uid = response.results?.[0]?.uid;
       if (uid) {
-        console.log(`✅ MemMachine: Stored recipe "${recipe.name}" for user ${userId} (UID: ${uid})`);
+        logger.info('MemMachine: Stored recipe', { recipeName: recipe.name, userId, uid });
         return uid;
       }
 
-      console.warn(`⚠️ MemMachine: No UID returned for recipe "${recipe.name}"`);
+      logger.warn('MemMachine: No UID returned for recipe', { recipeName: recipe.name });
       return null;
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        console.error(`❌ MemMachine: Failed to store recipe for user ${userId}:`, error.message);
-      }
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('MemMachine: Failed to store recipe', { userId, error: errorMsg });
       // Don't throw - recipe storage in MemMachine is optional (fire-and-forget)
       return null;
     }
@@ -302,7 +365,7 @@ export class MemoryService {
     const errors: string[] = [];
     const uidMap = new Map<string, string>();
 
-    console.log(`📦 MemMachine: Starting batch upload of ${recipes.length} recipes for user ${userId}`);
+    logger.info('MemMachine: Starting batch upload', { recipeCount: recipes.length, userId });
 
     // Ensure project exists once
     const projectId = await this.ensureProjectExists(userId, 'recipes');
@@ -313,7 +376,7 @@ export class MemoryService {
       const batchNumber = Math.floor(i / batchSize) + 1;
       const totalBatches = Math.ceil(recipes.length / batchSize);
 
-      console.log(`📦 MemMachine: Processing batch ${batchNumber}/${totalBatches} (${batch.length} recipes)`);
+      logger.info('MemMachine: Processing batch', { batchNumber, totalBatches, batchSize: batch.length });
 
       // Process each recipe in the current batch concurrently
       const batchPromises = batch.map(async (recipe) => {
@@ -332,18 +395,14 @@ export class MemoryService {
             ],
           };
 
-          const response = await this.client.post<AddMemoriesResponse>('/api/v2/memories', request);
-          const uid = response.data.results?.[0]?.uid;
+          const response = await this.post<AddMemoriesResponse>('/api/v2/memories', request);
+          const uid = response.results?.[0]?.uid;
 
-          console.log(`✅ MemMachine: Stored recipe "${recipe.name}" for user ${userId} (UID: ${uid})`);
+          logger.info('MemMachine: Stored recipe in batch', { recipeName: recipe.name, userId, uid });
           return { success: true, recipe: recipe.name, uid };
         } catch (error) {
-          const errorMsg = axios.isAxiosError(error)
-            ? error.message
-            : error instanceof Error
-            ? error.message
-            : 'Unknown error';
-          console.error(`❌ MemMachine: Failed to store recipe "${recipe.name}" for user ${userId}:`, errorMsg);
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          logger.error('MemMachine: Failed to store recipe in batch', { recipeName: recipe.name, userId, error: errorMsg });
           return { success: false, recipe: recipe.name, uid: null, error: errorMsg };
         }
       });
@@ -375,9 +434,7 @@ export class MemoryService {
       }
     }
 
-    console.log(
-      `✅ MemMachine: Batch upload complete - ${successCount} succeeded, ${failedCount} failed, ${uidMap.size} UIDs captured`
-    );
+    logger.info('MemMachine: Batch upload complete', { succeeded: successCount, failed: failedCount, uidsCaptured: uidMap.size });
 
     return { success: successCount, failed: failedCount, errors, uidMap };
   }
@@ -404,27 +461,23 @@ export class MemoryService {
         top_k: DEFAULT_SEARCH_LIMIT,
       };
 
-      const response = await this.client.post<SearchResultResponse>('/api/v2/memories/search', searchRequest);
+      const response = await this.post<SearchResultResponse>('/api/v2/memories/search', searchRequest);
 
       // Validate and normalize response structure
-      const normalizedResult = this.validateAndNormalizeResponse(response.data);
+      const normalizedResult = this.validateAndNormalizeResponse(response);
 
-      console.log(
-        `🔍 MemMachine: Found ${normalizedResult.episodic.length} episodic + ${normalizedResult.semantic.length} semantic results for user ${userId}`
-      );
+      logger.info('MemMachine: Search results', { userId, episodicCount: normalizedResult.episodic.length, semanticCount: normalizedResult.semantic.length });
 
       return normalizedResult;
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        // 404 is expected if user has no recipes yet
-        if (error.response?.status === 404) {
-          console.log(`ℹ️ MemMachine: No project found for user ${userId} (new user)`);
-          return { episodic: [], semantic: [] };
-        }
-        console.error(`❌ MemMachine: User profile query failed for user ${userId}:`, error.message);
-        throw new Error(`Failed to query user profile: ${error.message}`);
+      // 404 is expected if user has no recipes yet
+      if (isHttpError(error) && error.status === 404) {
+        logger.info('MemMachine: No project found for user (new user)', { userId });
+        return { episodic: [], semantic: [] };
       }
-      throw error;
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('MemMachine: User profile query failed', { userId, error: errorMsg });
+      throw new Error(`Failed to query user profile: ${errorMsg}`);
     }
   }
 
@@ -470,14 +523,13 @@ export class MemoryService {
         ],
       };
 
-      await this.client.post('/api/v2/memories', request);
+      await this.post('/api/v2/memories', request);
 
-      console.log(`💬 MemMachine: Stored conversation turn for user ${userId} in project ${projectId}`);
+      logger.info('MemMachine: Stored conversation turn', { userId, projectId });
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        console.error(`❌ MemMachine: Failed to store conversation for user ${userId}:`, error.message);
-        // Don't throw - conversation storage is optional
-      }
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('MemMachine: Failed to store conversation', { userId, error: errorMsg });
+      // Don't throw - conversation storage is optional
     }
   }
 
@@ -507,21 +559,18 @@ export class MemoryService {
         episodic_id: uid,
       };
 
-      await this.client.post('/api/v2/memories/episodic/delete', request);
+      await this.post('/api/v2/memories/episodic/delete', request);
 
-      const logName = recipeName ? `"${recipeName}"` : `with UID ${uid}`;
-      console.log(`✅ MemMachine: Deleted recipe ${logName} for user ${userId}`);
+      logger.info('MemMachine: Deleted recipe', { userId, recipeName: recipeName || undefined, uid });
       return true;
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        const logName = recipeName ? `"${recipeName}"` : `with UID ${uid}`;
-        // 404 is acceptable - recipe might have already been deleted
-        if (error.response?.status === 404) {
-          console.log(`ℹ️ MemMachine: Recipe ${logName} not found (already deleted)`);
-          return true;
-        }
-        console.error(`❌ MemMachine: Failed to delete recipe ${logName} for user ${userId}:`, error.message);
+      // 404 is acceptable - recipe might have already been deleted
+      if (isHttpError(error) && error.status === 404) {
+        logger.info('MemMachine: Recipe not found (already deleted)', { userId, recipeName: recipeName || undefined, uid });
+        return true;
       }
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('MemMachine: Failed to delete recipe', { userId, recipeName: recipeName || undefined, uid, error: errorMsg });
       // Don't throw - deletion failures shouldn't break the app
       return false;
     }
@@ -537,9 +586,7 @@ export class MemoryService {
    * @param recipeName - Name of recipe to delete
    */
   async deleteUserRecipe(userId: number, recipeName: string): Promise<void> {
-    console.log(
-      `ℹ️  MemMachine: Recipe "${recipeName}" deleted from AlcheMix (legacy recipe without UID - data remains in MemMachine)`
-    );
+    logger.info('MemMachine: Legacy recipe deleted from AlcheMix (no UID)', { userId, recipeName });
   }
 
   /**
@@ -558,7 +605,7 @@ export class MemoryService {
     let successCount = 0;
     let failedCount = 0;
 
-    console.log(`🗑️ MemMachine: Starting batch deletion of ${uids.length} recipes for user ${userId}`);
+    logger.info('MemMachine: Starting batch deletion', { uidCount: uids.length, userId });
 
     const projectId = buildRecipeProjectId(userId);
 
@@ -567,7 +614,7 @@ export class MemoryService {
       const batchNumber = Math.floor(i / batchSize) + 1;
       const totalBatches = Math.ceil(uids.length / batchSize);
 
-      console.log(`🗑️ MemMachine: Processing deletion batch ${batchNumber}/${totalBatches} (${batch.length} UIDs)`);
+      logger.info('MemMachine: Processing deletion batch', { batchNumber, totalBatches, batchSize: batch.length });
 
       const batchPromises = batch.map(async (uid) => {
         try {
@@ -577,11 +624,11 @@ export class MemoryService {
             episodic_id: uid,
           };
 
-          await this.client.post('/api/v2/memories/episodic/delete', request);
+          await this.post('/api/v2/memories/episodic/delete', request);
           return { success: true };
         } catch (error) {
           // 404 is acceptable
-          if (axios.isAxiosError(error) && error.response?.status === 404) {
+          if (isHttpError(error) && error.status === 404) {
             return { success: true };
           }
           return { success: false };
@@ -603,7 +650,7 @@ export class MemoryService {
       }
     }
 
-    console.log(`✅ MemMachine: Batch deletion complete - ${successCount} succeeded, ${failedCount} failed`);
+    logger.info('MemMachine: Batch deletion complete', { succeeded: successCount, failed: failedCount });
 
     return { success: successCount, failed: failedCount };
   }
@@ -629,22 +676,21 @@ export class MemoryService {
         project_id: projectId,
       };
 
-      await this.client.post('/api/v2/projects/delete', request);
+      await this.post('/api/v2/projects/delete', request);
 
       // Remove from cache so it can be recreated
       this.projectCache.delete(projectId);
 
-      console.log(`🗑️ MemMachine: Deleted ALL recipe memories for user ${userId} (project: ${projectId})`);
+      logger.info('MemMachine: Deleted ALL recipe memories', { userId, projectId });
       return true;
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        // 404 is acceptable - project might not exist
-        if (error.response?.status === 404) {
-          console.log(`ℹ️ MemMachine: Project for user ${userId} not found (already deleted or never existed)`);
-          return true;
-        }
-        console.error(`❌ MemMachine: Failed to delete all recipe memories for user ${userId}:`, error.message);
+      // 404 is acceptable - project might not exist
+      if (isHttpError(error) && error.status === 404) {
+        logger.info('MemMachine: Project not found (already deleted or never existed)', { userId });
+        return true;
       }
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('MemMachine: Failed to delete all recipe memories', { userId, error: errorMsg });
       return false;
     }
   }
@@ -678,14 +724,13 @@ export class MemoryService {
         ],
       };
 
-      await this.client.post('/api/v2/memories', request);
+      await this.post('/api/v2/memories', request);
 
-      console.log(`📁 MemMachine: Stored collection "${collection.name}" for user ${userId}`);
+      logger.info('MemMachine: Stored collection', { collectionName: collection.name, userId });
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        console.error(`❌ MemMachine: Failed to store collection for user ${userId}:`, error.message);
-        // Don't throw - collection storage is optional
-      }
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('MemMachine: Failed to store collection', { userId, error: errorMsg });
+      // Don't throw - collection storage is optional
     }
   }
 
@@ -710,7 +755,7 @@ export class MemoryService {
       const userContext = await this.queryUserProfile(userId, query);
       return { userContext };
     } catch (error) {
-      console.warn(`MemoryService: User context query failed for user ${userId}, continuing without it`);
+      logger.warn('MemoryService: User context query failed, continuing without it', { userId });
       return { userContext: null };
     }
   }
@@ -775,13 +820,13 @@ export class MemoryService {
             const exists = db.prepare('SELECT 1 FROM recipes WHERE user_id = ? AND name = ? LIMIT 1').get(userId, recipeName);
 
             if (!exists) {
-              console.log(`🗑️ Filtered out deleted recipe from MemMachine context: "${recipeName}"`);
+              logger.info('Filtered out deleted recipe from MemMachine context', { recipeName });
               continue;
             }
 
             // Check if already recommended in this conversation
             if (alreadyRecommended.has(recipeName)) {
-              console.log(`🔄 Filtered out already-recommended recipe: "${recipeName}"`);
+              logger.info('Filtered out already-recommended recipe', { recipeName });
               continue;
             }
 
@@ -798,7 +843,7 @@ export class MemoryService {
           if (match) {
             const recipeName = match[1].trim();
             if (alreadyRecommended.has(recipeName)) {
-              console.log(`🔄 Filtered out already-recommended recipe: "${recipeName}"`);
+              logger.info('Filtered out already-recommended recipe', { recipeName });
               continue;
             }
           }
@@ -838,9 +883,9 @@ export class MemoryService {
    */
   async healthCheck(): Promise<boolean> {
     try {
-      const response = await axios.get(`${this.client.defaults.baseURL}/api/v2/health`);
-      return response.data.status === 'healthy';
-    } catch (error) {
+      const response = await this.get<{ status: string }>('/api/v2/health');
+      return response.status === 'healthy';
+    } catch {
       return false;
     }
   }
@@ -850,7 +895,7 @@ export class MemoryService {
  * Singleton instance for application-wide use
  */
 const memMachineURL = process.env.MEMMACHINE_API_URL || 'http://localhost:8080';
-console.log(`🔧 MemMachine Service initialized (v2 API) with URL: ${memMachineURL}`);
+logger.info('MemMachine Service initialized (v2 API)', { url: memMachineURL });
 
 export const memoryService = new MemoryService({
   baseURL: memMachineURL,

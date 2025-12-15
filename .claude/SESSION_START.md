@@ -9,9 +9,9 @@
 
 **Read when needed:**
 - `alchemix-design-system.md` - Full "Molecular Mixology" design specification
+- `Documentation/ARCHITECTURE.md` - System architecture, dependency maps, security
 - `Documentation/DEV_NOTES.md` - Technical decisions, gotchas, lessons learned
 - `CHANGELOG.md` - Version history and changes
-- `MONOREPO_SETUP.md` - Development workflow details
 
 ---
 
@@ -23,9 +23,9 @@
 |-------|-------|
 | Version | v1.30.0 |
 | Phase | Feature Development |
-| Last Updated | December 12, 2025 |
+| Last Updated | December 15, 2025 |
 | Blockers | None |
-| Tests | 206 frontend tests passing |
+| Tests | 1,080 total (750 backend, 206 frontend, 124 recipe-molecule) |
 | Active Branch | `alchemix-redesign` |
 
 ### Visual Redesign Status: COMPLETE
@@ -53,23 +53,27 @@ All 10 phases of the "Molecular Mixology" visual redesign are complete:
 alchemix/
 ├── src/                        # Frontend (Next.js)
 │   ├── app/                    # Pages: login, dashboard, bar, ai, recipes, favorites, shopping-list, account
-│   ├── components/             # ui/, layout/, modals/
-│   ├── hooks/                  # useAuthGuard.ts
-│   ├── lib/                    # api.ts, store.ts, aiPersona.ts, passwordPolicy.ts, spirits.ts
+│   ├── components/             # ui/, layout/, modals/, PeriodicTableV2/, RecipeCard/, BottleCard/
+│   ├── hooks/                  # useAuthGuard.ts, useSettings.ts
+│   ├── lib/                    # api.ts, store/, periodicTable/, formatters.ts
 │   ├── styles/                 # globals.css (design system)
 │   └── types/                  # TypeScript definitions
 ├── api/                        # Backend (Express)
 │   ├── src/
-│   │   ├── routes/             # auth, inventory, inventoryItems, recipes, collections, favorites, messages, shoppingList
-│   │   ├── services/           # MemoryService.ts (MemMachine integration)
-│   │   ├── middleware/         # auth.ts, errorHandler.ts, userRateLimit.ts
+│   │   ├── routes/             # auth/, inventory, recipes, collections, favorites, messages, shoppingList, classifications
+│   │   ├── services/           # AIService, MemoryService, ClassificationService, ShoppingListService, etc.
+│   │   ├── middleware/         # auth.ts, csrf.ts, errorHandler.ts, requestId.ts, requestLogger.ts, userRateLimit.ts
+│   │   ├── config/             # env.ts, rateLimiter.ts, validateEnv.ts
 │   │   ├── database/           # db.ts (SQLite schema)
-│   │   ├── utils/              # tokenBlacklist.ts, inputValidation.ts
-│   │   └── tests/              # 318 tests
+│   │   ├── utils/              # logger.ts, tokenBlacklist.ts, inputValidation.ts
+│   │   └── tests/              # 750 tests (29 test files)
 │   └── data/                   # SQLite database (auto-generated)
+├── packages/                   # Shared packages
+│   ├── recipe-molecule/        # Chemical bond-style recipe visualization
+│   └── types/                  # Shared TypeScript definitions
 ├── docker/                     # Docker configs for MemMachine, Neo4j, etc.
-├── Documentation/              # PROJECT_PROGRESS.md, DEV_NOTES.md, archives/
-└── public/                     # Logo assets
+├── Documentation/              # ARCHITECTURE.md, PROJECT_PROGRESS.md, DEV_NOTES.md, REDESIGN_PLAN.md
+└── public/                     # Logo assets (icon.svg, logo.svg, logo-text.svg)
 ```
 
 ---
@@ -90,7 +94,7 @@ npm run type-check              # Frontend
 cd api && npm run type-check    # Backend
 
 # Run tests
-cd api && npm test              # All 318 tests
+cd api && npm test              # All 750 tests
 cd api && npm run test:unit     # Unit tests only
 cd api && npm run test:routes   # Route tests only
 
@@ -122,7 +126,7 @@ docker compose -f docker/docker-compose.yml up --build
 ### Before Completing Work
 - [ ] `npm run type-check` passes (frontend)
 - [ ] `cd api && npm run type-check` passes (backend)
-- [ ] `cd api && npm test` passes (318 tests)
+- [ ] `cd api && npm test` passes (750 tests)
 - [ ] `npm run lint` passes
 - [ ] No console errors in browser
 
@@ -201,21 +205,23 @@ NEXT_PUBLIC_API_URL=http://localhost:3000
 
 ### Next Steps
 
-**Recent Major Updates** (Dec 12, 2025):
-- Bug fixes and UX improvements:
-  - Fixed Agave Nectar false positive in Periodic Table (removed generic 'agave' keyword)
-  - Fixed spirit filter dropdown on Recipes page (now checks ingredients, not spirit_type field)
-  - Fixed "ginger beer" matching "Gin" filter (added word boundary matching)
-  - Fixed loading state flicker on Bar/Recipes pages (hasInitiallyLoaded + spinners)
-  - Added periodic tags display to BottleCard (below name) and ItemDetailModal
-  - Removed category badge from BottleCard (now only shows in modal)
+**Recent Major Updates** (Dec 15, 2025):
+- Major codebase refactoring:
+  - Split auth.ts (1,585 lines) into auth/ folder with 7 modular files
+  - Split recipes/page.tsx into 6 components with useRecipesPage custom hook
+  - Split periodicTableV2.ts into periodicTable/ folder with 6 files
+  - Created AIService.ts, ShoppingListService.ts, ClassificationService.ts
+- Winston logger migration (replaced all console.log)
+- Added 10 new test files (262 new tests) → 750 backend tests total
+- Created ARCHITECTURE.md with dependency maps and security architecture
+- Cleaned up 30+ outdated documentation files
 
 **Potential Future Work**:
-1. Further refinement of element matching keywords
-2. Add ability to reclassify items manually
-3. Persist element swap selection per cell
-4. Add search/filter within periodic table
-5. Apply Brownian motion animations to Recipe Molecule nodes
+1. Integration tests for new services
+2. Further refinement of element matching keywords
+3. Add ability to reclassify items manually
+4. Persist element swap selection per cell
+5. Add search/filter within periodic table
 
 ---
 

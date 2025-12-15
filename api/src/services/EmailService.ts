@@ -28,6 +28,7 @@
  */
 
 import nodemailer from 'nodemailer';
+import { logger } from '../utils/logger';
 
 // Configuration from environment
 const SMTP_HOST = process.env.SMTP_HOST;
@@ -57,14 +58,14 @@ if (isConfigured) {
   // Verify connection on startup
   transporter.verify((error) => {
     if (error) {
-      console.error('❌ SMTP connection failed:', error.message);
+      logger.error('SMTP connection failed', { error: error.message });
     } else {
-      console.log('✅ SMTP server is ready to send emails');
+      logger.info('SMTP server is ready to send emails');
     }
   });
 } else {
-  console.log('⚠️ SMTP not configured - emails will be logged to console');
-  console.log('   Set SMTP_HOST, SMTP_USER, SMTP_PASS environment variables to enable email sending');
+  logger.warn('SMTP not configured - emails will be logged to console');
+  logger.info('Set SMTP_HOST, SMTP_USER, SMTP_PASS environment variables to enable email sending');
 }
 
 /**
@@ -73,10 +74,11 @@ if (isConfigured) {
 async function sendEmail(to: string, subject: string, html: string): Promise<void> {
   if (!transporter) {
     // Development mode: log email to console
-    console.log('\n📧 EMAIL (SMTP not configured - logging to console):');
-    console.log(`   To: ${to}`);
-    console.log(`   Subject: ${subject}`);
-    console.log(`   Body:\n${html.replace(/<[^>]*>/g, '')}\n`); // Strip HTML for console
+    logger.info('EMAIL (SMTP not configured - logging to console)', {
+      to,
+      subject,
+      body: html.replace(/<[^>]*>/g, '').substring(0, 1500) // Strip HTML, limit length for logs
+    });
     return;
   }
 
@@ -87,10 +89,10 @@ async function sendEmail(to: string, subject: string, html: string): Promise<voi
       subject,
       html,
     });
-    console.log(`✅ Email sent successfully to ${to}`);
+    logger.info('Email sent successfully', { to });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error(`❌ Failed to send email to ${to}:`, message);
+    logger.error('Failed to send email', { to, error: message });
     throw new Error('Failed to send email. Please try again later.');
   }
 }
