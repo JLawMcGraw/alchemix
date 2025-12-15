@@ -113,11 +113,11 @@ flowchart LR
     end
 
     subgraph API["API Layer"]
-        AuthR[/auth/*]
-        InvR[/api/inventory]
-        RecR[/api/recipes]
-        MsgR[/api/messages]
-        ShopR[/api/shopping-list]
+        AuthR["/auth/*"]
+        InvR["/api/inventory"]
+        RecR["/api/recipes"]
+        MsgR["/api/messages"]
+        ShopR["/api/shopping-list"]
     end
 
     subgraph Business["Business Layer"]
@@ -351,29 +351,29 @@ graph LR
         subgraph AuthSlice["Auth Slice"]
             User[user]
             IsAuth[isAuthenticated]
-            Login[login()]
-            Logout[logout()]
+            Login["login()"]
+            Logout["logout()"]
         end
 
         subgraph InventorySlice["Inventory Slice"]
             Items[inventoryItems]
-            FetchItems[fetchItems()]
-            AddItem[addItem()]
-            UpdateItem[updateItem()]
-            DeleteItem[deleteItem()]
+            FetchItems["fetchItems()"]
+            AddItem["addItem()"]
+            UpdateItem["updateItem()"]
+            DeleteItem["deleteItem()"]
         end
 
         subgraph RecipesSlice["Recipes Slice"]
             RecList[recipes]
             Collections[collections]
-            FetchRec[fetchRecipes()]
-            AddRec[addRecipe()]
+            FetchRec["fetchRecipes()"]
+            AddRec["addRecipe()"]
         end
 
         subgraph ChatSlice["Chat Slice"]
             Messages[chatHistory]
             ShopItems[shoppingListItems]
-            SendMsg[sendMessage()]
+            SendMsg["sendMessage()"]
         end
     end
 
