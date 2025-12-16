@@ -22,8 +22,8 @@
 | Field | Value |
 |-------|-------|
 | Version | v1.30.0 |
-| Phase | Feature Development |
-| Last Updated | December 15, 2025 |
+| Phase | Feature Development - AI Bartender Enhancements |
+| Last Updated | December 16, 2025 |
 | Blockers | None |
 | Tests | 1,080 total (750 backend, 206 frontend, 124 recipe-molecule) |
 | Active Branch | `alchemix-redesign` |
@@ -41,8 +41,8 @@ All 10 phases of the "Molecular Mixology" visual redesign are complete:
 
 - **Frontend**: Next.js 14, TypeScript 5.3, Zustand 4.5, CSS Modules
 - **Backend**: Express.js 4.18, TypeScript, SQLite (better-sqlite3)
-- **AI**: Claude Haiku 4.5 (`claude-haiku-4-5-20251001`) with Prompt Caching
-- **Memory**: MemMachine (Neo4j vector store, semantic search)
+- **AI**: Claude Sonnet 4.5 (`claude-sonnet-4-5-20250929`) with Prompt Caching
+- **Memory**: MemMachine (Neo4j vector store, semantic search) + SQLite hybrid search
 - **Auth**: JWT + bcrypt, token blacklist, database-backed token versioning
 
 ---

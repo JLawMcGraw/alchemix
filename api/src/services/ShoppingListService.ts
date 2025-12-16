@@ -417,6 +417,18 @@ class ShoppingListService {
 
     const normalizedIngredient = this.normalizeForMatching(ingredientName);
 
+    // Debug logging for specific ingredients we're having trouble with
+    const debugIngredients = ['orgeat', 'passion fruit', 'passion', 'passionfruit'];
+    const isDebugIngredient = debugIngredients.some(d => normalizedIngredient.includes(d));
+    if (isDebugIngredient) {
+      logger.info('[CRAFTABILITY-DEBUG] Checking ingredient', {
+        original: ingredientName,
+        normalized: normalizedIngredient,
+        bottleCount: bottles.length,
+        bottleNames: bottles.map(b => b.name).slice(0, 10)
+      });
+    }
+
     // Check pantry items
     if (ALWAYS_AVAILABLE_INGREDIENTS.has(normalizedIngredient)) {
       return true;
@@ -428,7 +440,7 @@ class ShoppingListService {
       candidates.push(...SYNONYMS[normalizedIngredient]);
     }
 
-    return candidates.some(candidate => {
+    const result = candidates.some(candidate => {
       const ingredientTokens = candidate
         .split(/[\s\/\-,]+/)
         .filter(t => t.length > 2);
@@ -506,6 +518,17 @@ class ShoppingListService {
         return false;
       });
     });
+
+    // Debug logging for problematic ingredients
+    if (isDebugIngredient) {
+      logger.info('[CRAFTABILITY-DEBUG] Result for ingredient', {
+        ingredient: normalizedIngredient,
+        hasMatch: result,
+        candidates
+      });
+    }
+
+    return result;
   }
 
   /**

@@ -1,7 +1,7 @@
 # AlcheMix Architecture
 
 **Version**: v1.30.0
-**Last Updated**: December 14, 2025
+**Last Updated**: December 16, 2025
 
 This document provides a comprehensive map of the AlcheMix system architecture, including high-level diagrams, component relationships, and data flows.
 
@@ -81,8 +81,8 @@ graph TB
 | | TypeScript | Type safety |
 | | better-sqlite3 | SQLite database driver |
 | **Database** | SQLite | Embedded relational database |
-| **AI** | Claude Haiku 4.5 | AI bartender recommendations |
-| **Memory** | MemMachine v2 | Semantic search & memory |
+| **AI** | Claude Sonnet 4.5 | AI bartender recommendations |
+| **Memory** | SQLite + MemMachine v2 | Hybrid search (exact + semantic) |
 | | Neo4j 5.23 | Vector embeddings storage |
 | **Auth** | JWT | Token-based authentication |
 | | bcrypt | Password hashing |
@@ -222,6 +222,7 @@ alchemix/
 │       │   ├── glasses.ts
 │       │   └── classifications.ts
 │       ├── services/            # Business Logic
+│       │   ├── AIService.ts           # Claude AI integration
 │       │   ├── InventoryService.ts
 │       │   ├── RecipeService.ts
 │       │   ├── CollectionService.ts
@@ -229,7 +230,10 @@ alchemix/
 │       │   ├── MemoryService.ts
 │       │   ├── EmailService.ts
 │       │   ├── GlassService.ts
+│       │   ├── ShoppingListService.ts # Craftability calculations
 │       │   └── ClassificationService.ts
+│       ├── data/                # Static Data
+│       │   └── cocktailIngredients.json  # 100+ cocktail recipes for query expansion
 │       ├── middleware/          # Express Middleware
 │       │   ├── auth.ts
 │       │   ├── csrf.ts
@@ -447,6 +451,8 @@ graph TB
         S4[CollectionService]
         S5[FavoriteService]
         S6[EmailService]
+        S7[AIService]
+        S8[ShoppingListService]
     end
 
     subgraph Database
@@ -460,9 +466,8 @@ graph TB
 
     R1 --> S1
     R2 --> S2
-    R3 --> S3
-    R4 --> S1
-    R4 --> S2
+    R3 --> S7
+    R4 --> S8
     R5 --> S4
     R6 --> S5
 
@@ -470,8 +475,11 @@ graph TB
     S2 --> DB
     S4 --> DB
     S5 --> DB
+    S8 --> DB
 
-    S3 --> Claude
+    S7 --> Claude
+    S7 --> S3
+    S7 --> S8
     S3 --> MM
     S2 --> S3
 ```
@@ -691,24 +699,29 @@ sequenceDiagram
     participant Store as Chat Slice
     participant API as API Client
     participant Route as messages.ts
-    participant Memory as MemoryService
-    participant Claude as Claude API
+    participant AISvc as AIService
+    participant DB as SQLite
     participant MM as MemMachine
+    participant Claude as Claude API
 
     UI->>Store: sendMessage(text)
     Store->>API: aiApi.sendMessage(message, history)
     API->>Route: POST /api/messages
-    Route->>Memory: processMessage()
+    Route->>AISvc: processMessage()
 
-    Memory->>MM: Search similar recipes
-    MM-->>Memory: Relevant recipes
+    Note over AISvc: Hybrid Search (parallel)
+    AISvc->>DB: Search by ingredients (exact match)
+    AISvc->>MM: Search semantically (vector similarity)
+    DB-->>AISvc: SQLite matches
+    MM-->>AISvc: MemMachine matches
 
-    Memory->>Memory: Build context prompt
-    Memory->>Claude: Send to Claude Haiku
-    Claude-->>Memory: AI response
+    AISvc->>AISvc: Merge & deduplicate results
+    AISvc->>AISvc: Compute craftability markers
+    AISvc->>AISvc: Build context prompt
+    AISvc->>Claude: Send to Claude Sonnet 4.5
+    Claude-->>AISvc: AI response
 
-    Memory->>MM: Store interaction
-    Memory-->>Route: Response + recommendations
+    AISvc-->>Route: Response + recommendations
     Route-->>API: JSON response
     API-->>Store: Update chatHistory
     Store-->>UI: Display response
@@ -723,35 +736,44 @@ sequenceDiagram
 ```mermaid
 graph LR
     subgraph Backend
-        MS[MemoryService]
+        AIService[AIService]
         Persona[AI Persona Config]
+        CocktailData[cocktailIngredients.json]
     end
 
     subgraph Claude["Claude API"]
-        Haiku[Claude Haiku 4.5]
+        Sonnet[Claude Sonnet 4.5]
     end
 
     subgraph Context["Context Building"]
         Inventory[User's Inventory]
-        Recipes[User's Recipes]
+        SearchResults[Hybrid Search Results]
         History[Chat History]
+        Markers[Craftability Markers]
     end
 
-    Context --> MS
-    Persona --> MS
-    MS -->|Messages API| Haiku
-    Haiku -->|Response| MS
+    CocktailData -->|Query Expansion| AIService
+    Context --> AIService
+    Persona --> AIService
+    AIService -->|Messages API| Sonnet
+    Sonnet -->|Response| AIService
 ```
 
-### MemMachine Integration
+### Hybrid Search Architecture
 
 ```mermaid
 graph TB
     subgraph App["AlcheMix Backend"]
-        MS[MemoryService]
+        AIService[AIService]
+        ShopSvc[ShoppingListService]
     end
 
-    subgraph MemMachine["MemMachine v2"]
+    subgraph SQLite["SQLite (Exact Match)"]
+        RecipeDB[(recipes table)]
+        IngredientMatch[Ingredient Search]
+    end
+
+    subgraph MemMachine["MemMachine v2 (Semantic)"]
         API[REST API :8080]
         Engine[Memory Engine]
     end
@@ -760,18 +782,24 @@ graph TB
         VectorDB[(Vector Embeddings)]
     end
 
-    MS -->|Store recipe| API
-    MS -->|Search similar| API
-    MS -->|Delete by UID| API
+    AIService -->|Query expansion| IngredientMatch
+    IngredientMatch --> RecipeDB
+    AIService -->|Semantic search| API
     API --> Engine
     Engine --> VectorDB
+
+    RecipeDB -->|Exact matches| AIService
+    VectorDB -->|Similar recipes| AIService
+
+    AIService -->|Compute craftability| ShopSvc
 ```
 
-**MemMachine Features Used:**
-- Recipe storage with UIDs for tracking
-- Semantic similarity search
-- Per-user project isolation (`org: alchemix`, `project: user_{id}_recipes`)
-- Vector embeddings via Neo4j GDS plugin
+**Hybrid Search Features:**
+- **SQLite ingredient matching**: Fast exact search with 100+ cocktail query expansions
+- **MemMachine semantic search**: Vector similarity for recipe discovery
+- **Intelligent prioritization**: Specific ingredients (green chartreuse) searched before generic (gin, lime)
+- **Pre-computed craftability markers**: ✅ CRAFTABLE, ⚠️ NEAR-MISS, ❌ MISSING verified against user inventory
+- **Per-user isolation**: `org: alchemix`, `project: user_{id}_recipes`
 
 ---
 
@@ -822,7 +850,7 @@ npm run dev:all          # Start frontend + backend
 npm run type-check       # TypeScript checks (all packages)
 
 # Testing
-cd api && npm test       # Backend tests (732)
+cd api && npm test       # Backend tests (750)
 npm test                 # Frontend tests (206)
 cd packages/recipe-molecule && npm test  # Molecule tests (124)
 
@@ -907,7 +935,8 @@ docker compose -f docker/docker-compose.yml up -d
 | `routes/messages.ts` | services/AIService, MemoryService | (pure) |
 | `services/InventoryService.ts` | database/db | (pure) |
 | `services/RecipeService.ts` | database/db, MemoryService | (pure) |
-| `services/AIService.ts` | - | @anthropic-ai/sdk |
+| `services/AIService.ts` | ShoppingListService, data/cocktailIngredients.json | @anthropic-ai/sdk |
+| `services/ShoppingListService.ts` | database/db | (pure) |
 | `services/MemoryService.ts` | utils/logger | fetch (built-in) |
 | `services/EmailService.ts` | config/validateEnv | nodemailer |
 | `utils/logger.ts` | - | winston |
@@ -1002,7 +1031,7 @@ packages/types/
         │   (local)     │   │  (Docker)     │   │  (Anthropic)  │
         ├───────────────┤   ├───────────────┤   ├───────────────┤
         │ Users         │   │ POST /store   │   │ Messages API  │
-        │ Inventory     │   │ POST /query   │   │ claude-3-haiku│
+        │ Inventory     │   │ POST /query   │   │ sonnet-4.5    │
         │ Recipes       │   │ DELETE /mem   │   │ max_tokens:   │
         │ Collections   │   │               │   │ 1024          │
         │ Favorites     │   └───────┬───────┘   └───────────────┘
@@ -1084,4 +1113,4 @@ Request Flow:
 
 ---
 
-*Last updated: December 14, 2025*
+*Last updated: December 16, 2025*

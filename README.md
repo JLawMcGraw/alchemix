@@ -6,7 +6,7 @@
 
 Modern cocktail inventory and recipe management system with AI-powered bartender recommendations. Features a "Molecular Mixology" design system that treats cocktails as chemical formulas and ingredients as periodic table elements.
 
-**Version:** v1.30.0 | **Last Updated:** December 15, 2025
+**Version:** v1.30.0 | **Last Updated:** December 16, 2025
 
 ## Features
 
@@ -16,7 +16,7 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 - **Recipe Management** - Full CRUD, collections/folders, bulk operations, CSV import, spirit detection
 - **Recipe Molecule Visualization** - Chemical bond-style molecular diagrams for cocktail recipes
 - **Smart Shopping List** - Near-miss algorithm, ingredient recommendations, 6 recipe buckets
-- **AI Bartender** - Claude-powered assistant with MemMachine semantic memory
+- **AI Bartender** - Claude-powered assistant with hybrid search (SQLite + MemMachine semantic memory)
 - **Dashboard** - Lab overview with My Bar composition, Recipe Mastery stats, Collections sidebar
 
 ### Design & UX
@@ -101,7 +101,7 @@ This starts both servers:
 |-------|------------|
 | Frontend | Next.js 14, TypeScript, Zustand, CSS Modules |
 | Backend | Express.js, TypeScript, SQLite, JWT |
-| AI | Claude API (Haiku 4.5), MemMachine v2 semantic memory |
+| AI | Claude Sonnet 4.5, SQLite + MemMachine v2 hybrid search |
 | Infrastructure | Docker, Neo4j 5.23, PostgreSQL 16 (pgvector) |
 | Email | Nodemailer (Gmail, SendGrid, Mailgun, Amazon SES) |
 
@@ -128,7 +128,8 @@ alchemix/
 │   │   ├── middleware/    # Auth, CSRF, rate limiting, request logging
 │   │   ├── config/        # Environment, rate limiters
 │   │   ├── utils/         # Logger, validators, token blacklist
-│   │   └── database/      # SQLite setup
+│   │   ├── database/      # SQLite setup
+│   │   └── data/          # Static data (cocktailIngredients.json)
 │   └── .env               # Environment configuration
 ├── packages/               # Shared packages
 │   ├── recipe-molecule/   # Chemical bond-style recipe visualization
@@ -253,10 +254,12 @@ npm run dev:all
 
 ### MemMachine v2 API
 
-AlcheMix uses MemMachine v2 API for semantic recipe search and AI context:
-- Recipes stored with UIDs for tracking
+AlcheMix uses a hybrid search architecture combining SQLite and MemMachine:
+- **SQLite ingredient matching** - Fast exact matching with 100+ cocktail query expansions
+- **MemMachine semantic search** - Vector similarity for recipe discovery
+- **Intelligent prioritization** - Specific ingredients (green chartreuse) searched before generic (gin, lime)
+- **Pre-computed craftability** - Markers (✅ CRAFTABLE, ⚠️ NEAR-MISS, ❌ MISSING) verified against user inventory
 - Per-user project isolation (`org: alchemix`, `project: user_{id}_recipes`)
-- Vector similarity search via Neo4j GDS plugin
 
 ## Design System
 

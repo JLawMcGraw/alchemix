@@ -154,37 +154,54 @@ export default function AIPage() {
     setInput(prompt);
   };
 
-  // Normalize apostrophes (curly ' vs straight ')
+  // Normalize apostrophes (all variants to straight ')
+  // Using Unicode escapes to prevent editor corruption
+  // Covers: U+0027 ' | U+2018 ' | U+2019 ' | U+0060 ` | U+02BC ʼ | U+02BB ʻ | etc.
   const normalizeApostrophes = (text: string): string =>
-    text.replace(/[''`]/g, "'");
+    text.replace(/[\u0027\u2018\u2019\u0060\u02BC\u02BB\u055A\u05F3\uA78C\uFF07]/g, "'");
 
-  // Helper to match recipe names with common prefix variations (SC, Classic, etc.)
+  // Helper to match recipe names - prioritizes exact match, then careful fuzzy matching
   const fuzzyRecipeMatch = (aiName: string, dbName: string): boolean => {
     const cleanAI = normalizeApostrophes(aiName).replace(/\s*#\d+\s*$/i, '').trim().toLowerCase();
     const cleanDB = normalizeApostrophes(dbName).replace(/\s*#\d+\s*$/i, '').trim().toLowerCase();
 
-    // Exact match
+    // Exact match (highest priority)
     if (cleanDB === cleanAI) return true;
 
-    // One contains the other
-    if (cleanDB.includes(cleanAI) || cleanAI.includes(cleanDB)) return true;
-
-    // Strip common prefixes and check again
+    // Strip common prefixes and check exact match
     const prefixes = /^(sc|classic|traditional|original|the|a)\s+/i;
     const strippedAI = cleanAI.replace(prefixes, '');
     const strippedDB = cleanDB.replace(prefixes, '');
 
     if (strippedDB === strippedAI) return true;
-    if (strippedDB.includes(strippedAI) || strippedAI.includes(strippedDB)) return true;
+
+    // Only allow DB to contain AI name (AI might use shorter form)
+    // But NOT the reverse - "navy grog".includes("grog") should NOT match "Grog" recipe
+    // This prevents "Navy Grog" from matching "Grog" when we want exact "Navy Grog"
+    if (cleanDB.includes(cleanAI) && cleanAI.length > 3) return true;
+    if (strippedDB.includes(strippedAI) && strippedAI.length > 3) return true;
 
     return false;
   };
 
   const handleRecipeClick = (recipeName: string) => {
-    const recipe = recipesArray.find((r) => fuzzyRecipeMatch(recipeName, r.name));
+    const normalizedClick = normalizeApostrophes(recipeName).toLowerCase();
+
+    // First try exact match (case-insensitive, apostrophe-normalized)
+    let recipe = recipesArray.find((r) =>
+      normalizeApostrophes(r.name).toLowerCase() === normalizedClick
+    );
+
+    // Fall back to fuzzy match only if no exact match
+    if (!recipe) {
+      recipe = recipesArray.find((r) => fuzzyRecipeMatch(recipeName, r.name));
+    }
 
     if (recipe) {
+      console.log('[RecipeClick] Clicked:', recipeName, '-> Found:', recipe.name);
       setSelectedRecipe(recipe);
+    } else {
+      console.log('[RecipeClick] Clicked:', recipeName, '-> NOT FOUND');
     }
   };
 
@@ -200,8 +217,16 @@ export default function AIPage() {
 
     // Add recipes from RECOMMENDATIONS line
     recommendations.forEach((name) => {
-      const recipe = recipesArray.find((r) => fuzzyRecipeMatch(name, r.name));
-      if (recipe) linkableRecipes.add(recipe.name);
+      const normalizedRec = normalizeApostrophes(name).toLowerCase();
+      let recipe = recipesArray.find((r) =>
+        normalizeApostrophes(r.name).toLowerCase() === normalizedRec
+      );
+      if (!recipe) {
+        recipe = recipesArray.find((r) => fuzzyRecipeMatch(name, r.name));
+      }
+      if (recipe) {
+        linkableRecipes.add(recipe.name);
+      }
     });
 
     // Also scan explanation for recipe names from user's database
@@ -220,6 +245,23 @@ export default function AIPage() {
       return <div className={styles.messageText}>{message.content}</div>;
     }
 
+    // CRITICAL FIX: Filter out substring collisions
+    // If we have both "Navy Grog" and "Grog", remove "Grog" to prevent partial linking
+    const filteredRecipes = Array.from(linkableRecipes).filter((name) => {
+      const lowerName = normalizeApostrophes(name).toLowerCase();
+      // Keep this recipe ONLY if no other recipe in the set contains it as a substring
+      const shouldFilter = Array.from(linkableRecipes).some((other) => {
+        if (other === name) return false;
+        const lowerOther = normalizeApostrophes(other).toLowerCase();
+        return lowerOther.includes(lowerName);
+      });
+      return !shouldFilter;
+    });
+
+    if (filteredRecipes.length === 0) {
+      return <div className={styles.messageText}>{message.content}</div>;
+    }
+
     let displayText = explanation;
 
     // Wrap all linkable recipe names with markers
@@ -227,28 +269,30 @@ export default function AIPage() {
     const escapeForRegex = (name: string): string => {
       return name
         .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        .replace(/['`']/g, "[''`]"); // Match any apostrophe variant
+        .replace(/[\u0027\u2018\u2019\u0060\u02BC\u02BB\u055A\u05F3\uA78C\uFF07]/g, "[\u0027\u2018\u2019\u0060\u02BC\u02BB\u055A\u05F3\uA78C\uFF07]");
     };
 
-    linkableRecipes.forEach((recipeName) => {
-      const escapedFullName = escapeForRegex(recipeName);
-      const fullNameRegex = new RegExp(`(?<!\\w)${escapedFullName}(?!\\w)`, 'gi');
-      displayText = displayText.replace(fullNameRegex, `__RECIPE__${recipeName}__RECIPE__`);
+    // Sort by length (longest first) to prevent partial matches
+    // e.g., "Navy Grog" should be matched before "Grog"
+    const sortedRecipes = filteredRecipes.sort((a, b) => b.length - a.length);
 
-      // Also try without common prefixes (SC, Classic, etc.)
-      const prefixes = /^(sc|classic|traditional|original|the|a)\s+/i;
-      const baseName = recipeName.replace(prefixes, '').trim();
-      if (baseName !== recipeName && baseName.length > 3) {
-        const escapedBaseName = escapeForRegex(baseName);
-        const baseNameRegex = new RegExp(`(?<!\\w)${escapedBaseName}(?!\\w)`, 'gi');
-        // Only replace if not already wrapped
-        displayText = displayText.replace(baseNameRegex, (match) => {
-          // Check if already wrapped
-          const before = displayText.substring(0, displayText.indexOf(match));
-          if (before.endsWith('__RECIPE__')) return match;
-          return `__RECIPE__${recipeName}__RECIPE__`;
-        });
-      }
+    // Track which positions have been replaced to avoid double-linking
+    sortedRecipes.forEach((recipeName) => {
+      const escapedFullName = escapeForRegex(recipeName);
+      // Use word boundary \b instead of lookbehind for better compatibility
+      const fullNameRegex = new RegExp(`\\b${escapedFullName}\\b`, 'gi');
+
+      // Replace only if not already inside markers
+      displayText = displayText.replace(fullNameRegex, (match, offset) => {
+        // Check if this match is already inside __RECIPE__...__RECIPE__
+        // Count markers before this position - odd count means we're inside
+        const beforeMatch = displayText.substring(0, offset);
+        const markerCount = (beforeMatch.match(/__RECIPE__/g) || []).length;
+        if (markerCount % 2 === 1) {
+          return match; // Don't replace, already inside markers (odd = between open/close)
+        }
+        return `__RECIPE__${recipeName}__RECIPE__`;
+      });
     });
 
     const parts = displayText.split(/__RECIPE__(.*?)__RECIPE__/);
@@ -257,7 +301,7 @@ export default function AIPage() {
       <div className={styles.messageText}>
         {parts.map((part, index) => {
           const normalizedPart = normalizeApostrophes(part).toLowerCase();
-          const isRecipe = Array.from(linkableRecipes).some(
+          const isRecipe = sortedRecipes.some(
             (r) => normalizeApostrophes(r).toLowerCase() === normalizedPart
           );
 

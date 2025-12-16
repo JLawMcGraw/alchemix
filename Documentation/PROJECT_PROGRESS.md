@@ -1,13 +1,13 @@
 # Project Development Progress
 
-Last updated: 2025-12-15
+Last updated: 2025-12-16
 
 ---
 
 ## Current Status
 
 **Version**: v1.30.0
-**Phase**: Feature Development - Bug Fixes, Docs & Docker Cleanup
+**Phase**: Feature Development - AI Bartender Enhancements
 **Branch**: `alchemix-redesign`
 **Blockers**: None
 
@@ -25,7 +25,77 @@ Last updated: 2025-12-15
 
 ---
 
-## Recent Session (2025-12-15 Evening): AI Bartender Improvements & API Key Sync
+## Recent Session (2025-12-16): AI Bartender Craftability & Search Improvements
+
+### Summary
+Major improvements to AI Bartender: fixed craftability hallucination issues (AI claiming wrong inventory), added cocktail ingredient expansion for better search results, implemented hybrid SQLite + MemMachine search, reduced API cost from ~13 cents to ~2 cents per query, and improved prompt instructions to ensure AI trusts pre-computed markers.
+
+### Work Completed
+
+#### 1. AI Hallucination Fix - Craftability Assessment
+- **Issue**: AI was incorrectly assessing craftability - claiming user had bottles they didn't (Yellow Chartreuse) or didn't have bottles they did (orgeat)
+- **Root Cause**: AI was making its own craftability assessments instead of trusting pre-computed markers
+- **Fixes**:
+  - Enhanced craftability markers to show missing ingredients: `❌ [MISSING 2: orgeat, passion fruit...]`
+  - Added explicit prompt instructions: "TRUST MARKERS COMPLETELY", "DO NOT assess inventory yourself"
+  - Added anti-hallucination examples in prompt (what NOT to do)
+  - Upgraded model from `claude-haiku-4-5` to `claude-sonnet-4-5-20250929` for better instruction following
+- **File**: `api/src/services/AIService.ts`
+
+#### 2. Cocktail Ingredient Expansion
+- **Issue**: MemMachine semantic search wasn't finding relevant recipes (e.g., "Last Word" query didn't return Chartreuse Swizzle)
+- **Fix**: Created `cocktailIngredients.json` with 100+ cocktails mapped to key ingredients
+- **How it works**: When user mentions "Last Word", search expands to include gin, green chartreuse, maraschino, lime
+- **File**: `api/src/data/cocktailIngredients.json` (NEW)
+
+#### 3. Hybrid Search Implementation
+- **Issue**: SQLite exact matches weren't combined with MemMachine semantic results
+- **Fixes**:
+  - Added `detectIngredientMentions()` to find ingredient keywords in queries
+  - Added `queryRecipesWithIngredient()` for SQLite LIKE searches
+  - Prioritized specific ingredients (green chartreuse, maraschino) over generic ones (gin, lime)
+  - Combined SQLite exact matches + MemMachine semantic results
+- **File**: `api/src/services/AIService.ts`
+
+#### 4. Cost Optimization
+- **Before**: ~13 cents per query
+- **After**: ~2 cents per query
+- **Changes**:
+  - Removed full recipe collection from prompt (rely on search results)
+  - Reduced `max_tokens` from 2048 to 1024
+  - Moved BAR STOCK to end of dynamic content for recency bias
+
+#### 5. Prompt Instruction Improvements
+- Added "RECIPE RECOMMENDATION PRIORITY" section with step-by-step instructions
+- Added clear rules: prioritize search results, offer general knowledge as fallback only
+- Added "Never assess craftability for general knowledge recipes" rule
+- Improved "DO NOT" vs "DO" examples for AI to follow
+- **File**: `api/src/services/AIService.ts`
+
+#### 6. Debug Logging
+- Added `[CRAFTABILITY-DEBUG]` logs for ingredient matching (orgeat, passion fruit)
+- Added `[AI-CRAFTABILITY]` logs for recipe craftability calculations
+- Added `Hybrid search: Prioritized ingredients` logs
+- **Files**: `api/src/services/AIService.ts`, `api/src/services/ShoppingListService.ts`
+
+### Key Files Modified
+- `api/src/services/AIService.ts` - Major prompt restructuring, hybrid search, cost optimization
+- `api/src/services/ShoppingListService.ts` - Debug logging for hasIngredient matching
+- `api/src/data/cocktailIngredients.json` - NEW: 100+ cocktails with ingredients
+
+### Results
+- AI now correctly recommends "Shruken Skull" (✅ CRAFTABLE) for Last Word query
+- AI mentions "Chartreuse Swizzle" as ⚠️ NEAR-MISS (need green chartreuse)
+- AI no longer recommends "Saturn" from general knowledge without markers
+- No more false craftability claims ("you have orgeat" when they don't)
+
+### Next Priority
+- Debug recipe linking edge cases (awaiting user examples)
+- Monitor AI response quality for other query types
+
+---
+
+## Previous Session (2025-12-15 Evening): AI Bartender Improvements & API Key Sync
 
 ### Summary
 Fixed AI Bartender recipe linking issues (apostrophe handling, fuzzy matching, text scanning), improved duplicate recommendation detection, fixed security filter false positives, and synced API keys across environment files.

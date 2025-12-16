@@ -43,7 +43,11 @@ vi.mock('./api', () => ({
 
 // Mock aiPersona
 vi.mock('./aiPersona', () => ({
-  buildSystemPrompt: vi.fn(() => 'Mock system prompt'),
+  parseAIResponse: vi.fn((text: string) => ({
+    explanation: text,
+    recommendations: [],
+    state: null,
+  })),
 }));
 
 describe('Zustand Store', () => {

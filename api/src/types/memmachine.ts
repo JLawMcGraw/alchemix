@@ -326,13 +326,13 @@ export function buildRecipeProjectId(userId: number): string {
 /**
  * Helper function to build project ID for chat
  *
+ * Uses unified project (no date suffix) so preferences persist indefinitely.
+ *
  * @param userId - AlcheMix user ID
- * @param date - Optional date string (YYYY-MM-DD), defaults to today
- * @returns Project ID string (e.g., "user_1_chat_2025-12-02")
+ * @returns Project ID string (e.g., "user_1_chat")
  */
-export function buildChatProjectId(userId: number, date?: string): string {
-  const dateStr = date || new Date().toISOString().split('T')[0];
-  return `user_${userId}_${MEMMACHINE_CONSTANTS.CHAT_PROJECT_SUFFIX}_${dateStr}`;
+export function buildChatProjectId(userId: number): string {
+  return `user_${userId}_${MEMMACHINE_CONSTANTS.CHAT_PROJECT_SUFFIX}`;
 }
 
 // ============================================================================

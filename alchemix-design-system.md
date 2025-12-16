@@ -1,32 +1,31 @@
-# Molecular Mixology (AlcheMix) — Design System Prompt
+# Molecular Mixology (AlcheMix) — Design System
 
-**Optimized for**: Claude Opus 4.5 (large context, complex CSS architecture)
+**Version**: v1.30.0
+**Last Updated**: December 16, 2025
 
 ---
 
-## Role Definition
+## Overview
 
-```
-<role>
-You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert specializing in "Scientific UI" and Data Visualization. Your goal is to build a "Molecular Mixology" application that serves two distinct user bases: Home Enthusiasts (focus on discovery/visuals) and Restaurant Managers (focus on inventory/precision).
+AlcheMix is a cocktail inventory and recipe management application with a "Molecular Mixology" design system. The interface treats cocktails as chemical formulas rendered on high-quality laboratory paper.
 
-Your output must be a clean, minimalist, 2D interface that treats cocktails as chemical formulas rendered on high-quality laboratory paper.
+### Tech Stack
 
-Before writing code, establish a mental model:
+| Layer | Technology |
+|-------|------------|
+| Frontend | Next.js 14, TypeScript, CSS Modules |
+| State | Zustand 4.5 |
+| Animations | d3-force (molecule physics) |
+| Icons | Lucide React |
+| Molecule Viz | @alchemix/recipe-molecule (custom SVG) |
 
-1. **Identify the Stack**: React (Next.js 14+), Tailwind CSS, Framer Motion (for physics/molecular interactions), and a graphing library (VisX or custom SVG) for molecule views.
+### Core Metaphor
 
-2. **Dual-State Architecture**: The UI must toggle between "Discovery Mode" (Visual/Graph-based) and "Logistics Mode" (Tabular/Data-dense).
-
-3. **The Metaphor**: The UI mimics a high-end laboratory interface. Ingredients are "Elements" (Periodic Table). Drinks are "Molecules." Inventory is "Mass/Volume." The user is the chemist.
-
-**Protocol**:
-1. Ask clarifying questions about specific features if the user's request is vague.
-2. Propose a strict component architecture (Atomic Design suits this theme perfectly).
-3. Write code that is "Swiss Style"—minimal, grid-based, highly legible, and structured.
-4. Ensure all components work in both Discovery and Logistics modes where applicable.
-</role>
-```
+The UI mimics a high-end laboratory interface:
+- **Ingredients** → Elements (Periodic Table)
+- **Recipes** → Molecules (node-link diagrams)
+- **Inventory** → Mass/Volume
+- **User** → The chemist
 
 ---
 
@@ -344,7 +343,7 @@ Recipes rendered as 2D node-link diagrams. This is the HERO component.
 
 **Labels**: Below each node, display volume in monospace (`01.00 oz`). For garnishes, display "Twist" or "Wheel" etc.
 
-**Animation**: Nodes should have subtle Brownian motion—slow, random drift. Use `framer-motion` with spring physics. Amplitude: 2-4px. Period: 4-6 seconds. DISABLE on `prefers-reduced-motion`.
+**Layout**: Uses d3-force simulation for physics-based positioning. Nodes repel each other while bonds maintain distances.
 
 **Interaction**: Clicking a node highlights it and shows ingredient detail. Hovering shows tooltip with full name.
 
@@ -474,57 +473,67 @@ Mechanical, clicky feel. Use `font-variant-numeric: tabular-nums` for the number
 
 Background: `--bg-paper` (slightly darker than card). Traffic lights: red/yellow/green small circles. Header uses `--label-section` styling.
 
-### Mode Toggle (Discovery / Logistics)
+### Category Tabs (My Bar)
 
-A segmented control with two options.
+Horizontal tab navigation for filtering inventory by category.
 
 ```
-┌───────────────┬───────────────┐
-│   DISCOVERY   │   LOGISTICS   │
-└───────────────┴───────────────┘
+┌─────────┬─────────┬─────────┬─────────┬─────────┐
+│  ALL    │ SPIRITS │ LIQUEUR │ MIXERS  │  ...    │
+└─────────┴─────────┴─────────┴─────────┴─────────┘
 ```
 
 | Property | Value |
 |----------|-------|
 | Border | `1px solid --border-hairline` |
 | Border Radius | `--radius-card` |
-| Button Padding | `10px 20px` |
-| Font | `--font-sans`, 11px, uppercase, `tracking-[0.15em]` |
+| Button Padding | `8px 16px` |
+| Font | `--font-sans`, 12px, `font-weight: 500` |
 | Active State | `background: --fg-primary`, `color: white` |
 | Inactive State | `background: transparent`, `color: --fg-secondary` |
 | Hover (inactive) | `background: --hover-overlay` |
+
+**Categories**: All, Spirits, Liqueur, Wine/Vermouth, Mixers, Bitters, Syrups, Fresh, Tools
 
 ---
 
 ## 4. Layout Strategy
 
+### Application Structure
+
+**Pages** (Next.js App Router):
+- `/login` - Authentication
+- `/dashboard` - Lab overview with stats
+- `/bar` - Inventory (My Bar) with Periodic Table
+- `/recipes` - Recipe management with collections
+- `/ai` - AI Bartender chat
+- `/favorites` - Saved recipes
+- `/shopping-list` - Smart shopping recommendations
+- `/account` - User settings, export/import
+- `/settings` - Theme and preferences
+
 ### Grid System
 
 **Container**: `max-width: 1400px`, centered, `padding: 0 24px`
 
-**Periodic Table Grid**:
-- Desktop: `grid-template-columns: repeat(8, 1fr)`, `gap: 8px`
-- Tablet: `grid-template-columns: repeat(6, 1fr)`
-- Mobile: `grid-template-columns: repeat(4, 1fr)`
+**Periodic Table Grid** (6×6):
+- Desktop: `grid-template-columns: repeat(6, 1fr)`, `gap: 8px`
+- Tablet: `grid-template-columns: repeat(3, 1fr)`
+- Mobile: `grid-template-columns: repeat(2, 1fr)`
 
-**Main Layout** (Discovery Mode):
+**Main Layout**:
 ```
 ┌─────────────────────────────────────────────────────┐
-│  Header (Logo + Mode Toggle)                        │
-├────────────────────────────────┬────────────────────┤
-│                                │                    │
-│  Periodic Table (60%)          │  Molecule Panel    │
-│                                │  (40%)             │
-│                                │                    │
-│                                │                    │
-└────────────────────────────────┴────────────────────┘
+│  TopNav (Logo + Nav Links + User Dropdown)          │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│  Page Content (full width)                          │
+│                                                     │
+│                                                     │
+└─────────────────────────────────────────────────────┘
 ```
 
-Desktop: `grid-template-columns: 1fr 400px`, `gap: 48px`
-Tablet/Mobile: Stack vertically
-
-**Logistics Mode Layout**:
-Full-width data table with collapsible sidebar for filters. Use TanStack Table or AG-Grid styling.
+**TopNav Navigation**: Dashboard, My Bar, Recipes, AI Bartender, Favorites, Shopping List
 
 ### Section Spacing
 
@@ -543,8 +552,30 @@ EVERYTHING ALIGNS. Use the 8px grid religiously. Numbers should use `tabular-num
 
 **MANDATORY DESIGN CHOICES** — These are non-negotiable to maintain the scientific aesthetic:
 
-### 1. The Periodic Table IS the Navigation
-The main ingredient selection MUST be a grid resembling the Periodic Table of Elements. Each cell is an Element card. Groupings by spirit family. This creates a sense of comprehensive taxonomy.
+### 1. The Periodic Table of Mixology
+A 6×6 grid visualizing ingredient TYPES by function (group) and origin (period).
+
+**Groups (Columns)** - Functional role in cocktails:
+| Group | Function | Examples |
+|-------|----------|----------|
+| Base | Primary spirit | Gin, Rum, Whiskey, Tequila |
+| Bridge | Secondary spirit/modifier | Vermouth, Sherry, Amaro |
+| Modifier | Flavor enhancer | Chartreuse, Bénédictine, Maraschino |
+| Sweetener | Sugar/sweetness | Syrups, Liqueurs, Honey |
+| Reagent | Acid/balance | Citrus, Vinegar |
+| Catalyst | Enhancers | Bitters, Soda, Egg White |
+
+**Periods (Rows)** - Spirit origin/base:
+| Period | Origin | Examples |
+|--------|--------|----------|
+| Agave | Agave plant | Tequila, Mezcal |
+| Cane | Sugarcane | Rum, Cachaça |
+| Grain | Grain-based | Whiskey, Vodka, Gin |
+| Grape | Grape/fruit | Brandy, Cognac, Pisco |
+| Fruit | Fresh fruit | Citrus, Berries, Tropical |
+| Botanic | Herbs/botanicals | Bitters, Vermouth, Amaro |
+
+Each cell shows a predefined element TYPE with the user's inventory items counted against it.
 
 ### 2. Leading Zeros on All Measurements
 Never `1.5 oz`. Always `01.50 oz`. This is a laboratory. Precision matters. Use `font-variant-numeric: tabular-nums` so columns align.
@@ -564,8 +595,8 @@ Every ingredient belongs to a "group" with a specific color. This color appears 
 ### 6. The Balance Check
 Every recipe view includes a "Stoichiometric Balance" visualization—showing the ratio of Spirit/Bitter/Sweet/Acid. This isn't decorative; it's functional.
 
-### 7. Brownian Motion
-Molecular nodes drift slowly when idle. This subtle animation makes the diagram feel alive without being distracting. Physics-based spring animation, not linear tweens.
+### 7. Force-Directed Layout
+Molecular diagrams use d3-force for physics-based node positioning. Nodes repel each other while bonds pull connected nodes together, creating organic-looking molecule structures.
 
 ### 8. Hairline Everything
 1px borders define all structural elements. The UI should feel drawn with a technical pen.
@@ -581,6 +612,19 @@ Text inputs have a `>` prefix character. This creates the "command line" feel of
 ## 6. Effects & Animation
 
 **Motion Feel**: "Magnetic" and "Viscous." Elements should feel like they have mass and are suspended in liquid. Not bouncy, not snappy—*deliberate*.
+
+### Molecule Animations (d3-force)
+
+The `@alchemix/recipe-molecule` package uses d3-force for physics-based node positioning:
+
+```typescript
+// Force simulation for molecule layout
+const simulation = forceSimulation(nodes)
+  .force('charge', forceManyBody().strength(-150))
+  .force('link', forceLink(bonds).distance(60))
+  .force('center', forceCenter(width / 2, height / 2))
+  .force('collision', forceCollide().radius(30));
+```
 
 **Transition Defaults**:
 
@@ -602,26 +646,12 @@ transition: color 100ms ease, opacity 100ms ease;
 | Element Card | `scale(1.05)`, lift shadow, z-index bump |
 | Card | `translateY(-2px)`, subtle shadow |
 | Button | Color shift, no transform |
-| Molecular Node | `scale(1.1)`, pause Brownian motion |
+| Molecular Node | `scale(1.1)`, highlight stroke |
 | Table Row | Background highlight (`--hover-overlay`) |
 
 **Keyframe Animations**:
 
 ```css
-/* Brownian motion for molecular nodes */
-@keyframes brownian {
-  0%, 100% { transform: translate(0, 0); }
-  25% { transform: translate(2px, -1px); }
-  50% { transform: translate(-1px, 2px); }
-  75% { transform: translate(-2px, -2px); }
-}
-
-/* Staggered delay per node */
-.atom-node:nth-child(1) { animation: brownian 5s ease-in-out infinite; }
-.atom-node:nth-child(2) { animation: brownian 5.5s ease-in-out infinite 0.5s; }
-.atom-node:nth-child(3) { animation: brownian 4.5s ease-in-out infinite 1s; }
-/* etc. */
-
 /* Pulse for low stock warning */
 @keyframes pulse-warning {
   0%, 100% { opacity: 1; }
@@ -632,6 +662,12 @@ transition: color 100ms ease, opacity 100ms ease;
 @keyframes count-up {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* Spinner rotation */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 ```
 
@@ -658,7 +694,7 @@ transition: color 100ms ease, opacity 100ms ease;
 | Property | Value |
 |----------|-------|
 | Stroke Width | `1.5px` (thin, technical feel) |
-| Default Size | `h-5 w-5` (20px) |
+| Default Size | `20px × 20px` |
 | Color | `currentColor` (inherits from text) |
 
 **Icon Usage Guidelines**:
@@ -689,7 +725,7 @@ transition: color 100ms ease, opacity 100ms ease;
 ### Breakpoints
 
 ```css
-/* Tailwind defaults */
+/* Standard breakpoints */
 sm: 640px
 md: 768px
 lg: 1024px
@@ -700,23 +736,22 @@ xl: 1280px
 
 **Typography Scaling**: Minimal changes. The type scale is already compact. Hero titles may drop one size.
 
-**Periodic Table**:
-- lg+: 8 columns
-- md: 6 columns
-- sm: 4 columns
-- xs: Horizontal scroll or "card stack" view
+**Periodic Table** (6×6 grid):
+- lg+: 6 columns (full grid)
+- md: 3 columns (scrollable)
+- sm: 2 columns (scrollable)
 
 **Main Layout**:
-- lg+: Side-by-side (Periodic Table + Molecule Panel)
-- <lg: Stack vertically, Molecule Panel becomes collapsible/modal
+- Full-width content with TopNav
+- Modals become full-screen on mobile
 
 **Molecule Diagram**:
-- Scales with container
-- On very small screens, may simplify to a list with colored pips
+- Scales with container via viewBox
+- Maintains proportions at all sizes
 
-**Mode Toggle**:
-- Full width on mobile
-- Fixed to bottom of screen as a floating bar
+**TopNav**:
+- Desktop: Full horizontal navigation
+- Mobile: Hamburger menu or reduced nav
 
 **Touch Targets**:
 - All interactive elements: minimum 44px touch target
@@ -780,46 +815,57 @@ Respect `prefers-reduced-motion`:
 
 ---
 
-## 10. Mode-Specific Behaviors
+## 10. Page-Specific Behaviors
 
-### Discovery Mode (Home Enthusiast)
+### Dashboard
 
-**Focus**: Visual exploration, flavor discovery, recipe building
+**Focus**: Overview of bar composition and recipe mastery
 
-**Characteristics**:
-- Larger molecular diagrams
-- More whitespace
-- Flavor profile descriptions
-- "What can I make?" suggestions
-- Animated, playful (within constraints)
+**Components**:
+- Bar composition stats (spirit categories)
+- Recipe mastery progress
+- Collections sidebar
+- Quick actions
 
-**Unique Elements**:
-- Flavor radar chart
-- "Compatible bonds" visualization (what mixes well)
-- Recipe inspiration cards
+### My Bar (Inventory)
 
-### Logistics Mode (Restaurant Manager)
+**Focus**: Inventory management with Periodic Table visualization
 
-**Focus**: Inventory management, cost control, efficiency
+**Components**:
+- Category tabs (9 categories)
+- BottleCard grid or Periodic Table view
+- ItemDetailModal (view/edit modes)
+- CSV import modal
 
-**Characteristics**:
-- Dense data tables
-- Compact cards
-- Numbers everywhere
-- Par levels, pour costs, waste tracking
-- Batch calculations
+### Recipes
 
-**Unique Elements**:
-- Stock level indicators (beaker fill visualization)
-- Cost per drink calculations
-- Reorder alerts
-- Usage analytics
+**Focus**: Recipe management with collections
 
-**Visual Adjustments**:
-- Tighter spacing
-- Smaller type where appropriate
-- High-contrast data
-- Less animation
+**Components**:
+- Collection folders
+- RecipeCard grid with molecule visualization
+- Bulk operations (select/delete)
+- CSV import
+- RecipeDetailModal
+
+### AI Bartender
+
+**Focus**: AI-powered cocktail recommendations
+
+**Components**:
+- Chat interface
+- Recipe recommendations with craftability markers
+- Clickable recipe links
+
+### Shopping List
+
+**Focus**: Smart shopping recommendations
+
+**Components**:
+- Persistent items CRUD
+- Recipe buckets (6 slots)
+- Near-miss algorithm suggestions
+- Ranked recommendations
 
 ---
 
@@ -893,47 +939,81 @@ type InventoryItem = IngredientNode & {
 
 ### Technical Considerations
 
-1. **Tailwind Configuration**: Extend theme with custom colors matching the token system. Use CSS variables for colors to enable dark mode toggle.
+1. **CSS Modules**: All styling uses CSS Modules (`.module.css` files) with design system variables from `globals.css`.
 
-2. **SVG for Molecules**: Use SVG (not Canvas) for the molecular diagrams. Easier to style, better accessibility, works with Framer Motion.
+2. **SVG for Molecules**: The `@alchemix/recipe-molecule` package uses SVG for molecular diagrams. Easier to style, better accessibility, works with d3-force.
 
-3. **Framer Motion**: Use `layoutId` for smooth transitions between views. Use `spring` physics for Brownian motion.
+3. **d3-force**: Used for physics-based molecule layout. Force simulation positions nodes and bonds.
 
-4. **Font Loading**: Load Inter and JetBrains Mono via Google Fonts or self-host. Use `font-display: swap`.
+4. **Font Loading**: Inter and JetBrains Mono loaded via Google Fonts in `globals.css`. Uses `font-display: swap`.
 
-5. **Dark Mode**: Implement via CSS variables and a class toggle on `<html>`. Use `prefers-color-scheme` media query for system default.
+5. **Dark Mode**: CSS variables defined for dark mode. Toggle via class on `<html>` or `prefers-color-scheme`.
 
-6. **Data Tables**: TanStack Table for Logistics mode. Ensure proper styling integration.
+6. **State Management**: Zustand with slices (auth, inventory, recipes, chat). LocalStorage persistence for user data.
 
-7. **Performance**: 
-   - Brownian motion: Use `will-change: transform` sparingly
-   - Large grids: Virtualize if >100 elements
-   - SVG: Keep node count reasonable
+7. **Performance**:
+   - Molecule rendering: SVG with viewBox scaling
+   - Large grids: Consider virtualization for >100 items
+   - API caching: SWR-style fetch with Zustand
 
-### File Structure Suggestion
+### Actual File Structure
 
 ```
-components/
-├── atoms/
-│   ├── Button/
-│   ├── Input/
-│   ├── Badge/
-│   └── Icon/
-├── molecules/
-│   ├── ElementCard/
-│   ├── MoleculeNode/
-│   ├── BalanceBar/
-│   └── ModeToggle/
-├── organisms/
-│   ├── PeriodicTable/
-│   ├── MoleculeViewer/
-│   ├── RecipeCard/
-│   └── InventoryTable/
-├── templates/
-│   ├── DiscoveryLayout/
-│   └── LogisticsLayout/
-└── pages/
-    └── ...
+src/
+├── app/                      # Next.js App Router pages
+│   ├── login/
+│   ├── dashboard/
+│   ├── bar/
+│   ├── recipes/
+│   ├── ai/
+│   ├── favorites/
+│   ├── shopping-list/
+│   ├── account/
+│   └── settings/
+├── components/
+│   ├── ui/                   # Base UI components
+│   │   ├── Button.tsx
+│   │   ├── Input.tsx
+│   │   ├── Modal.tsx
+│   │   ├── Card.tsx
+│   │   ├── Toast.tsx
+│   │   ├── Spinner.tsx
+│   │   ├── StepperInput.tsx
+│   │   └── ElementCard.tsx
+│   ├── modals/               # Modal dialogs
+│   │   ├── AddBottleModal.tsx
+│   │   ├── AddRecipeModal.tsx
+│   │   ├── EditBottleModal.tsx
+│   │   ├── ItemDetailModal.tsx
+│   │   ├── RecipeDetailModal.tsx
+│   │   ├── CSVUploadModal.tsx
+│   │   └── DeleteConfirmModal.tsx
+│   ├── layout/               # Layout components
+│   │   └── TopNav.tsx
+│   ├── BottleCard/           # Inventory item card
+│   ├── RecipeCard/           # Recipe card with molecule
+│   ├── PeriodicTableV2/      # 6×6 periodic table
+│   ├── GlassSelector/        # Glassware picker
+│   └── RecipeMolecule.tsx    # Molecule wrapper
+├── lib/
+│   ├── api.ts                # API client
+│   ├── store/                # Zustand slices
+│   ├── periodicTable/        # Table logic
+│   └── formatters.ts         # Scientific formatters
+├── hooks/
+│   ├── useAuthGuard.ts
+│   └── useSettings.ts
+├── styles/
+│   └── globals.css           # Design system tokens
+└── types/
+    └── index.ts
+
+packages/
+├── recipe-molecule/          # Molecule visualization
+│   └── src/
+│       ├── core/             # Parser, classifier, layout, bonds
+│       └── components/       # Molecule, Node, Bond components
+└── types/                    # Shared TypeScript types
 ```
 
 ### Testing Checklist

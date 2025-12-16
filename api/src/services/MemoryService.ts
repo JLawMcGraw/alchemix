@@ -26,6 +26,7 @@
 
 import type Database from 'better-sqlite3';
 import { logger } from '../utils/logger';
+import { shoppingListService, BottleData } from './ShoppingListService';
 import {
   AddMemoriesRequest,
   AddMemoriesResponse,
@@ -163,10 +164,10 @@ export class MemoryService {
    * @param userId - AlcheMix user ID
    * @param projectType - Type of project ('recipes' or 'chat')
    */
-  private async ensureProjectExists(userId: number, projectType: 'recipes' | 'chat', date?: string): Promise<string> {
+  private async ensureProjectExists(userId: number, projectType: 'recipes' | 'chat'): Promise<string> {
     const projectId = projectType === 'recipes'
       ? buildRecipeProjectId(userId)
-      : buildChatProjectId(userId, date);
+      : buildChatProjectId(userId);
 
     // Check local cache first
     if (this.projectCache.has(projectId)) {
@@ -461,12 +462,29 @@ export class MemoryService {
         top_k: DEFAULT_SEARCH_LIMIT,
       };
 
+      // DIAGNOSTIC: Log the search query
+      logger.info('MemMachine: DIAGNOSTIC - Search query', { userId, query, projectId, top_k: DEFAULT_SEARCH_LIMIT });
+
       const response = await this.post<SearchResultResponse>('/api/v2/memories/search', searchRequest);
 
       // Validate and normalize response structure
       const normalizedResult = this.validateAndNormalizeResponse(response);
 
-      logger.info('MemMachine: Search results', { userId, episodicCount: normalizedResult.episodic.length, semanticCount: normalizedResult.semantic.length });
+      // DIAGNOSTIC: Log raw results with recipe names
+      const recipeNames = normalizedResult.episodic
+        .filter(ep => ep.content?.includes('Recipe:'))
+        .map(ep => {
+          const match = ep.content.match(/Recipe:\s*([^\n.]+)/);
+          return match ? match[1].trim() : 'Unknown';
+        });
+      logger.info('MemMachine: DIAGNOSTIC - Raw search results', {
+        userId,
+        query,
+        episodicCount: normalizedResult.episodic.length,
+        semanticCount: normalizedResult.semantic.length,
+        recipeNames,
+        firstEpisodicContent: normalizedResult.episodic[0]?.content?.substring(0, 200)
+      });
 
       return normalizedResult;
     } catch (error) {
@@ -485,12 +503,12 @@ export class MemoryService {
    * Store Conversation Turn
    *
    * Stores a user message and AI response as episodic memory.
-   * Uses date-based project IDs for daily conversation threads.
+   * Uses a unified chat project per user for persistent memory.
    *
-   * Project Strategy: user_{userId}_chat_{YYYY-MM-DD}
-   * - All conversations on the same day are grouped together
-   * - Easy to retrieve conversation history by date
-   * - Natural conversation boundaries
+   * Project Strategy: user_{userId}_chat
+   * - All conversations stored in one project per user
+   * - Semantic search finds relevant history regardless of date
+   * - Preferences persist indefinitely (not limited to 7 days)
    *
    * @param userId - User ID
    * @param userMessage - User's message
@@ -498,8 +516,9 @@ export class MemoryService {
    */
   async storeConversationTurn(userId: number, userMessage: string, aiResponse: string): Promise<void> {
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const projectId = await this.ensureProjectExists(userId, 'chat', today);
+      // Use unified chat project (no date suffix) for persistent memory
+      const projectId = `user_${userId}_chat`;
+      await this.ensureProjectExists(userId, 'chat');
 
       const userIdStr = `user_${userId}`;
 
@@ -735,28 +754,76 @@ export class MemoryService {
   }
 
   /**
-   * Get Enhanced Context (User-Specific Recipes Only)
+   * Query User Chat History for Preferences
    *
-   * Queries user's own recipes and preferences for context-aware recommendations.
-   * No global knowledge base - each user only sees their own recipes.
+   * Searches ALL user conversations for preferences and context.
+   * Uses a single project per user (not date-based) so preferences persist indefinitely.
+   *
+   * @param userId - User ID
+   * @param query - Current query (for semantic relevance)
+   * @returns Relevant conversation snippets
+   */
+  async queryUserChatHistory(userId: number, query: string): Promise<NormalizedSearchResult> {
+    try {
+      // Use unified chat project (no date suffix) for persistent memory
+      const projectId = `user_${userId}_chat`;
+
+      const searchRequest: SearchMemoriesRequest = {
+        org_id: ORG_ID,
+        project_id: projectId,
+        query,
+        top_k: 10, // Top 10 most relevant from all time
+      };
+
+      const response = await this.post<SearchResultResponse>('/api/v2/memories/search', searchRequest);
+      const normalized = this.validateAndNormalizeResponse(response);
+
+      logger.info('MemMachine: Retrieved chat history', {
+        userId,
+        episodeCount: normalized.episodic.length,
+        query: query.substring(0, 50)
+      });
+
+      return normalized;
+    } catch (error) {
+      // 404 = no chat history yet, which is fine for new users
+      if (isHttpError(error) && error.status === 404) {
+        logger.debug('MemMachine: No chat history for user yet', { userId });
+        return { episodic: [], semantic: [] };
+      }
+      logger.warn('MemMachine: Chat history query failed', { userId, error: error instanceof Error ? error.message : 'Unknown' });
+      return { episodic: [], semantic: [] };
+    }
+  }
+
+  /**
+   * Get Enhanced Context (Recipes + Chat History)
+   *
+   * Queries user's own recipes AND past conversations for context-aware recommendations.
+   * Chat history provides user preferences (e.g., "my wife likes rum punch").
    *
    * @param userId - User ID
    * @param query - User's cocktail query
-   * @returns User's recipes and preferences matching the query (or null if unavailable)
+   * @returns User's recipes and conversation preferences
    */
   async getEnhancedContext(
     userId: number,
     query: string
   ): Promise<{
     userContext: NormalizedSearchResult | null;
+    chatContext: NormalizedSearchResult | null;
   }> {
     try {
-      // Query user's own recipes and preferences
+      // Query user's recipes
       const userContext = await this.queryUserProfile(userId, query);
-      return { userContext };
+
+      // Query user's chat history for preferences
+      const chatContext = await this.queryUserChatHistory(userId, query);
+
+      return { userContext, chatContext };
     } catch (error) {
-      logger.warn('MemoryService: User context query failed, continuing without it', { userId });
-      return { userContext: null };
+      logger.warn('MemoryService: Context query failed, continuing without it', { userId });
+      return { userContext: null, chatContext: null };
     }
   }
 
@@ -779,6 +846,34 @@ export class MemoryService {
    * @param alreadyRecommended - Set of recipe names to exclude (already recommended)
    * @returns Formatted string for AI prompt
    */
+  /**
+   * Extract ingredients from MemMachine recipe content string
+   * Format: "Recipe: Name. Category: X. Ingredients: ing1, ing2, ing3. Instructions: ..."
+   *
+   * Uses section markers as delimiters instead of periods (handles "St. Elizabeth", "1.5 oz", etc.)
+   */
+  private extractIngredientsFromContent(content: string): string[] {
+    // Find "Ingredients:" and extract until next section or end
+    // Section markers: "Instructions:", "Glass:", "Category:", or end of string
+    const ingredientsMatch = content.match(/Ingredients?:\s*(.+?)(?=\.\s*(?:Instructions|Glass|Category|Recipe):|$)/is);
+    if (!ingredientsMatch) return [];
+
+    const ingredientStr = ingredientsMatch[1].trim();
+
+    // Handle both comma-separated and newline-separated formats
+    let ingredients: string[];
+    if (ingredientStr.includes(',')) {
+      ingredients = ingredientStr.split(/,\s*/).map(i => i.trim());
+    } else {
+      ingredients = ingredientStr.split(/\n/).map(i => i.trim());
+    }
+
+    // Clean up: remove empty strings and any trailing periods
+    return ingredients
+      .map(i => i.replace(/\.$/, '').trim())
+      .filter(i => i.length > 0);
+  }
+
   formatContextForPrompt(
     searchResult: NormalizedSearchResult,
     userId: number,
@@ -790,8 +885,20 @@ export class MemoryService {
       return '';
     }
 
-    // Relabeled: These are SEARCH RESULTS, not definitive answers
-    let contextText = '\n\n## SEMANTIC SEARCH RESULTS (Evaluate These - Not Pre-Selected Answers)\n';
+    // Get user's bottles for craftability check
+    let userBottles: BottleData[] = [];
+    if (db) {
+      try {
+        userBottles = shoppingListService.getUserBottles(userId);
+      } catch (error) {
+        logger.warn('Failed to get user bottles for craftability check', { error });
+      }
+    }
+
+    // Header with clear instructions
+    let contextText = '\n\n## SEMANTIC SEARCH RESULTS\n';
+    contextText += '**IMPORTANT:** Only recommend recipes marked ✅ CRAFTABLE unless user explicitly wants suggestions for recipes they cannot make.\n';
+    contextText += '⚠️ **Recipe ingredients below are what RECIPES REQUIRE — NOT what user HAS. User\'s actual bottles are in BAR STOCK section.**\n';
 
     // Add episodic memories (specific recipes found)
     // FILTERING LOGIC: Only include episodes that:
@@ -799,7 +906,7 @@ export class MemoryService {
     // 2. Still exist in DB
     // 3. Haven't been recommended already in this conversation
     if (searchResult.episodic?.length > 0) {
-      contextText += '\n### Potential Matches (use your judgment to filter):\n';
+      contextText += '\n### Recipe Matches:\n';
 
       // Filter for recipe-related content
       const recipeEpisodes = searchResult.episodic.filter(
@@ -808,7 +915,7 @@ export class MemoryService {
       );
 
       // Extract recipe names and cross-reference with database (if provided)
-      const validRecipes: typeof recipeEpisodes = [];
+      const validRecipes: Array<{ episode: typeof recipeEpisodes[0]; recipeName: string }> = [];
       if (db) {
         for (const episode of recipeEpisodes) {
           // Extract recipe name from "Recipe: NAME" format
@@ -830,10 +937,10 @@ export class MemoryService {
               continue;
             }
 
-            validRecipes.push(episode);
+            validRecipes.push({ episode, recipeName });
           } else {
             // Can't extract name, include anyway (might be semantic memory or other content)
-            validRecipes.push(episode);
+            validRecipes.push({ episode, recipeName: '' });
           }
         }
       } else {
@@ -846,14 +953,65 @@ export class MemoryService {
               logger.info('Filtered out already-recommended recipe', { recipeName });
               continue;
             }
+            validRecipes.push({ episode, recipeName });
+          } else {
+            validRecipes.push({ episode, recipeName: '' });
           }
-          validRecipes.push(episode);
         }
       }
 
       const limitedRecipes = validRecipes.slice(0, limit);
-      limitedRecipes.forEach((result, index) => {
-        contextText += `${index + 1}. ${result.content}\n`;
+
+      // Sort: craftable recipes first
+      const recipesWithCraftability = limitedRecipes.map(({ episode, recipeName }) => {
+        const ingredients = this.extractIngredientsFromContent(episode.content);
+        let craftable = false;
+        let missingIngredients: string[] = [];
+
+        if (userBottles.length > 0 && ingredients.length > 0) {
+          craftable = shoppingListService.isCraftable(ingredients, userBottles);
+          if (!craftable) {
+            missingIngredients = shoppingListService.findMissingIngredients(ingredients, userBottles);
+          }
+        }
+
+        // DIAGNOSTIC: Log craftability calculation for each recipe
+        logger.info('MemMachine: DIAGNOSTIC - Craftability check', {
+          recipeName,
+          extractedIngredients: ingredients,
+          craftable,
+          missingIngredients,
+          userBottleCount: userBottles.length
+        });
+
+        return { episode, recipeName, craftable, missingIngredients };
+      });
+
+      // Sort craftable first
+      recipesWithCraftability.sort((a, b) => {
+        if (a.craftable && !b.craftable) return -1;
+        if (!a.craftable && b.craftable) return 1;
+        // Secondary sort: fewer missing ingredients first
+        return a.missingIngredients.length - b.missingIngredients.length;
+      });
+
+      recipesWithCraftability.forEach((result, index) => {
+        let statusPrefix: string;
+        if (userBottles.length === 0) {
+          // No inventory data, can't determine craftability
+          statusPrefix = '⚠️ [UNKNOWN]';
+        } else if (result.craftable) {
+          statusPrefix = '✅ [CRAFTABLE]';
+        } else if (result.missingIngredients.length === 1) {
+          statusPrefix = `⚠️ [NEAR-MISS: need ${result.missingIngredients[0]}]`;
+        } else if (result.missingIngredients.length <= 3) {
+          statusPrefix = `❌ [MISSING: ${result.missingIngredients.join(', ')}]`;
+        } else {
+          statusPrefix = `❌ [MISSING ${result.missingIngredients.length} ingredients]`;
+        }
+
+        // Show recipe name + status + content (with warning above about recipe vs inventory)
+        contextText += `${index + 1}. ${statusPrefix} **${result.recipeName}**\n   ${result.episode.content}\n\n`;
       });
 
       // If no recipes found after filtering, indicate that
@@ -870,6 +1028,13 @@ export class MemoryService {
         contextText += `- ${result.content}\n`;
       });
     }
+
+    // DIAGNOSTIC: Log the final context being sent to AI
+    logger.info('MemMachine: DIAGNOSTIC - Final context for AI', {
+      userId,
+      contextLength: contextText.length,
+      contextPreview: contextText.substring(0, 500)
+    });
 
     return contextText;
   }
