@@ -119,7 +119,7 @@ export const ELEMENTS: ElementType[] = [
   { symbol: 'Sh', name: 'Sherry/Port', group: 2, period: 4, abv: '15-22%', keywords: ['sherry', 'fino', 'manzanilla', 'amontillado', 'oloroso', 'px', 'port', 'ruby port', 'tawny port'] },
 
   // Group 3: Modifier - Grape
-  { symbol: 'Ch', name: 'Chambord', group: 3, period: 4, abv: '16.5%', primary: true, keywords: ['chambord'] },
+  { symbol: 'Ch', name: 'Chambord', group: 3, period: 4, abv: '16.5%', primary: true, keywords: ['chambord', 'black raspberry liqueur', 'raspberry liqueur', 'framboise', 'creme de framboise', 'bols black raspberry', 'bols raspberry'] },
   { symbol: 'GM', name: 'Grand Marnier', group: 3, period: 4, abv: '40%', keywords: ['grand marnier'] },
   { symbol: 'Ma', name: 'Maraschino', group: 3, period: 4, abv: '32%', keywords: ['maraschino', 'luxardo'] },
 

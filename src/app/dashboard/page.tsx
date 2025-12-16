@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import DOMPurify from 'isomorphic-dompurify';
 import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { InsightSkeleton } from '@/components/ui/Skeleton';
@@ -12,64 +11,80 @@ import { inventoryApi, recipeApi } from '@/lib/api';
 import styles from './dashboard.module.css';
 
 /**
- * Safely render HTML content with only allowed tags
- * Uses DOMPurify for robust XSS prevention
+ * Safely render HTML content as React elements
+ * Only allows: strong, em, b, i, br tags - all other HTML is stripped
  */
-const sanitizeAndRenderHTML = (html: string): string => {
-  if (!html) return '';
+const renderHTMLContent = (html: string, keyPrefix: string, fallback?: string): React.ReactNode => {
+  if (!html) return fallback || null;
 
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: ['strong', 'em', 'b', 'i', 'br'],
-    ALLOWED_ATTR: [],
-    KEEP_CONTENT: true,
-  });
-};
+  // Split on allowed tags, capturing them
+  const tagPattern = /(<\/?(?:strong|em|b|i)>|<br\s*\/?>)/gi;
+  const tokens = html.split(tagPattern);
 
-const renderGreetingContent = (greeting: string): React.ReactNode => {
-  if (!greeting) {
-    return 'Ready for your next experiment?';
-  }
-
-  const tokens = greeting.split(/(<\/?strong>)/gi);
-  let isStrong = false;
-  let key = 0;
   const nodes: React.ReactNode[] = [];
+  const tagStack: string[] = [];
+  let key = 0;
 
   tokens.forEach((token) => {
     if (!token) return;
-    const normalized = token.toLowerCase();
 
-    if (normalized === '<strong>') {
-      isStrong = true;
+    const lowerToken = token.toLowerCase();
+
+    // Handle opening tags
+    if (lowerToken === '<strong>' || lowerToken === '<b>') {
+      tagStack.push('strong');
+      return;
+    }
+    if (lowerToken === '<em>' || lowerToken === '<i>') {
+      tagStack.push('em');
       return;
     }
 
-    if (normalized === '</strong>') {
-      isStrong = false;
+    // Handle closing tags
+    if (lowerToken === '</strong>' || lowerToken === '</b>') {
+      const idx = tagStack.lastIndexOf('strong');
+      if (idx !== -1) tagStack.splice(idx, 1);
+      return;
+    }
+    if (lowerToken === '</em>' || lowerToken === '</i>') {
+      const idx = tagStack.lastIndexOf('em');
+      if (idx !== -1) tagStack.splice(idx, 1);
       return;
     }
 
-    const sanitizedText = token.replace(/<\/?[^>]+>/g, '');
-    const isWhitespaceOnly = sanitizedText.trim().length === 0;
-
-    if (isWhitespaceOnly) {
-      if (sanitizedText.length > 0) nodes.push(' ');
+    // Handle <br> tags
+    if (lowerToken === '<br>' || lowerToken === '<br/>' || lowerToken === '<br />') {
+      key += 1;
+      nodes.push(<br key={`${keyPrefix}-br-${key}`} />);
       return;
     }
+
+    // Strip any remaining HTML tags from text content
+    const text = token.replace(/<\/?[^>]+>/g, '');
+    if (!text) return;
 
     key += 1;
-    if (isStrong) {
-      nodes.push(<strong key={`greeting-strong-${key}`}>{sanitizedText}</strong>);
+
+    // Wrap in active tags (innermost first)
+    let element: React.ReactNode = text;
+    const activeTags = [...tagStack].reverse();
+
+    activeTags.forEach((tag, i) => {
+      if (tag === 'strong') {
+        element = <strong key={`${keyPrefix}-strong-${key}-${i}`}>{element}</strong>;
+      } else if (tag === 'em') {
+        element = <em key={`${keyPrefix}-em-${key}-${i}`}>{element}</em>;
+      }
+    });
+
+    if (activeTags.length === 0) {
+      nodes.push(<span key={`${keyPrefix}-text-${key}`}>{text}</span>);
     } else {
-      nodes.push(<span key={`greeting-text-${key}`}>{sanitizedText}</span>);
+      nodes.push(element);
     }
   });
 
-  if (nodes.length === 0) {
-    return 'Ready for your next experiment?';
-  }
-
-  return nodes;
+  return nodes.length > 0 ? nodes : (fallback || null);
 };
 
 // Category configuration with colors
@@ -195,7 +210,7 @@ export default function DashboardPage() {
           <h1 className={styles.greeting}>
             {isDashboardInsightLoading
               ? 'Brewing up a greeting...'
-              : renderGreetingContent(dashboardGreeting)}
+              : renderHTMLContent(dashboardGreeting, 'greeting', 'Ready for your next experiment?')}
           </h1>
           <p className={styles.statsLine}>
             <span className={styles.statValue}>{totalItems}</span> bottles ·
@@ -217,10 +232,9 @@ export default function DashboardPage() {
             {isDashboardInsightLoading ? (
               <InsightSkeleton />
             ) : dashboardInsight ? (
-              <p
-                className={styles.insightText}
-                dangerouslySetInnerHTML={{ __html: sanitizeAndRenderHTML(dashboardInsight) }}
-              />
+              <p className={styles.insightText}>
+                {renderHTMLContent(dashboardInsight, 'insight')}
+              </p>
             ) : (
               <p className={styles.emptyState}>
                 Add items and recipes to get personalized insights!

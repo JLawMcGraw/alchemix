@@ -229,7 +229,9 @@ export const CLASSIFICATION_MAP: Record<string, CellPosition> = {
   'peach liqueur': { group: 3, period: 5 },
   'apricot liqueur': { group: 3, period: 5 },
   'limoncello': { group: 3, period: 5 },
-  'raspberry liqueur': { group: 3, period: 5 },
+  'raspberry liqueur': { group: 3, period: 4 },  // With Chambord
+  'black raspberry liqueur': { group: 3, period: 4 },  // With Chambord
+  'framboise': { group: 3, period: 4 },  // With Chambord
   'blackberry liqueur': { group: 3, period: 5 },
   'passion fruit liqueur': { group: 3, period: 5 },
   'passoã': { group: 3, period: 5 },

@@ -7,7 +7,7 @@ Last updated: 2025-12-16
 ## Current Status
 
 **Version**: v1.30.0
-**Phase**: Feature Development - AI Bartender Enhancements
+**Phase**: Feature Development - Landing Page & Polish
 **Branch**: `alchemix-redesign`
 **Blockers**: None
 
@@ -22,10 +22,204 @@ Last updated: 2025-12-16
 - Phase 5-7 (Batch B - Features): **Complete**
 - Phase 8-10 (Batch C - Polish): **Complete**
 - Page-specific redesigns: **Complete** (Shopping List, Favorites, AI Bartender)
+- Landing Page: **Complete**
 
 ---
 
-## Recent Session (2025-12-16): AI Bartender Craftability & Search Improvements
+## Recent Session (2025-12-16): Landing Page Redesign & Dashboard Fix
+
+### Summary
+Complete redesign of the landing/login page to showcase the full AlcheMix product. Implemented proper periodic table preview with correct element positioning, Planter's Punch recipe demo with molecular visualization, and unified visual styling throughout. Also fixed a critical dashboard build error.
+
+### Work Completed
+
+#### 1. Dashboard Build Error Fix - `isomorphic-dompurify` Removal
+- **Issue**: Build failed with `ENOENT: no such file or directory, open '.next/server/browser/default-stylesheet.css'`
+- **Root Cause**: `isomorphic-dompurify` uses `jsdom` internally, which tries to load a stylesheet during Next.js static generation
+- **Solution**: Removed `isomorphic-dompurify` dependency and created unified `renderHTMLContent()` function
+- **New Function**: React-based HTML sanitizer that:
+  - Parses HTML string into tokens
+  - Only allows `<strong>`, `<em>`, `<b>`, `<i>`, `<br>` tags
+  - Strips all other HTML tags for security
+  - Returns proper React elements instead of using `dangerouslySetInnerHTML`
+- **Benefit**: No more external dependency, consistent with how other pages handle HTML content
+- **File**: `src/app/dashboard/page.tsx` (lines 15-80)
+
+#### 2. Periodic Table Preview - Proper Grid Layout
+- **Before**: Random 3x3 grid of elements with incorrect positioning
+- **After**: Proper 3×4 grid showing Groups 1-4, Periods 1-3 with correct element placement
+
+**Grid Structure**:
+| | Base (G1) | Bridge (G2) | Modifier (G3) | Sweetener (G4) |
+|---|---|---|---|---|
+| **Agave (P1)** | Tequila (Tq) | Rare (--) | Agavero (Av) | Agave Nectar (Ag) |
+| **Cane (P2)** | Rum (Rm) | Rare (--) | Falernum (Fa) | Demerara (De) |
+| **Grain (P3)** | Whiskey (Wh) | Irish Cream (Ir) | Kahlúa (Ky) | Simple Syrup (Si) |
+
+**Implementation Details**:
+- Uses `ElementType` from `@/lib/periodicTableV2` with proper typing
+- Column headers show group number and name with group-colored backgrounds
+- Row headers show period number and name with period-colored backgrounds
+- Empty/rare cells displayed with grayed out styling and "--" symbol
+- Element cells match `ElementCell` component styling:
+  - Period indicator dot (top-right, colored by origin)
+  - Symbol in group color (functional role)
+  - Name below symbol
+  - Spec (ABV, Brix, pH) at bottom
+
+**CSS Classes Added**:
+- `.periodicPreview` - Grid container (64px + 4×100px columns)
+- `.gridCorner` - Empty top-left cell
+- `.groupHeader`, `.groupNum`, `.groupName` - Column headers
+- `.periodLabel`, `.periodNum`, `.periodName` - Row headers
+- `.elementCell` - Individual element cards
+- `.emptyCell` - Grayed out rare/empty cells
+- `.periodDot` - Period color indicator
+- `.elementSymbol`, `.elementName`, `.elementSpec` - Element content
+
+**Files**: `src/app/login/page.tsx` (lines 87-126, 332-420), `src/app/login/login.module.css` (lines 185-326)
+
+#### 3. Recipe Demo Card - Planter's Punch
+- **Before**: Negroni (gin-based, 3 ingredients)
+- **After**: Planter's Punch - Smuggler's Cove style (rum-based, 5 ingredients)
+
+**Recipe Details**:
+```typescript
+{
+  name: "Planter's Punch",
+  ingredients: [
+    '3/4 oz Fresh lime juice',
+    '3/4 oz Simple syrup',
+    '1 1/2 oz Blended aged rum',
+    '1 1/2 oz Black blended rum',
+    '1 dash Angostura bitters',
+  ],
+  glass: 'Collins',
+  category: 'Tiki',
+  spirit_type: 'rum',
+}
+```
+
+**Spirit Badge Enhancement**:
+- Now dynamically colored based on `recipe.spirit_type`
+- Uses `spiritColors` map for consistent coloring across spirits
+- Inline styles for background, text color, and border
+- Removed hardcoded gin blue color from CSS
+
+**Molecule Visualization Adjustments**:
+- Scale: 0.75 (from 1.0)
+- Max-height: 220px with overflow hidden
+- Margin-top: -30px to reduce whitespace
+- Properly centers the skeleton formula visualization
+
+**Files**: `src/app/login/page.tsx` (lines 137-153, 492-504), `src/app/login/login.module.css` (lines 504-516, 523-534)
+
+#### 4. Visual Consistency Overhaul
+
+**Background Pattern** (alternating white/gray):
+- Page base: `--color-ui-bg-surface` (white)
+- Nav: `--color-ui-bg-base` (gray) - provides contrast/floating effect
+- Hero: white (inherited)
+- Features: `--color-ui-bg-base` (gray) with white cards
+- Demo: white (inherited)
+- CTA: `--color-ui-bg-base` (gray)
+- Footer: white (inherited)
+
+**Spacing Standardization**:
+- All major sections: 80px vertical padding
+- Hero gap: reduced from 64px to 48px
+- Features header margin: reduced from 64px to 48px
+- Features grid gap: increased from 16px to 20px
+
+**Max-Width Consistency**:
+- Hero: 1200px (reduced from 1400px)
+- Features grid: 1000px (increased from 900px)
+- Demo content: 1000px (unchanged)
+- Footer: 1200px (new)
+
+**Border Removal**:
+- Removed `border-top` from Features section
+- Removed `border-top` and `border-bottom` from Demo section
+- Removed `border-top` from Footer
+- Using background color changes for visual separation instead
+
+**Files**: `src/app/login/login.module.css` (lines 4-9, 11-25, 134-144, 328-332, 399-402, 650-655, 670-678)
+
+#### 5. Feature Icons - Emoji Replacement
+- **Before**: Emojis (⚗️, 🧬, 📊, 🤖)
+- **After**: Lucide React icons with consistent styling
+
+**Icon Mapping**:
+- Periodic Table: `<Grid3X3 size={24} strokeWidth={1.5} />`
+- Molecular Recipes: `<Hexagon size={24} strokeWidth={1.5} />`
+- Smart Inventory: `<Wine size={24} strokeWidth={1.5} />`
+- AI Bartender: `<Sparkles size={24} strokeWidth={1.5} />`
+
+**Styling**:
+- Color: `var(--color-primary)` (green)
+- Removed `font-size: 24px` (not needed for SVG icons)
+
+**Files**: `src/app/login/page.tsx` (line 6, lines 166-187), `src/app/login/login.module.css` (lines 380-383)
+
+#### 6. Chambord Classification Fix (Earlier in Session)
+- **Issue**: "Chambord" not matching "Bols Black Raspberry Liqueur" in periodic table
+- **Root Cause**: Chambord was in Period 4 (Grape), raspberry liqueur keywords weren't mapping correctly
+
+**Fixes**:
+1. Added keywords to Chambord element in `elements.ts`:
+   - `'black raspberry liqueur'`
+   - `'raspberry liqueur'`
+   - `'framboise'`
+   - `'creme de framboise'`
+   - `'bols black raspberry'`
+   - `'bols raspberry'`
+
+2. Updated `classificationMap.ts`:
+   - Changed raspberry liqueur from Period 5 to Period 4 (with Chambord)
+   - Added `'black raspberry liqueur'` and `'framboise'` entries
+
+**Files**: `src/lib/periodicTable/elements.ts` (line 122), `src/lib/periodicTable/classificationMap.ts`
+
+### Responsive Design Updates
+
+**480px Breakpoint**:
+- Periodic preview: `grid-template-columns: 40px repeat(4, 64px)`
+- Element cells: `min-height: 64px`, `padding: 6px`
+- Reduced font sizes for headers and labels
+- Period dot: 4px size
+
+**768px Breakpoint**:
+- Nav links hidden
+- Hero/Features/Demo/CTA: 24px horizontal padding
+
+**1024px Breakpoint**:
+- Hero: single column, centered text
+- Features grid: 2 columns
+- Demo content: single column
+
+### Key Files Modified
+| File | Changes |
+|------|---------|
+| `src/app/dashboard/page.tsx` | Removed `isomorphic-dompurify`, added `renderHTMLContent()` |
+| `src/app/login/page.tsx` | Complete landing page redesign - periodic table, recipe demo, icons |
+| `src/app/login/login.module.css` | Visual consistency, backgrounds, spacing, grid layout |
+| `src/lib/periodicTable/elements.ts` | Chambord keywords |
+| `src/lib/periodicTable/classificationMap.ts` | Raspberry liqueur classification |
+
+### Technical Decisions
+1. **React-based HTML sanitizer over DOMPurify**: Avoids jsdom dependency issues with Next.js static generation, consistent with app patterns
+2. **Inline spirit badge colors**: More flexible than CSS classes, allows dynamic coloring based on recipe data
+3. **Max-height with overflow for molecule**: Better than scaling down, preserves quality while reducing space
+4. **Background color alternation over borders**: Cleaner visual separation, modern design pattern
+
+### Next Priority
+- Test landing page across different screen sizes and devices
+- Consider adding subtle animations/transitions to landing page
+- Monitor for any `isomorphic-dompurify` usage elsewhere that may need similar fix
+
+---
+
+## Previous Session (2025-12-16): AI Bartender Craftability & Search Improvements
 
 ### Summary
 Major improvements to AI Bartender: fixed craftability hallucination issues (AI claiming wrong inventory), added cocktail ingredient expansion for better search results, implemented hybrid SQLite + MemMachine search, reduced API cost from ~13 cents to ~2 cents per query, and improved prompt instructions to ensure AI trusts pre-computed markers.
