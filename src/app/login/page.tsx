@@ -100,7 +100,7 @@ export default function LoginPage() {
       { symbol: 'Ir', name: 'Irish Cream', group: 2 as MixologyGroup, period: 3 as MixologyPeriod, abv: '17%', keywords: [] },
       { symbol: 'Ky', name: 'Kahlúa', group: 3 as MixologyGroup, period: 3 as MixologyPeriod, abv: '20%', keywords: [] },
       { symbol: 'Si', name: 'Simple Syrup', group: 4 as MixologyGroup, period: 3 as MixologyPeriod, brix: '50', keywords: [] },
-      null, // Reagent - neutral for Grain
+      { symbol: '--', name: 'Neutral', group: 5 as MixologyGroup, period: 3 as MixologyPeriod, empty: true, keywords: [] },
     ],
   ];
 
@@ -400,15 +400,15 @@ export default function LoginPage() {
                     const groupNum = (groupIndex + 1) as MixologyGroup;
                     const groupInfo = GROUPS[groupNum];
 
-                    if (!element) {
-                      // Empty/rare cell
+                    if (!element || element.empty) {
+                      // Empty/rare/neutral cell
                       return (
                         <div
                           key={groupIndex}
                           className={`${styles.elementCell} ${styles.emptyCell}`}
                         >
                           <div className={styles.elementSymbol}>--</div>
-                          <div className={styles.elementName}>Rare</div>
+                          <div className={styles.elementName}>{element?.name || 'Rare'}</div>
                         </div>
                       );
                     }
