@@ -7,7 +7,7 @@ Last updated: 2025-12-16
 ## Current Status
 
 **Version**: v1.30.0
-**Phase**: Feature Development - Landing Page & Polish
+**Phase**: Feature Development - Login Page Polish
 **Branch**: `alchemix-redesign`
 **Blockers**: None
 
@@ -23,10 +23,61 @@ Last updated: 2025-12-16
 - Phase 8-10 (Batch C - Polish): **Complete**
 - Page-specific redesigns: **Complete** (Shopping List, Favorites, AI Bartender)
 - Landing Page: **Complete**
+- Login Page Two-Panel Layout: **Complete**
 
 ---
 
-## Recent Session (2025-12-16): Landing Page Redesign & Dashboard Fix
+## Recent Session (2025-12-16): Login Page Two-Panel Redesign
+
+### Summary
+Simplified the login page into a clean two-panel layout: login form on the left, story panel with periodic table preview and recipe molecule visualization on the right. Added 5th column (Reagent) to periodic table preview with correct ingredients. Fixed responsive breakpoints and hover tooltip scaling issues.
+
+### Work Completed
+
+#### 1. Two-Panel Layout Implementation
+- **Left Panel**: Clean login form with AlcheMixLogo, mode tabs (Log In/Sign Up), form fields
+- **Right Panel**: Story panel with narrative text, periodic table preview, recipe demo card
+- **Responsive**: Stacks vertically on mobile/tablet, side-by-side on desktop (900px+)
+
+#### 2. Recipe Card Horizontal Layout
+- **Before**: Tall vertical card with molecule on top
+- **After**: Horizontal layout with molecule+legend on left, ingredients+stoichiometric balance on right
+- **Custom Legend**: Added "Recipe Chemical Structure" legend below molecule matching recipe modal style
+  - Format: `Ac = Acid`, `Sw = Sweet`, `Bt = Bitter`
+- **Molecule Scaling**: Applied `scale(2.0) translateY(-15px)` with `overflow: hidden` for proper sizing
+- **Hover Fix**: Added `pointer-events: none` to prevent oversized tooltip popups from CSS transform
+
+#### 3. Periodic Table Preview - 5 Column Grid
+- **Added 5th Column**: Reagent (Group V - Acids/Juices)
+- **Correct Ingredients** from `elements.ts`:
+  - Period 1 (Agave): Lime Juice (Lm), pH 2.2
+  - Period 2 (Cane): Grapefruit (Gf), pH 3.0
+  - Period 3 (Grain): Neutral (empty)
+- **Updated Grid**: `50px repeat(5, 70px)` for desktop
+
+#### 4. Size Optimization - Fit on One Page
+- **Reduced Periodic Table**: Smaller cells (70px min-height), tighter fonts
+- **Reduced Spacing**: Story panel padding from 4rem to 2rem
+- **Smaller Typography**: Title 22px, subtitle 12px, eyebrow 9px
+
+#### 5. Responsive Breakpoints Fixed
+- **Tablet (600-899px)**: Grid `40px repeat(5, 60px)`, cell 60px, fonts reduced
+- **Mobile (<600px)**: Grid `32px repeat(5, 52px)`, cell 52px, fonts further reduced
+- **Fixed**: Previously used `repeat(4, ...)` which broke 5-column layout
+
+### Files Changed
+- `src/app/login/page.tsx` - Two-panel layout, 5-column grid data, Reagent elements
+- `src/app/login/login.module.css` - Complete styling overhaul, responsive breakpoints
+
+### Technical Details
+- Uses `ElementType` from `@/lib/periodicTableV2` for type safety
+- Imports `GROUPS`, `PERIODS` constants for color/label data
+- Recipe uses `RecipeMolecule` component with `showLegend={false}` (custom legend instead)
+- CSS variables for theming: `--group-color`, `--period-color`
+
+---
+
+## Previous Session (2025-12-16): Landing Page Redesign & Dashboard Fix
 
 ### Summary
 Complete redesign of the landing/login page to showcase the full AlcheMix product. Implemented proper periodic table preview with correct element positioning, Planter's Punch recipe demo with molecular visualization, and unified visual styling throughout. Also fixed a critical dashboard build error.

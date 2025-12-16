@@ -983,6 +983,40 @@ Two HTML mockups provide the design direction:
 
 ## Progress Log
 
+### December 16, 2025 - Session 7: Login Page Two-Panel Redesign
+
+**Login Page Simplification**:
+- Converted from full marketing landing page to clean two-panel layout
+- Left panel: Login form with AlcheMixLogo, mode tabs, form fields
+- Right panel: Story panel with narrative, periodic table preview, recipe demo card
+
+**Periodic Table Preview Enhancements**:
+- Added 5th column (Reagent - Group V) with correct ingredients from elements.ts
+- Period 1 (Agave): Lime Juice (Lm), pH 2.2
+- Period 2 (Cane): Grapefruit (Gf), pH 3.0
+- Period 3 (Grain): Neutral (empty)
+- Updated grid to `50px repeat(5, 70px)` for desktop
+- Fixed tablet/mobile breakpoints to use `repeat(5, ...)` instead of `repeat(4, ...)`
+
+**Recipe Card Horizontal Layout**:
+- Changed from vertical to horizontal layout
+- Molecule + custom legend on left, ingredients + stoichiometric balance on right
+- Custom legend format: "Ac = Acid", "Sw = Sweet", "Bt = Bitter"
+- Molecule scaled 2.0x with overflow hidden for proper sizing
+- Added `pointer-events: none` to fix hover tooltip scaling issue
+
+**Size Optimization**:
+- Reduced all sizes to fit on one page without scrolling
+- Smaller periodic table cells (70px min-height)
+- Reduced spacing and typography sizes
+- Updated responsive breakpoints for 5-column layout
+
+**Files Changed**:
+- `src/app/login/page.tsx` - Two-panel layout, 5-column grid, Reagent elements
+- `src/app/login/login.module.css` - Complete styling overhaul
+
+---
+
 ### December 10, 2025 - Session 5: Shopping List, Favorites & AI Bartender Page Redesigns
 
 **Shopping List Page**:
