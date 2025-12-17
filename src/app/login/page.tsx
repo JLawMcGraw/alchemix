@@ -481,7 +481,12 @@ export default function LoginPage() {
               {/* Left: Molecule Visualization + Legend */}
               <div className={styles.moleculeColumn}>
                 <div className={styles.moleculeSection}>
-                  <RecipeMolecule recipe={sampleRecipe} size="thumbnail" showLegend={false} />
+                  <RecipeMolecule
+                    recipe={sampleRecipe}
+                    size="thumbnail"
+                    showLegend={false}
+                    tightViewBox={true}
+                  />
                 </div>
                 <div className={styles.moleculeLegend}>
                   <span className={styles.legendTitle}>Recipe Chemical Structure</span>

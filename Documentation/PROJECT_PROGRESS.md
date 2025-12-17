@@ -27,7 +27,142 @@ Last updated: 2025-12-17
 
 ---
 
-## Recent Session (2025-12-17): AI Hybrid Search, Test Suite Expansion & Code Review
+## Recent Session (2025-12-17): Chemical Formula Notation v2 & System Documentation
+
+### Summary
+Major overhaul of the chemical formula notation system with v2 logic (coefficients, subscripts, smart grouping, signature ingredients), fixed element matching order and spirit grouping, resolved login page molecule visualization clipping, and created comprehensive documentation for both the molecule visualization and periodic table classification systems.
+
+### Work Completed
+
+#### 1. Chemical Formula Notation System v2 (Complete Redesign)
+
+**New Notation Structure:** `[coefficient]Symbol[subscript]`
+- **Coefficient** (leading number): Count of different ingredients of that type
+- **Symbol**: 2-letter element from Periodic Table of Mixology
+- **Subscript**: Combined ratio amount (whole numbers only)
+
+**Examples:**
+| Notation | Meaning |
+|----------|---------|
+| `Rm₄` | 1 rum, ratio of 4 |
+| `3Rm₆` | 3 different rums, combined ratio of 6 |
+| `2Ac₃` | 2 acids combined, ratio of 3 |
+
+**New Ratio Calculation Algorithm:**
+1. Convert all volumes to quarter-ounces (0.25 oz base unit)
+2. Find GCD and simplify to smallest whole-number ratio
+3. Apply ratio cap (max 8) - scale down proportionally if exceeded
+
+**Symbol Specificity Rules:**
+- Single ingredient → specific symbol (lime only → `Li`)
+- Multiple ingredients → grouped symbol with coefficient (lime + grapefruit → `2Ac`)
+- 4+ different spirit types → combined to `Sp`
+
+**Grouped Symbols:**
+| Group | Symbol | Combines |
+|-------|--------|----------|
+| Acids | `Ac` | Lime, lemon, grapefruit, orange, pineapple |
+| Sweets | `Sw` | Simple syrup, honey, agave, demerara |
+| Bitters | `Bt` | Angostura, orange bitters, Peychaud's |
+| Dairy | `Dy` | Cream, egg white, egg yolk, milk |
+| Spirits | `Sp` | 4+ different base spirits |
+
+**Signature Ingredients (Never Grouped):**
+- Liqueurs: Orgeat (Og), Chartreuse (Ch), Maraschino (Ms), Elderflower (El), Falernum (Fl)
+- Amari: Campari (Cp), Aperol (Ap), Fernet (Fe)
+- Vermouths: Sweet (Sv), Dry (Dv), Lillet (Lv)
+- Specialty: Absinthe (Ab), Grenadine (Gr), Sherry (Sh)
+
+**Formula Constraints:**
+- Maximum 5 elements
+- Priority hierarchy: Spirits → Signature → Acids → Sweets → Bitters
+- Interpunct separator (·)
+- Subscript omitted when ratio = 1
+
+**Files:**
+- `packages/recipe-molecule/src/core/formula.ts` (484 lines, complete rewrite)
+- `packages/recipe-molecule/FORMULA_NOTATION.md` (191 lines, new spec)
+
+#### 2. Formula Bug Fixes
+- **Element Matching Order**: Fixed "rye whiskey" matching as Wh instead of Ry by reordering ELEMENTS array (Ry before Wh)
+- **Spirit Grouping Logic**: Fixed coefficient grouping to keep same-type spirits together (3Rm instead of 3Sp for 3 different rum brands)
+- **Test Updates**: All 25 formula tests passing
+- **File**: `packages/recipe-molecule/src/core/formula.test.ts`
+
+#### 3. Login Page Molecule Visualization Fix
+- **Problem**: Skeleton visualization clipping after formula notation update
+- **Root Cause**: CSS transform scaling causing overflow issues
+- **Solution**: Added `tightViewBox` prop to RecipeMolecule component
+  - Crops SVG viewBox to actual content bounds
+  - Makes molecule appear larger without changing card dimensions
+- **Alignment Fix**: Added `justify-content: space-between` to align legend with stoichiometric balance section
+- **Files**:
+  - `src/components/RecipeMolecule.tsx` (new props: displayWidth, displayHeight, tightViewBox)
+  - `src/app/login/page.tsx` (added tightViewBox={true})
+  - `src/app/login/login.module.css` (removed CSS scaling, added flexbox alignment)
+
+#### 4. System Documentation Created
+
+**MOLECULE_VISUALIZATION.md** (572 lines):
+- Architecture and data flow pipeline diagram
+- Core types: IngredientType (10 categories), BondType (5 styles), MoleculeNode, MoleculeBond
+- Ingredient parser: 40+ units, Unicode/ASCII fractions, unit normalization, conversion factors
+- Classifier: Keyword database (150+ keywords), classification priority order, chaos calculation
+- Layout engine: Hexagonal benzene ring geometry, corner angles, spirit positioning algorithms
+- Zig-zag chaining: 120° alternating angles for organic appearance
+- Collision detection: 27.2px minimum distance threshold
+- Bond generation: Type determination rules, double bond geometry, shortening helpers
+- React components: Molecule, BenzeneRing, Bond, Node, Tooltip, Legend
+
+**PERIODIC_TABLE.md** (505 lines):
+- 6×6 grid structure: Groups (functional role) × Periods (origin)
+- Group classification questions (first "yes" wins decision tree):
+  1. Dashes/drops for aroma? → VI. Catalyst
+  2. Primarily acidic (pH < 4)? → V. Reagent
+  3. 0% ABV, primarily sugar? → IV. Sweetener
+  4. Sweetened liqueur (15-40% ABV) at ≤0.75oz? → III. Modifier
+  5. Fortified/aromatized wine (15-22% ABV)? → II. Bridge
+  6. High-proof (35%+ ABV) backbone (1.5-2oz)? → I. Base
+- Period two-step logic: Base material → Botanical override rule
+- Period rules for liqueurs (follow base spirit), syrups (follow sugar source), acids (follow fruit source)
+- Pernod classification example walkthrough
+- Element matching algorithm with multi-word (+20) and single-word (+10) scoring
+- 217 predefined elements, 457 keyword entries
+- Component architecture: PeriodicTable, ElementCell, cell states
+
+### Files Changed (9 files, +1,752 lines)
+
+**Package (3 files)**:
+- `packages/recipe-molecule/src/core/formula.ts` (484 lines, rewrite)
+- `packages/recipe-molecule/src/core/formula.test.ts` (test updates)
+- `packages/recipe-molecule/FORMULA_NOTATION.md` (191 lines, new)
+
+**Frontend (3 files)**:
+- `src/components/RecipeMolecule.tsx` - Added tightViewBox, displayWidth, displayHeight props
+- `src/app/login/page.tsx` - Updated RecipeMolecule with tightViewBox={true}
+- `src/app/login/login.module.css` - Removed CSS scaling, added flexbox alignment
+
+**Documentation (2 files, new)**:
+- `Documentation/MOLECULE_VISUALIZATION.md` (572 lines)
+- `Documentation/PERIODIC_TABLE.md` (505 lines)
+
+### Complete Formula Examples
+
+| Cocktail | Ingredients | Formula |
+|----------|-------------|---------|
+| Daiquiri | 2oz rum, 1oz lime, 0.75oz simple | `Rm₈Li₄Ss₃` |
+| Negroni | 1oz gin, 1oz Campari, 1oz sweet vermouth | `Gn·Cp·Sv` |
+| Zombie | 3 rums, lime, grapefruit, falernum, grenadine | `3Rm₆·Fl·Gr·2Ac₂` |
+| Long Island | vodka, gin, rum, tequila, triple sec, lemon | `4Sp₄·Ol·Le` |
+| Mai Tai | 2oz rum, 0.5oz orgeat, 0.5oz curaçao, lime | `Rm₄·Og·Ol·Li₂` |
+| Last Word | gin, chartreuse, maraschino, lime | `Gn·Ch·Ms·Li` |
+
+### Next Priority
+- None specified
+
+---
+
+## Previous Session (2025-12-17): AI Hybrid Search, Test Suite Expansion & Code Review
 
 ### Summary
 Major session covering AI service hybrid search with concept-based expansion (spirit-forward, tiki, boozy etc.), 1,822 lines of new tests across 6 files, security improvements (token redaction, error messages), code review LOW priority fixes, periodic table enhancements with dynamic tag detection, shopping list pagination, and login page polish.

@@ -23,6 +23,12 @@ interface RecipeMoleculeProps {
   className?: string;
   /** Optional ref to access the SVG element */
   svgRef?: React.RefObject<SVGSVGElement>;
+  /** Custom display width (overrides size preset) */
+  displayWidth?: number;
+  /** Custom display height (overrides size preset) */
+  displayHeight?: number;
+  /** Use tight viewBox cropped to content (makes molecule appear larger) */
+  tightViewBox?: boolean;
 }
 
 // Layout is always computed at this size for consistent molecule proportions
@@ -42,6 +48,9 @@ export function RecipeMolecule({
   showExport = false,
   className,
   svgRef: externalSvgRef,
+  displayWidth: customWidth,
+  displayHeight: customHeight,
+  tightViewBox: customTightViewBox,
 }: RecipeMoleculeProps) {
   const internalSvgRef = useRef<SVGSVGElement>(null);
   const svgRef = externalSvgRef || internalSvgRef;
@@ -93,7 +102,12 @@ export function RecipeMolecule({
     exportSVG(svgRef.current, `${recipe.name.replace(/\s+/g, '-').toLowerCase()}-molecule.svg`);
   };
 
-  const displaySize = DISPLAY_CONFIG[size];
+  // Use custom dimensions if provided, otherwise use preset
+  const presetSize = DISPLAY_CONFIG[size];
+  const displaySize = {
+    width: customWidth ?? presetSize.width,
+    height: customHeight ?? presetSize.height,
+  };
 
   // Don't render until mounted (prevents hydration mismatch and DOM errors)
   if (!isMounted) {
@@ -208,7 +222,7 @@ export function RecipeMolecule({
         width={LAYOUT_SIZE.width}
         height={LAYOUT_SIZE.height}
         showLegend={size === 'full' && showLegend}
-        tightViewBox={size === 'full'}
+        tightViewBox={customTightViewBox ?? (size === 'full')}
         svgRef={svgRef}
         displayWidth={displaySize.width}
         displayHeight={displaySize.height}
