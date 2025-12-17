@@ -225,7 +225,8 @@ const ALWAYS_AVAILABLE_INGREDIENTS = new Set([
   'coffee', 'espresso', 'milk', 'cream', 'half and half',
   'egg white', 'egg whites', 'egg', 'eggs',
   'mint', 'mint leaves', 'fresh mint',
-  'cinnamon', 'cinnamon stick', 'cinnamon sticks'
+  'cinnamon', 'cinnamon stick', 'cinnamon sticks',
+  'nutmeg', 'ground nutmeg', 'freshly ground nutmeg', 'fresh nutmeg'
 ]);
 
 /**
@@ -769,6 +770,60 @@ class ShoppingListService {
       checked: item.checked === 1,
       createdAt: item.created_at
     }));
+  }
+
+  /**
+   * Get paginated shopping list items for a user
+   */
+  getItemsPaginated(userId: number, page: number = 1, limit: number = 50): {
+    items: { id: number; name: string; checked: boolean; createdAt: string }[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNextPage: boolean;
+      hasPreviousPage: boolean;
+    };
+  } {
+    // Validate and clamp parameters
+    const safePage = Math.max(1, Math.floor(page));
+    const safeLimit = Math.min(100, Math.max(1, Math.floor(limit)));
+    const offset = (safePage - 1) * safeLimit;
+
+    // Get total count
+    const countResult = db.prepare(`
+      SELECT COUNT(*) as total FROM shopping_list_items WHERE user_id = ?
+    `).get(userId) as { total: number };
+
+    const total = countResult.total;
+    const totalPages = Math.ceil(total / safeLimit);
+
+    // Get paginated results
+    const items = db.prepare(`
+      SELECT id, name, checked, created_at
+      FROM shopping_list_items
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?
+    `).all(userId, safeLimit, offset) as ShoppingListItem[];
+
+    return {
+      items: items.map(item => ({
+        id: item.id,
+        name: item.name,
+        checked: item.checked === 1,
+        createdAt: item.created_at
+      })),
+      pagination: {
+        page: safePage,
+        limit: safeLimit,
+        total,
+        totalPages,
+        hasNextPage: safePage < totalPages,
+        hasPreviousPage: safePage > 1
+      }
+    };
   }
 
   /**

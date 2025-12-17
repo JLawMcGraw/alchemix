@@ -119,7 +119,9 @@ if (!fs.existsSync(DB_DIR)) {
  * - Memory overhead: <1MB per connection
  */
 export const db = new Database(DB_FILE, {
-  verbose: process.env.NODE_ENV === 'development' ? console.log : undefined
+  // SQL logging disabled by default for security (queries may contain sensitive data)
+  // Enable with DEBUG_SQL=true for debugging only
+  verbose: process.env.DEBUG_SQL === 'true' ? console.log : undefined
 });
 
 /**

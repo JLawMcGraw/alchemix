@@ -251,9 +251,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   padding: 1.5rem 2rem;
-  padding-top: 2rem;
   position: relative;
   overflow-y: auto;
   min-height: 50vh;
@@ -276,16 +275,6 @@
   z-index: 1;
   text-align: center;
   max-width: 520px;
-}
-
-.storyEyebrow {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--color-primary);
-  margin-bottom: 8px;
 }
 
 .storyTitle {
@@ -517,12 +506,13 @@
   gap: 12px;
 }
 
-/* Molecule Column - Left Side */
+/* Molecule Column - Left Side (50%) */
 .moleculeColumn {
-  flex: 1 1 200px;
+  flex: 1 1 50%;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  min-width: 0;
 }
 
 /* Molecule Visualization Section */
@@ -535,7 +525,7 @@
 }
 
 .moleculeSection > div {
-  transform: scale(2.0) translateY(-15px);
+  transform: scale(1.4);
   transform-origin: center center;
   pointer-events: none; /* Disable hover interactions - just a preview */
 }
@@ -546,7 +536,7 @@
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  margin-top: -50px;
+  flex-shrink: 0;
 }
 
 .legendTitle {
@@ -571,9 +561,9 @@
   color: var(--color-text-tertiary);
 }
 
-/* Recipe Details - Right Side (Narrower) */
+/* Recipe Details - Right Side (50%) */
 .recipeDetails {
-  flex: 0 0 180px;
+  flex: 1 1 50%;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -865,10 +855,8 @@
     gap: 12px;
   }
 
-  .moleculeSection {
-    flex: 0 0 auto;
-    transform: scale(0.55);
-    margin: -50px -40px;
+  .moleculeSection > div {
+    transform: scale(1.2);
   }
 
   .recipeDetails {
@@ -884,5 +872,341 @@
     width: 16px;
     height: 16px;
     font-size: 0.4375rem;
+  }
+}
+
+/* === LARGE DISPLAYS (tall screens, large monitors) === */
+@media (min-width: 900px) and (min-height: 900px) {
+  .storyContent {
+    max-width: 680px;
+  }
+
+  .storyTitle {
+    font-size: 28px;
+    margin-bottom: 10px;
+  }
+
+  .storySubtitle {
+    font-size: 14px;
+    margin-bottom: 24px;
+  }
+
+  /* Larger periodic table */
+  .periodicPreview {
+    grid-template-columns: 60px repeat(5, 90px);
+    gap: 6px;
+    margin-bottom: 28px;
+  }
+
+  .groupHeader {
+    padding: 8px 4px;
+  }
+
+  .groupNum {
+    font-size: 0.6875rem;
+  }
+
+  .groupName {
+    font-size: 0.6875rem;
+  }
+
+  .periodLabel {
+    padding: 8px;
+  }
+
+  .periodNum {
+    font-size: 0.75rem;
+  }
+
+  .periodName {
+    font-size: 0.625rem;
+  }
+
+  .elementCell {
+    min-height: 90px;
+    padding: 8px;
+  }
+
+  .elementSymbol {
+    font-size: 1.125rem;
+  }
+
+  .elementName {
+    font-size: 0.625rem;
+    margin-top: 4px;
+  }
+
+  .elementSpec {
+    font-size: 0.5625rem;
+  }
+
+  .periodDot {
+    width: 6px;
+    height: 6px;
+    top: 6px;
+    right: 6px;
+  }
+
+  /* Larger recipe card */
+  .recipeDemo {
+    max-width: 620px;
+  }
+
+  .recipeHeader {
+    padding: 16px 20px;
+  }
+
+  .recipeTitle {
+    font-size: 1.25rem;
+  }
+
+  .recipeFormula {
+    font-size: 0.8125rem;
+  }
+
+  .spiritBadge {
+    font-size: 0.625rem;
+    padding: 4px 10px;
+  }
+
+  .recipeContent {
+    padding: 16px 20px;
+    gap: 16px;
+  }
+
+  .moleculeColumn {
+    gap: 6px;
+  }
+
+  .moleculeSection > div {
+    transform: scale(1.8);
+  }
+
+  .moleculeLegend {
+    gap: 4px;
+  }
+
+  .legendTitle {
+    font-size: 0.625rem;
+  }
+
+  .legendEntry {
+    font-size: 0.625rem;
+  }
+
+  .recipeDetails {
+    gap: 14px;
+  }
+
+  .sectionTitle {
+    font-size: 9px;
+    margin-bottom: 8px;
+  }
+
+  .ingredientsList {
+    gap: 4px;
+  }
+
+  .ingredientItem {
+    padding: 6px 8px;
+    font-size: 0.6875rem;
+    gap: 8px;
+  }
+
+  .ingredientPip {
+    width: 18px;
+    height: 18px;
+    font-size: 0.5625rem;
+  }
+
+  .balanceSection {
+    gap: 6px;
+  }
+
+  .balanceRow {
+    grid-template-columns: 44px 1fr 30px;
+    gap: 8px;
+  }
+
+  .balanceLabel {
+    font-size: 0.625rem;
+  }
+
+  .balanceTrack {
+    height: 6px;
+  }
+
+  .balanceValue {
+    font-size: 0.625rem;
+  }
+}
+
+/* === EXTRA LARGE DISPLAYS (very tall screens, 4K monitors) === */
+@media (min-width: 1200px) and (min-height: 1100px) {
+  .storyContent {
+    max-width: 800px;
+  }
+
+  .storyTitle {
+    font-size: 32px;
+    margin-bottom: 12px;
+  }
+
+  .storySubtitle {
+    font-size: 15px;
+    margin-bottom: 32px;
+  }
+
+  /* Even larger periodic table */
+  .periodicPreview {
+    grid-template-columns: 70px repeat(5, 110px);
+    gap: 8px;
+    margin-bottom: 36px;
+  }
+
+  .groupHeader {
+    padding: 10px 6px;
+  }
+
+  .groupNum {
+    font-size: 0.8125rem;
+  }
+
+  .groupName {
+    font-size: 0.8125rem;
+  }
+
+  .periodLabel {
+    padding: 10px;
+  }
+
+  .periodNum {
+    font-size: 0.875rem;
+  }
+
+  .periodName {
+    font-size: 0.75rem;
+  }
+
+  .elementCell {
+    min-height: 110px;
+    padding: 10px;
+  }
+
+  .elementSymbol {
+    font-size: 1.375rem;
+  }
+
+  .elementName {
+    font-size: 0.75rem;
+    margin-top: 6px;
+  }
+
+  .elementSpec {
+    font-size: 0.6875rem;
+  }
+
+  .periodDot {
+    width: 8px;
+    height: 8px;
+    top: 8px;
+    right: 8px;
+  }
+
+  /* Even larger recipe card */
+  .recipeDemo {
+    max-width: 740px;
+  }
+
+  .recipeHeader {
+    padding: 20px 24px;
+  }
+
+  .recipeTitle {
+    font-size: 1.5rem;
+  }
+
+  .recipeFormula {
+    font-size: 0.9375rem;
+  }
+
+  .spiritBadge {
+    font-size: 0.75rem;
+    padding: 5px 12px;
+  }
+
+  .recipeContent {
+    padding: 20px 24px;
+    gap: 20px;
+  }
+
+  .moleculeColumn {
+    gap: 8px;
+  }
+
+  .moleculeSection > div {
+    transform: scale(2.2);
+  }
+
+  .moleculeLegend {
+    gap: 6px;
+  }
+
+  .legendTitle {
+    font-size: 0.75rem;
+  }
+
+  .legendEntry {
+    font-size: 0.75rem;
+  }
+
+  .legendItems {
+    gap: 12px;
+  }
+
+  .recipeDetails {
+    gap: 18px;
+  }
+
+  .sectionTitle {
+    font-size: 10px;
+    margin-bottom: 10px;
+  }
+
+  .ingredientsList {
+    gap: 6px;
+  }
+
+  .ingredientItem {
+    padding: 8px 10px;
+    font-size: 0.8125rem;
+    gap: 10px;
+  }
+
+  .ingredientPip {
+    width: 22px;
+    height: 22px;
+    font-size: 0.6875rem;
+  }
+
+  .balanceSection {
+    gap: 8px;
+  }
+
+  .balanceRow {
+    grid-template-columns: 52px 1fr 36px;
+    gap: 10px;
+  }
+
+  .balanceLabel {
+    font-size: 0.75rem;
+  }
+
+  .balanceTrack {
+    height: 8px;
+  }
+
+  .balanceValue {
+    font-size: 0.75rem;
   }
 }

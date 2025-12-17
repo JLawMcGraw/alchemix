@@ -4,21 +4,21 @@
   background: var(--color-ui-bg-surface);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-card);
-  padding: var(--space-4);
+  padding: var(--space-2);
 }
 
 /* Header */
 .header {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-3);
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--color-border-default);
 }
 
 .titleSection h2 {
-  font-size: 1.125rem;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--color-text-body);
   margin: 0;
@@ -36,9 +36,9 @@
 /* Group Labels Row (Column Headers) */
 .groupLabelsRow {
   display: grid;
-  grid-template-columns: 80px repeat(6, 1fr);
-  gap: var(--space-2);
-  margin-bottom: var(--space-2);
+  grid-template-columns: 56px repeat(6, 1fr);
+  gap: 4px;
+  margin-bottom: 4px;
 }
 
 .cornerCell {
@@ -47,7 +47,7 @@
 
 .groupHeader {
   text-align: center;
-  padding: var(--space-2) var(--space-1);
+  padding: 4px;
 }
 
 .groupNumeral {
@@ -58,17 +58,17 @@
 }
 
 .groupName {
-  font-size: 0.625rem;
+  font-size: 0.5625rem;
   color: var(--color-text-muted);
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 /* Period Rows */
 .row {
   display: grid;
-  grid-template-columns: 80px repeat(6, 1fr);
-  gap: var(--space-2);
-  margin-bottom: var(--space-2);
+  grid-template-columns: 56px repeat(6, 1fr);
+  gap: 4px;
+  margin-bottom: 4px;
 }
 
 /* Period Label (Row Header) */
@@ -76,20 +76,20 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: var(--space-2);
+  padding: 6px;
   border-radius: var(--radius);
   background: color-mix(in srgb, var(--period-color) 10%, transparent);
 }
 
 .periodNumber {
   font-family: var(--font-mono);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 700;
   color: var(--period-color);
 }
 
 .periodName {
-  font-size: 0.6875rem;
+  font-size: 0.625rem;
   font-weight: 600;
   color: var(--color-text-body);
   margin-top: 2px;
@@ -106,16 +106,16 @@
 .legend {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
-  margin-top: var(--space-4);
-  padding-top: var(--space-3);
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
   border-top: 1px solid var(--color-border-default);
 }
 
 .legendItem {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: 6px;
 }
 
 .legendDot {
@@ -132,17 +132,25 @@
 /* Responsive */
 @media (max-width: 1024px) {
   .container {
-    padding: var(--space-3);
+    padding: var(--space-2);
   }
 
   .groupLabelsRow,
   .row {
-    grid-template-columns: 64px repeat(6, 1fr);
-    gap: var(--space-1);
+    grid-template-columns: 48px repeat(6, 1fr);
+    gap: 3px;
   }
 
   .periodLabel {
-    padding: var(--space-1);
+    padding: 4px;
+  }
+
+  .periodNumber {
+    font-size: 0.6875rem;
+  }
+
+  .periodName {
+    font-size: 0.5625rem;
   }
 
   .periodProfile {
@@ -156,22 +164,27 @@
 
 @media (max-width: 768px) {
   .container {
-    padding: var(--space-2);
+    padding: var(--space-1);
     overflow-x: auto;
   }
 
   .groupLabelsRow,
   .row {
-    grid-template-columns: 56px repeat(6, minmax(72px, 1fr));
-    min-width: 500px;
+    grid-template-columns: 44px repeat(6, minmax(52px, 1fr));
+    min-width: 360px;
+    gap: 2px;
   }
 
   .header {
     flex-wrap: wrap;
-    gap: var(--space-2);
+    gap: var(--space-1);
   }
 
   .legend {
-    gap: var(--space-2);
+    gap: var(--space-1);
+  }
+
+  .legendLabel {
+    font-size: 0.5625rem;
   }
 }

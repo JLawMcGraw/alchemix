@@ -196,7 +196,7 @@ router.post('/change-password', authMiddleware, asyncHandler(async (req: Request
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 

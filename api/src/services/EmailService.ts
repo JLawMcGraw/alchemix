@@ -74,10 +74,18 @@ if (isConfigured) {
 async function sendEmail(to: string, subject: string, html: string): Promise<void> {
   if (!transporter) {
     // Development mode: log email to console
+    // Redact any tokens/sensitive data from the body before logging
+    const redactedBody = html
+      .replace(/<[^>]*>/g, '')  // Strip HTML tags
+      .replace(/token=[a-f0-9]{32,}/gi, 'token=[REDACTED]')  // Redact token params
+      .replace(/\/verify\/[a-f0-9]{32,}/gi, '/verify/[REDACTED]')  // Redact verify URLs
+      .replace(/\/reset\/[a-f0-9]{32,}/gi, '/reset/[REDACTED]')  // Redact reset URLs
+      .substring(0, 500);  // Limit length for logs
+
     logger.info('EMAIL (SMTP not configured - logging to console)', {
       to,
       subject,
-      body: html.replace(/<[^>]*>/g, '').substring(0, 1500) // Strip HTML, limit length for logs
+      bodyPreview: redactedBody
     });
     return;
   }

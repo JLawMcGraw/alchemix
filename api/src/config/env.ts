@@ -20,6 +20,17 @@ if (result.error) {
   console.error('❌ Failed to load .env file:', result.error);
   console.error('   Current working directory:', process.cwd());
   console.error('   Looking for .env at:', path.join(process.cwd(), '.env'));
+
+  // CRITICAL: Fail fast in production if .env file is missing
+  if (process.env.NODE_ENV === 'production') {
+    console.error('');
+    console.error('╔══════════════════════════════════════════════════════════════╗');
+    console.error('║  FATAL: Cannot start server without .env file in production  ║');
+    console.error('╚══════════════════════════════════════════════════════════════╝');
+    console.error('');
+    console.error('Create a .env file based on .env.example with your production values.');
+    process.exit(1);
+  }
 } else {
   console.log('✅ Environment variables loaded');
 

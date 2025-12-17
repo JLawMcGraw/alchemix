@@ -1,5 +1,25 @@
 {
   "_description": "Top 100 cocktails and their key ingredients for search query expansion",
+  "_conceptsDescription": "Conceptual style descriptors mapped to cocktail families for better semantic search",
+  "concepts": {
+    "spirit-forward": ["daiquiri", "old fashioned", "manhattan", "sazerac", "negroni", "martini", "ti punch", "gimlet", "rob roy", "boulevardier"],
+    "spirit forward": ["daiquiri", "old fashioned", "manhattan", "sazerac", "negroni", "martini", "ti punch", "gimlet", "rob roy", "boulevardier"],
+    "boozy": ["old fashioned", "manhattan", "sazerac", "negroni", "vieux carre", "boulevardier", "rusty nail", "godfather"],
+    "simple": ["daiquiri", "gimlet", "whiskey sour", "old fashioned", "ti punch", "dark n stormy", "mojito"],
+    "classic": ["daiquiri", "old fashioned", "manhattan", "negroni", "martini", "margarita", "mojito", "whiskey sour"],
+    "sour": ["daiquiri", "whiskey sour", "pisco sour", "amaretto sour", "margarita", "sidecar", "gimlet", "cosmopolitan"],
+    "tiki": ["mai tai", "zombie", "painkiller", "navy grog", "jungle bird", "hurricane", "three dots and a dash", "saturn", "jet pilot"],
+    "tropical": ["mai tai", "pina colada", "painkiller", "jungle bird", "hurricane", "daiquiri", "mojito"],
+    "stirred": ["manhattan", "negroni", "martini", "old fashioned", "sazerac", "vieux carre", "boulevardier", "rob roy"],
+    "shaken": ["daiquiri", "margarita", "whiskey sour", "cosmopolitan", "sidecar", "aviation", "last word"],
+    "refreshing": ["mojito", "tom collins", "gin fizz", "paloma", "moscow mule", "aperol spritz", "hugo spritz"],
+    "bitter": ["negroni", "boulevardier", "americano", "jungle bird", "paper plane", "enzoni"],
+    "herbal": ["last word", "chartreuse swizzle", "bijou", "final ward", "corpse reviver #2"],
+    "rum-based": ["daiquiri", "mojito", "mai tai", "dark n stormy", "ti punch", "jungle bird", "hemingway daiquiri", "navy grog", "hurricane", "painkiller"],
+    "rum based": ["daiquiri", "mojito", "mai tai", "dark n stormy", "ti punch", "jungle bird", "hemingway daiquiri", "navy grog", "hurricane", "painkiller"],
+    "showcase rum": ["daiquiri", "ti punch", "dark n stormy", "jungle bird", "hemingway daiquiri"],
+    "high ester": ["daiquiri", "ti punch", "jungle bird", "mai tai"]
+  },
   "cocktails": {
     "negroni": ["gin", "campari", "sweet vermouth"],
     "old fashioned": ["bourbon", "rye", "sugar", "bitters"],

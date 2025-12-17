@@ -66,7 +66,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 
@@ -127,7 +127,7 @@ router.get('/category-counts', asyncHandler(async (req: Request, res: Response) 
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 
@@ -150,7 +150,7 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 
@@ -182,11 +182,11 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 
-  if (isNaN(itemId)) {
+  if (isNaN(itemId) || itemId <= 0) {
     return res.status(400).json({
       success: false,
       error: 'Invalid item ID'
@@ -232,7 +232,7 @@ router.delete('/bulk', asyncHandler(async (req: Request, res: Response) => {
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 
@@ -286,11 +286,11 @@ router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 
-  if (isNaN(itemId)) {
+  if (isNaN(itemId) || itemId <= 0) {
     return res.status(400).json({
       success: false,
       error: 'Invalid item ID'
@@ -324,7 +324,7 @@ router.post('/backfill-periodic-tags', asyncHandler(async (req: Request, res: Re
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 
@@ -347,7 +347,7 @@ router.post('/import', upload.single('file'), asyncHandler(async (req: Request, 
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 

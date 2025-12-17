@@ -6,7 +6,7 @@
 
 Modern cocktail inventory and recipe management system with AI-powered bartender recommendations. Features a "Molecular Mixology" design system that treats cocktails as chemical formulas and ingredients as periodic table elements.
 
-**Version:** v1.30.0 | **Last Updated:** December 16, 2025
+**Version:** v1.30.0 | **Last Updated:** December 17, 2025
 
 ## Features
 
@@ -16,7 +16,7 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 - **Recipe Management** - Full CRUD, collections/folders, bulk operations, CSV import, spirit detection
 - **Recipe Molecule Visualization** - Chemical bond-style molecular diagrams for cocktail recipes
 - **Smart Shopping List** - Near-miss algorithm, ingredient recommendations, 6 recipe buckets
-- **AI Bartender** - Claude-powered assistant with hybrid search (SQLite + MemMachine semantic memory)
+- **AI Bartender** - Claude-powered assistant with hybrid search (SQLite + MemMachine) and concept expansion (spirit-forward, tiki, boozy, etc.)
 - **Dashboard** - Lab overview with My Bar composition, Recipe Mastery stats, Collections sidebar
 
 ### Design & UX
@@ -141,10 +141,10 @@ alchemix/
 │   └── .env.example       # Docker env template
 ├── Documentation/          # Project docs
 │   ├── ARCHITECTURE.md    # System architecture & dependency maps
-│   ├── REDESIGN_PLAN.md   # Visual redesign phases & progress
-│   ├── PROJECT_PROGRESS.md # Session history
+│   ├── PROJECT_PROGRESS.md # Session history & current status
 │   ├── DEV_NOTES.md       # Technical decisions
-│   └── railway-deployment/ # Railway deployment guide
+│   ├── railway-deployment/ # Railway deployment guide
+│   └── archives/          # Archived documentation
 ├── .claude/                # Claude Code session docs
 ├── alchemix-design-system.md # Full design specification
 └── railway/                # Railway deployment configs
@@ -217,9 +217,9 @@ The project has comprehensive test coverage using Vitest:
 | Suite | Tests | Description |
 |-------|-------|-------------|
 | Frontend | 206 | API client, store, UI components, page tests |
-| Backend | 750 | Auth, inventory, recipes, collections, favorites, messages, shopping list, middleware, services |
+| Backend | 921 | Auth, inventory, recipes, collections, favorites, messages, shopping list, middleware, services |
 | Recipe Molecule | 124 | Ingredient parser, classifier, layout engine |
-| **Total** | **1,080** | |
+| **Total** | **1,251** | |
 
 ```bash
 # Run all tests
@@ -252,13 +252,15 @@ npm run dev:all
 | API | 3000 | Express backend |
 | Frontend | 3001 | Next.js frontend |
 
-### MemMachine v2 API
+### Hybrid Search Architecture
 
-AlcheMix uses a hybrid search architecture combining SQLite and MemMachine:
+AlcheMix uses a sophisticated hybrid search combining multiple strategies:
+- **Concept expansion** - Queries like "spirit-forward" expand to relevant cocktails (daiquiri, old fashioned, manhattan, etc.)
 - **SQLite ingredient matching** - Fast exact matching with 100+ cocktail query expansions
 - **MemMachine semantic search** - Vector similarity for recipe discovery
 - **Intelligent prioritization** - Specific ingredients (green chartreuse) searched before generic (gin, lime)
-- **Pre-computed craftability** - Markers (✅ CRAFTABLE, ⚠️ NEAR-MISS, ❌ MISSING) verified against user inventory
+- **Pre-computed craftability** - Markers (CRAFTABLE, NEAR-MISS, MISSING) verified against user inventory
+- **Dashboard caching** - 5-minute TTL cache for AI insights to reduce API calls
 - Per-user project isolation (`org: alchemix`, `project: user_{id}_recipes`)
 
 ## Design System
@@ -272,8 +274,7 @@ AlcheMix uses the "Molecular Mixology" design system - a clinical, scientific ae
 - **Color Coding** - Ingredient groups have distinct colors (agave=teal, grain=amber, etc.)
 
 ### Key Design Files
-- `alchemix-design-system.md` - Complete design specification
-- `Documentation/REDESIGN_PLAN.md` - Implementation phases and progress
+- `alchemix-design-system.md` - Complete design specification (colors, typography, components, logo)
 
 ### Element Group Colors
 | Group | Color | Ingredients |
@@ -289,12 +290,12 @@ AlcheMix uses the "Molecular Mixology" design system - a clinical, scientific ae
 
 ## Documentation
 
-- `alchemix-design-system.md` - Full "Molecular Mixology" design specification
+- `alchemix-design-system.md` - Full "Molecular Mixology" design specification (colors, typography, components, logo)
 - `Documentation/ARCHITECTURE.md` - System architecture, dependency maps, security
-- `Documentation/REDESIGN_PLAN.md` - Visual redesign phases and progress
-- `Documentation/PROJECT_PROGRESS.md` - Session history and progress
+- `Documentation/PROJECT_PROGRESS.md` - Session history and current status
 - `Documentation/DEV_NOTES.md` - Technical decisions and gotchas
 - `Documentation/railway-deployment/` - Railway deployment guide
+- `.claude/SESSION_START.md` - Quick reference for development context
 - `api/.env.example` - Full environment variable reference
 - `docker/.env.example` - Docker environment template
 

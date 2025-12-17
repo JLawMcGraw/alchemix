@@ -5,7 +5,7 @@ import { X, Pencil, Plus, Minus } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { useToast } from '@/components/ui';
 import type { InventoryCategory, InventoryItem, PeriodicGroup, PeriodicPeriod } from '@/types';
-import { getPeriodicTags, PERIODIC_GROUPS, PERIODIC_PERIODS } from '@/lib/periodicTableV2';
+import { getPeriodicTags, PERIODIC_GROUPS, PERIODIC_PERIODS, GROUP_COLORS, PERIOD_COLORS } from '@/lib/periodicTableV2';
 import styles from './ItemDetailModal.module.css';
 
 interface ItemDetailModalProps {
@@ -87,10 +87,8 @@ export function ItemDetailModal({ isOpen, onClose, item }: ItemDetailModalProps)
         combinedNotes = parts.join('\n');
       }
 
-      // Get periodic tags from item or auto-detect
-      const tags = item.periodic_group && item.periodic_period
-        ? { group: item.periodic_group, period: item.periodic_period }
-        : getPeriodicTags(item);
+      // Always auto-detect periodic tags based on current classification logic
+      const tags = getPeriodicTags(item);
 
       const data: FormState = {
         name: item.name || '',
@@ -277,12 +275,26 @@ export function ItemDetailModal({ isOpen, onClose, item }: ItemDetailModalProps)
                   {formData.category}
                 </span>
                 {formData.periodic_group && (
-                  <span className={`${styles.periodicBadge} ${styles.periodicGroup}`}>
+                  <span
+                    className={styles.periodicBadge}
+                    style={{
+                      color: GROUP_COLORS[formData.periodic_group],
+                      borderColor: GROUP_COLORS[formData.periodic_group],
+                      backgroundColor: `${GROUP_COLORS[formData.periodic_group]}15`,
+                    }}
+                  >
                     {formData.periodic_group}
                   </span>
                 )}
                 {formData.periodic_period && (
-                  <span className={`${styles.periodicBadge} ${styles.periodicPeriod}`}>
+                  <span
+                    className={styles.periodicBadge}
+                    style={{
+                      color: PERIOD_COLORS[formData.periodic_period],
+                      borderColor: PERIOD_COLORS[formData.periodic_period],
+                      backgroundColor: `${PERIOD_COLORS[formData.periodic_period]}15`,
+                    }}
+                  >
                     {formData.periodic_period}
                   </span>
                 )}

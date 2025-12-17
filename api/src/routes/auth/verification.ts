@@ -108,7 +108,7 @@ router.post('/resend-verification', authMiddleware, asyncHandler(async (req: Req
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 

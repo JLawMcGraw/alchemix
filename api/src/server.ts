@@ -519,6 +519,7 @@ app.use('/auth/forgot-password', passwordResetLimiter);  // 3 per hour (email en
 app.use('/auth/reset-password', passwordResetLimiter);   // 3 per hour (token abuse prevention)
 app.use('/auth/change-password', changePasswordLimiter); // 3 per hour (brute-force prevention)
 app.use('/auth/resend-verification', verificationLimiter); // 3 per hour (email spam prevention)
+app.use('/auth/verify-email', verificationLimiter);       // 3 per hour (token enumeration prevention)
 app.use('/auth', authRoutes);                  // Mount auth routes
 
 // Protected API routes (require authentication + CSRF protection)

@@ -119,7 +119,7 @@ function BarPageContent() {
     // Filter by spirit type if set
     if (spiritTypeFilter) {
       items = items.filter(item =>
-        matchesSpiritCategory(item.type, spiritTypeFilter)
+        matchesSpiritCategory(item.type, spiritTypeFilter, item.name)
       );
     }
 
@@ -360,7 +360,7 @@ function BarPageContent() {
               if (spiritItems.length === 0) return null;
 
               const spiritCounts = spiritItems.reduce((acc, item) => {
-                const category = categorizeSpirit(item.type);
+                const category = categorizeSpirit(item.type, item.name);
                 acc[category] = (acc[category] || 0) + 1;
                 return acc;
               }, {} as Record<SpiritCategory, number>);

@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 import { db } from '../database/db';
+import { logger } from './logger';
 
 /**
  * Token Blacklist System
@@ -145,8 +146,7 @@ class TokenBlacklist {
 
     this.loadFromDatabase();
 
-    console.log('🔒 Token blacklist initialized');
-    console.log('   Cleanup interval: Every 15 minutes');
+    logger.info('Token blacklist initialized', { cleanupInterval: '15 minutes' });
   }
 
   /**
@@ -218,13 +218,13 @@ class TokenBlacklist {
         for (const [oldToken] of entries) {
           this.blacklist.delete(oldToken);
         }
-        console.log(`⚠️ Token blacklist cache at limit, evicted ${entriesToRemove} oldest entries`);
+        logger.warn('Token blacklist cache at limit, evicted oldest entries', { evictedCount: entriesToRemove });
       }
     }
 
     this.blacklist.set(token, expiryTimestamp);
     this.insertStmt.run(token, expiryTimestamp);
-    console.log(`🔒 Token blacklisted (expires: ${new Date(expiryTimestamp * 1000).toISOString()})`);
+    logger.debug('Token blacklisted', { expiresAt: new Date(expiryTimestamp * 1000).toISOString() });
   }
 
   /**
@@ -344,8 +344,10 @@ class TokenBlacklist {
     const dbCleanup = this.cleanupStmt.run(now).changes ?? 0;
 
     if (removedCount > 0 || dbCleanup > 0) {
-      console.log(`🧹 Token blacklist cleanup: Removed ${removedCount + dbCleanup} expired tokens`);
-      console.log(`   Blacklist size: ${this.blacklist.size} tokens`);
+      logger.debug('Token blacklist cleanup completed', {
+        removedCount: removedCount + dbCleanup,
+        remainingSize: this.blacklist.size
+      });
     }
   }
 
@@ -398,7 +400,7 @@ class TokenBlacklist {
    */
   shutdown(): void {
     clearInterval(this.cleanupInterval);
-    console.log('🔒 Token blacklist shutdown complete');
+    logger.info('Token blacklist shutdown complete');
   }
 }
 

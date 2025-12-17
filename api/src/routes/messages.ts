@@ -25,6 +25,36 @@ import { logger, logSecurityEvent } from '../utils/logger';
 const router = Router();
 
 /**
+ * Dashboard Insight Cache
+ *
+ * Simple in-memory cache for dashboard insights to reduce AI API calls.
+ * - Caches per user for 5 minutes
+ * - Saves API costs since dashboard loads frequently
+ * - Cleared on inventory/recipe changes (future enhancement)
+ */
+const DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const dashboardCache = new Map<number, { data: { greeting: string; insight: string }; expires: number }>();
+
+function getCachedDashboardInsight(userId: number): { greeting: string; insight: string } | null {
+  const cached = dashboardCache.get(userId);
+  if (cached && cached.expires > Date.now()) {
+    return cached.data;
+  }
+  // Clean up expired entry
+  if (cached) {
+    dashboardCache.delete(userId);
+  }
+  return null;
+}
+
+function setCachedDashboardInsight(userId: number, data: { greeting: string; insight: string }): void {
+  dashboardCache.set(userId, {
+    data,
+    expires: Date.now() + DASHBOARD_CACHE_TTL_MS
+  });
+}
+
+/**
  * Authentication Requirement
  *
  * All AI chat endpoints require valid JWT token.
@@ -201,8 +231,22 @@ router.get('/dashboard-insight', asyncHandler(async (req: Request, res: Response
     });
   }
 
+  // Check cache first (5-minute TTL to reduce AI API calls)
+  const cached = getCachedDashboardInsight(userId);
+  if (cached) {
+    logger.debug('Dashboard insight cache hit', { userId });
+    return res.json({
+      success: true,
+      data: cached,
+      cached: true
+    });
+  }
+
   try {
     const parsedResponse = await aiService.getDashboardInsight(userId);
+
+    // Cache the response
+    setCachedDashboardInsight(userId, parsedResponse);
 
     res.json({
       success: true,

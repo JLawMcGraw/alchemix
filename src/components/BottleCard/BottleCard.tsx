@@ -1,6 +1,8 @@
 'use client';
 
+import { useMemo } from 'react';
 import type { InventoryItem, PeriodicGroup, PeriodicPeriod } from '@/types';
+import { getPeriodicTags } from '@/lib/periodicTableV2';
 import styles from './BottleCard.module.css';
 
 interface BottleCardProps {
@@ -49,6 +51,9 @@ export function BottleCard({ item, isSelected = false, onSelect, onClick }: Bott
   const color = CATEGORY_COLORS[item.category] || '#94A3B8';
   const isOutOfStock = (item.stock_number ?? 0) === 0;
   const stockCount = item.stock_number ?? 0;
+
+  // Always re-detect periodic tags based on current classification logic
+  const periodicTags = useMemo(() => getPeriodicTags(item), [item]);
 
   const handleCheckboxClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -100,30 +105,30 @@ export function BottleCard({ item, isSelected = false, onSelect, onClick }: Bott
       </div>
 
       {/* Periodic Tags Row - Below Name */}
-      {(item.periodic_group || item.periodic_period) && (
+      {(periodicTags.group || periodicTags.period) && (
         <div className={styles.periodicTags}>
-          {item.periodic_group && (
+          {periodicTags.group && (
             <span
               className={styles.periodicBadge}
               style={{
-                color: GROUP_COLORS[item.periodic_group],
-                borderColor: GROUP_COLORS[item.periodic_group],
-                backgroundColor: `${GROUP_COLORS[item.periodic_group]}15`,
+                color: GROUP_COLORS[periodicTags.group],
+                borderColor: GROUP_COLORS[periodicTags.group],
+                backgroundColor: `${GROUP_COLORS[periodicTags.group]}15`,
               }}
             >
-              {item.periodic_group}
+              {periodicTags.group}
             </span>
           )}
-          {item.periodic_period && (
+          {periodicTags.period && (
             <span
               className={styles.periodicBadge}
               style={{
-                color: PERIOD_COLORS[item.periodic_period],
-                borderColor: PERIOD_COLORS[item.periodic_period],
-                backgroundColor: `${PERIOD_COLORS[item.periodic_period]}15`,
+                color: PERIOD_COLORS[periodicTags.period],
+                borderColor: PERIOD_COLORS[periodicTags.period],
+                backgroundColor: `${PERIOD_COLORS[periodicTags.period]}15`,
               }}
             >
-              {item.periodic_period}
+              {periodicTags.period}
             </span>
           )}
         </div>

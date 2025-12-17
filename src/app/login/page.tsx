@@ -233,7 +233,7 @@ export default function LoginPage() {
         <div className={styles.loginInner}>
           {/* Brand - Official AlcheMix Logo */}
           <div className={styles.brand}>
-            <AlcheMixLogo size="sm" showText={true} />
+            <AlcheMixLogo size="sm" showText={true} showTagline={true} />
           </div>
 
           {/* Mode Tabs */}
@@ -357,7 +357,6 @@ export default function LoginPage() {
         <div className={styles.gridBg} />
 
         <div className={styles.storyContent}>
-          <div className={styles.storyEyebrow}>Molecular Mixology OS</div>
           <h1 className={styles.storyTitle}>The periodic table for your bar</h1>
           <p className={styles.storySubtitle}>
             Classify ingredients by function. Visualize recipes as molecular

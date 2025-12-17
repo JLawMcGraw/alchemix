@@ -64,11 +64,13 @@ export function csrfMiddleware(req: Request, res: Response, next: NextFunction) 
     return next();
   }
 
-  // Skip CSRF check if using Authorization header (not cookie auth)
+  // Skip CSRF check if using ONLY Authorization header (no cookie auth)
   // This allows API clients (Postman, mobile apps) to work without CSRF
+  // Note: If BOTH header AND cookie are present, CSRF check still applies
+  // (browser could be making request with both, so we need CSRF protection)
   const authHeader = req.headers.authorization;
   if (authHeader && !req.cookies?.auth_token) {
-    // Using header auth, not cookie auth - CSRF not needed
+    // Using header auth only, no cookie auth - CSRF not needed
     return next();
   }
 

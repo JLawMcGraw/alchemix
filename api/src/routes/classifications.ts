@@ -46,7 +46,7 @@ router.get(
     if (!userId) {
       return res.status(401).json({
         success: false,
-        error: 'Unauthorized',
+        error: 'Authentication required',
       });
     }
 
@@ -78,7 +78,7 @@ router.delete(
     if (!userId) {
       return res.status(401).json({
         success: false,
-        error: 'Unauthorized',
+        error: 'Authentication required',
       });
     }
 
@@ -110,7 +110,7 @@ router.get(
     if (!userId) {
       return res.status(401).json({
         success: false,
-        error: 'Unauthorized',
+        error: 'Authentication required',
       });
     }
 
@@ -164,7 +164,7 @@ router.put(
     if (!userId) {
       return res.status(401).json({
         success: false,
-        error: 'Unauthorized',
+        error: 'Authentication required',
       });
     }
 
@@ -244,7 +244,7 @@ router.delete(
     if (!userId) {
       return res.status(401).json({
         success: false,
-        error: 'Unauthorized',
+        error: 'Authentication required',
       });
     }
 

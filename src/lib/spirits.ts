@@ -21,12 +21,15 @@ const spiritKeywords: Record<SpiritCategory, string[]> = {
   'Other Spirits': ['other', 'spirit', 'liquor'],
 };
 
-export function categorizeSpirit(type?: string | null): SpiritCategory {
-  if (!type) return 'Other Spirits';
-  const normalized = type.toLowerCase().trim();
+export function categorizeSpirit(type?: string | null, name?: string | null): SpiritCategory {
+  // Combine type and name for matching (name often contains spirit type)
+  const combined = `${type || ''} ${name || ''}`.toLowerCase().trim();
+
+  if (!combined) return 'Other Spirits';
 
   for (const [category, keywords] of Object.entries(spiritKeywords) as Array<[SpiritCategory, string[]]>) {
-    if (keywords.some((keyword) => normalized.includes(keyword))) {
+    if (category === 'Other Spirits') continue; // Check this last
+    if (keywords.some((keyword) => combined.includes(keyword))) {
       return category;
     }
   }
@@ -34,21 +37,22 @@ export function categorizeSpirit(type?: string | null): SpiritCategory {
   return 'Other Spirits';
 }
 
-export function matchesSpiritCategory(type: string | undefined, targetCategory: SpiritCategory): boolean {
+export function matchesSpiritCategory(type: string | undefined, targetCategory: SpiritCategory, name?: string | null): boolean {
+  // Combine type and name for matching
+  const combined = `${type || ''} ${name || ''}`.toLowerCase().trim();
+
   // Catch-all: "Other Spirits" should match anything that does not fit a defined category
   if (targetCategory === 'Other Spirits') {
-    if (!type) return true;
-    const normalized = type.toLowerCase().trim();
+    if (!combined) return true;
     const matchesAnyOther = (Object.entries(spiritKeywords) as Array<[SpiritCategory, string[]]>)
       .filter(([category]) => category !== 'Other Spirits')
-      .some(([, keywords]) => keywords.some((keyword) => normalized.includes(keyword)));
-    return !matchesAnyOther || spiritKeywords['Other Spirits'].some((keyword) => normalized.includes(keyword));
+      .some(([, keywords]) => keywords.some((keyword) => combined.includes(keyword)));
+    return !matchesAnyOther || spiritKeywords['Other Spirits'].some((keyword) => combined.includes(keyword));
   }
 
-  if (!type) return false;
-  const normalized = type.toLowerCase().trim();
+  if (!combined) return false;
   const keywords = spiritKeywords[targetCategory];
-  return keywords.some((keyword) => normalized.includes(keyword));
+  return keywords.some((keyword) => combined.includes(keyword));
 }
 
 export function getSpiritCategories() {

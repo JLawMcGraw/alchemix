@@ -129,7 +129,7 @@ router.get('/', (req: Request, res: Response) => {
     if (!userId) {
       return res.status(401).json({
         success: false,
-        error: 'Unauthorized'
+        error: 'Authentication required'
       });
     }
 
@@ -328,7 +328,7 @@ router.post('/', (req: Request, res: Response) => {
     if (!userId) {
       return res.status(401).json({
         success: false,
-        error: 'Unauthorized'
+        error: 'Authentication required'
       });
     }
 
@@ -482,7 +482,7 @@ router.put('/:id', (req: Request, res: Response) => {
     if (!userId) {
       return res.status(401).json({
         success: false,
-        error: 'Unauthorized'
+        error: 'Authentication required'
       });
     }
 
@@ -492,7 +492,7 @@ router.put('/:id', (req: Request, res: Response) => {
      * Ensure ID is a valid positive integer.
      * parseInt() returns NaN for non-numeric strings.
      */
-    if (isNaN(bottleId)) {
+    if (isNaN(bottleId) || bottleId <= 0) {
       return res.status(400).json({
         success: false,
         error: 'Invalid bottle ID'
@@ -655,14 +655,14 @@ router.delete('/:id', (req: Request, res: Response) => {
     if (!userId) {
       return res.status(401).json({
         success: false,
-        error: 'Unauthorized'
+        error: 'Authentication required'
       });
     }
 
     /**
      * Step 2: Validate Bottle ID
      */
-    if (isNaN(bottleId)) {
+    if (isNaN(bottleId) || bottleId <= 0) {
       return res.status(400).json({
         success: false,
         error: 'Invalid bottle ID'
@@ -859,7 +859,7 @@ router.post('/import', upload.single('file'), async (req: Request, res: Response
     if (!userId) {
       return res.status(401).json({
         success: false,
-        error: 'Unauthorized'
+        error: 'Authentication required'
       });
     }
 

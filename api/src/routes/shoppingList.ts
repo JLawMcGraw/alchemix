@@ -22,6 +22,7 @@ import { Router, Request, Response } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { asyncHandler } from '../utils/asyncHandler';
 import { shoppingListService } from '../services/ShoppingListService';
+import { validateNumber } from '../utils/inputValidator';
 
 const router = Router();
 
@@ -45,7 +46,7 @@ router.get('/smart', asyncHandler(async (req: Request, res: Response) => {
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 
@@ -64,17 +65,61 @@ router.get('/smart', asyncHandler(async (req: Request, res: Response) => {
 
 /**
  * GET /api/shopping-list/items
- * Get all shopping list items for the authenticated user
+ * Get shopping list items for the authenticated user
+ *
+ * Query Parameters:
+ * - page: Page number (default: 1)
+ * - limit: Items per page (default: 50, max: 100)
+ * - all: Set to 'true' to get all items without pagination (backwards compatible)
  */
 router.get('/items', asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({ success: false, error: 'Unauthorized' });
+    return res.status(401).json({ success: false, error: 'Authentication required' });
   }
 
-  const items = shoppingListService.getItems(userId);
-  res.json({ success: true, data: items });
+  // Support backwards compatibility - return all items if 'all' param is set
+  if (req.query.all === 'true') {
+    const items = shoppingListService.getItems(userId);
+    return res.json({ success: true, data: items });
+  }
+
+  // Validate page parameter
+  const pageParam = req.query.page as string | undefined;
+  const pageValidation = validateNumber(pageParam || '1', 1, undefined);
+
+  if (!pageValidation.isValid) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid page parameter',
+      details: pageValidation.errors
+    });
+  }
+
+  const page = pageValidation.sanitized || 1;
+
+  // Validate limit parameter
+  const limitParam = req.query.limit as string | undefined;
+  const limitValidation = validateNumber(limitParam || '50', 1, 100);
+
+  if (!limitValidation.isValid) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid limit parameter',
+      details: limitValidation.errors
+    });
+  }
+
+  const limit = limitValidation.sanitized || 50;
+
+  const result = shoppingListService.getItemsPaginated(userId, page, limit);
+
+  res.json({
+    success: true,
+    data: result.items,
+    pagination: result.pagination
+  });
 }));
 
 /**
@@ -86,7 +131,7 @@ router.post('/items', asyncHandler(async (req: Request, res: Response) => {
   const { name } = req.body;
 
   if (!userId) {
-    return res.status(401).json({ success: false, error: 'Unauthorized' });
+    return res.status(401).json({ success: false, error: 'Authentication required' });
   }
 
   if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -112,10 +157,10 @@ router.put('/items/:id', asyncHandler(async (req: Request, res: Response) => {
   const { checked, name } = req.body;
 
   if (!userId) {
-    return res.status(401).json({ success: false, error: 'Unauthorized' });
+    return res.status(401).json({ success: false, error: 'Authentication required' });
   }
 
-  if (isNaN(itemId)) {
+  if (isNaN(itemId) || itemId <= 0) {
     return res.status(400).json({ success: false, error: 'Invalid item ID' });
   }
 
@@ -149,7 +194,7 @@ router.delete('/items/checked', asyncHandler(async (req: Request, res: Response)
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({ success: false, error: 'Unauthorized' });
+    return res.status(401).json({ success: false, error: 'Authentication required' });
   }
 
   const deleted = shoppingListService.deleteCheckedItems(userId);
@@ -165,10 +210,10 @@ router.delete('/items/:id', asyncHandler(async (req: Request, res: Response) => 
   const itemId = parseInt(req.params.id, 10);
 
   if (!userId) {
-    return res.status(401).json({ success: false, error: 'Unauthorized' });
+    return res.status(401).json({ success: false, error: 'Authentication required' });
   }
 
-  if (isNaN(itemId)) {
+  if (isNaN(itemId) || itemId <= 0) {
     return res.status(400).json({ success: false, error: 'Invalid item ID' });
   }
 

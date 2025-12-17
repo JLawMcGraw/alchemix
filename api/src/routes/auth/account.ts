@@ -41,7 +41,7 @@ router.get('/me', authMiddleware, asyncHandler(async (req: Request, res: Respons
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 
@@ -90,7 +90,7 @@ router.delete('/account', authMiddleware, asyncHandler(async (req: Request, res:
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 
@@ -163,7 +163,7 @@ router.get('/export', authMiddleware, asyncHandler(async (req: Request, res: Res
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 
@@ -235,7 +235,7 @@ router.post('/import', authMiddleware, asyncHandler(async (req: Request, res: Re
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 

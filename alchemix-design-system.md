@@ -1,7 +1,7 @@
 # Molecular Mixology (AlcheMix) — Design System
 
 **Version**: v1.30.0
-**Last Updated**: December 16, 2025
+**Last Updated**: December 17, 2025
 
 ---
 
@@ -1027,3 +1027,129 @@ packages/
 - [ ] Chemical formulas render subscripts correctly
 - [ ] Dark mode colors all work
 - [ ] Molecule diagrams scale responsively
+
+---
+
+## 13. Logo & Branding
+
+### AlcheMix Logo
+
+The AlcheMix logo is a Y-shaped molecular structure representing the fusion of chemistry and mixology.
+
+**Component**: `src/components/ui/AlcheMixLogo.tsx`
+
+### Logo Geometry
+
+```
+       [Green]         [Blue]
+        (25,18)        (75,18)
+           \            /
+            \          /
+             \        /
+              \      /
+               [Pink]      ← Center Junction (50, 45)
+              (50,45)
+                 |
+                 |
+                 |
+              [Amber]
+              (50,78)
+```
+
+**SVG ViewBox**: `0 0 100 100`
+
+**Node Positions**:
+| Node | Position | Radius (md) | Color Variable |
+|------|----------|-------------|----------------|
+| Top-Left | (25, 18) | 10px | `--bond-cane` (Green #65A30D) |
+| Top-Right | (75, 18) | 10px | `--bond-juniper` (Sky Blue #0EA5E9) |
+| Bottom | (50, 78) | 10px | `--bond-grain` (Amber #D97706) |
+| Center | (50, 45) | 7px | `--bond-botanical` (Pink #EC4899) |
+
+**Bonds**: 3 lines connecting center to each terminal node
+- Stroke: `#3D3D3D` (light mode), `#888888` (dark mode)
+- Stroke width: 4px (md size)
+
+### Logo Size Variants
+
+| Size | Icon | Gap | Wordmark | Use Case |
+|------|------|-----|----------|----------|
+| `sm` | 40×40 | 8px | 1.25rem | Compact navigation |
+| `md` | 48×48 | 10px | 1.75rem | Default navigation |
+| `lg` | 80×80 | 12px | 2.25rem | Login page, hero |
+
+### Wordmark Typography
+
+```
+ALCHE  MIX
+  ↑      ↑
+Inter  JetBrains Mono
+400    700
+Gray   Black
+```
+
+| Part | Font | Weight | Color (Light) | Color (Dark) |
+|------|------|--------|---------------|--------------|
+| "ALCHE" | Inter | 400 | #6B6B6B | #777777 |
+| "MIX" | JetBrains Mono | 700 | #1A1A1A | #F0F0F0 |
+
+**Tagline**: "MOLECULAR OS V1.0"
+- Font: JetBrains Mono
+- Size: 0.875rem (lg), 0.6875rem (md), 0.5625rem (sm)
+- Color: #6B6B6B (matches "ALCHE")
+- Letter spacing: 0.2em
+- Text transform: uppercase
+
+### Logo Animation
+
+On hover, terminal nodes exhibit subtle Brownian motion:
+
+```css
+@keyframes drift1 {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  25% { transform: translate3d(1.5px, -1px, 0); }
+  50% { transform: translate3d(2px, -2px, 0); }
+  75% { transform: translate3d(-0.5px, 1px, 0); }
+}
+```
+
+- **Green node**: `drift1` at 8s
+- **Blue node**: `drift2` at 9s
+- **Amber node**: `drift3` at 7s
+- **Easing**: `cubic-bezier(0.4, 0, 0.2, 1)`
+
+Disabled when `prefers-reduced-motion: reduce`.
+
+### Logo Props
+
+```typescript
+interface AlcheMixLogoProps {
+  size?: 'sm' | 'md' | 'lg';      // Default: 'md'
+  showText?: boolean;             // Default: true
+  showTagline?: boolean;          // Default: false
+  className?: string;
+}
+```
+
+### Logo Files
+
+**Location**: `public/`
+
+| File | Content | Use Case |
+|------|---------|----------|
+| `icon.svg` | Y-molecule only (no text) | Favicon, app icon |
+| `logo.svg` | Full logo with wordmark | Headers, about pages |
+| `logo-text.svg` | Wordmark only (no icon) | Footer, text-only contexts |
+
+### Color Meaning in Logo
+
+The logo nodes use recipe mastery indicator colors (matching dashboard):
+
+| Node | Color | Mastery Level |
+|------|-------|---------------|
+| Green | `--bond-cane` | Craftable (have all ingredients) |
+| Blue | `--bond-juniper` | Almost There (missing 1-2) |
+| Amber | `--bond-grain` | Need Few (missing 3-5) |
+| Pink | `--bond-botanical` | Major Gaps (missing 6+) |
+
+This creates a visual connection between the logo and the app's core functionality.

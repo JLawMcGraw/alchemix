@@ -8,7 +8,7 @@ export interface AlcheMixLogoProps {
   size?: 'sm' | 'md' | 'lg';
   /** Whether to show the text alongside the icon */
   showText?: boolean;
-  /** Whether to show the tagline (only with lg size) */
+  /** Whether to show the tagline below the wordmark */
   showTagline?: boolean;
   /** Custom className */
   className?: string;
@@ -108,7 +108,7 @@ export const AlcheMixLogo: React.FC<AlcheMixLogoProps> = ({
             <span className={styles.alche}>ALCHE</span>
             <span className={styles.mix}>MIX</span>
           </div>
-          {showTagline && size === 'lg' && (
+          {showTagline && (
             <span className={styles.tagline}>MOLECULAR OS V1.0</span>
           )}
         </div>

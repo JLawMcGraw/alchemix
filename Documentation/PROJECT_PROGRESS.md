@@ -1,21 +1,21 @@
 # Project Development Progress
 
-Last updated: 2025-12-16
+Last updated: 2025-12-17
 
 ---
 
 ## Current Status
 
 **Version**: v1.30.0
-**Phase**: Feature Development - Login Page Polish
+**Phase**: Feature Development - AI Enhancement & Code Quality
 **Branch**: `alchemix-redesign`
 **Blockers**: None
 
 **Test Coverage**:
-- Backend: 750 tests (29 test files)
+- Backend: 921 tests (35 test files, +6 new)
 - Frontend: 206 tests
 - Recipe-Molecule: 124 tests
-- **Total: 1,080 tests**
+- **Total: 1,251 tests (+171 new tests)**
 
 **Redesign Progress**:
 - Phase 1-4 (Batch A - Foundation): **Complete**
@@ -27,7 +27,139 @@ Last updated: 2025-12-16
 
 ---
 
-## Recent Session (2025-12-16): Login Page Two-Panel Redesign
+## Recent Session (2025-12-17): AI Hybrid Search, Test Suite Expansion & Code Review
+
+### Summary
+Major session covering AI service hybrid search with concept-based expansion (spirit-forward, tiki, boozy etc.), 1,822 lines of new tests across 6 files, security improvements (token redaction, error messages), code review LOW priority fixes, periodic table enhancements with dynamic tag detection, shopping list pagination, and login page polish.
+
+### Work Completed
+
+#### 1. AI Service Hybrid Search Overhaul (516 lines changed)
+- **Concept-Based Query Expansion**: New `concepts` section in `cocktailIngredients.json` maps descriptors to cocktail families
+  - "spirit-forward" → daiquiri, old fashioned, manhattan, sazerac, negroni, martini...
+  - "boozy" → old fashioned, manhattan, sazerac, negroni, vieux carre...
+  - "tiki" → mai tai, zombie, painkiller, navy grog, jungle bird...
+  - "sour", "stirred", "shaken", "refreshing", "bitter", "herbal", "rum-based", "high ester"
+- **Hybrid Search**: New `queryRecipesByName()` method combines DB name search with semantic search
+- **Enhanced Logging**: Better query expansion logging with concept/cocktail/ingredient breakdown
+- **Files**: `api/src/services/AIService.ts`, `api/src/data/cocktailIngredients.json`
+
+#### 2. Dashboard Insight Caching
+- **5-Minute TTL Cache**: Per-user caching for dashboard AI insights to reduce API calls
+- **Functions**: `getCachedDashboardInsight()`, `setCachedDashboardInsight()`
+- **Response**: Includes `cached: true` flag when returning cached data
+- **File**: `api/src/routes/messages.ts` (44 lines added)
+
+#### 3. New Test Files Created (1,822 lines total)
+- `validateEnv.test.ts` (297 lines) - Environment validation testing
+- `AIService.test.ts` (315 lines) - AI service unit tests
+- `FavoriteService.test.ts` (368 lines) - Favorites service testing
+- `ShoppingListService.test.ts` (498 lines) - Shopping list service testing
+- `asyncHandler.test.ts` (191 lines) - Async error handler testing
+- `corsConfig.test.ts` (153 lines) - CORS configuration testing
+
+#### 4. Security Improvements
+- **Token Redaction in Logs**: EmailService now redacts tokens from dev mode logging
+  - Strips HTML tags, redacts `token=` params, `/verify/`, `/reset/` URLs
+  - Limited to 500 chars with `bodyPreview` property
+- **Error Message Standardization**: Changed "Unauthorized" to "Authentication required" across auth routes
+- **Env Documentation**: Enhanced `.env.example` with security warnings and generation instructions
+- **Files**: `api/src/services/EmailService.ts`, `api/src/routes/auth/account.ts`, `api/.env.example`
+
+#### 5. Code Review LOW Priority Fixes
+- **Token Blacklist Logging**: Migrated console.log to Winston logger
+  - `logger.warn()` for cache eviction
+  - `logger.debug()` for token operations
+  - `logger.info()` for shutdown
+- **Positive ID Validation**: Added `|| id <= 0` check to 10 route handlers across:
+  - favorites.ts, shoppingList.ts (2), glasses.ts, inventory.ts (2), collections.ts (2), inventoryItems.ts (2)
+
+#### 6. Shopping List Service Enhancements
+- **Pagination Support**: New `getItemsPaginated()` method with full pagination response
+  - Validates/clamps page and limit parameters
+  - Returns `{ items, pagination: { page, limit, total, totalPages, hasNextPage, hasPreviousPage } }`
+- **Always Available Ingredients**: Added nutmeg variations (nutmeg, ground nutmeg, freshly ground nutmeg)
+- **File**: `api/src/services/ShoppingListService.ts` (57 lines changed)
+
+#### 7. Spirit Categorization Enhancement
+- **Combined Matching**: `categorizeSpirit()` now uses BOTH type AND name fields
+  - Better detection for items where spirit type is in the name (e.g., "Plantation XO Rum")
+- **Updated**: `categorizeSpirit()`, `matchesSpiritCategory()` functions
+- **File**: `src/lib/spirits.ts` (28 lines changed)
+
+#### 8. Periodic Table Improvements
+- **Dynamic Tag Detection**: BottleCard and ItemDetailModal now use `getPeriodicTags()` for live detection
+  - Removes dependency on stored `periodic_group`/`periodic_period` fields
+  - Tags always reflect current classification logic
+- **Classification Map Additions**: Added new ingredients:
+  - passionfruit syrup, ginger beer, ginger ale
+  - soda water, club soda, sparkling water, tonic, tonic water, cola
+- **Dynamic Badge Colors**: Both BottleCard and ItemDetailModal now use inline styles with GROUP_COLORS/PERIOD_COLORS
+- **Files**: `src/components/BottleCard/BottleCard.tsx`, `src/components/modals/ItemDetailModal.tsx`, `src/lib/periodicTable/classificationMap.ts`
+
+#### 9. Periodic Table Styling - Compact Cells
+- **Reduced Cell Size**: min-height from 100px to 64px, padding from 12px to 8px
+- **Smaller Typography**: Symbol from 1.75rem to 1.25rem, name from 0.8125rem to 0.75rem
+- **Tighter Spacing**: Period dot, count badge repositioned to 6px from edges
+- **Files**: `src/components/PeriodicTableV2/ElementCell.module.css`, `src/components/PeriodicTableV2/PeriodicTable.module.css`
+
+#### 10. Login Page Polish
+- **Branding**: Removed "Molecular Mixology OS" eyebrow, added "MOLECULAR OS V1.0" tagline
+- **AlcheMixLogo**: Enhanced to show tagline at any size (was lg-only), size-specific styles
+- **Tagline Color**: Fixed to match gray (#6B6B6B light, #777777 dark)
+- **Recipe Card Layout**: 50/50 split with `flex: 1 1 50%`, legend aligned to bottom
+- **Files**: `src/app/login/page.tsx`, `src/app/login/login.module.css`, `src/components/ui/AlcheMixLogo.tsx`, `src/components/ui/AlcheMixLogo.module.css`
+
+#### 11. Component Fixes
+- **RecipeMolecule DOM Error**: Fixed "removeChild, parentNode is null" with `isMounted` state pattern
+  - Returns placeholder div before mount, prevents operations after unmount
+- **EmailService Test Fixes**: Updated 11 tests for `bodyPreview` property and token redaction
+- **File**: `src/components/RecipeMolecule.tsx`
+
+### Files Changed (38 files, +1,338 lines, -350 lines)
+
+**Backend (25 files)**:
+- `api/.env.example` - Security documentation
+- `api/src/config/env.ts`, `validateEnv.ts` - Env validation
+- `api/src/data/cocktailIngredients.json` - Concept mappings
+- `api/src/database/db.ts` - Minor changes
+- `api/src/middleware/csrf.ts` - Minor changes
+- `api/src/routes/auth/*` (3 files) - Error message standardization
+- `api/src/routes/*.ts` (8 files) - Positive ID validation
+- `api/src/server.ts` - Minor changes
+- `api/src/services/AIService.ts` - Hybrid search overhaul
+- `api/src/services/EmailService.ts`, `EmailService.test.ts` - Token redaction
+- `api/src/services/InventoryService.ts`, `ShoppingListService.ts` - Enhancements
+- `api/src/utils/tokenBlacklist.ts` - Logger migration
+
+**Frontend (13 files)**:
+- `src/app/bar/page.tsx` - Minor changes
+- `src/app/login/page.tsx`, `login.module.css` - Layout polish
+- `src/components/BottleCard/BottleCard.tsx` - Dynamic tags
+- `src/components/PeriodicTableV2/*.module.css` (2 files) - Compact styling
+- `src/components/RecipeMolecule.tsx` - DOM error fix
+- `src/components/modals/ItemDetailModal.tsx` - Dynamic colors
+- `src/components/ui/AlcheMixLogo.tsx`, `AlcheMixLogo.module.css` - Tagline enhancement
+- `src/lib/periodicTable/classificationMap.ts`, `elements.ts` - New mappings
+- `src/lib/spirits.ts` - Enhanced categorization
+
+**New Test Files (6 files, 1,822 lines)**:
+- `api/src/config/validateEnv.test.ts`
+- `api/src/services/AIService.test.ts`
+- `api/src/services/FavoriteService.test.ts`
+- `api/src/services/ShoppingListService.test.ts`
+- `api/src/utils/asyncHandler.test.ts`
+- `api/src/utils/corsConfig.test.ts`
+
+### Technical Details
+- **Hybrid Search Pattern**: Concept → Cocktail Names → Ingredients, combined with semantic search
+- **Cache Pattern**: In-memory Map with TTL expiration check on read
+- **isMounted Pattern**: useState + useEffect to prevent React hydration and DOM cleanup errors
+- **Dynamic Tags**: `getPeriodicTags(item)` called in useMemo for real-time classification
+
+---
+
+## Previous Session (2025-12-16): Login Page Two-Panel Redesign
 
 ### Summary
 Simplified the login page into a clean two-panel layout: login form on the left, story panel with periodic table preview and recipe molecule visualization on the right. Added 5th column (Reagent) to periodic table preview with correct ingredients. Fixed responsive breakpoints and hover tooltip scaling issues.

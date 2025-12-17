@@ -204,7 +204,10 @@ export const ELEMENTS: ElementType[] = [
   { symbol: 'Lv', name: 'Lavender Syrup', group: 4, period: 6, brix: '55', keywords: ['lavender syrup'] },
 
   // Group 5: Reagent - Botanic
-  { symbol: 'Gj', name: 'Ginger Juice', group: 5, period: 6, ph: '5.5', primary: true, keywords: ['ginger', 'ginger juice', 'fresh ginger'] },
+  { symbol: 'Gb', name: 'Ginger Beer', group: 5, period: 6, usage: 'Top', primary: true, keywords: ['ginger beer', 'ginger ale'] },
+  { symbol: 'Tw', name: 'Tonic Water', group: 5, period: 6, usage: 'Top', keywords: ['tonic', 'tonic water'] },
+  { symbol: 'Sw', name: 'Soda Water', group: 5, period: 6, usage: 'Top', keywords: ['soda', 'soda water', 'club soda', 'sparkling water'] },
+  { symbol: 'Gj', name: 'Ginger Juice', group: 5, period: 6, ph: '5.5', keywords: ['ginger', 'ginger juice', 'fresh ginger'] },
   { symbol: 'Cj', name: 'Cucumber Juice', group: 5, period: 6, ph: '5.8', keywords: ['cucumber', 'cucumber juice'] },
 
   // Group 6: Catalyst - Botanic

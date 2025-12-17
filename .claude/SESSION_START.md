@@ -1,49 +1,51 @@
-# AlcheMix - Session Initialization
+# AlcheMix - Session Context
 
-## Read These Files for Context
-
-**Immediately read in order:**
-1. `README.md` - Current status, features, tech stack, quick start
-2. `Documentation/PROJECT_PROGRESS.md` - Active tasks, session history, implementation status
-3. `Documentation/REDESIGN_PLAN.md` - **ACTIVE** Visual redesign phases, progress, next steps
-
-**Read when needed:**
-- `alchemix-design-system.md` - Full "Molecular Mixology" design specification
-- `Documentation/ARCHITECTURE.md` - System architecture, dependency maps, security
-- `Documentation/DEV_NOTES.md` - Technical decisions, gotchas, lessons learned
-- `CHANGELOG.md` - Version history and changes
-
----
-
-## Project Overview
-
-**AlcheMix** is a full-stack cocktail inventory and recipe management app with AI-powered bartender recommendations.
+## Quick Reference
 
 | Field | Value |
 |-------|-------|
 | Version | v1.30.0 |
-| Phase | Feature Development - AI Bartender Enhancements |
-| Last Updated | December 16, 2025 |
-| Blockers | None |
-| Tests | 1,080 total (750 backend, 206 frontend, 124 recipe-molecule) |
-| Active Branch | `alchemix-redesign` |
+| Branch | `alchemix-redesign` |
+| Tests | 1,251 total (921 backend, 206 frontend, 124 recipe-molecule) |
+| Last Updated | December 17, 2025 |
 
-### Visual Redesign Status: COMPLETE
+---
 
-All 10 phases of the "Molecular Mixology" visual redesign are complete:
+## What is AlcheMix?
 
-**Redesign Progress**:
-- Phase 1-4 (Batch A - Foundation): **Complete** - Colors, fonts, typography, spacing, components
-- Phase 5-7 (Batch B - Features): **Complete** - Periodic table, molecule viz, page layouts
-- Phase 8-10 (Batch C - Polish): **Complete** - Dark mode, animations, accessibility
+A full-stack cocktail inventory and recipe management app with AI-powered bartender recommendations. The UI uses a "Molecular Mixology" design system that treats cocktails as chemical formulas.
 
-### Tech Stack
+**Core Metaphor**:
+- **Ingredients** → Periodic Table Elements (by function and origin)
+- **Recipes** → Molecular Diagrams (node-link visualizations)
+- **Inventory** → Mass/Volume measurements
+- **User** → The chemist
 
-- **Frontend**: Next.js 14, TypeScript 5.3, Zustand 4.5, CSS Modules
-- **Backend**: Express.js 4.18, TypeScript, SQLite (better-sqlite3)
-- **AI**: Claude Sonnet 4.5 (`claude-sonnet-4-5-20250929`) with Prompt Caching
-- **Memory**: MemMachine (Neo4j vector store, semantic search) + SQLite hybrid search
-- **Auth**: JWT + bcrypt, token blacklist, database-backed token versioning
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Frontend | Next.js 14, TypeScript, Zustand, CSS Modules |
+| Backend | Express.js, TypeScript, SQLite (better-sqlite3) |
+| AI | Claude Sonnet 4.5 with Prompt Caching |
+| Memory | MemMachine (Neo4j vector store) + SQLite hybrid search |
+| Auth | JWT + bcrypt, token blacklist, database-backed versioning |
+| Molecule Viz | `@alchemix/recipe-molecule` (custom d3-force SVG) |
+
+---
+
+## Key Files to Read
+
+**For Context**:
+- `Documentation/PROJECT_PROGRESS.md` - Session history, recent work, current status
+- `alchemix-design-system.md` - Full design specification, colors, components, logo
+
+**When Needed**:
+- `Documentation/ARCHITECTURE.md` - System architecture, dependency maps, security
+- `Documentation/DEV_NOTES.md` - Technical decisions, gotchas, workarounds
+- `README.md` - Setup instructions, features, tech stack
 
 ---
 
@@ -56,23 +58,22 @@ alchemix/
 │   ├── components/             # ui/, layout/, modals/, PeriodicTableV2/, RecipeCard/, BottleCard/
 │   ├── hooks/                  # useAuthGuard.ts, useSettings.ts
 │   ├── lib/                    # api.ts, store/, periodicTable/, formatters.ts
-│   ├── styles/                 # globals.css (design system)
-│   └── types/                  # TypeScript definitions
+│   ├── styles/                 # globals.css (design system variables)
+│   └── types/
 ├── api/                        # Backend (Express)
 │   ├── src/
 │   │   ├── routes/             # auth/, inventory, recipes, collections, favorites, messages, shoppingList, classifications
-│   │   ├── services/           # AIService, MemoryService, ClassificationService, ShoppingListService, etc.
-│   │   ├── middleware/         # auth.ts, csrf.ts, errorHandler.ts, requestId.ts, requestLogger.ts, userRateLimit.ts
+│   │   ├── services/           # AIService, MemoryService, ClassificationService, ShoppingListService
+│   │   ├── middleware/         # auth.ts, csrf.ts, errorHandler.ts, requestId.ts, requestLogger.ts
 │   │   ├── config/             # env.ts, rateLimiter.ts, validateEnv.ts
 │   │   ├── database/           # db.ts (SQLite schema)
-│   │   ├── utils/              # logger.ts, tokenBlacklist.ts, inputValidation.ts
-│   │   └── tests/              # 750 tests (29 test files)
+│   │   └── utils/              # logger.ts, tokenBlacklist.ts, inputValidation.ts
 │   └── data/                   # SQLite database (auto-generated)
-├── packages/                   # Shared packages
+├── packages/
 │   ├── recipe-molecule/        # Chemical bond-style recipe visualization
 │   └── types/                  # Shared TypeScript definitions
-├── docker/                     # Docker configs for MemMachine, Neo4j, etc.
-├── Documentation/              # ARCHITECTURE.md, PROJECT_PROGRESS.md, DEV_NOTES.md, REDESIGN_PLAN.md
+├── docker/                     # Docker configs for MemMachine, Neo4j
+├── Documentation/              # ARCHITECTURE.md, PROJECT_PROGRESS.md, DEV_NOTES.md
 └── public/                     # Logo assets (icon.svg, logo.svg, logo-text.svg)
 ```
 
@@ -81,158 +82,93 @@ alchemix/
 ## Quick Commands
 
 ```bash
-# Install all dependencies
-npm run install:all
+# Development
+npm run dev:all                 # Frontend (3001) + Backend (3000)
 
-# Run both frontend + backend (recommended)
-npm run dev:all
-# → Frontend: http://localhost:3001
-# → Backend: http://localhost:3000
+# Testing
+cd api && npm test              # All 921 backend tests
+cd api && npm run test:unit     # Unit tests only
+cd api && npm run test:routes   # Route tests only
 
 # Type checking
 npm run type-check              # Frontend
 cd api && npm run type-check    # Backend
 
-# Run tests
-cd api && npm test              # All 750 tests
-cd api && npm run test:unit     # Unit tests only
-cd api && npm run test:routes   # Route tests only
-
 # Linting
 npm run lint
 ```
 
-### Docker (for MemMachine infrastructure)
+---
 
-```bash
-# Hybrid: Docker infrastructure + local dev
-docker compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml up -d
-npm run dev:all
+## Design System Essentials
 
-# Full Docker
-docker compose -f docker/docker-compose.yml up --build
-```
+**Colors** (see `alchemix-design-system.md` for full spec):
+- **Primary**: `#0D9488` (teal - `--bond-agave`)
+- **Background**: `#F8F9FA` (paper white), `#0F172A` (dark slate)
+- **Fonts**: Inter (UI), JetBrains Mono (data/formulas)
+
+**Element Group Colors** (periodic table):
+| Variable | Color | Usage |
+|----------|-------|-------|
+| `--bond-agave` | Teal | Tequila, Mezcal |
+| `--bond-grain` | Amber | Whiskey, Bourbon, Rye |
+| `--bond-cane` | Green | Rum, Cachaça |
+| `--bond-juniper` | Sky Blue | Gin |
+| `--bond-grape` | Violet | Brandy, Cognac |
+| `--bond-botanical` | Pink | Amaro, Vermouth, Bitters |
+
+**Logo**: Y-shaped molecule with 4 colored nodes (see `alchemix-design-system.md` for geometry).
+
+---
+
+## Key Features
+
+- **8 Pages**: Login, Dashboard, My Bar, AI Bartender, Recipes, Favorites, Shopping List, Account
+- **My Bar**: 9 category tabs, BottleCard grid, ItemDetailModal (view/edit)
+- **Recipes**: Collections, bulk operations, CSV import, mastery filters, molecule visualization
+- **AI Bartender**: MemMachine semantic search + concept expansion (spirit-forward, tiki, boozy, etc.)
+- **Shopping List**: Persistent items, recipe buckets, near-miss algorithm
+- **Periodic Table**: 6×6 grid by function (group) and origin (period)
 
 ---
 
 ## Critical Rules
 
 ### Code Quality
-- **TypeScript strict mode** - No `any` types, all code fully typed
-- **React best practices** - Functional components, hooks, Zustand for global state
-- **Next.js App Router** - Server components by default, `'use client'` when needed
-- **CSS Modules** - Component-scoped styling using design system variables
+- TypeScript strict mode - no `any` types
+- React functional components with hooks
+- CSS Modules with design system variables
+- Winston logger (no console.log in backend)
 
 ### Before Completing Work
-- [ ] `npm run type-check` passes (frontend)
-- [ ] `cd api && npm run type-check` passes (backend)
-- [ ] `cd api && npm test` passes (750 tests)
-- [ ] `npm run lint` passes
-- [ ] No console errors in browser
+- [ ] Type checks pass (frontend + backend)
+- [ ] All tests pass
+- [ ] Lint passes
+- [ ] No browser console errors
 
 ### Git Workflow
 - Never commit unless explicitly asked
 - Never push unless explicitly asked
-- Use conventional commits format
-- Never use `--force` or `--amend` without explicit permission
-
-### Design System (in `src/styles/globals.css`)
-
-**NEW "Molecular Mixology" Design** (see `alchemix-design-system.md`):
-- **Primary**: `#0D9488` (teal - `--bond-agave`)
-- **Secondary**: `#D97706` (amber - `--bond-grain`)
-- **Background**: `#F8F9FA` (paper white - clinical)
-- **Fonts**: Inter (`--font-sans`), JetBrains Mono (`--font-mono`)
-- **Spacing**: 8px grid system
-
-**Element Group Colors** (ingredient categories):
-- `--bond-agave`: Tequila, Mezcal
-- `--bond-grain`: Whiskey, Bourbon, Rye
-- `--bond-cane`: Rum, Cachaça
-- `--bond-juniper`: Gin
-- `--bond-grape`: Brandy, Cognac
-- `--bond-botanical`: Amaro, Vermouth, Bitters
-- `--bond-acid`: Citrus
-- `--bond-sugar`: Syrups, Liqueurs
+- Use conventional commits
+- Never use `--force` or `--amend` without permission
 
 ---
 
-## Environment Setup
+## Ports
 
-**Backend (`api/.env`)** - Required:
-```bash
-PORT=3000
-FRONTEND_URL=http://localhost:3001
-JWT_SECRET=<generate-with-crypto>
-DATABASE_PATH=./data/alchemix.db
-ANTHROPIC_API_KEY=<your-key>
-MEMMACHINE_API_URL=http://localhost:8080
-```
-
-**Frontend (`.env.local`)** - Optional:
-```bash
-NEXT_PUBLIC_API_URL=http://localhost:3000
-```
-
----
-
-## Key Features (Current State)
-
-- **8 Pages**: Login, Dashboard, My Bar, AI Bartender, Recipes, Favorites, Shopping List, Account
-- **My Bar**: Category tabs (9), card grid, ItemDetailModal with view/edit modes
-- **Recipes**: Collections (folders), bulk operations, CSV import, mastery filters
-- **AI Bartender**: MemMachine semantic search, clickable recipe recommendations, 98% cost reduction
-- **Shopping List**: Persistent items CRUD, 6 recipe buckets, near-miss algorithm, ranked recommendations
-- **Custom Glasses**: User-defined glassware types API
-- **Account**: Settings (theme/units), Export/Import data, Change password, Delete account
-- **TopNav**: Horizontal nav with badges, user avatar dropdown
-- **Security**: 8-layer defense, token blacklist, rate limiting, prompt injection protection
-- **Auth**: JWT with database-backed token versioning, simplified password policy (8+ chars)
-- **Logo Assets**: SVG icon, full logo, text-only wordmark in public/
+| Service | Port |
+|---------|------|
+| Frontend | 3001 |
+| Backend | 3000 |
+| MemMachine | 8080 |
+| Neo4j HTTP | 7474 |
+| Neo4j Bolt | 7687 |
 
 ---
 
 ## After Reading This
 
-1. Read `README.md` and `Documentation/PROJECT_PROGRESS.md`
-2. Read `Documentation/REDESIGN_PLAN.md` for current redesign status
-3. Ask what specific task to work on
-4. Load additional docs based on task:
-   - `alchemix-design-system.md` for design/CSS work
-   - `DEV_NOTES.md` for technical gotchas
-   - Specific route files for API work
-5. Wait for task specification before making changes
-
-### Next Steps
-
-**Recent Major Updates** (Dec 15, 2025):
-- Major codebase refactoring:
-  - Split auth.ts (1,585 lines) into auth/ folder with 7 modular files
-  - Split recipes/page.tsx into 6 components with useRecipesPage custom hook
-  - Split periodicTableV2.ts into periodicTable/ folder with 6 files
-  - Created AIService.ts, ShoppingListService.ts, ClassificationService.ts
-- Winston logger migration (replaced all console.log)
-- Added 10 new test files (262 new tests) → 750 backend tests total
-- Created ARCHITECTURE.md with dependency maps and security architecture
-- Cleaned up 30+ outdated documentation files
-
-**Potential Future Work**:
-1. Integration tests for new services
-2. Further refinement of element matching keywords
-3. Add ability to reclassify items manually
-4. Persist element swap selection per cell
-5. Add search/filter within periodic table
-
----
-
-## Ports Reference
-
-| Service | Port |
-|---------|------|
-| Frontend (Next.js) | 3001 |
-| Backend (Express) | 3000 |
-| MemMachine | 8080 |
-| Bar Server | 8001 |
-| Neo4j HTTP | 7474 |
-| Neo4j Bolt | 7687 |
-| PostgreSQL | 5432 |
+1. Read `Documentation/PROJECT_PROGRESS.md` for recent work and current state
+2. Ask what specific task to work on
+3. Load additional docs based on task type
+4. Wait for task specification before making changes

@@ -99,17 +99,18 @@ describe('EmailService', () => {
       );
     });
 
-    it('should include the token in the verification URL', async () => {
+    it('should not leak token in log output (security feature)', async () => {
       const { emailService } = await import('./EmailService');
-      const testToken = 'test-verification-token-12345';
+      // Token must be 32+ hex chars to match production tokens
+      const testToken = 'abc123def456abc123def456abc123def456';
 
       await emailService.sendVerificationEmail('test@example.com', testToken);
 
-      // Check that the token was included in the logged output
+      // Security: token should NOT appear in bodyPreview (URLs stripped with HTML tags)
       expect(mockInfo).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
-          body: expect.stringContaining(testToken),
+          bodyPreview: expect.not.stringContaining(testToken),
         })
       );
     });
@@ -127,22 +128,21 @@ describe('EmailService', () => {
       );
     });
 
-    it('should use FRONTEND_URL env var for verification link', async () => {
-      process.env.FRONTEND_URL = 'https://myapp.com';
-
+    it('should use correct subject for verification email', async () => {
       const { emailService } = await import('./EmailService');
 
       await emailService.sendVerificationEmail('test@example.com', 'token');
 
+      // URLs are stripped from bodyPreview (security), verify via subject
       expect(mockInfo).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
-          body: expect.stringContaining('https://myapp.com/verify-email'),
+          subject: 'Verify your AlcheMix email address',
         })
       );
     });
 
-    it('should default to localhost:3001 when FRONTEND_URL not set', async () => {
+    it('should include welcome message in verification body', async () => {
       const { emailService } = await import('./EmailService');
 
       await emailService.sendVerificationEmail('test@example.com', 'token');
@@ -150,7 +150,7 @@ describe('EmailService', () => {
       expect(mockInfo).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
-          body: expect.stringContaining('http://localhost:3001/verify-email'),
+          bodyPreview: expect.stringContaining('Welcome to AlcheMix'),
         })
       );
     });
@@ -172,16 +172,18 @@ describe('EmailService', () => {
       );
     });
 
-    it('should include the token in the reset URL', async () => {
+    it('should not leak token in log output (security feature)', async () => {
       const { emailService } = await import('./EmailService');
-      const resetToken = 'password-reset-token-xyz';
+      // Token must be 32+ hex chars to match production tokens
+      const resetToken = 'abc123def456abc123def456abc123def456';
 
       await emailService.sendPasswordResetEmail('test@example.com', resetToken);
 
+      // Security: token should NOT appear in bodyPreview (URLs stripped with HTML tags)
       expect(mockInfo).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
-          body: expect.stringContaining(resetToken),
+          bodyPreview: expect.not.stringContaining(resetToken),
         })
       );
     });
@@ -199,22 +201,21 @@ describe('EmailService', () => {
       );
     });
 
-    it('should use FRONTEND_URL env var for reset link', async () => {
-      process.env.FRONTEND_URL = 'https://production.app';
-
+    it('should use correct subject for password reset', async () => {
       const { emailService } = await import('./EmailService');
 
       await emailService.sendPasswordResetEmail('test@example.com', 'token');
 
+      // URLs are stripped from bodyPreview (security), verify via subject
       expect(mockInfo).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
-          body: expect.stringContaining('https://production.app/reset-password'),
+          subject: 'Reset your AlcheMix password',
         })
       );
     });
 
-    it('should default to localhost:3001 when FRONTEND_URL not set', async () => {
+    it('should include password reset instructions in body', async () => {
       const { emailService } = await import('./EmailService');
 
       await emailService.sendPasswordResetEmail('test@example.com', 'token');
@@ -222,21 +223,21 @@ describe('EmailService', () => {
       expect(mockInfo).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
-          body: expect.stringContaining('http://localhost:3001/reset-password'),
+          bodyPreview: expect.stringContaining('Reset Your Password'),
         })
       );
     });
 
-    it('should mention security tip about device logout', async () => {
+    it('should include Reset Password button/link text', async () => {
       const { emailService } = await import('./EmailService');
 
       await emailService.sendPasswordResetEmail('test@example.com', 'token');
 
-      // The security tip mentions being logged out of all devices
+      // Check that reset password action is mentioned in the preview
       expect(mockInfo).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
-          body: expect.stringContaining('logged out'),
+          bodyPreview: expect.stringContaining('Reset Password'),
         })
       );
     });
@@ -251,7 +252,7 @@ describe('EmailService', () => {
       expect(mockInfo).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
-          body: expect.stringContaining('24 hours'),
+          bodyPreview: expect.stringContaining('24 hours'),
         })
       );
     });
@@ -264,7 +265,7 @@ describe('EmailService', () => {
       expect(mockInfo).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
-          body: expect.stringContaining('1 hour'),
+          bodyPreview: expect.stringContaining('1 hour'),
         })
       );
     });
@@ -277,7 +278,7 @@ describe('EmailService', () => {
       expect(mockInfo).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
-          body: expect.stringContaining('AlcheMix'),
+          bodyPreview: expect.stringContaining('AlcheMix'),
         })
       );
     });
@@ -290,7 +291,7 @@ describe('EmailService', () => {
       expect(mockInfo).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
-          body: expect.stringContaining('AlcheMix'),
+          bodyPreview: expect.stringContaining('AlcheMix'),
         })
       );
     });

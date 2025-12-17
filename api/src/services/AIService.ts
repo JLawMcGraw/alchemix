@@ -20,17 +20,38 @@ import { shoppingListService } from './ShoppingListService';
 import { logger } from '../utils/logger';
 import cocktailData from '../data/cocktailIngredients.json';
 
-// Type for cocktail ingredients lookup
+// Type for cocktail ingredients and concepts lookup
 const COCKTAIL_INGREDIENTS: Record<string, string[]> = cocktailData.cocktails;
+const COCKTAIL_CONCEPTS: Record<string, string[]> = (cocktailData as { concepts?: Record<string, string[]> }).concepts || {};
 
 /**
- * Expand search query with ingredients from known cocktails
- * If user mentions a cocktail like "Last Word", add its ingredients to improve semantic search
+ * Expand search query with ingredients from known cocktails and concept mappings
+ * If user mentions:
+ * - A cocktail like "Last Word" → add its ingredients
+ * - A concept like "spirit-forward" → add relevant cocktail names and their ingredients
  */
 function expandSearchQuery(query: string): string {
   const lowerQuery = query.toLowerCase();
   const additions: string[] = [];
+  const cocktailsFromConcepts: string[] = [];
 
+  // Step 1: Check for concept matches (e.g., "spirit-forward", "boozy", "tiki")
+  for (const [concept, cocktails] of Object.entries(COCKTAIL_CONCEPTS)) {
+    if (lowerQuery.includes(concept)) {
+      cocktailsFromConcepts.push(...cocktails);
+      logger.info('Query expansion: Found concept match', { concept, cocktails });
+    }
+  }
+
+  // Step 2: Add ingredients from concept-matched cocktails
+  for (const cocktailName of cocktailsFromConcepts) {
+    const ingredients = COCKTAIL_INGREDIENTS[cocktailName];
+    if (ingredients) {
+      additions.push(...ingredients);
+    }
+  }
+
+  // Step 3: Also check for direct cocktail name mentions
   for (const [cocktailName, ingredients] of Object.entries(COCKTAIL_INGREDIENTS)) {
     if (lowerQuery.includes(cocktailName)) {
       additions.push(...ingredients);
@@ -38,11 +59,25 @@ function expandSearchQuery(query: string): string {
     }
   }
 
-  if (additions.length > 0) {
-    const unique = [...new Set(additions)].slice(0, 10); // Limit to avoid query bloat
-    const expanded = `${query} [searching for similar recipes with: ${unique.join(', ')}]`;
-    logger.info('Query expansion: Expanded search query', { original: query.substring(0, 50), additions: unique });
-    return expanded;
+  // Build expanded query with both cocktail names (for DB search) and ingredients (for semantic search)
+  if (cocktailsFromConcepts.length > 0 || additions.length > 0) {
+    const uniqueCocktails = [...new Set(cocktailsFromConcepts)].slice(0, 8);
+    const uniqueIngredients = [...new Set(additions)].slice(0, 10);
+
+    let expansion = query;
+    if (uniqueCocktails.length > 0) {
+      expansion += ` [relevant cocktails: ${uniqueCocktails.join(', ')}]`;
+    }
+    if (uniqueIngredients.length > 0) {
+      expansion += ` [ingredients: ${uniqueIngredients.join(', ')}]`;
+    }
+
+    logger.info('Query expansion: Expanded search query', {
+      original: query.substring(0, 50),
+      conceptCocktails: uniqueCocktails,
+      ingredients: uniqueIngredients
+    });
+    return expansion;
   }
 
   return query;
@@ -241,6 +276,43 @@ class AIService {
   }
 
   /**
+   * Query SQLite for recipes by cocktail name
+   * Used when concept matches (e.g., "spirit-forward") expand to specific cocktail names
+   */
+  private queryRecipesByName(userId: number, cocktailName: string): RecipeRecord[] {
+    try {
+      const searchPattern = `%${cocktailName.toLowerCase()}%`;
+
+      const recipes = db.prepare(`
+        SELECT id, user_id, name, category, ingredients, memmachine_uid
+        FROM recipes
+        WHERE user_id = ? AND LOWER(name) LIKE ?
+        ORDER BY RANDOM()
+        LIMIT 20
+      `).all(userId, searchPattern) as RecipeRecord[];
+
+      if (recipes.length > 0) {
+        logger.info('Hybrid search: Found recipes by name', {
+          userId,
+          cocktailName,
+          count: recipes.length,
+          recipeNames: recipes.map(r => r.name)
+        });
+      }
+
+      return recipes;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Hybrid search: Failed to query recipes by name', {
+        error: errorMessage,
+        userId,
+        cocktailName
+      });
+      return [];
+    }
+  }
+
+  /**
    * Query SQLite for recipes containing specific ingredients
    * This provides exact matches that semantic search may miss
    */
@@ -253,8 +325,8 @@ class AIService {
         SELECT id, user_id, name, category, ingredients, memmachine_uid
         FROM recipes
         WHERE user_id = ? AND LOWER(ingredients) LIKE ?
-        ORDER BY name
-        LIMIT 20
+        ORDER BY RANDOM()
+        LIMIT 50
       `).all(userId, searchPattern) as RecipeRecord[];
 
       logger.info('Hybrid search: Found recipes with ingredient', {
@@ -304,6 +376,160 @@ class AIService {
   }
 
   /**
+   * Shuffle array using Fisher-Yates algorithm for variety in recommendations
+   */
+  private shuffleArray<T>(array: T[]): T[] {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }
+
+  /**
+   * Process recipes and check craftability, returning formatted context and stats
+   * Prioritizes craftable recipes but adds variety through shuffling
+   */
+  private processRecipesWithCraftability(
+    recipes: RecipeRecord[],
+    userBottles: { name: string; liquorType: string | null; detailedClassification: string | null }[],
+    alreadyRecommended: Set<string>,
+    maxRecipes: number = 10
+  ): { formatted: string; craftableCount: number; nearMissCount: number; processedRecipes: string[] } {
+    let formatted = '';
+    let craftableCount = 0;
+    let nearMissCount = 0;
+    const processedRecipes: string[] = [];
+
+    // First pass: check craftability on all recipes to enable smart sorting
+    const recipesWithStatus: Array<{
+      recipe: RecipeRecord;
+      ingredientsList: string;
+      status: 'craftable' | 'near-miss' | 'missing';
+      statusPrefix: string;
+    }> = [];
+
+    for (const recipe of recipes) {
+      // Skip already recommended or processed
+      if (alreadyRecommended.has(recipe.name)) continue;
+      if (recipesWithStatus.some(r => r.recipe.name === recipe.name)) continue;
+
+      let ingredientsList = '';
+      try {
+        const parsed = typeof recipe.ingredients === 'string'
+          ? JSON.parse(recipe.ingredients)
+          : recipe.ingredients;
+        ingredientsList = Array.isArray(parsed) ? parsed.join(', ') : String(recipe.ingredients);
+      } catch {
+        ingredientsList = String(recipe.ingredients);
+      }
+
+      let status: 'craftable' | 'near-miss' | 'missing' = 'missing';
+      let statusPrefix = '⚠️ [UNKNOWN]';
+      const ingredientsArray = ingredientsList.split(',').map(i => i.trim());
+
+      if (userBottles.length > 0) {
+        const craftable = shoppingListService.isCraftable(ingredientsArray, userBottles);
+
+        if (craftable) {
+          status = 'craftable';
+          statusPrefix = '✅ [CRAFTABLE]';
+        } else {
+          const missing = shoppingListService.findMissingIngredients(ingredientsArray, userBottles);
+          if (missing.length === 1) {
+            status = 'near-miss';
+            statusPrefix = `⚠️ [NEAR-MISS: need ${missing[0]}]`;
+          } else {
+            status = 'missing';
+            statusPrefix = `❌ [MISSING ${missing.length}: ${missing.slice(0, 3).join(', ')}${missing.length > 3 ? '...' : ''}]`;
+          }
+        }
+      }
+
+      recipesWithStatus.push({ recipe, ingredientsList, status, statusPrefix });
+    }
+
+    // Separate by status and shuffle each group for variety
+    const craftableRecipes = this.shuffleArray(recipesWithStatus.filter(r => r.status === 'craftable'));
+    const nearMissRecipes = this.shuffleArray(recipesWithStatus.filter(r => r.status === 'near-miss'));
+    const missingRecipes = this.shuffleArray(recipesWithStatus.filter(r => r.status === 'missing'));
+
+    // Combine: craftable first, then near-miss, then missing (all shuffled within group)
+    const sortedRecipes = [...craftableRecipes, ...nearMissRecipes, ...missingRecipes];
+
+    logger.info('[AI-DIVERSITY] Recipe distribution', {
+      total: recipesWithStatus.length,
+      craftable: craftableRecipes.length,
+      nearMiss: nearMissRecipes.length,
+      missing: missingRecipes.length
+    });
+
+    // Format the top maxRecipes (already sorted: craftable first, then near-miss, then missing)
+    for (const { recipe, ingredientsList, status, statusPrefix } of sortedRecipes.slice(0, maxRecipes)) {
+      // Track counts
+      if (status === 'craftable') craftableCount++;
+      else if (status === 'near-miss') nearMissCount++;
+
+      formatted += `- ${statusPrefix} **${recipe.name}**`;
+      if (recipe.category) formatted += ` [${recipe.category}]`;
+      formatted += `\n  Ingredients: ${ingredientsList.substring(0, 150)}...\n`;
+      processedRecipes.push(recipe.name);
+    }
+
+    return { formatted, craftableCount, nearMissCount, processedRecipes };
+  }
+
+  /**
+   * Get broader search terms based on detected spirits and concepts
+   * Used for retry when initial search finds no craftable recipes
+   */
+  private getBroaderSearchTerms(
+    detectedIngredients: string[],
+    matchedConcepts: string[]
+  ): string[] {
+    const broaderTerms: string[] = [];
+
+    // Base spirits to try if mentioned or inferred
+    const spiritKeywords: Record<string, string[]> = {
+      rum: ['rum', 'daiquiri', 'mojito', 'punch', 'sour'],
+      gin: ['gin', 'martini', 'collins', 'fizz', 'sour'],
+      whiskey: ['whiskey', 'bourbon', 'rye', 'old fashioned', 'sour', 'manhattan'],
+      tequila: ['tequila', 'mezcal', 'margarita', 'paloma'],
+      vodka: ['vodka', 'martini', 'mule', 'collins'],
+      brandy: ['brandy', 'cognac', 'sidecar', 'sour'],
+    };
+
+    // Check for spirit mentions in detected ingredients
+    for (const [spirit, terms] of Object.entries(spiritKeywords)) {
+      if (detectedIngredients.some(i => i.toLowerCase().includes(spirit))) {
+        broaderTerms.push(...terms);
+      }
+    }
+
+    // Add category-based terms from concepts
+    const conceptToCategories: Record<string, string[]> = {
+      'spirit-forward': ['sour', 'stirred', 'neat'],
+      'spirit forward': ['sour', 'stirred', 'neat'],
+      'boozy': ['stirred', 'old fashioned', 'manhattan'],
+      'simple': ['sour', 'highball', 'collins'],
+      'classic': ['sour', 'martini', 'old fashioned'],
+      'tiki': ['punch', 'swizzle', 'tiki'],
+      'refreshing': ['collins', 'fizz', 'highball', 'spritz'],
+    };
+
+    for (const concept of matchedConcepts) {
+      const categories = conceptToCategories[concept.toLowerCase()];
+      if (categories) {
+        broaderTerms.push(...categories);
+      }
+    }
+
+    // Deduplicate and return
+    return [...new Set(broaderTerms)];
+  }
+
+  /**
    * Sanitize conversation history entries
    */
   sanitizeHistoryEntries(
@@ -337,6 +563,8 @@ class AIService {
    */
   detectPromptInjection(message: string): { detected: boolean; pattern?: RegExp } {
     for (const pattern of PROMPT_INJECTION_PATTERNS) {
+      // Reset lastIndex for patterns with /g flag to ensure consistent matching
+      pattern.lastIndex = 0;
       if (pattern.test(message)) {
         return { detected: true, pattern };
       }
@@ -349,6 +577,8 @@ class AIService {
    */
   detectSensitiveOutput(response: string): { detected: boolean; pattern?: RegExp } {
     for (const pattern of SENSITIVE_OUTPUT_PATTERNS) {
+      // Reset lastIndex for patterns with /g flag to ensure consistent matching
+      pattern.lastIndex = 0;
       if (pattern.test(response)) {
         return { detected: true, pattern };
       }
@@ -439,16 +669,24 @@ class AIService {
    * Build dashboard insight prompt
    */
   async buildDashboardInsightPrompt(userId: number): Promise<ContentBlock[]> {
-    const inventory = db.prepare(
-      'SELECT * FROM inventory_items WHERE user_id = ? AND (stock_number IS NOT NULL AND stock_number > 0) ORDER BY name'
-    ).all(userId) as InventoryItemRecord[];
+    // OPTIMIZED: Only fetch counts and a small sample for faster dashboard loading
+    const inventoryCount = (db.prepare(
+      'SELECT COUNT(*) as count FROM inventory_items WHERE user_id = ? AND (stock_number IS NOT NULL AND stock_number > 0)'
+    ).get(userId) as { count: number }).count;
 
-    const recipes = db.prepare(
-      'SELECT * FROM recipes WHERE user_id = ? ORDER BY name'
-    ).all(userId) as RecipeRecord[];
+    const recipeCount = (db.prepare(
+      'SELECT COUNT(*) as count FROM recipes WHERE user_id = ?'
+    ).get(userId) as { count: number }).count;
 
-    const inventoryCount = inventory.length;
-    const recipeCount = recipes.length;
+    // Get a random sample of 15 recipes (not all 371!)
+    const recipeSample = db.prepare(
+      'SELECT name, category FROM recipes WHERE user_id = ? ORDER BY RANDOM() LIMIT 15'
+    ).all(userId) as Array<{ name: string; category?: string }>;
+
+    // Get a random sample of 10 inventory items
+    const inventorySample = db.prepare(
+      'SELECT name, type FROM inventory_items WHERE user_id = ? AND (stock_number IS NOT NULL AND stock_number > 0) ORDER BY RANDOM() LIMIT 10'
+    ).all(userId) as Array<{ name: string; type?: string }>;
 
     const now = new Date();
     const month = now.getMonth() + 1;
@@ -458,36 +696,20 @@ class AIService {
       month >= 9 && month <= 11 ? 'Fall' :
       'Winter';
 
-    const recipesWithCategories = recipes.map((recipe) => {
+    const recipesWithCategories = recipeSample.map((recipe) => {
       const name = this.sanitizeContextField(recipe.name, 'recipe.name', userId);
       const category = this.sanitizeContextField(recipe.category, 'recipe.category', userId);
-      const spiritType = this.sanitizeContextField(recipe.spirit_type, 'recipe.spirit_type', userId);
-      return { name, category, spiritType };
+      return { name, category };
     }).filter(r => r.name);
 
-    const inventoryList = inventory.map((item) => {
+    const inventoryList = inventorySample.map((item) => {
       const name = this.sanitizeContextField(item.name, 'item.name', userId);
       const type = this.sanitizeContextField(item.type, 'item.type', userId);
-      const classification = this.sanitizeContextField(item['Detailed Spirit Classification'], 'item.classification', userId);
-      return { name, type, classification };
+      return { name, type };
     }).filter(i => i.name);
 
-    let memoryContext = '';
-    try {
-      const { userContext, chatContext } = await memoryService.getEnhancedContext(userId, `seasonal cocktail suggestions for ${season}`);
-      if (userContext) {
-        memoryContext += memoryService.formatContextForPrompt(userContext, userId, db, 5);
-      }
-      // Include user preferences in dashboard context
-      if (chatContext && chatContext.episodic && chatContext.episodic.length > 0) {
-        memoryContext += '\n\nUser preferences from past conversations:\n';
-        chatContext.episodic.slice(0, 3).forEach(ep => {
-          memoryContext += `- ${ep.content}\n`;
-        });
-      }
-    } catch (error) {
-      logger.warn('MemMachine unavailable for dashboard insight', { error: error instanceof Error ? error.message : 'Unknown error' });
-    }
+    // SKIP MemMachine for dashboard - it's too slow for a greeting
+    // The sample data above is sufficient for generating a relevant insight
 
     const staticContent = `# THE LAB ASSISTANT - SEASONAL DASHBOARD BRIEFING
 
@@ -505,11 +727,11 @@ You are **"The Lab Assistant,"** the AI bartender for **"AlcheMix."** You are a 
 - **User's Inventory:** ${inventoryCount} items
 - **User's Recipes:** ${recipeCount} cocktails
 
-## USER'S COMPLETE RECIPE COLLECTION
-${recipesWithCategories.map(r => `- ${r.name}${r.category ? ` (${r.category})` : ''}${r.spiritType ? ` [${r.spiritType}]` : ''}`).join('\n')}
+## SAMPLE OF USER'S RECIPES (${recipeSample.length} of ${recipeCount})
+${recipesWithCategories.map(r => `- ${r.name}${r.category ? ` (${r.category})` : ''}`).join('\n')}
 
-## USER'S COMPLETE INVENTORY
-${inventoryList.map(i => `- ${i.name}${i.type ? ` [${i.type}]` : ''}${i.classification ? ` (${i.classification})` : ''}`).join('\n')}
+## SAMPLE OF USER'S INVENTORY (${inventorySample.length} of ${inventoryCount})
+${inventoryList.map(i => `- ${i.name}${i.type ? ` [${i.type}]` : ''}`).join('\n')}
 
 ## SEASONAL GUIDANCE BY SEASON
 - **Spring:** Light & floral - sours, fizzes, gin cocktails, aperitifs
@@ -517,8 +739,7 @@ ${inventoryList.map(i => `- ${i.name}${i.type ? ` [${i.type}]` : ''}${i.classifi
 - **Fall:** Rich & spiced - Old Fashioneds, Manhattans, whiskey cocktails, apple/pear drinks
 - **Winter:** Warm & bold - stirred spirit-forward, hot toddies, bourbon drinks, darker spirits`;
 
-    const dynamicContent = `${memoryContext}
-
+    const dynamicContent = `
 ## YOUR TASK
 Generate a **Seasonal Suggestions** insight for the dashboard. Provide TWO things:
 
@@ -529,11 +750,8 @@ Generate a **Seasonal Suggestions** insight for the dashboard. Provide TWO thing
 
 2. **Seasonal Suggestion** (2-4 sentences):
    - **CONTEXT-AWARE:** Reference the current season (${season})
-   - **USE MEMORY CONTEXT:** If conversation history is provided above, reference their past preferences
-   - **ANALYZE THEIR RECIPES:** Count how many recipes they can actually make with their current inventory
    - **SUGGEST CATEGORIES:** Recommend 2-3 cocktail categories/styles perfect for ${season}
-   - **SHOW CRAFTABLE COUNTS:** Format like "Refreshing Sours (<strong>12 craftable</strong>)"
-   - **BE SPECIFIC:** Reference actual recipe names or spirit types from their collection
+   - **BE SPECIFIC:** Reference recipe names or spirit types from the sample shown above
 
 ## CRITICAL FORMAT REQUIREMENT
 Return ONLY a valid JSON object with two keys. No other text.
@@ -659,11 +877,40 @@ Return ONLY the JSON object. No markdown, no code blocks, no explanations.`;
     let ingredientMatchContext = '';
 
     if (userMessage && userMessage.trim().length > 0) {
+      const lowerMessage = userMessage.toLowerCase();
+      const conceptRecipes: RecipeRecord[] = [];
+      const matchedConcepts: string[] = [];
+
+      // Step 0: Check for concept matches (e.g., "spirit-forward", "boozy", "tiki")
+      for (const [concept, cocktails] of Object.entries(COCKTAIL_CONCEPTS)) {
+        if (lowerMessage.includes(concept)) {
+          matchedConcepts.push(concept);
+          logger.info('Hybrid search: Found concept match', { concept, cocktails });
+
+          // Search user's recipes for cocktails matching this concept
+          for (const cocktailName of cocktails) {
+            const matches = this.queryRecipesByName(userId, cocktailName);
+            for (const recipe of matches) {
+              if (!conceptRecipes.some(r => r.id === recipe.id)) {
+                conceptRecipes.push(recipe);
+              }
+            }
+          }
+        }
+      }
+
+      if (conceptRecipes.length > 0) {
+        logger.info('Hybrid search: Found recipes from concepts', {
+          concepts: matchedConcepts,
+          count: conceptRecipes.length,
+          recipeNames: conceptRecipes.map(r => r.name)
+        });
+      }
+
       // Step 1: Detect specific ingredient mentions + expand from cocktail names
       const detectedIngredients = this.detectIngredientMentions(userMessage);
 
       // Also add ingredients from mentioned cocktails (e.g., "Last Word" → chartreuse, maraschino)
-      const lowerMessage = userMessage.toLowerCase();
       for (const [cocktailName, ingredients] of Object.entries(COCKTAIL_INGREDIENTS)) {
         if (lowerMessage.includes(cocktailName)) {
           for (const ing of ingredients) {
@@ -674,6 +921,9 @@ Return ONLY the JSON object. No markdown, no code blocks, no explanations.`;
           logger.info('Hybrid search: Expanded from cocktail', { cocktail: cocktailName, added: ingredients });
         }
       }
+
+      // Combine concept-matched recipes with ingredient-matched recipes
+      const allRecipes: RecipeRecord[] = [...conceptRecipes];
 
       if (detectedIngredients.length > 0) {
         logger.info('Hybrid search: Detected ingredient keywords', { ingredients: detectedIngredients });
@@ -688,83 +938,117 @@ Return ONLY the JSON object. No markdown, no code blocks, no explanations.`;
         const prioritizedIngredients = [...specificIngredients, ...genericMatches];
         logger.info('Hybrid search: Prioritized ingredients', { specific: specificIngredients, generic: genericMatches });
 
-        const ingredientRecipes: RecipeRecord[] = [];
         for (const ingredient of prioritizedIngredients) {
           const matches = this.queryRecipesWithIngredient(userId, ingredient);
           for (const recipe of matches) {
             // Avoid duplicates
-            if (!ingredientRecipes.some(r => r.id === recipe.id)) {
-              ingredientRecipes.push(recipe);
+            if (!allRecipes.some(r => r.id === recipe.id)) {
+              allRecipes.push(recipe);
+            }
+          }
+        }
+      }
+
+      // Use allRecipes (concept + ingredient matches) for processing
+      const ingredientRecipes = allRecipes;
+
+      // Build context description based on what was detected
+      const searchDescription = matchedConcepts.length > 0
+        ? `**Matched concepts: ${matchedConcepts.join(', ')}${detectedIngredients.length > 0 ? ` + ingredients: ${detectedIngredients.join(', ')}` : ''}**`
+        : detectedIngredients.length > 0
+          ? `**User asked about: ${detectedIngredients.join(', ')}**`
+          : '';
+
+      // Get user's bottles for craftability check
+      const userBottles = shoppingListService.getUserBottles(userId);
+
+      // Step 3: Process initial recipe matches
+      let { formatted, craftableCount, nearMissCount, processedRecipes } =
+        this.processRecipesWithCraftability(ingredientRecipes, userBottles, alreadyRecommended, 10);
+
+      logger.info('[AI-SEARCH] Initial search results', {
+        recipesFound: ingredientRecipes.length,
+        craftableCount,
+        nearMissCount,
+        concepts: matchedConcepts,
+        ingredients: detectedIngredients
+      });
+
+      // Step 3b: RETRY with broader search if not enough craftable recipes
+      const MIN_CRAFTABLE_THRESHOLD = 2;
+      if (craftableCount < MIN_CRAFTABLE_THRESHOLD && (matchedConcepts.length > 0 || detectedIngredients.length > 0)) {
+        logger.info('[AI-SEARCH] Triggering broader search - not enough craftable recipes', {
+          craftableCount,
+          threshold: MIN_CRAFTABLE_THRESHOLD
+        });
+
+        // Get broader search terms based on what was detected
+        const broaderTerms = this.getBroaderSearchTerms(detectedIngredients, matchedConcepts);
+        logger.info('[AI-SEARCH] Broader search terms', { terms: broaderTerms });
+
+        // Search for additional recipes using broader terms
+        const additionalRecipes: RecipeRecord[] = [];
+        for (const term of broaderTerms) {
+          // Search by name (for cocktail types like "daiquiri", "sour")
+          const nameMatches = this.queryRecipesByName(userId, term);
+          for (const recipe of nameMatches) {
+            if (!ingredientRecipes.some(r => r.id === recipe.id) &&
+                !additionalRecipes.some(r => r.id === recipe.id)) {
+              additionalRecipes.push(recipe);
+            }
+          }
+
+          // Search by ingredient
+          const ingredientMatches = this.queryRecipesWithIngredient(userId, term);
+          for (const recipe of ingredientMatches) {
+            if (!ingredientRecipes.some(r => r.id === recipe.id) &&
+                !additionalRecipes.some(r => r.id === recipe.id)) {
+              additionalRecipes.push(recipe);
             }
           }
         }
 
-        // Step 3: Format ingredient matches as priority context
-        if (ingredientRecipes.length > 0) {
-          ingredientMatchContext = `\n\n## 🎯 EXACT INGREDIENT MATCHES (PRIORITIZE THESE)\n`;
-          ingredientMatchContext += `**User asked about: ${detectedIngredients.join(', ')}**\n`;
-          ingredientMatchContext += `These recipes contain the requested ingredient(s):\n`;
-          ingredientMatchContext += `⚠️ **NOTE: Ingredients below are what RECIPES REQUIRE, not what user HAS. Check BAR STOCK at end of prompt for user's actual bottles.**\n\n`;
+        if (additionalRecipes.length > 0) {
+          logger.info('[AI-SEARCH] Broader search found additional recipes', {
+            count: additionalRecipes.length,
+            names: additionalRecipes.slice(0, 5).map(r => r.name)
+          });
 
-          // Get user's bottles for craftability check
-          const userBottles = shoppingListService.getUserBottles(userId);
+          // Process additional recipes
+          const additionalProcessed = this.processRecipesWithCraftability(
+            additionalRecipes,
+            userBottles,
+            new Set([...alreadyRecommended, ...processedRecipes]),
+            10 - processedRecipes.length // Fill up to 10 total
+          );
 
-          for (const recipe of ingredientRecipes.slice(0, 10)) {
-            // Skip already recommended
-            if (alreadyRecommended.has(recipe.name)) continue;
+          // Append to results
+          formatted += additionalProcessed.formatted;
+          craftableCount += additionalProcessed.craftableCount;
+          nearMissCount += additionalProcessed.nearMissCount;
+          processedRecipes.push(...additionalProcessed.processedRecipes);
 
-            let ingredientsList = '';
-            try {
-              const parsed = typeof recipe.ingredients === 'string'
-                ? JSON.parse(recipe.ingredients)
-                : recipe.ingredients;
-              ingredientsList = Array.isArray(parsed) ? parsed.join(', ') : String(recipe.ingredients);
-            } catch {
-              ingredientsList = String(recipe.ingredients);
-            }
+          logger.info('[AI-SEARCH] After broader search', {
+            totalCraftable: craftableCount,
+            totalNearMiss: nearMissCount,
+            totalRecipes: processedRecipes.length
+          });
+        }
+      }
 
-            // Check craftability
-            let statusPrefix = '⚠️ [UNKNOWN]';
-            const ingredientsArray = ingredientsList.split(',').map(i => i.trim());
-            if (userBottles.length > 0) {
-              const craftable = shoppingListService.isCraftable(
-                ingredientsArray,
-                userBottles
-              );
+      // Step 3c: Format final context
+      if (formatted.length > 0) {
+        ingredientMatchContext = `\n\n## 🎯 MATCHED RECIPES (PRIORITIZE THESE)\n`;
+        ingredientMatchContext += `${searchDescription}\n`;
+        ingredientMatchContext += `These recipes match the user's request:\n`;
+        ingredientMatchContext += `⚠️ **NOTE: Ingredients below are what RECIPES REQUIRE, not what user HAS. Check BAR STOCK at end of prompt for user's actual bottles.**\n\n`;
+        ingredientMatchContext += formatted;
 
-              // Debug logging for craftability calculation
-              logger.info('[AI-CRAFTABILITY] Checking recipe', {
-                recipeName: recipe.name,
-                ingredientsArray,
-                bottleCount: userBottles.length,
-                craftable
-              });
-
-              if (craftable) {
-                statusPrefix = '✅ [CRAFTABLE]';
-              } else {
-                const missing = shoppingListService.findMissingIngredients(
-                  ingredientsArray,
-                  userBottles
-                );
-
-                logger.info('[AI-CRAFTABILITY] Missing ingredients', {
-                  recipeName: recipe.name,
-                  missing
-                });
-
-                if (missing.length === 1) {
-                  statusPrefix = `⚠️ [NEAR-MISS: need ${missing[0]}]`;
-                } else {
-                  statusPrefix = `❌ [MISSING ${missing.length}: ${missing.slice(0, 3).join(', ')}${missing.length > 3 ? '...' : ''}]`;
-                }
-              }
-            }
-
-            ingredientMatchContext += `- ${statusPrefix} **${recipe.name}**`;
-            if (recipe.category) ingredientMatchContext += ` [${recipe.category}]`;
-            ingredientMatchContext += `\n  Ingredients: ${ingredientsList.substring(0, 150)}...\n`;
-          }
+        // Add summary for AI
+        if (craftableCount > 0) {
+          ingredientMatchContext += `\n**📊 Summary: ${craftableCount} craftable, ${nearMissCount} near-miss recipes found.**\n`;
+        } else if (nearMissCount > 0) {
+          ingredientMatchContext += `\n**📊 Summary: No fully craftable recipes, but ${nearMissCount} are near-miss (1 ingredient away).**\n`;
         }
       }
 

@@ -607,11 +607,15 @@ export class InventoryService {
       if (combined.includes(keyword)) return 'wine';
     }
 
-    // Check beer
+    // Check beer (exclude ginger beer/ale and root beer which are mixers)
     const beerKeywords = ['beer', 'ale', 'lager', 'stout', 'ipa'];
+    const notBeerKeywords = ['ginger beer', 'ginger ale', 'root beer'];
 
-    for (const keyword of beerKeywords) {
-      if (combined.includes(keyword)) return 'beer';
+    const isNotBeer = notBeerKeywords.some(kw => combined.includes(kw));
+    if (!isNotBeer) {
+      for (const keyword of beerKeywords) {
+        if (combined.includes(keyword)) return 'beer';
+      }
     }
 
     // Check syrups

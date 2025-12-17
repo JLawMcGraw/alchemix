@@ -1,12 +1,11 @@
 /* Element Cell - Periodic Table Card Style */
 
 .cell {
-  aspect-ratio: 1;
-  min-height: 100px;
+  min-height: 64px;
   background: var(--color-ui-bg-surface);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius);
-  padding: 12px;
+  padding: 8px;
   cursor: pointer;
   transition: all var(--transition-fast);
   display: flex;
@@ -71,8 +70,8 @@
 /* Period Indicator Dot */
 .periodDot {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 6px;
+  right: 6px;
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -81,12 +80,12 @@
 /* Count Badge */
 .countBadge {
   position: absolute;
-  bottom: 8px;
-  right: 8px;
+  bottom: 6px;
+  right: 6px;
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 600;
-  padding: 2px 6px;
+  padding: 2px 5px;
   border-radius: 3px;
   background: color-mix(in srgb, var(--group-color) 15%, transparent);
   color: var(--group-color);
@@ -103,7 +102,7 @@
 /* Element Symbol */
 .symbol {
   font-family: var(--font-mono);
-  font-size: 1.75rem;
+  font-size: 1.25rem;
   font-weight: 700;
   line-height: 1;
   color: var(--group-color);
@@ -115,10 +114,10 @@
 
 /* Element Name */
 .name {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 500;
   color: var(--color-text-body);
-  margin-top: 4px;
+  margin-top: 2px;
   line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -128,7 +127,7 @@
 /* Element Spec (ABV, Brix, etc.) */
 .spec {
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   color: var(--color-text-muted);
   margin-top: auto;
 }
@@ -289,31 +288,7 @@
 /* Responsive */
 @media (max-width: 1024px) {
   .cell {
-    min-height: 72px;
-    padding: 8px;
-  }
-
-  .symbol {
-    font-size: 1.125rem;
-  }
-
-  .name {
-    font-size: 0.5rem;
-  }
-
-  .spec {
-    font-size: 0.5rem;
-  }
-
-  .countBadge {
-    font-size: 0.5rem;
-    padding: 1px 4px;
-  }
-}
-
-@media (max-width: 768px) {
-  .cell {
-    min-height: 64px;
+    min-height: 56px;
     padding: 6px;
   }
 
@@ -321,11 +296,57 @@
     font-size: 1rem;
   }
 
+  .name {
+    font-size: 0.625rem;
+  }
+
+  .spec {
+    font-size: 0.5625rem;
+  }
+
+  .countBadge {
+    font-size: 0.5625rem;
+    padding: 1px 4px;
+  }
+
   .periodDot {
     width: 5px;
     height: 5px;
     top: 5px;
     right: 5px;
+  }
+}
+
+@media (max-width: 768px) {
+  .cell {
+    min-height: 48px;
+    padding: 5px;
+  }
+
+  .symbol {
+    font-size: 0.875rem;
+  }
+
+  .name {
+    font-size: 0.5625rem;
+  }
+
+  .spec {
+    display: none;
+  }
+
+  .periodDot {
+    width: 4px;
+    height: 4px;
+    top: 4px;
+    right: 4px;
+  }
+
+  .countBadge {
+    font-size: 0.5rem;
+    padding: 1px 3px;
+    bottom: 4px;
+    right: 4px;
   }
 
   .dropdown {

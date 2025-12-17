@@ -67,7 +67,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 
@@ -117,7 +117,7 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 
@@ -147,7 +147,7 @@ router.post('/import', upload.single('file'), asyncHandler(async (req: Request, 
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 
@@ -171,8 +171,26 @@ router.post('/import', upload.single('file'), asyncHandler(async (req: Request, 
     });
   }
 
-  // Parse CSV
-  const csvContent = req.file.buffer.toString('utf-8');
+  // Parse CSV with encoding detection
+  // Handle UTF-8 BOM and fallback for Windows-1252/Latin-1 encoded files
+  let csvContent: string;
+  const buffer = req.file.buffer;
+
+  // Check for UTF-8 BOM (EF BB BF) and strip it
+  if (buffer[0] === 0xEF && buffer[1] === 0xBB && buffer[2] === 0xBF) {
+    csvContent = buffer.slice(3).toString('utf-8');
+  } else {
+    // Try UTF-8 first
+    csvContent = buffer.toString('utf-8');
+
+    // Check for replacement characters (indicates encoding issue)
+    // The � character (U+FFFD) appears when UTF-8 decoding fails
+    if (csvContent.includes('\uFFFD')) {
+      // Fallback to Latin-1 (Windows-1252 compatible) for legacy CSV files
+      csvContent = buffer.toString('latin1');
+    }
+  }
+
   let records: Record<string, string>[];
 
   try {
@@ -224,7 +242,7 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 
@@ -261,7 +279,7 @@ router.post('/memmachine/sync', asyncHandler(async (req: Request, res: Response)
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 
@@ -295,7 +313,7 @@ router.delete('/memmachine/clear', asyncHandler(async (req: Request, res: Respon
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 
@@ -325,7 +343,7 @@ router.delete('/all', asyncHandler(async (req: Request, res: Response) => {
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 
@@ -347,7 +365,7 @@ router.delete('/bulk', asyncHandler(async (req: Request, res: Response) => {
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 
@@ -398,7 +416,7 @@ router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 

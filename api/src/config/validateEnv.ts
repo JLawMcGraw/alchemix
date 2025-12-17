@@ -93,10 +93,13 @@ export function validateEnv(): Config {
   const MEMMACHINE_API_URL = process.env.MEMMACHINE_API_URL;
   const MEMMACHINE_ENABLED = process.env.MEMMACHINE_ENABLED === 'true';
 
-  // Frontend URL
+  // Frontend URL - REQUIRED in production for CORS
   const FRONTEND_URL = process.env.FRONTEND_URL;
   if (!FRONTEND_URL && NODE_ENV === 'production') {
-    warnings.push('FRONTEND_URL not set - CORS may not work correctly');
+    errors.push(
+      'FRONTEND_URL is required in production for CORS configuration. ' +
+      'Set it to your frontend domain (e.g., https://alchemix.example.com)'
+    );
   }
 
   // ============ SMTP Configuration ============

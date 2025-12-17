@@ -7,7 +7,7 @@
  * Used in recipe cards (thumbnail) and recipe detail modal (full size).
  */
 
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import { Molecule, transformRecipe, exportPNG, exportSVG } from '@alchemix/recipe-molecule';
 import type { Recipe } from '@/types';
 
@@ -45,6 +45,14 @@ export function RecipeMolecule({
 }: RecipeMoleculeProps) {
   const internalSvgRef = useRef<SVGSVGElement>(null);
   const svgRef = externalSvgRef || internalSvgRef;
+
+  // Track mounted state to prevent DOM operations after unmount
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+    return () => setIsMounted(false);
+  }, []);
 
   // Parse ingredients from recipe
   const ingredients = useMemo(() => {
@@ -86,6 +94,19 @@ export function RecipeMolecule({
   };
 
   const displaySize = DISPLAY_CONFIG[size];
+
+  // Don't render until mounted (prevents hydration mismatch and DOM errors)
+  if (!isMounted) {
+    return (
+      <div
+        className={className}
+        style={{
+          width: DISPLAY_CONFIG[size].width,
+          height: DISPLAY_CONFIG[size].height
+        }}
+      />
+    );
+  }
 
   // If no ingredients, show placeholder with AlcheMix logo shape (Y-molecule) without color
   if (!moleculeRecipe || moleculeRecipe.nodes.length === 0) {

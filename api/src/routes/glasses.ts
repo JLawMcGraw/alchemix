@@ -50,7 +50,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 
@@ -87,7 +87,7 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 
@@ -130,13 +130,13 @@ router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 
   const glassId = parseInt(req.params.id, 10);
 
-  if (isNaN(glassId)) {
+  if (isNaN(glassId) || glassId <= 0) {
     return res.status(400).json({
       success: false,
       error: 'Invalid glass ID'

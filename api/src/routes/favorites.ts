@@ -20,6 +20,7 @@ import { Router, Request, Response } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { asyncHandler } from '../utils/asyncHandler';
 import { favoriteService } from '../services/FavoriteService';
+import { validateNumber } from '../utils/inputValidator';
 
 const router = Router();
 
@@ -63,7 +64,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 
@@ -78,9 +79,33 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  // Parse pagination parameters
-  const page = parseInt(req.query.page as string, 10) || 1;
-  const limit = parseInt(req.query.limit as string, 10) || 50;
+  // Validate page parameter
+  const pageParam = req.query.page as string | undefined;
+  const pageValidation = validateNumber(pageParam || '1', 1, undefined);
+
+  if (!pageValidation.isValid) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid page parameter',
+      details: pageValidation.errors
+    });
+  }
+
+  const page = pageValidation.sanitized || 1;
+
+  // Validate limit parameter
+  const limitParam = req.query.limit as string | undefined;
+  const limitValidation = validateNumber(limitParam || '50', 1, 100);
+
+  if (!limitValidation.isValid) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid limit parameter',
+      details: limitValidation.errors
+    });
+  }
+
+  const limit = limitValidation.sanitized || 50;
 
   const result = favoriteService.getPaginated(userId, page, limit);
 
@@ -118,7 +143,7 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 
@@ -168,12 +193,12 @@ router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
   if (!userId) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized'
+      error: 'Authentication required'
     });
   }
 
   const favoriteId = parseInt(req.params.id, 10);
-  if (isNaN(favoriteId)) {
+  if (isNaN(favoriteId) || favoriteId <= 0) {
     return res.status(400).json({
       success: false,
       error: 'Invalid favorite ID'
