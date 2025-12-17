@@ -87,6 +87,55 @@ const renderHTMLContent = (html: string, keyPrefix: string, fallback?: string): 
   return nodes.length > 0 ? nodes : (fallback || null);
 };
 
+/**
+ * Get a seasonal greeting based on current date
+ */
+const getSeasonalGreeting = (): string => {
+  const now = new Date();
+  const month = now.getMonth(); // 0-11
+  const hour = now.getHours();
+
+  // Time of day prefix
+  let timeGreeting = 'Good evening';
+  if (hour < 12) timeGreeting = 'Good morning';
+  else if (hour < 17) timeGreeting = 'Good afternoon';
+
+  // Seasonal suffix
+  if (month === 11 || month === 0 || month === 1) {
+    // Winter (Dec, Jan, Feb)
+    const winterGreetings = [
+      `${timeGreeting}, mixologist. Perfect weather for a warming cocktail.`,
+      `${timeGreeting}! Time for something to take the chill off.`,
+      `${timeGreeting}. The lab awaits your winter experiments.`,
+    ];
+    return winterGreetings[Math.floor(Math.random() * winterGreetings.length)];
+  } else if (month >= 2 && month <= 4) {
+    // Spring (Mar, Apr, May)
+    const springGreetings = [
+      `${timeGreeting}, mixologist. Spring calls for fresh flavors.`,
+      `${timeGreeting}! Perfect day for citrus-forward creations.`,
+      `${timeGreeting}. The lab is ready for botanical experiments.`,
+    ];
+    return springGreetings[Math.floor(Math.random() * springGreetings.length)];
+  } else if (month >= 5 && month <= 7) {
+    // Summer (Jun, Jul, Aug)
+    const summerGreetings = [
+      `${timeGreeting}, mixologist. Time for something refreshing.`,
+      `${timeGreeting}! Perfect weather for tropical experiments.`,
+      `${timeGreeting}. The lab is prepped for summer sippers.`,
+    ];
+    return summerGreetings[Math.floor(Math.random() * summerGreetings.length)];
+  } else {
+    // Fall (Sep, Oct, Nov)
+    const fallGreetings = [
+      `${timeGreeting}, mixologist. Perfect season for warming spirits.`,
+      `${timeGreeting}! Time for autumn-inspired creations.`,
+      `${timeGreeting}. The lab awaits your cozy experiments.`,
+    ];
+    return fallGreetings[Math.floor(Math.random() * fallGreetings.length)];
+  }
+};
+
 // Category configuration with colors
 const CATEGORIES = [
   { key: 'spirit', label: 'Spirits', color: '#D97706' },
@@ -111,7 +160,6 @@ export default function DashboardPage() {
   const {
     recipes,
     collections,
-    dashboardGreeting,
     dashboardInsight,
     isDashboardInsightLoading,
     shoppingListStats,
@@ -131,6 +179,9 @@ export default function DashboardPage() {
     recipesArray: Array.isArray(recipes) ? recipes : [],
     collectionsArray: Array.isArray(collections) ? collections : [],
   }), [recipes, collections]);
+
+  // Memoized seasonal greeting (computed once on mount)
+  const seasonalGreeting = useMemo(() => getSeasonalGreeting(), []);
 
   // CSV Import handlers
   const handleCSVUpload = useCallback(async (file: File, collectionId?: number) => {
@@ -208,9 +259,7 @@ export default function DashboardPage() {
         {/* ===== HEADER / GREETING ===== */}
         <header className={styles.header}>
           <h1 className={styles.greeting}>
-            {isDashboardInsightLoading
-              ? 'Brewing up a greeting...'
-              : renderHTMLContent(dashboardGreeting, 'greeting', 'Ready for your next experiment?')}
+            {seasonalGreeting}
           </h1>
           <p className={styles.statsLine}>
             <span className={styles.statValue}>{totalItems}</span> bottles ·
