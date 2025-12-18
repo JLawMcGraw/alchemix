@@ -48,7 +48,7 @@ import express, { Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
-import { initializeDatabase, db } from './database/db';
+import { initializeDatabase, closeDatabase } from './database/db';
 import { corsOptions } from './utils/corsConfig';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { requestIdMiddleware } from './middleware/requestId';
@@ -714,17 +714,18 @@ function gracefulShutdown(signal: string) {
 
     // Close database connection properly
     // CRITICAL FIX: Actually close the database to prevent connection leaks
-    try {
-      db.close();
-      logger.info('Database connection closed successfully');
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      const stack = error instanceof Error ? error.stack : undefined;
-      logger.error('Error closing database connection', {
-        error: message,
-        stack
+    closeDatabase()
+      .then(() => {
+        logger.info('Database connection closed successfully');
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        const stack = error instanceof Error ? error.stack : undefined;
+        logger.error('Error closing database connection', {
+          error: message,
+          stack
+        });
       });
-    }
 
     logger.info('Graceful shutdown complete', { signal });
     process.exit(0);
@@ -741,12 +742,13 @@ function gracefulShutdown(signal: string) {
     });
 
     // Attempt to close database even on timeout
-    try {
-      db.close();
-      logger.warn('Database closed during forced shutdown');
-    } catch (error) {
-      // Ignore errors during forced shutdown
-    }
+    closeDatabase()
+      .then(() => {
+        logger.warn('Database closed during forced shutdown');
+      })
+      .catch(() => {
+        // Ignore errors during forced shutdown
+      });
 
     process.exit(1);
   }, 30000); // 30 seconds (Kubernetes default)
