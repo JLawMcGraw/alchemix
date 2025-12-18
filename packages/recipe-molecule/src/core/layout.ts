@@ -170,7 +170,7 @@ export function computeLayout(
     Math.PI * 11 / 6,   // 330° - lower-right neighbor
   ];
 
-  // Check if all spirits share the same base spirit type (e.g., all rums, all whiskeys)
+  // Check spirit type relationships for layout decisions
   // Look for common spirit keywords in all spirit names
   const spiritKeywords = [
     'rum', 'vodka', 'gin', 'tequila', 'mezcal', 'whiskey', 'whisky', 'bourbon',
@@ -185,9 +185,16 @@ export function computeLayout(
     return null;
   };
 
+  // Check if ALL spirits are the same type (for 3-spirit triangle layout)
   const firstSpiritBase = spirits.length > 0 ? getBaseSpiritType(spirits[0].name) : null;
   const allSameSpiritType = spirits.length > 1 && firstSpiritBase !== null &&
     spirits.every(s => getBaseSpiritType(s.name) === firstSpiritBase);
+
+  // Check if ALL spirits are DIFFERENT types (for 4-spirit vertical stack)
+  // If any duplicates exist, use rhombus layout instead
+  const spiritBaseTypes = spirits.map(s => getBaseSpiritType(s.name));
+  const uniqueTypes = new Set(spiritBaseTypes.filter(t => t !== null));
+  const allDifferentSpiritTypes = uniqueTypes.size === spirits.length;
 
   // Calculate spirit positions relative to origin (0, 0) first
   // Then find centroid and offset to place centroid at viewCenter
@@ -227,8 +234,30 @@ export function computeLayout(
         y: Math.sin(angle2) * hexGridSpacing
       }); // Bottom-right
     }
+  } else if (spirits.length === 4) {
+    // 4 spirits: vertical stack only if ALL 4 are different types, otherwise rhombus
+    if (allDifferentSpiritTypes) {
+      // All different spirit types: vertical stack (clear separation)
+      const startY = -((spirits.length - 1) * hexGridSpacing) / 2;
+      spirits.forEach((_, i) => {
+        spiritPositions.push({ x: 0, y: startY + i * hexGridSpacing });
+      });
+    } else {
+      // Has duplicate spirit types: rhombus layout (compact honeycomb cluster)
+      // 4 hexagons arranged as a rhombus where all touch their neighbors:
+      //      [1]
+      // [0]      [3]
+      //      [2]
+      // Using honeycomb grid directions (30° and 330° from hex 0)
+      const cos30 = Math.sqrt(3) / 2; // ≈ 0.866
+      const sin30 = 0.5;
+      spiritPositions.push({ x: 0, y: 0 }); // left anchor
+      spiritPositions.push({ x: cos30 * hexGridSpacing, y: -sin30 * hexGridSpacing }); // upper-right
+      spiritPositions.push({ x: cos30 * hexGridSpacing, y: sin30 * hexGridSpacing }); // lower-right
+      spiritPositions.push({ x: cos30 * 2 * hexGridSpacing, y: 0 }); // far right
+    }
   } else {
-    // 4+ spirits: vertical stack
+    // 5+ spirits: vertical stack
     const startY = -((spirits.length - 1) * hexGridSpacing) / 2;
     spirits.forEach((_, i) => {
       spiritPositions.push({ x: 0, y: startY + i * hexGridSpacing });
@@ -363,7 +392,22 @@ export function computeLayout(
         return [0, 1, 2]; // upper-right spirit (no corner 5)
       }
     }
-    // 4+ vertical
+    // 4 spirits: rhombus layout (if any duplicates) or vertical stack (if all different)
+    if (effectiveSpiritCount === 4 && !allDifferentSpiritTypes) {
+      // Rhombus layout:
+      //      [1]
+      // [0]      [3]
+      //      [2]
+      // Spirit 0 (left): neighbors at 30° (1) and 330° (2) → avoid corners 0,1,2 (right side)
+      // Spirit 1 (upper-right): neighbors at 210° (0) and 330° (3) → avoid corners 3,4,5 (left side)
+      // Spirit 2 (lower-right): neighbors at 150° (0) and 30° (3) → avoid corners 4,5,0 (upper-left)
+      // Spirit 3 (far right): neighbors at 150° (1) and 210° (2) → avoid corners 3,4 (left side)
+      if (spiritIdx === 0) return [3, 4, 5]; // left: use left-facing corners
+      if (spiritIdx === 1) return [0, 1, 5]; // upper-right: use upper and right corners
+      if (spiritIdx === 2) return [1, 2, 3]; // lower-right: use lower and right corners
+      return [0, 1, 2]; // far right: use right-facing corners
+    }
+    // 4+ vertical stack (different types or 5+ spirits)
     if (spiritIdx === 0) return [0, 1, 4, 5];
     if (spiritIdx === effectiveSpiritCount - 1) return [1, 2, 3, 4];
     return [1, 4]; // middle spirits only use left and right

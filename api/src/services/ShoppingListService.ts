@@ -486,14 +486,26 @@ class ShoppingListService {
             if (isGeneric) {
               return bottleToken === ingToken;
             }
-            return bottleToken.includes(ingToken) || ingToken.includes(bottleToken);
+            // Use word boundary matching to prevent false positives like "blackberry" matching "brandy"
+            // Only match if one token starts/ends with the other (prefix/suffix match)
+            // or if they're equal
+            if (bottleToken === ingToken) return true;
+            // For short tokens (<=4 chars), require exact match to avoid false positives
+            if (ingToken.length <= 4 || bottleToken.length <= 4) {
+              return bottleToken === ingToken;
+            }
+            // For longer tokens, allow prefix matching (e.g., "bourbon" matches "bourbonwhiskey")
+            return bottleToken.startsWith(ingToken) || ingToken.startsWith(bottleToken);
           })
         );
 
-        // Single-token ingredients
+        // Single-token ingredients - use word boundary to prevent "brandy" matching "blackberry"
         if (ingredientTokens.length === 1) {
           const singleToken = ingredientTokens[0];
-          const match = fields.some(field => field && field.includes(singleToken));
+          // Escape regex special characters and use word boundary
+          const escaped = singleToken.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+          const match = fields.some(field => field && regex.test(field));
           if (match) {
             logger.debug('[MATCH-TRACE] SUCCESS (Token-1)', { candidate, bottleName: bottle.name });
           }

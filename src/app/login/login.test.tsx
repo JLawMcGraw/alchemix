@@ -78,12 +78,15 @@ describe('Login Page', () => {
 
       // Check for essential elements using actual placeholders
       expect(screen.getByPlaceholderText('you@example.com')).toBeInTheDocument();
-      expect(screen.getByPlaceholderText('••••••••')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Enter password')).toBeInTheDocument();
     });
 
     it('should render submit button', () => {
       render(<LoginPage />);
-      expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
+      // There are two "Log In" buttons (tab + submit), find the submit one
+      const submitButtons = screen.getAllByRole('button', { name: /log in/i });
+      const actualSubmit = submitButtons.find(btn => btn.getAttribute('type') === 'submit');
+      expect(actualSubmit).toBeInTheDocument();
     });
 
     it('should render email input field', () => {
@@ -94,7 +97,7 @@ describe('Login Page', () => {
 
     it('should render password input field', () => {
       render(<LoginPage />);
-      const passwordInput = screen.getByPlaceholderText('••••••••');
+      const passwordInput = screen.getByPlaceholderText('Enter password');
       expect(passwordInput).toHaveAttribute('type', 'password');
     });
   });
@@ -104,12 +107,13 @@ describe('Login Page', () => {
       render(<LoginPage />);
 
       const emailInput = screen.getByPlaceholderText('you@example.com');
-      const passwordInput = screen.getByPlaceholderText('••••••••');
+      const passwordInput = screen.getByPlaceholderText('Enter password');
 
       await userEvent.type(emailInput, 'test@example.com');
       await userEvent.type(passwordInput, 'Password123!');
 
-      const submitButton = screen.getByRole('button', { name: /sign in/i });
+      const submitButtons = screen.getAllByRole('button', { name: /log in/i });
+      const submitButton = submitButtons.find(btn => btn.getAttribute('type') === 'submit')!;
       await userEvent.click(submitButton);
 
       await waitFor(() => {
@@ -120,7 +124,8 @@ describe('Login Page', () => {
     it('should show validation error for empty fields', async () => {
       render(<LoginPage />);
 
-      const submitButton = screen.getByRole('button', { name: /sign in/i });
+      const submitButtons = screen.getAllByRole('button', { name: /log in/i });
+      const submitButton = submitButtons.find(btn => btn.getAttribute('type') === 'submit')!;
       await userEvent.click(submitButton);
 
       // Login should not be called for empty fields
@@ -145,13 +150,14 @@ describe('Login Page', () => {
 
     it('should have accessible password input', () => {
       render(<LoginPage />);
-      const passwordInput = screen.getByPlaceholderText('••••••••');
+      const passwordInput = screen.getByPlaceholderText('Enter password');
       expect(passwordInput).toBeInTheDocument();
     });
 
     it('should have accessible submit button', () => {
       render(<LoginPage />);
-      const submitButton = screen.getByRole('button', { name: /sign in/i });
+      const submitButtons = screen.getAllByRole('button', { name: /log in/i });
+      const submitButton = submitButtons.find(btn => btn.getAttribute('type') === 'submit');
       expect(submitButton).toBeInTheDocument();
     });
   });

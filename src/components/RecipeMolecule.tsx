@@ -222,7 +222,7 @@ export function RecipeMolecule({
         width={LAYOUT_SIZE.width}
         height={LAYOUT_SIZE.height}
         showLegend={size === 'full' && showLegend}
-        tightViewBox={customTightViewBox ?? (size === 'full')}
+        tightViewBox={customTightViewBox ?? true}
         svgRef={svgRef}
         displayWidth={displaySize.width}
         displayHeight={displaySize.height}

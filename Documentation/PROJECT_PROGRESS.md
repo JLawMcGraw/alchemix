@@ -29,7 +29,81 @@ Last updated: 2025-12-17
 
 ---
 
-## Recent Session (2025-12-17): PostgreSQL Migration for Railway Deployment
+## Recent Session (2025-12-17 Evening): Recipe Fixes, Molecule Layout, AI Search
+
+### Summary
+Fixed multiple recipe page issues (filter, ordering, duplicates), redesigned 4-spirit molecule layout to use rhombus when duplicates exist, fixed tooltip visibility on thumbnails with React Portal, corrected ingredient matching false positives, and improved AI search for specific liqueurs.
+
+### Work Completed
+
+#### 1. Recipe Page Fixes
+- **Filter Bug**: Fixed "Craftable" and other mastery filters not working - added missing `default` case in switch statement and fixed case-sensitive name comparison
+- **Duplicate Keys**: Added `deduplicateRecipes` helper to filter out duplicate recipe IDs before setting in store
+- **Ordering**: Changed from `ORDER BY created_at DESC` to `ORDER BY LOWER(name) ASC` for alphabetical sorting
+- **Files**: `src/app/recipes/useRecipesPage.ts`, `api/src/services/RecipeService.ts`
+
+#### 2. Login Page Test Fixes
+- Updated test selectors from old UI (`'••••••••'` → `'Enter password'`, `/sign in/i` → `/log in/i`)
+- Used `getAllByRole` + filter for submit button to distinguish from tab button
+- All 10 login tests now passing
+- **File**: `src/app/login/login.test.tsx`
+
+#### 3. 4-Spirit Molecule Layout (Rhombus vs Vertical Stack)
+- **New Logic**: 4 spirits with ALL different base types → vertical stack; any duplicates → rhombus layout
+- Created `allDifferentSpiritTypes` variable checking if all spirits have unique base types
+- Rhombus uses honeycomb grid spacing (cos30/sin30 calculations for touching hexagons)
+- **File**: `packages/recipe-molecule/src/core/layout.ts`
+
+#### 4. ViewBox Padding Adjustments
+- Iterated through multiple padding values to prevent molecule clipping
+- Final padding: `paddingX: 22`, `paddingTop: 42`, `paddingBottom: 24`
+- Enabled `tightViewBox` for all thumbnail sizes
+- **Files**: `packages/recipe-molecule/src/components/Molecule.tsx`, `src/components/RecipeMolecule.tsx`
+
+#### 5. Tooltip Portal Fix (Recipe Card Thumbnails)
+- **Problem**: Tooltip wasn't showing due to CSS `overflow: hidden` + `transform: scale()` on card hover
+- **Solution**: Used React Portal (`createPortal`) to render tooltip at `document.body`
+- **File**: `packages/recipe-molecule/src/components/Tooltip.tsx`
+
+#### 6. Ingredient Matching False Positive Fix
+- **Problem**: "blackberry" matching "brandy" due to substring `includes()`
+- **Solution**: Changed to prefix matching (`startsWith`) for longer tokens, exact match for short tokens (≤4 chars), word boundary regex for single-token matching
+- **File**: `api/src/services/ShoppingListService.ts`
+
+#### 7. AI Search Improvements for Specific Liqueurs
+- **Problem**: Queries for liqueurs not in `INGREDIENT_KEYWORDS` returned few results
+- **Solution**:
+  - Added Step 2b: Direct keyword search fallback (extracts terms 4+ chars from query)
+  - Modified retry to trigger when recipes found but none craftable
+  - Added broader search terms based on spirit mentions
+- **File**: `api/src/services/AIService.ts`
+
+#### 8. AI Chat Recipe Linking Fix for Parentheses
+- **Problem**: Recipes with parentheses in name like "Mai Tai (Royal Hawaiian)" weren't becoming clickable links
+- **Cause**: Regex used `\b` word boundaries, but `\b` requires word/non-word transition. After `)` (non-word) followed by `*` (non-word), there's no boundary.
+- **Solution**: Changed from `\b` to captured groups `(^|[^\w])` and `([^\w]|$)` that explicitly handle non-word boundaries
+- **File**: `src/app/ai/page.tsx`
+
+### Files Changed
+- `src/app/recipes/useRecipesPage.ts` - Filter fixes, deduplication
+- `api/src/services/RecipeService.ts` - Alphabetical ordering
+- `src/app/login/login.test.tsx` - Test selector fixes
+- `packages/recipe-molecule/src/core/layout.ts` - 4-spirit rhombus layout
+- `packages/recipe-molecule/src/components/Molecule.tsx` - ViewBox padding
+- `packages/recipe-molecule/src/components/Tooltip.tsx` - React Portal
+- `packages/recipe-molecule/src/styles/molecule.module.css` - Fixed positioning
+- `src/components/RecipeMolecule.tsx` - TightViewBox for thumbnails
+- `api/src/services/ShoppingListService.ts` - Word boundary matching
+- `api/src/services/AIService.ts` - Fallback search + retry improvements
+- `src/app/ai/page.tsx` - Recipe linking fix for parentheses in names
+
+### Next Priority
+1. Railway deployment (Phase 6)
+2. Verify AI search improvements with various liqueur queries
+
+---
+
+## Session (2025-12-17): PostgreSQL Migration for Railway Deployment
 
 ### Summary
 Complete migration from SQLite (better-sqlite3) to PostgreSQL (pg driver) for Railway deployment with multi-user support. All services, routes, middleware, and tests converted to async PostgreSQL pattern. 866 backend tests passing.

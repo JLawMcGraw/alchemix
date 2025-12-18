@@ -958,6 +958,37 @@ Return ONLY the JSON object. No markdown, no code blocks, no explanations.`;
         }
       }
 
+      // Step 2b: If no ingredients detected from keywords, try extracting potential ingredient terms from the query
+      // This catches liqueurs/ingredients not in our keyword list
+      if (detectedIngredients.length === 0 && matchedConcepts.length === 0) {
+        // Extract potential ingredient terms (words 4+ chars, not common words)
+        const commonWords = new Set(['drink', 'cocktail', 'recipe', 'make', 'want', 'need', 'with', 'using', 'that', 'have', 'give', 'show', 'find', 'what', 'which', 'could', 'would', 'should', 'please', 'something', 'anything']);
+        const potentialTerms = lowerMessage
+          .split(/[\s,]+/)
+          .map(w => w.replace(/[^a-z]/g, ''))
+          .filter(w => w.length >= 4 && !commonWords.has(w));
+
+        if (potentialTerms.length > 0) {
+          logger.info('Hybrid search: Trying direct keyword search (no ingredients detected)', { terms: potentialTerms });
+
+          for (const term of potentialTerms.slice(0, 3)) { // Limit to first 3 terms
+            const matches = await this.queryRecipesWithIngredient(userId, term);
+            for (const recipe of matches) {
+              if (!allRecipes.some(r => r.id === recipe.id)) {
+                allRecipes.push(recipe);
+              }
+            }
+          }
+
+          if (allRecipes.length > 0) {
+            logger.info('Hybrid search: Direct keyword search found recipes', {
+              count: allRecipes.length,
+              terms: potentialTerms.slice(0, 3)
+            });
+          }
+        }
+      }
+
       // Use allRecipes (concept + ingredient matches) for processing
       const ingredientRecipes = allRecipes;
 
@@ -984,15 +1015,46 @@ Return ONLY the JSON object. No markdown, no code blocks, no explanations.`;
       });
 
       // Step 3b: RETRY with broader search if not enough craftable recipes
+      // Trigger retry when:
+      // 1. We have detected concepts/ingredients but not enough craftable recipes, OR
+      // 2. We found some recipes but none are craftable (user asked about something specific)
       const MIN_CRAFTABLE_THRESHOLD = 2;
-      if (craftableCount < MIN_CRAFTABLE_THRESHOLD && (matchedConcepts.length > 0 || detectedIngredients.length > 0)) {
+      const shouldRetry = craftableCount < MIN_CRAFTABLE_THRESHOLD && (
+        matchedConcepts.length > 0 ||
+        detectedIngredients.length > 0 ||
+        (ingredientRecipes.length > 0 && craftableCount === 0) // Found recipes but none craftable
+      );
+
+      if (shouldRetry) {
         logger.info('[AI-SEARCH] Triggering broader search - not enough craftable recipes', {
           craftableCount,
-          threshold: MIN_CRAFTABLE_THRESHOLD
+          threshold: MIN_CRAFTABLE_THRESHOLD,
+          initialRecipesFound: ingredientRecipes.length
         });
 
         // Get broader search terms based on what was detected
-        const broaderTerms = this.getBroaderSearchTerms(detectedIngredients, matchedConcepts);
+        // If nothing specific detected, try extracting from query
+        let broaderTerms = this.getBroaderSearchTerms(detectedIngredients, matchedConcepts);
+
+        // If no broader terms from detected ingredients, try to find base spirit in query
+        if (broaderTerms.length === 0) {
+          const spiritMentions = ['rum', 'gin', 'vodka', 'whiskey', 'bourbon', 'tequila', 'brandy', 'cognac'];
+          for (const spirit of spiritMentions) {
+            if (lowerMessage.includes(spirit)) {
+              const spiritKeywords: Record<string, string[]> = {
+                rum: ['daiquiri', 'mojito', 'punch', 'sour'],
+                gin: ['martini', 'collins', 'fizz', 'sour', 'negroni'],
+                whiskey: ['old fashioned', 'sour', 'manhattan'],
+                bourbon: ['old fashioned', 'sour', 'manhattan'],
+                tequila: ['margarita', 'paloma'],
+                vodka: ['martini', 'mule', 'collins'],
+                brandy: ['sidecar', 'sour'],
+                cognac: ['sidecar', 'sour'],
+              };
+              broaderTerms.push(...(spiritKeywords[spirit] || []));
+            }
+          }
+        }
         logger.info('[AI-SEARCH] Broader search terms', { terms: broaderTerms });
 
         // Search for additional recipes using broader terms

@@ -274,9 +274,9 @@ export function Molecule({
     });
 
     // Add padding around content (more at top for text labels)
-    const paddingX = 20;
-    const paddingTop = 40; // Extra space at top for text labels
-    const paddingBottom = 20;
+    const paddingX = 22;
+    const paddingTop = 42; // Extra space at top for text labels
+    const paddingBottom = 24;
     // Don't clamp to 0 - allow viewBox to extend if needed
     minX = minX - paddingX;
     minY = minY - paddingTop;
@@ -295,16 +295,13 @@ export function Molecule({
     return map;
   }, [recipe.nodes])();
 
-  // Tooltip handlers
+  // Tooltip handlers - use viewport coordinates for fixed positioning
   const handleMouseEnter = useCallback(
     (event: React.MouseEvent, node: MoleculeNode) => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-
       setTooltip({
         node,
-        x: event.clientX - rect.left,
-        y: event.clientY - rect.top,
+        x: event.clientX,
+        y: event.clientY - 10, // Slight offset above cursor
         visible: true,
       });
     },
@@ -313,14 +310,11 @@ export function Molecule({
 
   const handleMouseMove = useCallback(
     (event: React.MouseEvent, node: MoleculeNode) => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-
       setTooltip(prev => ({
         ...prev,
         node,
-        x: event.clientX - rect.left,
-        y: event.clientY - rect.top,
+        x: event.clientX,
+        y: event.clientY - 10, // Slight offset above cursor
       }));
     },
     []

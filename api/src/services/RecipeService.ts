@@ -169,7 +169,7 @@ export class RecipeService {
     const recipes = await queryAll<Recipe>(`
       SELECT * FROM recipes
       WHERE user_id = $1
-      ORDER BY created_at DESC
+      ORDER BY LOWER(name) ASC
       LIMIT $2 OFFSET $3
     `, [userId, limit, offset]);
 

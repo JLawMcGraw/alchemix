@@ -83,6 +83,16 @@ export function useRecipesPage() {
   });
   const [lastLoadedParams, setLastLoadedParams] = useState<{ filter: string | null; collection: string | null } | null>(null);
 
+  // Helper to deduplicate recipes by ID
+  const deduplicateRecipes = (recipes: Recipe[]): Recipe[] => {
+    const seen = new Set<number>();
+    return recipes.filter(recipe => {
+      if (recipe.id && seen.has(recipe.id)) return false;
+      if (recipe.id) seen.add(recipe.id);
+      return true;
+    });
+  };
+
   // Load recipes
   const loadRecipes = useCallback(async (page: number = 1, loadAll: boolean = false) => {
     try {
@@ -94,11 +104,13 @@ export function useRecipesPage() {
           const pageResult = await recipeApi.getAll(p, 100);
           allRecipes = [...allRecipes, ...pageResult.recipes];
         }
-        useStore.setState({ recipes: allRecipes });
+        // Deduplicate to prevent React key warnings
+        const uniqueRecipes = deduplicateRecipes(allRecipes);
+        useStore.setState({ recipes: uniqueRecipes });
         setPagination({
           page: 1,
-          limit: allRecipes.length,
-          total: allRecipes.length,
+          limit: uniqueRecipes.length,
+          total: uniqueRecipes.length,
           totalPages: 1,
           hasNextPage: false,
           hasPreviousPage: false
@@ -106,7 +118,9 @@ export function useRecipesPage() {
         setCurrentPage(1);
       } else {
         const result = await recipeApi.getAll(page, 50);
-        useStore.setState({ recipes: result.recipes });
+        // Deduplicate to prevent React key warnings
+        const uniqueRecipes = deduplicateRecipes(result.recipes);
+        useStore.setState({ recipes: uniqueRecipes });
         setPagination(result.pagination);
         setCurrentPage(page);
       }
@@ -172,7 +186,9 @@ export function useRecipesPage() {
 
   // Check if recipe is craftable
   const isRecipeCraftable = useCallback((recipe: Recipe): boolean => {
-    return craftableRecipes.some(c => c.id === recipe.id || c.name === recipe.name);
+    return craftableRecipes.some(c =>
+      c.id === recipe.id || c.name.toLowerCase() === recipe.name.toLowerCase()
+    );
   }, [craftableRecipes]);
 
   // Filter recipes
@@ -194,8 +210,10 @@ export function useRecipesPage() {
       if (masteryFilter) {
         const matchesList = (list: Array<{ id?: number; name: string }> = []) => {
           return list.some(entry => {
+            // Match by ID if both have IDs
             if (recipe.id && entry.id) return entry.id === recipe.id;
-            return entry.name === recipe.name;
+            // Fall back to case-insensitive name match
+            return entry.name.toLowerCase() === recipe.name.toLowerCase();
           });
         };
 
@@ -208,6 +226,9 @@ export function useRecipesPage() {
             return matchesSearch && matchesSpirit && matchesList(needFewRecipes);
           case 'major-gaps':
             return matchesSearch && matchesSpirit && matchesList(majorGapsRecipes);
+          default:
+            // Unknown filter - exclude recipe
+            return false;
         }
       }
 

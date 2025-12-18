@@ -109,7 +109,7 @@
 /* ═══════════════════════════════════════════════════════════════ */
 
 .tooltip {
-  position: absolute;
+  position: fixed;
   background: #18181B;
   color: #FAFAFA;
   padding: 6px 12px;
@@ -122,11 +122,9 @@
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.15s ease;
-  z-index: 100;
+  z-index: 9999;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   white-space: nowrap;
-  transform: translate(-50%, -100%);
-  margin-top: -8px;
 }
 
 .tooltipVisible {

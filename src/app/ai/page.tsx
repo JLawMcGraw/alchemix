@@ -279,11 +279,13 @@ export default function AIPage() {
     // Track which positions have been replaced to avoid double-linking
     sortedRecipes.forEach((recipeName) => {
       const escapedFullName = escapeForRegex(recipeName);
-      // Use word boundary \b instead of lookbehind for better compatibility
-      const fullNameRegex = new RegExp(`\\b${escapedFullName}\\b`, 'gi');
+      // Use flexible boundary matching that handles recipe names ending with non-word chars
+      // like parentheses: "Mai Tai (Royal Hawaiian)"
+      // Capture boundary chars so we can preserve them in replacement
+      const fullNameRegex = new RegExp(`(^|[^\\w])(${escapedFullName})([^\\w]|$)`, 'gi');
 
       // Replace only if not already inside markers
-      displayText = displayText.replace(fullNameRegex, (match, offset) => {
+      displayText = displayText.replace(fullNameRegex, (match, before, name, after, offset) => {
         // Check if this match is already inside __RECIPE__...__RECIPE__
         // Count markers before this position - odd count means we're inside
         const beforeMatch = displayText.substring(0, offset);
@@ -291,7 +293,9 @@ export default function AIPage() {
         if (markerCount % 2 === 1) {
           return match; // Don't replace, already inside markers (odd = between open/close)
         }
-        return `__RECIPE__${recipeName}__RECIPE__`;
+
+        // Preserve boundary characters, wrap recipe name with markers
+        return `${before}__RECIPE__${recipeName}__RECIPE__${after}`;
       });
     });
 
