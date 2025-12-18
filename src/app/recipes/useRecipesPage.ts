@@ -57,6 +57,7 @@ export function useRecipesPage() {
   // State
   const [activeTab, setActiveTab] = useState<'collections' | 'all'>('collections');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterSpirit, setFilterSpirit] = useState<SpiritCategory | 'all'>('all');
   const [masteryFilter, setMasteryFilter] = useState<string | null>(null);
   const [csvModalOpen, setCsvModalOpen] = useState(false);
@@ -93,15 +94,20 @@ export function useRecipesPage() {
     });
   };
 
-  // Load recipes
-  const loadRecipes = useCallback(async (page: number = 1, loadAll: boolean = false) => {
+  // Load recipes with server-side search
+  const loadRecipes = useCallback(async (
+    page: number = 1,
+    loadAll: boolean = false,
+    options?: { search?: string; masteryIds?: number[] }
+  ) => {
     try {
       if (loadAll) {
-        const firstResult = await recipeApi.getAll(1, 100);
+        // Load all with search params
+        const firstResult = await recipeApi.getAll(1, 100, options);
         let allRecipes = [...firstResult.recipes];
         const totalPages = firstResult.pagination.totalPages;
         for (let p = 2; p <= totalPages; p++) {
-          const pageResult = await recipeApi.getAll(p, 100);
+          const pageResult = await recipeApi.getAll(p, 100, options);
           allRecipes = [...allRecipes, ...pageResult.recipes];
         }
         // Deduplicate to prevent React key warnings
@@ -117,7 +123,7 @@ export function useRecipesPage() {
         });
         setCurrentPage(1);
       } else {
-        const result = await recipeApi.getAll(page, 50);
+        const result = await recipeApi.getAll(page, 50, options);
         // Deduplicate to prevent React key warnings
         const uniqueRecipes = deduplicateRecipes(result.recipes);
         useStore.setState({ recipes: uniqueRecipes });
@@ -130,6 +136,27 @@ export function useRecipesPage() {
       setHasInitiallyLoaded(true);
     }
   }, []);
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Reload when search changes (server-side filtering)
+  useEffect(() => {
+    if (!isAuthenticated || isValidating || !hasInitiallyLoaded) return;
+
+    // Only trigger server-side search when there's a search term and we're in 'all' tab
+    if (activeTab === 'all' && debouncedSearch) {
+      loadRecipes(1, true, { search: debouncedSearch });
+    } else if (activeTab === 'all' && !debouncedSearch && !masteryFilter) {
+      // Clear search - reload without filter
+      loadRecipes(1, false);
+    }
+  }, [debouncedSearch, activeTab, isAuthenticated, isValidating, hasInitiallyLoaded, masteryFilter, loadRecipes]);
 
   // Handle URL parameters
   useEffect(() => {
@@ -191,16 +218,19 @@ export function useRecipesPage() {
     );
   }, [craftableRecipes]);
 
-  // Filter recipes
+  // Filter recipes (client-side for spirit filter, server handled search)
   const filteredRecipes = useMemo(() => {
     return recipesArray.filter((recipe) => {
       const ingredientsArray = parseIngredients(recipe.ingredients);
       const ingredientsText = ingredientsArray.join(' ').toLowerCase();
 
-      const matchesSearch = searchQuery
-        ? recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          ingredientsText.includes(searchQuery.toLowerCase())
-        : true;
+      // Only apply client-side search if NOT in 'all' tab (server handles 'all' tab search)
+      const matchesSearch = (activeTab === 'all')
+        ? true  // Server already filtered
+        : searchQuery
+          ? recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            ingredientsText.includes(searchQuery.toLowerCase())
+          : true;
 
       const recipeSpirits = getIngredientSpirits(ingredientsArray);
       const matchesSpirit =
@@ -210,9 +240,7 @@ export function useRecipesPage() {
       if (masteryFilter) {
         const matchesList = (list: Array<{ id?: number; name: string }> = []) => {
           return list.some(entry => {
-            // Match by ID if both have IDs
             if (recipe.id && entry.id) return entry.id === recipe.id;
-            // Fall back to case-insensitive name match
             return entry.name.toLowerCase() === recipe.name.toLowerCase();
           });
         };
@@ -227,7 +255,6 @@ export function useRecipesPage() {
           case 'major-gaps':
             return matchesSearch && matchesSpirit && matchesList(majorGapsRecipes);
           default:
-            // Unknown filter - exclude recipe
             return false;
         }
       }
@@ -402,24 +429,19 @@ export function useRecipesPage() {
   const handleBulkMove = useCallback(async () => {
     if (selectedRecipes.size === 0) return;
     try {
-      let moved = 0;
-      for (const recipeId of selectedRecipes) {
-        await updateRecipe(recipeId, { collection_id: bulkMoveCollectionId || undefined });
-        moved++;
-      }
+      const ids = Array.from(selectedRecipes);
+      const result = await recipeApi.bulkMove(ids, bulkMoveCollectionId);
+
       await loadRecipes(1);
       await fetchCollections();
       setSelectedRecipes(new Set());
       setShowBulkMoveModal(false);
       setBulkMoveCollectionId(null);
-      const collectionName = bulkMoveCollectionId
-        ? collectionsArray.find((c) => c.id === bulkMoveCollectionId)?.name || 'collection'
-        : 'Uncategorized';
-      showToast('success', `Moved ${moved} recipe(s) to ${collectionName}`);
+      showToast('success', result.message);
     } catch (error) {
-      showToast('error', 'Failed to move some recipes');
+      showToast('error', 'Failed to move recipes');
     }
-  }, [selectedRecipes, updateRecipe, bulkMoveCollectionId, loadRecipes, fetchCollections, collectionsArray, showToast]);
+  }, [selectedRecipes, bulkMoveCollectionId, loadRecipes, fetchCollections, showToast]);
 
   const handleMasteryFilterClick = useCallback((filterKey: string) => {
     if (masteryFilter === filterKey) {
