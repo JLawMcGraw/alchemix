@@ -51,7 +51,7 @@ function getHoneycombPositions(cx: number, cy: number, radius: number) {
 
 /**
  * Renders a benzene-style hexagon ring with alternating single/double bonds
- * Pure black lines for academic/monochrome style
+ * Uses CSS class for dark mode support
  */
 function BenzeneRing({ cx, cy, radius }: { cx: number; cy: number; radius: number }) {
   const edges: JSX.Element[] = [];
@@ -67,7 +67,7 @@ function BenzeneRing({ cx, cy, radius }: { cx: number; cy: number; radius: numbe
     const x2 = cx + radius * Math.cos(angle2);
     const y2 = cy + radius * Math.sin(angle2);
 
-    // Outer edge - pure black
+    // Outer edge - uses CSS class for dark mode
     edges.push(
       <line
         key={`outer-${i}`}
@@ -75,7 +75,7 @@ function BenzeneRing({ cx, cy, radius }: { cx: number; cy: number; radius: numbe
         y1={y1}
         x2={x2}
         y2={y2}
-        stroke="#333"
+        className={styles.bond}
         strokeWidth={1.5}
       />
     );
@@ -94,7 +94,7 @@ function BenzeneRing({ cx, cy, radius }: { cx: number; cy: number; radius: numbe
           y1={iy1}
           x2={ix2}
           y2={iy2}
-          stroke="#333"
+          className={styles.bond}
           strokeWidth={1.5}
         />
       );
@@ -106,6 +106,7 @@ function BenzeneRing({ cx, cy, radius }: { cx: number; cy: number; radius: numbe
 
 /**
  * Draw a single hexagon at position (cx, cy)
+ * Used for honeycomb skeleton - uses backbone class for dark mode support
  */
 function drawHexagon(cx: number, cy: number, radius: number, keyPrefix: string): JSX.Element[] {
   const edges: JSX.Element[] = [];
@@ -126,9 +127,8 @@ function drawHexagon(cx: number, cy: number, radius: number, keyPrefix: string):
         y1={y1}
         x2={x2}
         y2={y2}
-        stroke="#ccc"
+        className={styles.backbone}
         strokeWidth={1}
-        opacity={0.4}
       />
     );
   }

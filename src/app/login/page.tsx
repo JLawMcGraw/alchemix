@@ -72,6 +72,20 @@ export default function LoginPage() {
   const [formError, setFormError] = useState('');
   const [signupSuccess, setSignupSuccess] = useState(false);
 
+  // Dark mode detection for periodic table colors
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    const checkTheme = () => {
+      const theme = document.documentElement.getAttribute('data-theme');
+      setIsDarkMode(theme === 'dark');
+    };
+    checkTheme();
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
+
   // Real-time password requirement checks
   const passwordChecks = checkPasswordRequirements(password);
   const showPasswordRequirements = isSignupMode && (passwordFocused || password.length > 0);
@@ -371,7 +385,7 @@ export default function LoginPage() {
               <div
                 key={group.num}
                 className={styles.groupHeader}
-                style={{ '--group-color': GROUPS[group.num as MixologyGroup].color } as React.CSSProperties}
+                style={{ '--group-color': isDarkMode ? GROUPS[group.num as MixologyGroup].colorDark : GROUPS[group.num as MixologyGroup].color } as React.CSSProperties}
               >
                 <span className={styles.groupNum}>{group.num}.</span>
                 <span className={styles.groupName}>{group.name}</span>
@@ -388,7 +402,7 @@ export default function LoginPage() {
                   {/* Period Label */}
                   <div
                     className={styles.periodLabel}
-                    style={{ '--period-color': periodInfo.color } as React.CSSProperties}
+                    style={{ '--period-color': isDarkMode ? periodInfo.colorDark : periodInfo.color } as React.CSSProperties}
                   >
                     <span className={styles.periodNum}>{periodNum}</span>
                     <span className={styles.periodName}>{periodInfo.name}</span>
@@ -419,14 +433,14 @@ export default function LoginPage() {
                         key={groupIndex}
                         className={styles.elementCell}
                         style={{
-                          '--group-color': groupInfo.color,
-                          '--period-color': periodInfo.color,
+                          '--group-color': isDarkMode ? groupInfo.colorDark : groupInfo.color,
+                          '--period-color': isDarkMode ? periodInfo.colorDark : periodInfo.color,
                         } as React.CSSProperties}
                       >
                         {/* Period indicator dot */}
                         <div
                           className={styles.periodDot}
-                          style={{ backgroundColor: periodInfo.color }}
+                          style={{ backgroundColor: isDarkMode ? periodInfo.colorDark : periodInfo.color }}
                         />
 
                         {/* Symbol */}

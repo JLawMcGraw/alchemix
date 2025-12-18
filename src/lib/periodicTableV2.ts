@@ -37,6 +37,7 @@ export {
   PERIODIC_GROUPS,
   PERIODIC_PERIODS,
   GROUP_COLORS,
+  GROUP_COLORS_DARK,
   PERIOD_COLORS,
 } from './periodicTable/index';
 

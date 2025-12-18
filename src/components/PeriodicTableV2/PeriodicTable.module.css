@@ -188,3 +188,45 @@
     font-size: 0.5625rem;
   }
 }
+
+/* ==========================================================================
+   Dark Mode
+   ========================================================================== */
+
+:global([data-theme="dark"]) .container {
+  background: #1E293B;
+  border-color: #334155;
+}
+
+:global([data-theme="dark"]) .header {
+  border-bottom-color: #334155;
+}
+
+:global([data-theme="dark"]) .titleSection h2 {
+  color: #F1F5F9;
+}
+
+:global([data-theme="dark"]) .subtitle {
+  color: #94A3B8;
+}
+
+:global([data-theme="dark"]) .groupName {
+  color: #94A3B8;
+}
+
+:global([data-theme="dark"]) .periodName {
+  color: #F1F5F9;
+}
+
+:global([data-theme="dark"]) .periodProfile {
+  color: #94A3B8;
+}
+
+:global([data-theme="dark"]) .legend {
+  border-top-color: #334155;
+}
+
+:global([data-theme="dark"]) .legendLabel {
+  color: #94A3B8;
+}
+

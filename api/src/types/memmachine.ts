@@ -306,11 +306,11 @@ export const MEMMACHINE_CONSTANTS = {
   /** Project ID prefix for chat conversations (e.g., user_1_chat_2025-12-02) */
   CHAT_PROJECT_SUFFIX: 'chat',
 
-  /** Default search limit */
-  DEFAULT_SEARCH_LIMIT: 20,
+  /** Default search limit - increased for better variety */
+  DEFAULT_SEARCH_LIMIT: 50,
 
   /** Maximum recipes to include in AI prompt */
-  MAX_PROMPT_RECIPES: 20,
+  MAX_PROMPT_RECIPES: 30,
 } as const;
 
 /**

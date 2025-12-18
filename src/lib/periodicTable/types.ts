@@ -35,6 +35,7 @@ export interface GroupInfo {
   name: string;
   desc: string;
   color: string;
+  colorDark: string;
 }
 
 /** Period metadata */
@@ -42,6 +43,7 @@ export interface PeriodInfo {
   name: string;
   profile: string;
   color: string;
+  colorDark: string;
 }
 
 /** Inventory item with its classification */

@@ -221,6 +221,47 @@ describe('Ingredient Parser', () => {
       const results = parseIngredients([]);
       expect(results).toHaveLength(0);
     });
+
+    describe('each pattern expansion', () => {
+      it('should expand "each:" pattern with colon', () => {
+        const results = parseIngredients(['1/2 oz each: gin, brandy, and bourbon']);
+        expect(results).toHaveLength(3);
+        expect(results[0].name).toBe('gin');
+        expect(results[0].amount).toBe(0.5);
+        expect(results[1].name).toBe('brandy');
+        expect(results[1].amount).toBe(0.5);
+        expect(results[2].name).toBe('bourbon');
+        expect(results[2].amount).toBe(0.5);
+      });
+
+      it('should expand "each" pattern without colon', () => {
+        const results = parseIngredients(['1/2 oz each gin, brandy, bourbon']);
+        expect(results).toHaveLength(3);
+        expect(results[0].name).toBe('gin');
+        expect(results[1].name).toBe('brandy');
+        expect(results[2].name).toBe('bourbon');
+      });
+
+      it('should expand "each" pattern with just "and"', () => {
+        const results = parseIngredients(['1 oz each rum and vodka']);
+        expect(results).toHaveLength(2);
+        expect(results[0].name).toBe('rum');
+        expect(results[1].name).toBe('vodka');
+      });
+
+      it('should preserve other ingredients in the list', () => {
+        const results = parseIngredients([
+          '2 oz tequila',
+          '1/2 oz each: lime juice and lemon juice',
+          '1 oz simple syrup'
+        ]);
+        expect(results).toHaveLength(4);
+        expect(results[0].name).toBe('tequila');
+        expect(results[1].name).toBe('lime juice');
+        expect(results[2].name).toBe('lemon juice');
+        expect(results[3].name).toBe('simple syrup');
+      });
+    });
   });
 
   describe('toOunces', () => {

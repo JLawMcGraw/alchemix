@@ -179,59 +179,59 @@
 }
 
 /* Dark Mode */
-[data-theme="dark"] .card {
+:global([data-theme="dark"]) .card {
   background: #1E293B;
   border-color: #334155;
 }
 
-[data-theme="dark"] .card:hover {
+:global([data-theme="dark"]) .card:hover {
   border-color: #475569;
 }
 
-[data-theme="dark"] .cardSelected {
+:global([data-theme="dark"]) .cardSelected {
   border-color: #14B8A6;
 }
 
-[data-theme="dark"] .thumbnail {
+:global([data-theme="dark"]) .thumbnail {
   background: #1E293B;
   border-bottom-color: #334155;
 }
 
-[data-theme="dark"] .checkbox {
+:global([data-theme="dark"]) .checkbox {
   background: #1E293B;
   border-color: #475569;
 }
 
-[data-theme="dark"] .checkbox:hover {
+:global([data-theme="dark"]) .checkbox:hover {
   border-color: #64748B;
 }
 
-[data-theme="dark"] .checkboxChecked {
+:global([data-theme="dark"]) .checkboxChecked {
   background: #14B8A6;
   border-color: #14B8A6;
 }
 
-[data-theme="dark"] .name {
+:global([data-theme="dark"]) .name {
   color: #F1F5F9;
 }
 
-[data-theme="dark"] .formula {
+:global([data-theme="dark"]) .formula {
   color: #64748B;
 }
 
-[data-theme="dark"] .favoriteBtn {
+:global([data-theme="dark"]) .favoriteBtn {
   color: #475569;
 }
 
-[data-theme="dark"] .favoriteBtn:hover {
+:global([data-theme="dark"]) .favoriteBtn:hover {
   color: #F59E0B;
 }
 
-[data-theme="dark"] .ingredients {
+:global([data-theme="dark"]) .ingredients {
   color: #94A3B8;
 }
 
-[data-theme="dark"] .missingSection {
+:global([data-theme="dark"]) .missingSection {
   border-top-color: #334155;
 }
 

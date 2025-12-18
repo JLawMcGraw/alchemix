@@ -773,6 +773,11 @@ function validateBottleData(record: CSVRecord): ValidationResult {
     const num = parseInt(String(val));
     return isNaN(num) ? null : num;
   };
+  // Helper to parse ABV - strip any % signs to avoid double-% display
+  const safeAbv = (val: string | number | null): string | null => {
+    if (val === null) return null;
+    return String(val).replace(/%/g, '').trim() || null;
+  };
 
   // Sanitize the data - be very flexible with column names
   const sanitized = {
@@ -781,7 +786,7 @@ function validateBottleData(record: CSVRecord): ValidationResult {
     'Liquor Type': safeString(findField(record, ['Liquor Type', 'liquor type', 'Type', 'type', 'Category', 'category'])),
     'Detailed Spirit Classification': safeString(findField(record, ['Detailed Spirit Classification', 'Classification', 'classification', 'Spirit Type', 'spirit type'])),
     'Distillation Method': safeString(findField(record, ['Distillation Method', 'distillation method', 'Method', 'method'])),
-    'ABV (%)': safeString(findField(record, ['ABV (%)', 'ABV', 'abv', 'Alcohol', 'alcohol', 'Proof', 'proof', 'Alcohol Content'])),
+    'ABV (%)': safeAbv(findField(record, ['ABV (%)', 'ABV', 'abv', 'Alcohol', 'alcohol', 'Proof', 'proof', 'Alcohol Content'])),
     'Distillery Location': safeString(findField(record, ['Distillery Location', 'distillery location', 'Location', 'location', 'Origin', 'origin', 'Country', 'country'])),
     'Age Statement or Barrel Finish': safeString(findField(record, ['Age Statement or Barrel Finish', 'Age Statement', 'age statement', 'Age', 'age', 'Barrel Finish', 'barrel finish', 'Finish', 'finish'])),
     'Additional Notes': safeString(findField(record, ['Additional Notes', 'additional notes', 'Notes', 'notes', 'Description', 'description', 'Comments', 'comments'])),

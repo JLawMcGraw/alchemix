@@ -53,10 +53,16 @@ const CLASSIFICATION_RULES: Record<IngredientType, string[]> = {
     'baileys', 'cream liqueur', 'licor 43', 'st germain', 'elderflower',
     'chambord', 'midori', 'creme de', 'crème de', 'cherry heering', 'heering',
     'allspice dram', 'st elizabeth', 'velvet falernum', 'pimento dram',
+    // Herbal/spiced liqueurs (sweeter ones)
+    'drambuie', 'benedictine', 'dom', 'b&b',
+    'galliano', 'strega',
+    'sambuca', 'anisette', 'pastis', 'pernod', 'ricard',
+    'domaine de canton', 'ginger liqueur',
     // Fruit liqueurs
     'blackberry liqueur', 'raspberry liqueur', 'strawberry liqueur',
     'peach liqueur', 'apricot liqueur', 'banana liqueur', 'melon liqueur',
     'apple liqueur', 'pear liqueur', 'cherry liqueur', 'cassis',
+    'limoncello', 'pama', 'pomegranate liqueur',
   ],
 
   bitter: [
@@ -69,6 +75,9 @@ const CLASSIFICATION_RULES: Record<IngredientType, string[]> = {
     // Vermouths (all types)
     'vermouth', 'dry vermouth', 'sweet vermouth', 'blanc vermouth',
     'vermouth rosso', 'carpano', 'antica formula', 'lillet', 'cocchi',
+    // Herbal/bitter liqueurs
+    'chartreuse', 'green chartreuse', 'yellow chartreuse',
+    'genepy', 'génépy', 'suze', 'becherovka', 'jagermeister', 'jägermeister',
     // Coffee/bitter flavors
     'espresso', 'coffee', 'cold brew',
   ],

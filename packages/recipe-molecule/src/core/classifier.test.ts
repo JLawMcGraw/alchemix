@@ -140,6 +140,21 @@ describe('Ingredient Classifier', () => {
         const result = classifyIngredient(createParsed('st elizabeth allspice dram'));
         expect(result.type).toBe('sweet');
       });
+
+      it('should classify drambuie as sweet', () => {
+        const result = classifyIngredient(createParsed('drambuie'));
+        expect(result.type).toBe('sweet');
+      });
+
+      it('should classify benedictine as sweet', () => {
+        const result = classifyIngredient(createParsed('benedictine'));
+        expect(result.type).toBe('sweet');
+      });
+
+      it('should classify galliano as sweet', () => {
+        const result = classifyIngredient(createParsed('galliano'));
+        expect(result.type).toBe('sweet');
+      });
     });
 
     describe('Bitters', () => {
@@ -165,6 +180,16 @@ describe('Ingredient Classifier', () => {
 
       it('should classify fernet as bitter', () => {
         const result = classifyIngredient(createParsed('fernet-branca'));
+        expect(result.type).toBe('bitter');
+      });
+
+      it('should classify green chartreuse as bitter', () => {
+        const result = classifyIngredient(createParsed('green chartreuse'));
+        expect(result.type).toBe('bitter');
+      });
+
+      it('should classify yellow chartreuse as bitter', () => {
+        const result = classifyIngredient(createParsed('yellow chartreuse'));
         expect(result.type).toBe('bitter');
       });
     });

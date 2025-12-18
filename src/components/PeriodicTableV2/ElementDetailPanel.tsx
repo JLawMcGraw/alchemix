@@ -124,7 +124,7 @@ export default function ElementDetailPanel({
           {item.abv && (
             <div className={styles.detailRow}>
               <span className={styles.detailLabel}>ABV</span>
-              <span className={styles.detailValue}>{item.abv}%</span>
+              <span className={styles.detailValue}>{String(item.abv).replace(/%/g, '')}%</span>
             </div>
           )}
           {item.distillery_location && (

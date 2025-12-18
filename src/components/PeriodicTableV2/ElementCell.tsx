@@ -19,6 +19,27 @@ import { GROUPS, PERIODS, getElementsForCell, type MixologyGroup, type MixologyP
 import styles from './ElementCell.module.css';
 
 // ============================================================================
+// Hook for dark mode detection
+// ============================================================================
+
+function useIsDarkMode(): boolean {
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    const checkTheme = () => {
+      const theme = document.documentElement.getAttribute('data-theme');
+      setIsDarkMode(theme === 'dark');
+    };
+    checkTheme();
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
+
+  return isDarkMode;
+}
+
+// ============================================================================
 // Types
 // ============================================================================
 
@@ -68,8 +89,11 @@ export default function ElementCell({
   onExpand,
   onElementSelect,
 }: ElementCellProps) {
+  const isDarkMode = useIsDarkMode();
   const groupInfo = GROUPS[group];
   const periodInfo = PERIODS[period];
+  const groupColor = isDarkMode ? groupInfo.colorDark : groupInfo.color;
+  const periodColor = isDarkMode ? periodInfo.colorDark : periodInfo.color;
   const hasItems = matchedItems.length > 0;
   const isEmptyCell = !element || element.empty === true;
 
@@ -100,8 +124,8 @@ export default function ElementCell({
     <div
       className={`${styles.cell} ${isEmptyCell ? styles.empty : ''} ${hasItems ? styles.hasItems : ''} ${!isDisplayedOwned && !isEmptyCell ? styles.notOwned : ''} ${isExpanded ? styles.expanded : ''}`}
       style={{
-        '--group-color': groupInfo.color,
-        '--period-color': periodInfo.color,
+        '--group-color': groupColor,
+        '--period-color': periodColor,
       } as React.CSSProperties}
       onClick={(e) => {
         e.stopPropagation();
@@ -122,7 +146,7 @@ export default function ElementCell({
       {/* Period indicator dot */}
       <div
         className={styles.periodDot}
-        style={{ backgroundColor: periodInfo.color }}
+        style={{ backgroundColor: periodColor }}
         title={periodInfo.name}
       />
 
@@ -161,13 +185,13 @@ export default function ElementCell({
             <div className={styles.dropdownBadges}>
               <span
                 className={styles.groupBadge}
-                style={{ '--badge-color': groupInfo.color } as React.CSSProperties}
+                style={{ '--badge-color': groupColor } as React.CSSProperties}
               >
                 {groupInfo.name}
               </span>
               <span
                 className={styles.periodBadge}
-                style={{ '--badge-color': periodInfo.color } as React.CSSProperties}
+                style={{ '--badge-color': periodColor } as React.CSSProperties}
               >
                 {periodInfo.name}
               </span>

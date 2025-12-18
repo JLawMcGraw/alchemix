@@ -3,13 +3,11 @@
  *
  * Renders a single ingredient as a text label (academic/monochrome style)
  * Pure black text - no colored circles, like real organic chemistry structures
+ * Dark mode support via CSS classes
  */
 
 import type { MoleculeNode } from '../core/types';
 import styles from '../styles/molecule.module.css';
-
-// Monochrome black for all text labels
-const TEXT_COLOR = '#333';
 
 interface NodeProps {
   node: MoleculeNode;
@@ -33,6 +31,10 @@ export function Node({
 
   // Spirit nodes render label at center of benzene ring
   if (type === 'spirit') {
+    // Use smaller font for longer labels (e.g., WHISKEY, TEQUILA, BRANDY)
+    const isLongLabel = label.length > 5;
+    const labelClass = isLongLabel ? styles.spiritLabelSmall : styles.spiritLabel;
+
     return (
       <g
         className={styles.nodeGroup}
@@ -52,8 +54,7 @@ export function Node({
         <text
           x={x}
           y={y + 3}
-          fill={TEXT_COLOR}
-          className={styles.spiritLabel}
+          className={labelClass}
         >
           {label}
         </text>
@@ -85,7 +86,6 @@ export function Node({
       <text
         x={x}
         y={labelY}
-        fill={TEXT_COLOR}
         className={styles.nodeLabel}
       >
         {label}
@@ -96,7 +96,6 @@ export function Node({
         <text
           x={x}
           y={sublabelY}
-          fill={TEXT_COLOR}
           className={styles.nodeSublabel}
         >
           {sublabel}

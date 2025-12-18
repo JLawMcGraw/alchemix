@@ -19,12 +19,12 @@ import type { MixologyGroup, MixologyPeriod, GroupInfo, PeriodInfo } from './typ
  * 6. High-proof (35%+ ABV), backbone? → I. Base
  */
 export const GROUPS: Record<MixologyGroup, GroupInfo> = {
-  1: { numeral: 'I', name: 'Base', desc: 'Structure / Vol', color: '#1E293B' },
-  2: { numeral: 'II', name: 'Bridge', desc: 'Extension / Depth', color: '#7C3AED' },
-  3: { numeral: 'III', name: 'Modifier', desc: 'Liqueur / Flavor', color: '#EC4899' },
-  4: { numeral: 'IV', name: 'Sweetener', desc: 'Syrups / Brix', color: '#6366F1' },
-  5: { numeral: 'V', name: 'Reagent', desc: 'Acids / Juices', color: '#F59E0B' },
-  6: { numeral: 'VI', name: 'Catalyst', desc: 'Bitters / Extract', color: '#EF4444' },
+  1: { numeral: 'I', name: 'Base', desc: 'Structure / Vol', color: '#1E293B', colorDark: '#94A3B8' },
+  2: { numeral: 'II', name: 'Bridge', desc: 'Extension / Depth', color: '#7C3AED', colorDark: '#A78BFA' },
+  3: { numeral: 'III', name: 'Modifier', desc: 'Liqueur / Flavor', color: '#EC4899', colorDark: '#F472B6' },
+  4: { numeral: 'IV', name: 'Sweetener', desc: 'Syrups / Brix', color: '#6366F1', colorDark: '#818CF8' },
+  5: { numeral: 'V', name: 'Reagent', desc: 'Acids / Juices', color: '#F59E0B', colorDark: '#FBBF24' },
+  6: { numeral: 'VI', name: 'Catalyst', desc: 'Bitters / Extract', color: '#EF4444', colorDark: '#F87171' },
 };
 
 /**
@@ -34,12 +34,12 @@ export const GROUPS: Record<MixologyGroup, GroupInfo> = {
  * the product's character, use Period 6 (Botanic).
  */
 export const PERIODS: Record<MixologyPeriod, PeriodInfo> = {
-  1: { name: 'Agave', profile: 'Smoke, Earth', color: '#0D9488' },
-  2: { name: 'Cane', profile: 'Grass, Funk', color: '#65A30D' },
-  3: { name: 'Grain', profile: 'Cereal, Bread', color: '#D97706' },
-  4: { name: 'Grape', profile: 'Tannin, Wine', color: '#8B5CF6' },
-  5: { name: 'Fruit', profile: 'Esters, Tropics', color: '#F43F5E' },
-  6: { name: 'Botanic', profile: 'Herb, Root, Spice', color: '#0EA5E9' },
+  1: { name: 'Agave', profile: 'Smoke, Earth', color: '#0D9488', colorDark: '#14B8A6' },
+  2: { name: 'Cane', profile: 'Grass, Funk', color: '#65A30D', colorDark: '#84CC16' },
+  3: { name: 'Grain', profile: 'Cereal, Bread', color: '#D97706', colorDark: '#FBBF24' },
+  4: { name: 'Grape', profile: 'Tannin, Wine', color: '#8B5CF6', colorDark: '#A78BFA' },
+  5: { name: 'Fruit', profile: 'Esters, Tropics', color: '#F43F5E', colorDark: '#FB7185' },
+  6: { name: 'Botanic', profile: 'Herb, Root, Spice', color: '#0EA5E9', colorDark: '#38BDF8' },
 };
 
 /** All group numbers for iteration */
@@ -82,6 +82,19 @@ export const GROUP_COLORS: Record<PeriodicGroup, string> = {
   Sweetener: '#6366F1',
   Reagent: '#F59E0B',
   Catalyst: '#EF4444',
+};
+
+/**
+ * Dark mode color mapping for periodic groups
+ * Base color is lightened for visibility on dark backgrounds
+ */
+export const GROUP_COLORS_DARK: Record<PeriodicGroup, string> = {
+  Base: '#94A3B8',  // Lightened for dark mode visibility
+  Bridge: '#A78BFA',
+  Modifier: '#F472B6',
+  Sweetener: '#818CF8',
+  Reagent: '#FBBF24',
+  Catalyst: '#F87171',
 };
 
 /**

@@ -358,14 +358,67 @@
 
 /* Dark Mode Adjustments */
 :global([data-theme="dark"]) .cell {
-  background: var(--color-ui-bg-surface);
+  background: #1E293B;
+  border-color: #334155;
 }
 
 :global([data-theme="dark"]) .empty {
-  background: var(--color-ui-bg-base);
+  background: #0F172A;
   opacity: 0.5;
 }
 
+:global([data-theme="dark"]) .name {
+  color: #F1F5F9;
+}
+
+:global([data-theme="dark"]) .spec {
+  color: #94A3B8;
+}
+
 :global([data-theme="dark"]) .dropdown {
+  background: #1E293B;
+  border-color: #334155;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
+
+:global([data-theme="dark"]) .dropdownHeader {
+  border-bottom-color: #334155;
+}
+
+:global([data-theme="dark"]) .dropdownTitle {
+  color: #F1F5F9;
+}
+
+:global([data-theme="dark"]) .dropdownCount {
+  color: #94A3B8;
+}
+
+:global([data-theme="dark"]) .item {
+  border-bottom-color: #334155;
+}
+
+:global([data-theme="dark"]) .item:hover,
+:global([data-theme="dark"]) .item:focus {
+  background: #0F172A;
+}
+
+:global([data-theme="dark"]) .itemName {
+  color: #F1F5F9;
+}
+
+:global([data-theme="dark"]) .itemType {
+  color: #94A3B8;
+}
+
+:global([data-theme="dark"]) .itemSpec {
+  color: #64748B;
+}
+
+:global([data-theme="dark"]) .notOwned .name {
+  color: #64748B;
+}
+
+:global([data-theme="dark"]) .notOwned .spec {
+  color: #475569;
+}
+

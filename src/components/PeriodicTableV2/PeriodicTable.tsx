@@ -11,7 +11,7 @@
  * with the user's inventory items counted against these types.
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import type { InventoryItem } from '@/types';
 import {
   GROUPS,
@@ -52,6 +52,20 @@ export default function PeriodicTable({
 }: PeriodicTableProps) {
   // State for expanded cell
   const [expandedCell, setExpandedCell] = useState<CellPosition | null>(null);
+
+  // Track dark mode state
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    const checkTheme = () => {
+      const theme = document.documentElement.getAttribute('data-theme');
+      setIsDarkMode(theme === 'dark');
+    };
+    checkTheme();
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
 
   // Build cell display data from inventory items
   const cellDisplayData = useMemo(() => {
@@ -123,7 +137,7 @@ export default function PeriodicTable({
           <div
             key={groupNum}
             className={styles.groupHeader}
-            style={{ '--group-color': groupInfo.color } as React.CSSProperties}
+            style={{ '--group-color': isDarkMode ? groupInfo.colorDark : groupInfo.color } as React.CSSProperties}
           >
             <div className={styles.groupNumeral}>
               {groupInfo.numeral}. {groupInfo.name}
@@ -142,7 +156,7 @@ export default function PeriodicTable({
             {/* Period Label (Row Header) */}
             <div
               className={styles.periodLabel}
-              style={{ '--period-color': periodInfo.color } as React.CSSProperties}
+              style={{ '--period-color': isDarkMode ? periodInfo.colorDark : periodInfo.color } as React.CSSProperties}
             >
               <div className={styles.periodNumber}>{period}</div>
               <div className={styles.periodName}>{periodInfo.name}</div>
@@ -180,7 +194,7 @@ export default function PeriodicTable({
           <div key={num} className={styles.legendItem}>
             <div
               className={styles.legendDot}
-              style={{ backgroundColor: period.color }}
+              style={{ backgroundColor: isDarkMode ? period.colorDark : period.color }}
             />
             <span className={styles.legendLabel}>{period.name}</span>
           </div>

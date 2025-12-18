@@ -3,6 +3,7 @@ import { Space_Grotesk, Inter } from 'next/font/google';
 import { TopNavWrapper } from '@/components/layout/TopNavWrapper';
 import { ToastProvider } from '@/components/ui';
 import { ClientErrorBoundary } from '@/components/ClientErrorBoundary';
+import { ThemeProvider } from '@/components/ThemeProvider';
 import '@/styles/globals.css';
 
 const spaceGrotesk = Space_Grotesk({
@@ -36,12 +37,14 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${spaceGrotesk.variable} ${inter.variable}`}>
       <body>
-        <ClientErrorBoundary>
-          <ToastProvider>
-            <TopNavWrapper />
-            <main>{children}</main>
-          </ToastProvider>
-        </ClientErrorBoundary>
+        <ThemeProvider>
+          <ClientErrorBoundary>
+            <ToastProvider>
+              <TopNavWrapper />
+              <main>{children}</main>
+            </ToastProvider>
+          </ClientErrorBoundary>
+        </ThemeProvider>
       </body>
     </html>
   );

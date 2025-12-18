@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import type { InventoryItem, PeriodicGroup, PeriodicPeriod } from '@/types';
 import { getPeriodicTags } from '@/lib/periodicTableV2';
 import styles from './BottleCard.module.css';
@@ -24,7 +24,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 /**
- * Color mapping for periodic groups (function/role)
+ * Color mapping for periodic groups (function/role) - Light mode
  */
 const GROUP_COLORS: Record<PeriodicGroup, string> = {
   Base: '#1E293B',      // dark slate
@@ -33,6 +33,18 @@ const GROUP_COLORS: Record<PeriodicGroup, string> = {
   Sweetener: '#6366F1', // indigo
   Reagent: '#F59E0B',   // yellow
   Catalyst: '#EF4444',  // red
+};
+
+/**
+ * Color mapping for periodic groups - Dark mode (lighter variants)
+ */
+const GROUP_COLORS_DARK: Record<PeriodicGroup, string> = {
+  Base: '#94A3B8',      // lightened slate for visibility
+  Bridge: '#A78BFA',    // lighter violet
+  Modifier: '#F472B6',  // lighter pink
+  Sweetener: '#818CF8', // lighter indigo
+  Reagent: '#FBBF24',   // lighter yellow
+  Catalyst: '#F87171',  // lighter red
 };
 
 /**
@@ -47,10 +59,43 @@ const PERIOD_COLORS: Record<PeriodicPeriod, string> = {
   Botanic: '#0EA5E9', // sky
 };
 
+/**
+ * Color mapping for periodic periods - Dark mode
+ */
+const PERIOD_COLORS_DARK: Record<PeriodicPeriod, string> = {
+  Agave: '#14B8A6',   // lighter teal
+  Cane: '#84CC16',    // lighter green
+  Grain: '#FBBF24',   // lighter amber
+  Grape: '#A78BFA',   // lighter violet
+  Fruit: '#FB7185',   // lighter rose
+  Botanic: '#38BDF8', // lighter sky
+};
+
 export function BottleCard({ item, isSelected = false, onSelect, onClick }: BottleCardProps) {
   const color = CATEGORY_COLORS[item.category] || '#94A3B8';
   const isOutOfStock = (item.stock_number ?? 0) === 0;
   const stockCount = item.stock_number ?? 0;
+
+  // Track dark mode state
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    // Check initial theme
+    const checkTheme = () => {
+      const theme = document.documentElement.getAttribute('data-theme');
+      setIsDarkMode(theme === 'dark');
+    };
+    checkTheme();
+
+    // Watch for theme changes
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
+
+  // Select color palette based on theme
+  const groupColors = isDarkMode ? GROUP_COLORS_DARK : GROUP_COLORS;
+  const periodColors = isDarkMode ? PERIOD_COLORS_DARK : PERIOD_COLORS;
 
   // Always re-detect periodic tags based on current classification logic
   const periodicTags = useMemo(() => getPeriodicTags(item), [item]);
@@ -111,9 +156,9 @@ export function BottleCard({ item, isSelected = false, onSelect, onClick }: Bott
             <span
               className={styles.periodicBadge}
               style={{
-                color: GROUP_COLORS[periodicTags.group],
-                borderColor: GROUP_COLORS[periodicTags.group],
-                backgroundColor: `${GROUP_COLORS[periodicTags.group]}15`,
+                color: groupColors[periodicTags.group],
+                borderColor: groupColors[periodicTags.group],
+                backgroundColor: `${groupColors[periodicTags.group]}15`,
               }}
             >
               {periodicTags.group}
@@ -123,9 +168,9 @@ export function BottleCard({ item, isSelected = false, onSelect, onClick }: Bott
             <span
               className={styles.periodicBadge}
               style={{
-                color: PERIOD_COLORS[periodicTags.period],
-                borderColor: PERIOD_COLORS[periodicTags.period],
-                backgroundColor: `${PERIOD_COLORS[periodicTags.period]}15`,
+                color: periodColors[periodicTags.period],
+                borderColor: periodColors[periodicTags.period],
+                backgroundColor: `${periodColors[periodicTags.period]}15`,
               }}
             >
               {periodicTags.period}
@@ -147,7 +192,7 @@ export function BottleCard({ item, isSelected = false, onSelect, onClick }: Bott
           <div className={styles.detailRow}>
             <span className={styles.detailLabel}>ABV:</span>
             <span className={styles.detailValue}>
-              {item.abv}{item.abv.toString().includes('%') ? '' : '%'}
+              {String(item.abv).replace(/%/g, '')}%
             </span>
           </div>
         )}

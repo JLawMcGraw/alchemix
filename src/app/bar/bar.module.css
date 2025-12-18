@@ -519,3 +519,75 @@
     transform: rotate(360deg);
   }
 }
+
+/* ==========================================================================
+   Dark Mode
+   ========================================================================== */
+
+:global([data-theme="dark"]) .viewToggle {
+  background: #1E293B;
+  border-color: #334155;
+}
+
+:global([data-theme="dark"]) .viewToggleActive {
+  background: #0F172A;
+}
+
+:global([data-theme="dark"]) .tabs {
+  background-color: #1E293B;
+  border-color: #334155;
+}
+
+:global([data-theme="dark"]) .tabActive {
+  background-color: #0F172A;
+}
+
+:global([data-theme="dark"]) .tabCount {
+  background-color: #334155;
+  color: #94A3B8;
+}
+
+:global([data-theme="dark"]) .spiritItem {
+  background-color: #1E293B;
+  border-color: #334155;
+}
+
+:global([data-theme="dark"]) .spiritItem:hover {
+  border-color: #94A3B8;
+}
+
+:global([data-theme="dark"]) .spiritCount {
+  background-color: rgba(13, 148, 136, 0.15);
+  color: #14B8A6;
+}
+
+:global([data-theme="dark"]) .categoryBadge {
+  background-color: rgba(13, 148, 136, 0.15);
+  color: #14B8A6;
+  border-color: #14B8A6;
+}
+
+:global([data-theme="dark"]) .cardFooter {
+  border-top-color: #334155;
+}
+
+:global([data-theme="dark"]) .bulkControls {
+  background-color: #1E293B;
+  border-color: #334155;
+}
+
+:global([data-theme="dark"]) .itemCardSelected {
+  border-color: #14B8A6;
+  background-color: rgba(13, 148, 136, 0.1);
+}
+
+:global([data-theme="dark"]) .clearFilterBtn {
+  background-color: rgba(13, 148, 136, 0.15);
+  color: #14B8A6;
+  border-color: #14B8A6;
+}
+
+:global([data-theme="dark"]) .clearFilterBtn:hover {
+  background-color: #14B8A6;
+  color: #0F172A;
+}

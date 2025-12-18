@@ -5,32 +5,20 @@ import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { RecipeDetailModal } from '@/components/modals';
-import { RecipeMolecule } from '@/components/RecipeMolecule';
-import { Star, X } from 'lucide-react';
+import { RecipeCard } from '@/components/RecipeCard';
+import { Star } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import type { Recipe } from '@/types';
 import styles from './favorites.module.css';
 
-// Spirit color mapping (matches design system)
-const SPIRIT_COLORS: Record<string, string> = {
-  'Gin': '#0EA5E9',
-  'Whiskey': '#D97706',
-  'Tequila': '#0D9488',
-  'Rum': '#65A30D',
-  'Vodka': '#94A3B8',
-  'Brandy': '#7C3AED',
-  'Liqueur': '#EC4899',
-};
-
-// Spirit keywords for ingredient detection
+// Spirit keywords for filtering (base spirits only)
 const SPIRIT_KEYWORDS: Record<string, string[]> = {
-  'Gin': ['gin', 'london dry', 'plymouth', 'navy strength', 'sloe gin'],
+  'Gin': ['gin', 'london dry', 'plymouth', 'navy strength'],
   'Whiskey': ['whiskey', 'whisky', 'bourbon', 'rye', 'scotch', 'irish whiskey', 'japanese whisky'],
   'Tequila': ['tequila', 'mezcal', 'blanco', 'reposado', 'anejo'],
   'Rum': ['rum', 'rhum', 'white rum', 'dark rum', 'spiced rum', 'cachaca', 'agricole'],
   'Vodka': ['vodka'],
   'Brandy': ['brandy', 'cognac', 'armagnac', 'pisco', 'calvados', 'grappa'],
-  'Liqueur': ['liqueur', 'amaretto', 'cointreau', 'triple sec', 'curacao', 'chartreuse', 'benedictine', 'campari', 'aperol', 'kahlua', 'baileys', 'frangelico', 'maraschino', 'absinthe', 'st germain', 'grand marnier', 'drambuie', 'midori', 'galliano', 'sambuca', 'limoncello'],
 };
 
 // Get all spirits from ingredients
@@ -102,14 +90,12 @@ export default function FavoritesPage() {
         recipe,
         ingredients,
         spirits,
-        primarySpirit: spirits[0] || null,
       };
     }).filter(Boolean) as Array<{
       favorite: typeof favoritesArray[0];
       recipe: Recipe;
       ingredients: string[];
       spirits: string[];
-      primarySpirit: string | null;
     }>;
   }, [favoritesArray, recipesArray]);
 
@@ -146,19 +132,8 @@ export default function FavoritesPage() {
 
   const craftableCount = favoriteRecipes.filter(fr => isRecipeCraftable(fr.recipe)).length;
 
-  const handleViewRecipe = (recipe: Recipe) => {
+  const handleSelectRecipe = (recipe: Recipe) => {
     setSelectedRecipe(recipe);
-  };
-
-  const handleRemoveFavorite = async (id: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      await removeFavorite(id);
-      showToast('success', 'Removed from favorites');
-    } catch (error) {
-      console.error('Failed to remove favorite:', error);
-      showToast('error', 'Failed to remove favorite');
-    }
   };
 
   const isFavorited = (recipeId: number) => {
@@ -240,86 +215,18 @@ export default function FavoritesPage() {
             </p>
           </div>
         ) : (
-          /* Favorites Grid */
+          /* Favorites Grid - Using RecipeCard component */
           <div className={styles.grid}>
-            {filteredFavorites.map(({ favorite, recipe, ingredients, spirits }) => {
-              const craftable = isRecipeCraftable(recipe);
-
-              return (
-                <div
-                  key={favorite.id}
-                  className={styles.card}
-                  onClick={() => handleViewRecipe(recipe)}
-                >
-                  {/* Molecule Thumbnail */}
-                  <div className={styles.cardImage}>
-                    {/* Craftable indicator */}
-                    {craftable && (
-                      <div className={styles.craftableIndicator} title="Craftable" />
-                    )}
-
-                    {/* Remove button */}
-                    <button
-                      className={styles.removeBtn}
-                      onClick={(e) => favorite.id && handleRemoveFavorite(favorite.id, e)}
-                      title="Remove from favorites"
-                    >
-                      <X size={14} />
-                    </button>
-
-                    {/* Molecule visualization */}
-                    <RecipeMolecule
-                      recipe={recipe}
-                      size="thumbnail"
-                      showLegend={false}
-                    />
-                  </div>
-
-                  {/* Card Content */}
-                  <div className={styles.cardContent}>
-                    <div className={styles.cardHeader}>
-                      <h3 className={styles.cardTitle}>{recipe.name}</h3>
-                      <Star size={14} className={styles.starIcon} fill="currentColor" />
-                    </div>
-
-                    {/* Spirit badges */}
-                    {spirits.length > 0 && (
-                      <div className={styles.spiritBadges}>
-                        {spirits.map((spirit) => (
-                          <span
-                            key={spirit}
-                            className={styles.spiritBadge}
-                            style={{
-                              backgroundColor: `${SPIRIT_COLORS[spirit]}15`,
-                              color: SPIRIT_COLORS[spirit]
-                            }}
-                          >
-                            {spirit}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Ingredients preview */}
-                    <p className={styles.ingredientsPreview}>
-                      {ingredients.slice(0, 2).join(' · ')}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Quick Actions */}
-        {filteredFavorites.length > 0 && (
-          <div className={styles.quickActions}>
-            <span className={styles.quickActionsLabel}>Quick Actions</span>
-            <div className={styles.quickActionsBtns}>
-              <button className={styles.quickActionBtn}>
-                Export List
-              </button>
-            </div>
+            {filteredFavorites.map(({ recipe }) => (
+              <RecipeCard
+                key={recipe.id}
+                recipe={recipe}
+                isFavorited={isFavorited(recipe.id!)}
+                isCraftable={isRecipeCraftable(recipe)}
+                onSelect={() => handleSelectRecipe(recipe)}
+                onToggleFavorite={() => handleToggleFavorite(recipe)}
+              />
+            ))}
           </div>
         )}
       </div>

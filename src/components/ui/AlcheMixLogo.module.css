@@ -213,11 +213,11 @@
    ========================================================================== */
 
 :global([data-theme="dark"]) .bonds {
-  stroke: #888888;
+  stroke: #94A3B8;
 }
 
 :global([data-theme="dark"]) .node {
-  stroke: #888888;
+  stroke: #94A3B8;
 }
 
 /* Use brighter variants in dark mode */
@@ -242,15 +242,15 @@
 }
 
 :global([data-theme="dark"]) .alche {
-  color: #777777;
+  color: #94A3B8;
 }
 
 :global([data-theme="dark"]) .mix {
-  color: #F0F0F0;
+  color: #F1F5F9;
 }
 
 :global([data-theme="dark"]) .tagline {
-  color: #777777;
+  color: #94A3B8;
 }
 
 /* ==========================================================================

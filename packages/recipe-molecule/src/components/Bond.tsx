@@ -193,7 +193,7 @@ function DoubleBond({ x1, y1, x2, y2 }: LineProps) {
         y1={line1[1]}
         x2={line1[2]}
         y2={line1[3]}
-        stroke="#333"
+        className={styles.bond}
         strokeWidth={1}
         fill="none"
       />
@@ -202,7 +202,7 @@ function DoubleBond({ x1, y1, x2, y2 }: LineProps) {
         y1={line2[1]}
         x2={line2[2]}
         y2={line2[3]}
-        stroke="#333"
+        className={styles.bond}
         strokeWidth={1}
         fill="none"
       />

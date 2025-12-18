@@ -483,7 +483,7 @@ export function ItemDetailModal({ isOpen, onClose, item }: ItemDetailModalProps)
                   {formData.abv && (
                     <div className={styles.detailRow}>
                       <span className={styles.detailLabel}>ABV</span>
-                      <span className={styles.detailValueMono}>{formData.abv}%</span>
+                      <span className={styles.detailValueMono}>{formData.abv.replace(/%/g, '')}%</span>
                     </div>
                   )}
                   {formData.origin && (

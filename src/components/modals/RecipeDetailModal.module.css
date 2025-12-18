@@ -696,6 +696,260 @@
   color: var(--fg-primary);
 }
 
+/* =========================
+   DARK MODE OVERRIDES
+   ========================= */
+
+:global([data-theme="dark"]) .modal {
+  background: var(--bg-elevated, #1E293B);
+  border-color: var(--border-hairline, #334155);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+:global([data-theme="dark"]) .header {
+  border-bottom-color: var(--border-hairline, #334155);
+}
+
+:global([data-theme="dark"]) .title {
+  color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .editBtn {
+  background: var(--bg-paper, #0F172A);
+  border-color: var(--border-hairline, #334155);
+  color: var(--fg-secondary, #94A3B8);
+}
+
+:global([data-theme="dark"]) .editBtn:hover {
+  border-color: var(--fg-primary, #F1F5F9);
+  color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .closeBtn {
+  color: var(--fg-secondary, #94A3B8);
+}
+
+:global([data-theme="dark"]) .closeBtn:hover {
+  color: var(--fg-primary, #F1F5F9);
+  background: var(--bg-paper, #0F172A);
+  border-color: var(--border-hairline, #334155);
+}
+
+:global([data-theme="dark"]) .spiritBadge {
+  background: rgba(20, 184, 166, 0.15);
+  color: var(--bond-agave, #14B8A6);
+  border-color: var(--bond-agave, #14B8A6);
+}
+
+:global([data-theme="dark"]) .categoryBadge {
+  background: var(--bg-paper, #0F172A);
+  color: var(--fg-secondary, #94A3B8);
+  border-color: var(--border-hairline, #334155);
+}
+
+:global([data-theme="dark"]) .formula {
+  color: var(--fg-secondary, #94A3B8);
+}
+
+:global([data-theme="dark"]) .sectionTitle {
+  color: var(--fg-secondary, #94A3B8);
+}
+
+:global([data-theme="dark"]) .sectionTitle::after {
+  background: var(--border-hairline, #334155);
+}
+
+:global([data-theme="dark"]) .ingredientItem {
+  background: var(--bg-paper, #0F172A);
+  color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .ingredientPip {
+  color: var(--bg-paper, #0F172A);
+}
+
+:global([data-theme="dark"]) .instructions {
+  color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .glassType,
+:global([data-theme="dark"]) .glassChip {
+  background: var(--bg-paper, #0F172A);
+  border-color: var(--border-hairline, #334155);
+  color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .glassOption {
+  background: var(--bg-paper, #0F172A);
+  border-color: var(--border-hairline, #334155);
+  color: var(--fg-secondary, #94A3B8);
+}
+
+:global([data-theme="dark"]) .glassOption:hover {
+  border-color: var(--fg-primary, #F1F5F9);
+  color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .glassOptionSelected {
+  background: var(--fg-primary, #F1F5F9);
+  border-color: var(--fg-primary, #F1F5F9);
+  color: var(--bg-paper, #0F172A);
+}
+
+:global([data-theme="dark"]) .glassOptionSelected:hover {
+  background: white;
+  border-color: white;
+  color: var(--bg-paper, #0F172A);
+}
+
+:global([data-theme="dark"]) .compatibilityBar {
+  background: var(--bg-paper, #0F172A);
+  border-color: var(--border-hairline, #334155);
+}
+
+:global([data-theme="dark"]) .compatibilityText {
+  color: var(--fg-secondary, #94A3B8);
+}
+
+:global([data-theme="dark"]) .balanceLabel {
+  color: var(--fg-secondary, #94A3B8);
+}
+
+:global([data-theme="dark"]) .balanceTrack {
+  background: var(--bg-paper, #0F172A);
+  border-color: var(--border-hairline, #334155);
+}
+
+:global([data-theme="dark"]) .balanceValue {
+  color: var(--fg-secondary, #94A3B8);
+}
+
+:global([data-theme="dark"]) .missingItem {
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.3);
+  color: #F87171;
+}
+
+:global([data-theme="dark"]) .emptyText {
+  color: var(--fg-tertiary, #64748B);
+}
+
+:global([data-theme="dark"]) .titleInput {
+  background: var(--bg-paper, #0F172A);
+  border-color: var(--border-hairline, #334155);
+  color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .titleInput:focus {
+  border-color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .textInput {
+  background: var(--bg-paper, #0F172A);
+  border-color: var(--border-hairline, #334155);
+  color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .textInput:focus {
+  border-color: var(--border-emphasis, #475569);
+}
+
+:global([data-theme="dark"]) .textarea {
+  background: var(--bg-paper, #0F172A);
+  border-color: var(--border-hairline, #334155);
+  color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .textarea:focus {
+  border-color: var(--border-emphasis, #475569);
+}
+
+:global([data-theme="dark"]) .footer {
+  border-top-color: var(--border-hairline, #334155);
+  background: var(--bg-paper, #0F172A);
+}
+
+:global([data-theme="dark"]) .cancelBtn {
+  color: var(--fg-secondary, #94A3B8);
+}
+
+:global([data-theme="dark"]) .cancelBtn:hover {
+  color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .favoriteBtn {
+  background: var(--fg-primary, #F1F5F9);
+  color: var(--bg-paper, #0F172A);
+}
+
+:global([data-theme="dark"]) .favoriteBtn:hover {
+  background: white;
+}
+
+:global([data-theme="dark"]) .exportBtn {
+  background: var(--bg-paper, #0F172A);
+  border-color: var(--border-hairline, #334155);
+  color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .exportBtn:hover {
+  border-color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .closeTextBtn {
+  color: var(--fg-secondary, #94A3B8);
+}
+
+:global([data-theme="dark"]) .closeTextBtn:hover {
+  color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .collectionPicker {
+  background: var(--bg-paper, #0F172A);
+  border-color: var(--border-hairline, #334155);
+}
+
+:global([data-theme="dark"]) .collectionSelect {
+  background: var(--bg-elevated, #1E293B);
+  border-color: var(--border-hairline, #334155);
+  color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .collectionSelect:focus {
+  border-color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .collectionSaveBtn {
+  background: var(--fg-primary, #F1F5F9);
+  color: var(--bg-paper, #0F172A);
+}
+
+:global([data-theme="dark"]) .collectionSaveBtn:hover {
+  background: white;
+}
+
+:global([data-theme="dark"]) .collectionCancelBtn {
+  color: var(--fg-secondary, #94A3B8);
+}
+
+:global([data-theme="dark"]) .collectionCancelBtn:hover {
+  color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .collectionName {
+  color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .collectionChangeBtn {
+  border-color: var(--border-hairline, #334155);
+  color: var(--fg-secondary, #94A3B8);
+}
+
+:global([data-theme="dark"]) .collectionChangeBtn:hover {
+  border-color: var(--fg-primary, #F1F5F9);
+  color: var(--fg-primary, #F1F5F9);
+}
+
 /* Mobile responsive */
 @media (max-width: 640px) {
   .modal {

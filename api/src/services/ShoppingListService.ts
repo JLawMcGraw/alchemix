@@ -419,7 +419,7 @@ class ShoppingListService {
     const normalizedIngredient = this.normalizeForMatching(ingredientName);
 
     // Debug logging for specific ingredients we're having trouble with
-    const debugIngredients = ['orgeat', 'passion fruit', 'passion', 'passionfruit'];
+    const debugIngredients = ['orgeat', 'passion fruit', 'passion', 'passionfruit', 'grapefruit'];
     const isDebugIngredient = debugIngredients.some(d => normalizedIngredient.includes(d));
     if (isDebugIngredient) {
       logger.info('[CRAFTABILITY-DEBUG] Checking ingredient', {
@@ -547,9 +547,21 @@ class ShoppingListService {
   /**
    * Check if recipe is craftable (all ingredients available)
    */
-  isCraftable(ingredients: string[], bottles: BottleData[]): boolean {
+  isCraftable(ingredients: string[], bottles: BottleData[], recipeName?: string): boolean {
     if (!ingredients || ingredients.length === 0) {
       return false;
+    }
+
+    // Debug: log all ingredients being checked for specific recipes
+    const debugRecipes = ['navy grog', 'hurricane', 'zombie'];
+    const isDebugRecipe = recipeName && debugRecipes.some(r => recipeName.toLowerCase().includes(r));
+
+    if (isDebugRecipe) {
+      logger.info('[CRAFTABILITY-DEBUG] Checking recipe', {
+        recipeName,
+        ingredientCount: ingredients.length,
+        ingredients: ingredients.slice(0, 10)
+      });
     }
 
     return ingredients.every(ingredient => {
@@ -560,14 +572,30 @@ class ShoppingListService {
       }
 
       if (Array.isArray(ingredientName)) {
-        return ingredientName.some(alt => this.hasIngredient(bottles, alt));
+        const hasAny = ingredientName.some(alt => this.hasIngredient(bottles, alt));
+        if (isDebugRecipe) {
+          logger.info('[CRAFTABILITY-DEBUG] OR-ingredient check', {
+            original: ingredient,
+            alternatives: ingredientName,
+            hasAny
+          });
+        }
+        return hasAny;
       }
 
       if (typeof ingredientName === 'string' && ingredientName.trim() === '') {
         return true;
       }
 
-      return this.hasIngredient(bottles, ingredientName);
+      const hasIt = this.hasIngredient(bottles, ingredientName);
+      if (isDebugRecipe) {
+        logger.info('[CRAFTABILITY-DEBUG] Ingredient check', {
+          original: ingredient,
+          parsed: ingredientName,
+          hasIt
+        });
+      }
+      return hasIt;
     });
   }
 

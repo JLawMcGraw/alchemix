@@ -21,6 +21,7 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 
 ### Design & UX
 - **Molecular Mixology Design** - Scientific, laboratory-inspired interface
+- **Dark Mode Support** - Full dark mode with theme persistence (light/dark/system)
 - **Element Group Colors** - Color-coded ingredient categories (spirits, acids, sugars, etc.)
 - **Spirit Detection** - Automatic spirit identification from recipe ingredients with colored badges
 - **Typography System** - Inter (UI) + JetBrains Mono (data) font pairing
@@ -127,7 +128,8 @@ alchemix/
 │   │   ├── PeriodicTableV2/ # Periodic table of mixology
 │   │   ├── GlassSelector/ # Glassware selection component
 │   │   ├── layout/        # TopNav, navigation components
-│   │   └── modals/        # AddBottle, AddRecipe, EditBottle, CSVUpload, etc.
+│   │   ├── modals/        # AddBottle, AddRecipe, EditBottle, CSVUpload, etc.
+│   │   └── ThemeProvider.tsx # Global theme management
 │   ├── hooks/             # Custom hooks (useAuthGuard, useSettings)
 │   ├── lib/               # API client, store/, periodicTable/, utilities
 │   └── styles/            # globals.css (design system tokens)
@@ -284,6 +286,7 @@ AlcheMix uses the "Molecular Mixology" design system - a clinical, scientific ae
 - **Chemical Metaphor** - Ingredients as elements, recipes as molecules
 - **Typography** - Inter (UI/headings), JetBrains Mono (data/measurements)
 - **Color Coding** - Ingredient groups have distinct colors (agave=teal, grain=amber, etc.)
+- **Theme Support** - Light, dark, and system (browser preference) modes with persistent user settings
 
 ### Key Design Files
 - `alchemix-design-system.md` - Complete design specification (colors, typography, components, logo)

@@ -748,93 +748,93 @@
 }
 
 /* Dark Mode */
-[data-theme="dark"] .topPickCard {
+:global([data-theme="dark"]) .topPickCard {
   background: var(--bg-elevated);
   border-color: var(--bond-agave);
 }
 
-[data-theme="dark"] .topPickHeader {
+:global([data-theme="dark"]) .topPickHeader {
   background: rgba(13, 148, 136, 0.1);
   border-bottom-color: var(--border-hairline);
 }
 
-[data-theme="dark"] .otherRecsCard,
-[data-theme="dark"] .shoppingListCard,
-[data-theme="dark"] .impactCard,
-[data-theme="dark"] .customItemCard,
-[data-theme="dark"] .emptyState {
+:global([data-theme="dark"]) .otherRecsCard,
+:global([data-theme="dark"]) .shoppingListCard,
+:global([data-theme="dark"]) .impactCard,
+:global([data-theme="dark"]) .customItemCard,
+:global([data-theme="dark"]) .emptyState {
   background: var(--bg-elevated);
   border-color: var(--border-hairline);
 }
 
-[data-theme="dark"] .recRow:hover,
-[data-theme="dark"] .expandedRecipes {
+:global([data-theme="dark"]) .recRow:hover,
+:global([data-theme="dark"]) .expandedRecipes {
   background: rgba(255, 255, 255, 0.03);
 }
 
-[data-theme="dark"] .recRow {
+:global([data-theme="dark"]) .recRow {
   border-bottom-color: var(--border-hairline);
 }
 
-[data-theme="dark"] .shoppingItem {
+:global([data-theme="dark"]) .shoppingItem {
   border-bottom-color: var(--border-hairline);
 }
 
-[data-theme="dark"] .recipeChip {
+:global([data-theme="dark"]) .recipeChip {
   background: rgba(255, 255, 255, 0.05);
   border-color: var(--border-hairline);
   color: var(--fg-primary);
 }
 
-[data-theme="dark"] .recipeChip:hover {
+:global([data-theme="dark"]) .recipeChip:hover {
   background: rgba(255, 255, 255, 0.1);
   border-color: var(--fg-secondary);
 }
 
-[data-theme="dark"] .checkbox {
+:global([data-theme="dark"]) .checkbox {
   background: var(--bg-paper);
   border-color: var(--border-hairline);
 }
 
-[data-theme="dark"] .checkbox:hover {
+:global([data-theme="dark"]) .checkbox:hover {
   border-color: var(--fg-secondary);
 }
 
-[data-theme="dark"] .customItemInput {
+:global([data-theme="dark"]) .customItemInput {
   color: var(--fg-primary);
 }
 
-[data-theme="dark"] .refreshBtn {
+:global([data-theme="dark"]) .refreshBtn {
   border-color: var(--border-hairline);
 }
 
-[data-theme="dark"] .refreshBtn:hover {
+:global([data-theme="dark"]) .refreshBtn:hover {
   border-color: var(--fg-secondary);
   color: var(--fg-primary);
 }
 
-[data-theme="dark"] .clearCompletedRow {
+:global([data-theme="dark"]) .clearCompletedRow {
   border-top-color: var(--border-hairline);
 }
 
-[data-theme="dark"] .shoppingListHeader,
-[data-theme="dark"] .otherRecsHeader {
+:global([data-theme="dark"]) .shoppingListHeader,
+:global([data-theme="dark"]) .otherRecsHeader {
   border-bottom-color: var(--border-hairline);
 }
 
-[data-theme="dark"] .pagination {
+:global([data-theme="dark"]) .pagination {
   border-top-color: var(--border-hairline);
 }
 
-[data-theme="dark"] .paginationBtn:hover:not(:disabled) {
+:global([data-theme="dark"]) .paginationBtn:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.05);
   color: var(--fg-primary);
 }
 
-[data-theme="dark"] .customItemAddBtn {
+:global([data-theme="dark"]) .customItemAddBtn {
   background: var(--bond-agave);
 }
 
-[data-theme="dark"] .customItemAddBtn:hover {
+:global([data-theme="dark"]) .customItemAddBtn:hover {
   background: #0F766E;
 }

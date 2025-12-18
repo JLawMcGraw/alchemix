@@ -388,6 +388,53 @@ class AIService {
   }
 
   /**
+   * Detect bottle mentions in user's query and fetch their tasting notes
+   * This enriches the semantic search with flavor profile information
+   */
+  private async detectBottleMentionsWithNotes(
+    userId: number,
+    query: string
+  ): Promise<Array<{ name: string; tastingNotes: string }>> {
+    try {
+      const lowerQuery = query.toLowerCase();
+
+      // Fetch user's inventory items with tasting notes
+      const bottles = await queryAll<{
+        name: string;
+        tasting_notes: string | null;
+      }>(`
+        SELECT name, tasting_notes
+        FROM inventory_items
+        WHERE user_id = $1 AND stock_number > 0 AND tasting_notes IS NOT NULL AND tasting_notes != ''
+      `, [userId]);
+
+      const matchedBottles: Array<{ name: string; tastingNotes: string }> = [];
+
+      for (const bottle of bottles) {
+        // Check if bottle name is mentioned in query (fuzzy match)
+        const bottleName = bottle.name.toLowerCase();
+        const bottleWords = bottleName.split(/\s+/).filter(w => w.length > 2);
+
+        // Match if any significant word from bottle name appears in query
+        const isMatch = bottleWords.some(word => lowerQuery.includes(word));
+
+        if (isMatch && bottle.tasting_notes) {
+          matchedBottles.push({ name: bottle.name, tastingNotes: bottle.tasting_notes });
+          logger.info('[AI-SEARCH] Found bottle with tasting notes', {
+            bottleName: bottle.name,
+            notesLength: bottle.tasting_notes.length
+          });
+        }
+      }
+
+      return matchedBottles;
+    } catch (error) {
+      logger.warn('[AI-SEARCH] Failed to detect bottle mentions', { error });
+      return [];
+    }
+  }
+
+  /**
    * Process recipes and check craftability, returning formatted context and stats
    * Prioritizes craftable recipes but adds variety through shuffling
    */
@@ -430,7 +477,7 @@ class AIService {
       const ingredientsArray = ingredientsList.split(',').map(i => i.trim());
 
       if (userBottles.length > 0) {
-        const craftable = shoppingListService.isCraftable(ingredientsArray, userBottles);
+        const craftable = shoppingListService.isCraftable(ingredientsArray, userBottles, recipe.name);
 
         if (craftable) {
           status = 'craftable';
@@ -1126,7 +1173,22 @@ Return ONLY the JSON object. No markdown, no code blocks, no explanations.`;
       // Step 4: Also get MemMachine semantic results (for general context)
       try {
         // Expand query with cocktail ingredients for better semantic search
-        const expandedQuery = expandSearchQuery(userMessage);
+        let expandedQuery = expandSearchQuery(userMessage);
+
+        // Detect bottle mentions and enrich with tasting notes for semantic matching
+        const mentionedBottles = await this.detectBottleMentionsWithNotes(userId, userMessage);
+        if (mentionedBottles.length > 0) {
+          // Add tasting notes to semantic query for flavor profile matching
+          const tastingContext = mentionedBottles
+            .map(b => `${b.name} flavor profile: ${b.tastingNotes}`)
+            .join('. ');
+          expandedQuery = `${expandedQuery}. ${tastingContext}`;
+          logger.info('[AI-SEARCH] Enriched query with bottle tasting notes', {
+            bottles: mentionedBottles.map(b => b.name),
+            expandedQueryLength: expandedQuery.length
+          });
+        }
+
         logger.info('MemMachine: Querying enhanced context', { userId, query: userMessage.substring(0, 100), expanded: expandedQuery !== userMessage });
         const { userContext, chatContext } = await memoryService.getEnhancedContext(userId, expandedQuery);
 
@@ -1269,7 +1331,16 @@ If ANY recipe in search results has ✅ [CRAFTABLE], **START YOUR RESPONSE WITH 
 - ❌ NEVER invent "improvised" or "variant" recipes from your training data
 - ❌ NEVER bury a ✅ CRAFTABLE recipe - it should be your FIRST recommendation
 - ❌ NEVER say "you can make [recipe]" unless it has ✅ marker
+- ❌ NEVER list ingredients from your training data - ONLY use the ingredients shown in the search results
 - ✅ DO lead with what they CAN make, not what they can't
+- ✅ When listing a recipe's ingredients, copy EXACTLY from the "Ingredients:" line in search results
+
+**INGREDIENT INTEGRITY:**
+The ingredients shown in search results are the ACTUAL ingredients stored in the user's recipe database.
+Your training data may have DIFFERENT ingredients for the same cocktail name.
+ALWAYS use the database ingredients, NEVER substitute with your knowledge.
+Example: If search results show "Navy Grog: lime juice, honey syrup, rum" - use THOSE ingredients,
+even if you know the classic Navy Grog has grapefruit juice. The user's version may be different.
 
 **Why:** Users want to know what they can make NOW. Don't bury the answer.`;
 

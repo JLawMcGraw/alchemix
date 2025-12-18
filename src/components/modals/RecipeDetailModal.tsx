@@ -334,9 +334,72 @@ export function RecipeDetailModal({
     ctx.font = '500 16px "JetBrains Mono", "SF Mono", monospace';
     ctx.fillText(formula, canvasWidth / 2, padding + titleHeight + 20);
 
-    // Convert SVG to image and draw
+    // Convert SVG to image and draw (with inlined styles for proper export)
     const svgElement = moleculeSvgRef.current;
-    const svgString = new XMLSerializer().serializeToString(svgElement);
+
+    // Clone SVG and inline computed styles for export
+    const clonedSvg = svgElement.cloneNode(true) as SVGSVGElement;
+
+    // Inline styles for all elements to ensure proper rendering
+    const inlineStyles = (element: Element) => {
+      const computed = window.getComputedStyle(element);
+      const styles: string[] = [];
+
+      // Key style properties to inline
+      const propsToInline = [
+        'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'opacity',
+        'font-family', 'font-size', 'font-weight', 'letter-spacing',
+        'text-anchor', 'dominant-baseline'
+      ];
+
+      for (const prop of propsToInline) {
+        const value = computed.getPropertyValue(prop);
+        if (value && value !== 'none' && value !== '') {
+          styles.push(`${prop}: ${value}`);
+        }
+      }
+
+      if (styles.length > 0) {
+        const existingStyle = element.getAttribute('style') || '';
+        element.setAttribute('style', existingStyle + styles.join('; '));
+      }
+
+      // Recursively process children
+      for (const child of element.children) {
+        inlineStyles(child);
+      }
+    };
+
+    // Find original elements and apply their computed styles to cloned elements
+    const originalElements = svgElement.querySelectorAll('*');
+    const clonedElements = clonedSvg.querySelectorAll('*');
+
+    originalElements.forEach((original, index) => {
+      const cloned = clonedElements[index];
+      if (!cloned) return;
+
+      const computed = window.getComputedStyle(original);
+      const styles: string[] = [];
+
+      const propsToInline = [
+        'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'opacity',
+        'font-family', 'font-size', 'font-weight', 'letter-spacing',
+        'text-anchor', 'dominant-baseline', 'text-transform'
+      ];
+
+      for (const prop of propsToInline) {
+        const value = computed.getPropertyValue(prop);
+        if (value && value !== 'none' && value !== '' && value !== 'normal') {
+          styles.push(`${prop}: ${value}`);
+        }
+      }
+
+      if (styles.length > 0) {
+        cloned.setAttribute('style', styles.join('; '));
+      }
+    });
+
+    const svgString = new XMLSerializer().serializeToString(clonedSvg);
     const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
     const svgUrl = URL.createObjectURL(svgBlob);
 
@@ -373,18 +436,27 @@ export function RecipeDetailModal({
         const parsed = parseIngredient(ingredient);
         const classified = classifyIngredient(parsed);
         const color = TYPE_COLORS_HEX[classified.type];
+        const symbol = TYPE_SYMBOLS[classified.type];
 
-        // Color pip
+        // Color pip (circle)
         ctx.beginPath();
-        ctx.arc(padding + 10, y - 4, 8, 0, Math.PI * 2);
+        ctx.arc(padding + 10, y - 4, 10, 0, Math.PI * 2);
         ctx.fillStyle = color;
         ctx.fill();
+
+        // Symbol inside pip (Sp, Ac, Sw, Bt, etc.)
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 8px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(symbol, padding + 10, y - 4);
 
         // Ingredient text
         ctx.fillStyle = '#27272A';
         ctx.font = '13px "JetBrains Mono", monospace';
         ctx.textAlign = 'left';
-        ctx.fillText(ingredient, padding + 28, y);
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(ingredient, padding + 30, y);
       });
 
       // Download

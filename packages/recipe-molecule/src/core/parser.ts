@@ -87,6 +87,36 @@ export function parseIngredient(raw: string): ParsedIngredient {
 }
 
 /**
+ * Expand "each" patterns into individual ingredients
+ * Examples:
+ *   "1/2 oz each: gin, brandy, and bourbon" → ["1/2 oz gin", "1/2 oz brandy", "1/2 oz bourbon"]
+ *   "1/2 oz each gin, brandy, bourbon" → ["1/2 oz gin", "1/2 oz brandy", "1/2 oz bourbon"]
+ */
+function expandEachPattern(ingredient: string): string[] {
+  // Match patterns like "1/2 oz each: gin, brandy, bourbon" or "1/2 oz each gin, brandy"
+  // Capture: (amount + unit) + "each" + optional ":" + (list of items)
+  const eachPattern = /^(.+?)\s+each[:\s]+(.+)$/i;
+  const match = ingredient.match(eachPattern);
+
+  if (!match) {
+    return [ingredient];
+  }
+
+  const amountUnit = match[1].trim(); // e.g., "1/2 oz"
+  const itemsPart = match[2].trim();  // e.g., "gin, brandy, and bourbon"
+
+  // Split items by comma, "and", or both
+  // Handle: "gin, brandy, and bourbon" or "gin, brandy, bourbon" or "gin and brandy"
+  const items = itemsPart
+    .split(/,\s*(?:and\s+)?|\s+and\s+/i)  // ", and " or ", " or " and "
+    .map(item => item.trim())
+    .filter(item => item.length > 0);
+
+  // Create individual ingredient strings
+  return items.map(item => `${amountUnit} ${item}`);
+}
+
+/**
  * Parse multiple ingredients
  */
 export function parseIngredients(ingredients: string[] | string): ParsedIngredient[] {
@@ -95,7 +125,9 @@ export function parseIngredients(ingredients: string[] | string): ParsedIngredie
     ? JSON.parse(ingredients) as string[]
     : ingredients;
 
-  return list.map(parseIngredient);
+  // First expand any "each" patterns, then parse each ingredient
+  const expanded = list.flatMap(expandEachPattern);
+  return expanded.map(parseIngredient);
 }
 
 // ═══════════════════════════════════════════════════════════════

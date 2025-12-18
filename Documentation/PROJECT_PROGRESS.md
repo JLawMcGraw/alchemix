@@ -29,7 +29,90 @@ Last updated: 2025-12-17
 
 ---
 
-## Recent Session (2025-12-17 Evening): Recipe Fixes, Molecule Layout, AI Search
+## Recent Session (2025-12-17 Night): Comprehensive Dark Mode Fixes & Global Theme Provider
+
+### Summary
+Fixed comprehensive dark mode issues across the entire application including molecule visualization, periodic table colors, CSS module selectors, page-specific styles, and created a global ThemeProvider to ensure theme persistence across all pages.
+
+### Work Completed
+
+#### 1. Molecule Visualization Dark Mode Fixes
+- Fixed `BenzeneRing` component - changed hardcoded `stroke="#333"` to use CSS class
+- Fixed `DoubleBond` component - changed hardcoded `stroke="#333"` to use CSS class
+- Fixed `drawHexagon` function - changed hardcoded `stroke="#ccc"` backbone to use CSS class
+- **Files**: `packages/recipe-molecule/src/components/Molecule.tsx`, `packages/recipe-molecule/src/components/Bond.tsx`
+
+#### 2. CSS Module Dark Mode Selector Fixes
+- **Problem**: `[data-theme="dark"]` selectors not working in CSS modules
+- **Solution**: Added `:global()` wrapper to all dark mode selectors across multiple CSS files
+- Fixed selectors in: `bar.module.css`, `dashboard.module.css`, `favorites.module.css`, `ai.module.css`, `shopping-list.module.css`, `BottleCard.module.css`, `Card.module.css`, `PeriodicTable.module.css`, `ElementCell.module.css`
+
+#### 3. Page-Specific Dark Mode Styles
+- **Recipes page**: Added dark mode styles for filters
+- **RecipeDetailModal**: Fixed ingredient pip text color in dark mode
+- **Favorites page**: Fixed filter button selectors with explicit colors
+- **Dashboard page**: Added comprehensive dark mode styles for cards
+- **My Bar page**: Fixed all dark mode visibility issues
+
+#### 4. Periodic Table "Base" Category Color Fix
+- **Problem**: "Base" category color `#1E293B` invisible on dark mode background
+- **Solution**: Added `colorDark` property to `GroupInfo` and `PeriodInfo` types
+- Added dark mode color variants to GROUPS and PERIODS constants:
+  - Base: `#1E293B` → `#94A3B8` (light slate for visibility)
+  - Bridge: `#7C3AED` → `#A78BFA`
+  - Modifier: `#EC4899` → `#F472B6`
+  - Sweetener: `#6366F1` → `#818CF8`
+  - Reagent: `#F59E0B` → `#FBBF24`
+  - Catalyst: `#EF4444` → `#F87171`
+  - Similar dark variants for all 6 periods
+- **Files**: `src/lib/periodicTable/types.ts`, `src/lib/periodicTable/constants.ts`
+
+#### 5. Component Updates for Theme-Aware Colors
+- `PeriodicTable.tsx`: Added `isDarkMode` state with MutationObserver, uses colorDark when dark
+- `ElementCell.tsx`: Created `useIsDarkMode` hook, all color refs use theme-aware selection
+- `BottleCard.tsx`: Added `GROUP_COLORS_DARK` and `PERIOD_COLORS_DARK` palettes with theme detection
+- `Login page`: Added theme detection for periodic table preview colors
+
+#### 6. Global ThemeProvider Component
+- **Problem**: Theme only applied when Account page loaded (useSettings hook)
+- **Solution**: Created `ThemeProvider` component that applies saved theme from localStorage globally
+- Reads `alchemix-settings` from localStorage on mount
+- Applies `data-theme` attribute to HTML element
+- Supports "light", "dark", and "system" (browser preference) themes
+- Listens for system theme changes when using "system" setting
+- Added to root layout to wrap entire app
+- **Files**: `src/components/ThemeProvider.tsx` (new), `src/app/layout.tsx`
+
+#### 7. Next.js Cache Issue Resolution
+- Fixed `Cannot find module './886.js'` webpack error by clearing `.next` cache
+
+### Files Changed
+- `packages/recipe-molecule/src/components/Molecule.tsx` - SVG dark mode classes
+- `packages/recipe-molecule/src/components/Bond.tsx` - DoubleBond dark mode
+- `src/app/recipes/recipes.module.css` - Dark mode styles
+- `src/app/favorites/favorites.module.css` - Filter selectors
+- `src/app/dashboard/dashboard.module.css` - Card dark mode
+- `src/app/bar/bar.module.css` - :global() wrappers
+- `src/components/ui/Card.module.css` - Dark mode styles
+- `src/components/BottleCard/BottleCard.module.css` - :global() wrappers
+- `src/components/BottleCard/BottleCard.tsx` - Dark mode color palettes
+- `src/components/PeriodicTableV2/PeriodicTable.module.css` - Dark mode
+- `src/components/PeriodicTableV2/PeriodicTable.tsx` - Theme detection
+- `src/components/PeriodicTableV2/ElementCell.tsx` - useIsDarkMode hook
+- `src/lib/periodicTable/types.ts` - colorDark property
+- `src/lib/periodicTable/constants.ts` - Dark mode color values
+- `src/lib/periodicTableV2.ts` - Re-exported GROUP_COLORS_DARK
+- `src/app/login/page.tsx` - Theme detection for preview
+- `src/components/ThemeProvider.tsx` (new) - Global theme application
+- `src/app/layout.tsx` - ThemeProvider wrapper
+
+### Next Priority
+- Test dark mode persistence across all page navigation
+- Verify all periodic table elements display correctly in both themes
+
+---
+
+## Session (2025-12-17 Evening): Recipe Fixes, Molecule Layout, AI Search
 
 ### Summary
 Fixed multiple recipe page issues (filter, ordering, duplicates), redesigned 4-spirit molecule layout to use rhombus when duplicates exist, fixed tooltip visibility on thumbnails with React Portal, corrected ingredient matching false positives, and improved AI search for specific liqueurs.

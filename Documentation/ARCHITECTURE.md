@@ -1,7 +1,7 @@
 # AlcheMix Architecture
 
-**Version**: v1.30.0
-**Last Updated**: December 16, 2025
+**Version**: v1.31.0
+**Last Updated**: December 17, 2025
 
 This document provides a comprehensive map of the AlcheMix system architecture, including high-level diagrams, component relationships, and data flows.
 
@@ -45,7 +45,7 @@ graph TB
         Routes[API Routes]
         Services[Business Services]
         Middleware[Auth/Rate Limiting]
-        DB[(SQLite Database)]
+        DB[(PostgreSQL Database)]
     end
 
     subgraph External["External Services"]
@@ -79,10 +79,10 @@ graph TB
 | | CSS Modules | Scoped styling |
 | **Backend** | Express.js 4.18 | REST API server |
 | | TypeScript | Type safety |
-| | better-sqlite3 | SQLite database driver |
-| **Database** | SQLite | Embedded relational database |
+| | pg (node-postgres) | PostgreSQL database driver |
+| **Database** | PostgreSQL 16 | Relational database |
 | **AI** | Claude Sonnet 4.5 | AI bartender recommendations |
-| **Memory** | SQLite + MemMachine v2 | Hybrid search (exact + semantic) |
+| **Memory** | PostgreSQL + MemMachine v2 | Hybrid search (exact + semantic) |
 | | Neo4j 5.23 | Vector embeddings storage |
 | **Auth** | JWT | Token-based authentication |
 | | bcrypt | Password hashing |
@@ -129,7 +129,7 @@ flowchart LR
     end
 
     subgraph Data["Data Layer"]
-        SQLite[(SQLite)]
+        PostgreSQL[(PostgreSQL)]
     end
 
     UI --> State
@@ -137,7 +137,7 @@ flowchart LR
     Axios --> HTTP
     HTTP --> API
     API --> Business
-    Business --> Data
+    Business --> PostgreSQL
 ```
 
 ---
@@ -184,7 +184,8 @@ alchemix/
 │   │   ├── RecipeCard/          # Recipe card
 │   │   ├── PeriodicTableV2/     # Ingredient periodic table
 │   │   ├── GlassSelector/       # Glassware picker
-│   │   └── RecipeMolecule.tsx   # Molecule visualization
+│   │   ├── RecipeMolecule.tsx   # Molecule visualization
+│   │   └── ThemeProvider.tsx    # Global theme management
 │   │
 │   ├── lib/                      # Utilities & State
 │   │   ├── api.ts               # Axios API client
@@ -200,7 +201,8 @@ alchemix/
 │   │
 │   ├── hooks/                    # Custom React Hooks
 │   │   ├── useAuthGuard.ts
-│   │   └── useVerificationGuard.ts
+│   │   ├── useVerificationGuard.ts
+│   │   └── useSettings.ts        # Theme & user preferences
 │   │
 │   ├── styles/                   # Global Styles
 │   │   └── globals.css          # Design system tokens
@@ -292,6 +294,7 @@ alchemix/
 graph TD
     subgraph Layout
         RootLayout[Root Layout]
+        ThemeProvider[Theme Provider]
         TopNav[TopNav]
         ToastProvider[Toast Provider]
     end
@@ -331,9 +334,10 @@ graph TD
         CSVUpload[CSVUploadModal]
     end
 
-    RootLayout --> TopNav
-    RootLayout --> ToastProvider
-    RootLayout --> Pages
+    RootLayout --> ThemeProvider
+    ThemeProvider --> TopNav
+    ThemeProvider --> ToastProvider
+    ThemeProvider --> Pages
 
     Bar --> PeriodicTable
     Bar --> BottleCard
@@ -456,7 +460,7 @@ graph TB
     end
 
     subgraph Database
-        DB[(SQLite)]
+        DB[(PostgreSQL)]
     end
 
     subgraph External
@@ -674,7 +678,7 @@ sequenceDiagram
     participant API as API Client
     participant Route as inventoryItems.ts
     participant Service as InventoryService
-    participant DB as SQLite
+    participant DB as PostgreSQL
 
     UI->>Store: addItem(itemData)
     Store->>API: inventoryApi.add(item)
@@ -700,7 +704,7 @@ sequenceDiagram
     participant API as API Client
     participant Route as messages.ts
     participant AISvc as AIService
-    participant DB as SQLite
+    participant DB as PostgreSQL
     participant MM as MemMachine
     participant Claude as Claude API
 
@@ -712,7 +716,7 @@ sequenceDiagram
     Note over AISvc: Hybrid Search (parallel)
     AISvc->>DB: Search by ingredients (exact match)
     AISvc->>MM: Search semantically (vector similarity)
-    DB-->>AISvc: SQLite matches
+    DB-->>AISvc: PostgreSQL matches
     MM-->>AISvc: MemMachine matches
 
     AISvc->>AISvc: Merge & deduplicate results
@@ -768,7 +772,7 @@ graph TB
         ShopSvc[ShoppingListService]
     end
 
-    subgraph SQLite["SQLite (Exact Match)"]
+    subgraph PostgreSQLSearch["PostgreSQL (Exact Match)"]
         RecipeDB[(recipes table)]
         IngredientMatch[Ingredient Search]
     end
@@ -795,7 +799,7 @@ graph TB
 ```
 
 **Hybrid Search Features:**
-- **SQLite ingredient matching**: Fast exact search with 100+ cocktail query expansions
+- **PostgreSQL ingredient matching**: Fast exact search with 100+ cocktail query expansions
 - **MemMachine semantic search**: Vector similarity for recipe discovery
 - **Intelligent prioritization**: Specific ingredients (green chartreuse) searched before generic (gin, lime)
 - **Pre-computed craftability markers**: ✅ CRAFTABLE, ⚠️ NEAR-MISS, ❌ MISSING verified against user inventory
@@ -820,6 +824,31 @@ graph TB
 
 The frontend uses the **"Molecular Mixology"** design system. Key design tokens are defined in `src/styles/globals.css`.
 
+### Theme Management
+
+AlcheMix supports light, dark, and system (browser preference) themes:
+
+| Component | Purpose |
+|-----------|---------|
+| `ThemeProvider` | Wraps root layout, applies theme from localStorage on page load |
+| `useSettings` | Hook for reading/setting theme preference (stored in `alchemix-settings`) |
+| `data-theme` | HTML attribute set to `light` or `dark`, used by CSS selectors |
+
+**Theme Detection Pattern** (used in components needing theme-aware colors):
+```typescript
+const [isDarkMode, setIsDarkMode] = useState(false);
+useEffect(() => {
+  const checkTheme = () => {
+    const theme = document.documentElement.getAttribute('data-theme');
+    setIsDarkMode(theme === 'dark');
+  };
+  checkTheme();
+  const observer = new MutationObserver(checkTheme);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  return () => observer.disconnect();
+}, []);
+```
+
 ### Color Palette
 
 | Variable | Value | Usage |
@@ -832,6 +861,19 @@ The frontend uses the **"Molecular Mixology"** design system. Key design tokens 
 | `--bond-botanical` | `#EC4899` | Amaro, Vermouth |
 | `--bond-acid` | `#F59E0B` | Citrus |
 | `--bond-sugar` | `#6366F1` | Syrups, Liqueurs |
+
+### Dark Mode Colors (Periodic Table)
+
+The periodic table uses theme-aware colors with `colorDark` variants for visibility on dark backgrounds:
+
+| Group | Light Mode | Dark Mode | Notes |
+|-------|------------|-----------|-------|
+| Base | `#1E293B` | `#94A3B8` | Critical - dark slate invisible on dark bg |
+| Bridge | `#7C3AED` | `#A78BFA` | Lighter violet |
+| Modifier | `#EC4899` | `#F472B6` | Lighter pink |
+| Sweetener | `#6366F1` | `#818CF8` | Lighter indigo |
+| Reagent | `#F59E0B` | `#FBBF24` | Lighter amber |
+| Catalyst | `#EF4444` | `#F87171` | Lighter red |
 
 ### Typography
 
@@ -911,7 +953,7 @@ docker compose -f docker/docker-compose.yml up -d
                                                         ┌─────────────────┐
                                                         │   database/     │
                                                         ├─────────────────┤
-                                                        │ db.ts ──────────│──► better-sqlite3
+                                                        │ db.ts ──────────│──► pg (node-postgres)
                                                         └─────────────────┘
 ```
 
@@ -940,7 +982,7 @@ docker compose -f docker/docker-compose.yml up -d
 | `services/MemoryService.ts` | utils/logger | fetch (built-in) |
 | `services/EmailService.ts` | config/validateEnv | nodemailer |
 | `utils/logger.ts` | - | winston |
-| `database/db.ts` | - | better-sqlite3 |
+| `database/db.ts` | - | pg (node-postgres) |
 
 ### Frontend Module Dependencies
 
@@ -1027,8 +1069,8 @@ packages/types/
                 │                    │                    │
                 ▼                    ▼                    ▼
         ┌───────────────┐   ┌───────────────┐   ┌───────────────┐
-        │   SQLite      │   │  MemMachine   │   │  Claude API   │
-        │   (local)     │   │  (Docker)     │   │  (Anthropic)  │
+        │  PostgreSQL   │   │  MemMachine   │   │  Claude API   │
+        │   (Docker)    │   │  (Docker)     │   │  (Anthropic)  │
         ├───────────────┤   ├───────────────┤   ├───────────────┤
         │ Users         │   │ POST /store   │   │ Messages API  │
         │ Inventory     │   │ POST /query   │   │ sonnet-4.5    │
@@ -1113,4 +1155,4 @@ Request Flow:
 
 ---
 
-*Last updated: December 16, 2025*
+*Last updated: December 17, 2025*

@@ -540,82 +540,82 @@
 }
 
 /* Dark Mode */
-[data-theme="dark"] .contextCard,
-[data-theme="dark"] .promptsCard,
-[data-theme="dark"] .historyCard,
-[data-theme="dark"] .chatArea {
+:global([data-theme="dark"]) .contextCard,
+:global([data-theme="dark"]) .promptsCard,
+:global([data-theme="dark"]) .historyCard,
+:global([data-theme="dark"]) .chatArea {
   background: var(--bg-elevated);
   border-color: var(--border-hairline);
 }
 
-[data-theme="dark"] .promptBtn {
+:global([data-theme="dark"]) .promptBtn {
   background: var(--bg-base);
   border-color: var(--border-hairline);
   color: var(--fg-primary);
 }
 
-[data-theme="dark"] .promptBtn:hover {
+:global([data-theme="dark"]) .promptBtn:hover {
   border-color: var(--fg-secondary);
 }
 
-[data-theme="dark"] .historyItem {
+:global([data-theme="dark"]) .historyItem {
   background: var(--bg-base);
 }
 
-[data-theme="dark"] .historyItem:hover {
+:global([data-theme="dark"]) .historyItem:hover {
   background: rgba(255, 255, 255, 0.05);
 }
 
-[data-theme="dark"] .chatHeader {
+:global([data-theme="dark"]) .chatHeader {
   border-bottom-color: var(--border-hairline);
 }
 
-[data-theme="dark"] .messageUser {
+:global([data-theme="dark"]) .messageUser {
   background: var(--fg-primary);
 }
 
-[data-theme="dark"] .messageAi {
+:global([data-theme="dark"]) .messageAi {
   background: var(--bg-elevated);
   border-color: var(--border-hairline);
   border-left-color: var(--bond-agave);
 }
 
-[data-theme="dark"] .inputForm {
+:global([data-theme="dark"]) .inputForm {
   border-top-color: var(--border-hairline);
 }
 
-[data-theme="dark"] .input {
+:global([data-theme="dark"]) .input {
   background: var(--bg-base);
   border-color: var(--border-hairline);
   color: var(--fg-primary);
 }
 
-[data-theme="dark"] .input:focus {
+:global([data-theme="dark"]) .input:focus {
   border-color: var(--bond-agave);
 }
 
-[data-theme="dark"] .sendBtn {
+:global([data-theme="dark"]) .sendBtn {
   background: var(--fg-primary);
   color: var(--bg-base);
 }
 
-[data-theme="dark"] .sendBtn:hover:not(:disabled) {
+:global([data-theme="dark"]) .sendBtn:hover:not(:disabled) {
   background: var(--fg-secondary);
 }
 
-[data-theme="dark"] .errorMessage {
+:global([data-theme="dark"]) .errorMessage {
   background: rgba(239, 68, 68, 0.15);
 }
 
-[data-theme="dark"] .clearBtn:hover {
+:global([data-theme="dark"]) .clearBtn:hover {
   color: #F87171;
 }
 
-[data-theme="dark"] .newChatBtn:hover {
+:global([data-theme="dark"]) .newChatBtn:hover {
   color: var(--fg-primary);
 }
 
-[data-theme="dark"] .emptyLogo {
+:global([data-theme="dark"]) .emptyLogo {
   opacity: 0.25;
   filter: grayscale(40%);
 }

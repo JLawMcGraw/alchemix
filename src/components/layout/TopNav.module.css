@@ -311,86 +311,86 @@
 }
 
 /* Dark Mode */
-[data-theme="dark"] .topNav {
+:global([data-theme="dark"]) .topNav {
   background-color: var(--bg-elevated, #1E293B);
   border-bottom-color: var(--border-hairline, #334155);
 }
 
-[data-theme="dark"] .navLink {
+:global([data-theme="dark"]) .navLink {
   color: var(--fg-secondary, #94A3B8);
 }
 
-[data-theme="dark"] .navLink:hover {
+:global([data-theme="dark"]) .navLink:hover {
   color: var(--fg-primary, #F1F5F9);
 }
 
-[data-theme="dark"] .navLink.active {
+:global([data-theme="dark"]) .navLink.active {
   color: var(--fg-primary, #F1F5F9);
 }
 
-[data-theme="dark"] .navLink.active::after {
+:global([data-theme="dark"]) .navLink.active::after {
   background: var(--fg-primary, #F1F5F9);
 }
 
-[data-theme="dark"] .badge {
+:global([data-theme="dark"]) .badge {
   background: var(--bg-paper, #0F172A);
   color: var(--fg-secondary, #94A3B8);
 }
 
-[data-theme="dark"] .navLink.active .badge {
+:global([data-theme="dark"]) .navLink.active .badge {
   background: var(--bond-agave, #14B8A6);
   color: white;
 }
 
-[data-theme="dark"] .avatar {
+:global([data-theme="dark"]) .avatar {
   background: var(--bond-agave, #14B8A6);
 }
 
-[data-theme="dark"] .avatarOpen {
+:global([data-theme="dark"]) .avatarOpen {
   border-color: var(--fg-primary, #F1F5F9);
 }
 
-[data-theme="dark"] .dropdownMenu {
+:global([data-theme="dark"]) .dropdownMenu {
   background: var(--bg-elevated, #1E293B);
   border-color: var(--border-hairline, #334155);
 }
 
-[data-theme="dark"] .menuHeader {
+:global([data-theme="dark"]) .menuHeader {
   border-bottom-color: var(--border-hairline, #334155);
 }
 
-[data-theme="dark"] .menuName {
+:global([data-theme="dark"]) .menuName {
   color: var(--fg-primary, #F1F5F9);
 }
 
-[data-theme="dark"] .menuEmail {
+:global([data-theme="dark"]) .menuEmail {
   color: var(--fg-secondary, #94A3B8);
 }
 
-[data-theme="dark"] .menuDivider {
+:global([data-theme="dark"]) .menuDivider {
   background-color: var(--border-hairline, #334155);
 }
 
-[data-theme="dark"] .menuItem {
+:global([data-theme="dark"]) .menuItem {
   color: var(--fg-primary, #F1F5F9);
 }
 
-[data-theme="dark"] .menuItem:hover {
+:global([data-theme="dark"]) .menuItem:hover {
   background: var(--hover-overlay, rgba(255, 255, 255, 0.06));
 }
 
-[data-theme="dark"] .menuIcon {
+:global([data-theme="dark"]) .menuIcon {
   color: var(--fg-secondary, #94A3B8);
 }
 
-[data-theme="dark"] .menuItem.danger {
+:global([data-theme="dark"]) .menuItem.danger {
   color: #F87171;
 }
 
-[data-theme="dark"] .menuItem.danger:hover {
+:global([data-theme="dark"]) .menuItem.danger:hover {
   background: rgba(248, 113, 113, 0.1);
 }
 
-[data-theme="dark"] .menuItem.danger .menuIcon {
+:global([data-theme="dark"]) .menuItem.danger .menuIcon {
   color: #F87171;
 }

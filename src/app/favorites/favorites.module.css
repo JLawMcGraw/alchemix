@@ -117,166 +117,11 @@
   background: #0F172A;
 }
 
-/* Favorites Grid */
+/* Favorites Grid - Uses shared RecipeCard component */
 .grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-4);
-}
-
-/* Recipe Card */
-.card {
-  background: white;
-  border: 1px solid var(--color-border-default);
-  border-radius: 2px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: transform 0.12s ease, border-color 0.12s ease;
-}
-
-.card:hover {
-  transform: scale(1.02);
-  border-color: var(--color-text-body);
-}
-
-.cardImage {
-  height: 150px;
-  background: white;
-  border-bottom: 1px solid var(--color-border-default);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
-}
-
-.craftableIndicator {
-  position: absolute;
-  top: var(--space-2);
-  right: var(--space-2);
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--color-success);
-}
-
-.removeBtn {
-  position: absolute;
-  top: var(--space-2);
-  left: var(--space-2);
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  color: #D4D4D4;
-  cursor: pointer;
-  transition: color 0.1s ease;
-  z-index: 1;
-}
-
-.removeBtn:hover {
-  color: var(--color-error);
-}
-
-.cardContent {
-  padding: 12px;
-}
-
-.cardHeader {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 4px;
-}
-
-.cardTitle {
-  font-family: var(--font-sans);
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--color-text-body);
-  margin: 0;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.starIcon {
-  color: #F59E0B;
-  flex-shrink: 0;
-  margin-left: var(--space-2);
-}
-
-.spiritBadges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: 6px;
-}
-
-.spiritBadge {
-  display: inline-block;
-  padding: 2px 6px;
-  font-family: var(--font-mono);
-  font-size: 0.625rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-radius: 2px;
-}
-
-.ingredientsPreview {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-  line-height: 1.4;
-  margin: 0;
-}
-
-/* Quick Actions */
-.quickActions {
-  margin-top: var(--space-8);
-  padding-top: var(--space-6);
-  border-top: 1px solid var(--color-border-default);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.quickActionsLabel {
-  font-family: var(--font-mono);
-  font-size: 0.625rem;
-  font-weight: 500;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-}
-
-.quickActionsBtns {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.quickActionBtn {
-  font-family: var(--font-mono);
-  font-size: 0.6875rem;
-  font-weight: 500;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  transition: color 0.1s ease;
-}
-
-.quickActionBtn:hover {
-  color: var(--color-text-body);
+  gap: 16px;
 }
 
 /* Responsive */
@@ -297,21 +142,10 @@
 
   .grid {
     grid-template-columns: repeat(2, 1fr);
-    gap: var(--space-3);
   }
 
   .title {
     font-size: 1.25rem;
-  }
-
-  .cardImage {
-    height: 120px;
-  }
-
-  .quickActions {
-    flex-direction: column;
-    gap: var(--space-3);
-    align-items: flex-start;
   }
 }
 
@@ -333,57 +167,36 @@
 }
 
 /* Dark Mode */
-[data-theme="dark"] .filterBtn {
+:global([data-theme="dark"]) .filterBtn {
   background: var(--bg-elevated);
   border-color: var(--border-hairline);
   color: var(--fg-primary);
 }
 
-[data-theme="dark"] .filterBtn:hover {
+:global([data-theme="dark"]) .filterBtn:hover {
   border-color: var(--fg-secondary);
 }
 
-[data-theme="dark"] .filterBtnActive {
-  background: var(--fg-primary);
-  color: var(--bg-base);
-  border-color: var(--fg-primary);
+:global([data-theme="dark"]) .filterBtnActive {
+  background: #F1F5F9;
+  color: #0F172A;
+  border-color: #F1F5F9;
 }
 
-[data-theme="dark"] .emptyState {
+:global([data-theme="dark"]) .emptyState {
   background: var(--bg-elevated);
   border-color: var(--border-hairline);
 }
 
-[data-theme="dark"] .emptyIcon {
+:global([data-theme="dark"]) .emptyIcon {
   color: var(--border-hairline);
 }
 
-[data-theme="dark"] .browseBtn {
-  background: var(--fg-primary);
-  color: var(--bg-base);
+:global([data-theme="dark"]) .browseBtn {
+  background: #F1F5F9;
+  color: #0F172A;
 }
 
-[data-theme="dark"] .browseBtn:hover {
-  background: var(--fg-secondary);
-}
-
-[data-theme="dark"] .card {
-  background: var(--bg-elevated);
-  border-color: var(--border-hairline);
-}
-
-[data-theme="dark"] .card:hover {
-  border-color: var(--fg-secondary);
-}
-
-[data-theme="dark"] .cardImage {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-[data-theme="dark"] .quickActions {
-  border-top-color: var(--border-hairline);
-}
-
-[data-theme="dark"] .quickActionBtn:hover {
-  color: var(--fg-primary);
+:global([data-theme="dark"]) .browseBtn:hover {
+  background: #E2E8F0;
 }

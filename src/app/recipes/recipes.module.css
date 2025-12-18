@@ -828,3 +828,115 @@
     transform: rotate(360deg);
   }
 }
+
+/* ==========================================================================
+   Dark Mode
+   ========================================================================== */
+
+:global([data-theme="dark"]) .masteryPill {
+  background: #1E293B;
+  border-color: #334155;
+  color: #F1F5F9;
+}
+
+:global([data-theme="dark"]) .masteryPill:hover {
+  border-color: #94A3B8;
+}
+
+:global([data-theme="dark"]) .masteryPill.active {
+  background: #F1F5F9;
+  border-color: #F1F5F9;
+  color: #0F172A;
+}
+
+:global([data-theme="dark"]) .searchInput {
+  background-color: #1E293B;
+  border-color: #334155;
+  color: #F1F5F9;
+}
+
+:global([data-theme="dark"]) .searchInput::placeholder {
+  color: #64748B;
+}
+
+:global([data-theme="dark"]) .searchInput:focus {
+  border-color: #94A3B8;
+}
+
+:global([data-theme="dark"]) .filterSelect {
+  background-color: #1E293B;
+  border-color: #334155;
+  color: #94A3B8;
+}
+
+:global([data-theme="dark"]) .filterSelect:focus {
+  border-color: #94A3B8;
+}
+
+:global([data-theme="dark"]) .collectionCard {
+  background: #1E293B;
+  border-color: #334155;
+}
+
+:global([data-theme="dark"]) .collectionCard:hover {
+  border-color: #94A3B8;
+}
+
+:global([data-theme="dark"]) .collectionActionBtn {
+  background: #0F172A;
+  border-color: #334155;
+  color: #94A3B8;
+}
+
+:global([data-theme="dark"]) .collectionActionBtn:hover {
+  border-color: #F1F5F9;
+  color: #F1F5F9;
+}
+
+:global([data-theme="dark"]) .newCollectionIcon {
+  background: #0F172A;
+  color: #94A3B8;
+}
+
+:global([data-theme="dark"]) .recipeCard {
+  background: #1E293B;
+  border-color: #334155;
+}
+
+:global([data-theme="dark"]) .recipeCard:hover {
+  border-color: #94A3B8;
+}
+
+:global([data-theme="dark"]) .recipeImage {
+  background: #0F172A;
+  border-bottom-color: #334155;
+}
+
+:global([data-theme="dark"]) .selectionCheckbox {
+  background: #1E293B;
+  border-color: #334155;
+}
+
+:global([data-theme="dark"]) .selectionCheckbox:hover {
+  border-color: #94A3B8;
+}
+
+:global([data-theme="dark"]) .selectionCheckbox.selected {
+  background: #F1F5F9;
+  border-color: #F1F5F9;
+}
+
+:global([data-theme="dark"]) .actionBtnPrimary {
+  background: #F1F5F9;
+  border-color: #F1F5F9;
+  color: #0F172A;
+}
+
+:global([data-theme="dark"]) .actionBtnPrimary:hover {
+  background: #E2E8F0;
+}
+
+:global([data-theme="dark"]) .bulkBar {
+  background: #F1F5F9;
+  color: #0F172A;
+}

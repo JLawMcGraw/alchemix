@@ -79,6 +79,7 @@
   pointer-events: none;
   user-select: none;
   transition: filter 0.15s ease;
+  fill: #333333;
 }
 
 .spiritLabel {
@@ -91,6 +92,21 @@
   pointer-events: none;
   user-select: none;
   transition: filter 0.15s ease;
+  fill: #333333;
+}
+
+/* Smaller font for long spirit labels (WHISKEY, TEQUILA, BRANDY) */
+.spiritLabelSmall {
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 5.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  text-anchor: middle;
+  pointer-events: none;
+  user-select: none;
+  transition: filter 0.15s ease;
+  fill: #333333;
 }
 
 .nodeSublabel {
@@ -102,6 +118,7 @@
   pointer-events: none;
   user-select: none;
   opacity: 0.7;
+  fill: #333333;
 }
 
 /* ═══════════════════════════════════════════════════════════════ */
@@ -182,4 +199,67 @@
 .legendName {
   color: #71717A;
   letter-spacing: 0.02em;
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* DARK MODE                                                       */
+/* ═══════════════════════════════════════════════════════════════ */
+
+:global([data-theme="dark"]) .backbone {
+  stroke: #94A3B8;
+  opacity: 0.3;
+}
+
+:global([data-theme="dark"]) .bond {
+  stroke: #94A3B8;
+}
+
+:global([data-theme="dark"]) .bondDashed {
+  stroke: #94A3B8;
+}
+
+:global([data-theme="dark"]) .bondWedge {
+  fill: #94A3B8;
+}
+
+:global([data-theme="dark"]) .nodeLabel {
+  fill: #F1F5F9;
+}
+
+:global([data-theme="dark"]) .spiritLabel {
+  fill: #F1F5F9;
+}
+
+:global([data-theme="dark"]) .spiritLabelSmall {
+  fill: #F1F5F9;
+}
+
+:global([data-theme="dark"]) .nodeSublabel {
+  fill: #CBD5E1;
+}
+
+:global([data-theme="dark"]) .tooltip {
+  background: #1E293B;
+  border-color: #475569;
+  color: #F1F5F9;
+}
+
+:global([data-theme="dark"]) .legendContainer {
+  border-top-color: #334155;
+}
+
+:global([data-theme="dark"]) .legendTitle {
+  color: #94A3B8;
+}
+
+:global([data-theme="dark"]) .legendItem {
+  color: #F1F5F9;
+}
+
+:global([data-theme="dark"]) .legendEquals {
+  color: #64748B;
+}
+
+:global([data-theme="dark"]) .legendName {
+  color: #94A3B8;
 }

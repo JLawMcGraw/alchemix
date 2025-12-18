@@ -1,6 +1,6 @@
 # Molecular Mixology (AlcheMix) — Design System
 
-**Version**: v1.30.0
+**Version**: v1.31.0
 **Last Updated**: December 17, 2025
 
 ---
@@ -104,7 +104,41 @@ Colors are desaturated and matte—like diagrams printed on high-quality paper o
   --bond-sugar:        #6366F1;  /* Indigo — Syrups, Liqueurs */
   --bond-dairy:        #F5F5F4;  /* Cream — Cream, Eggs */
   --bond-carbonation:  #A1A1AA;  /* Silver — Soda, Tonic, Sparkling */
-  
+
+  /* === PERIODIC TABLE GROUP COLORS (Function/Role) === */
+  /* Light Mode */
+  --group-base:        #1E293B;  /* Dark slate — Base spirits */
+  --group-bridge:      #7C3AED;  /* Violet — Bridge/fortified */
+  --group-modifier:    #EC4899;  /* Pink — Modifiers/liqueurs */
+  --group-sweetener:   #6366F1;  /* Indigo — Sweeteners/syrups */
+  --group-reagent:     #F59E0B;  /* Amber — Acids/juices */
+  --group-catalyst:    #EF4444;  /* Red — Bitters/extracts */
+
+  /* Dark Mode Variants (lighter for visibility on dark backgrounds) */
+  --group-base-dark:      #94A3B8;  /* Light slate — CRITICAL for visibility */
+  --group-bridge-dark:    #A78BFA;  /* Light violet */
+  --group-modifier-dark:  #F472B6;  /* Light pink */
+  --group-sweetener-dark: #818CF8;  /* Light indigo */
+  --group-reagent-dark:   #FBBF24;  /* Light amber */
+  --group-catalyst-dark:  #F87171;  /* Light red */
+
+  /* === PERIODIC TABLE PERIOD COLORS (Origin/Source) === */
+  /* Light Mode */
+  --period-agave:      #0D9488;  /* Teal */
+  --period-cane:       #65A30D;  /* Green */
+  --period-grain:      #D97706;  /* Amber */
+  --period-grape:      #8B5CF6;  /* Violet */
+  --period-fruit:      #F43F5E;  /* Rose */
+  --period-botanic:    #0EA5E9;  /* Sky */
+
+  /* Dark Mode Variants */
+  --period-agave-dark:   #14B8A6;  /* Light teal */
+  --period-cane-dark:    #84CC16;  /* Light green */
+  --period-grain-dark:   #FBBF24;  /* Light amber */
+  --period-grape-dark:   #A78BFA;  /* Light violet */
+  --period-fruit-dark:   #FB7185;  /* Light rose */
+  --period-botanic-dark: #38BDF8;  /* Light sky */
+
   /* === FUNCTIONAL COLORS === */
   --status-optimal:    #10B981;  /* Emerald — In stock, balanced */
   --status-warning:    #F59E0B;  /* Amber — Low stock, attention */
@@ -577,6 +611,21 @@ A 6×6 grid visualizing ingredient TYPES by function (group) and origin (period)
 
 Each cell shows a predefined element TYPE with the user's inventory items counted against it.
 
+**Dark Mode Color Handling**:
+
+The periodic table uses theme-aware colors to ensure visibility in both light and dark modes. Each group and period has a `color` and `colorDark` variant defined in `src/lib/periodicTable/constants.ts`.
+
+| Group | Light Mode | Dark Mode | Issue Solved |
+|-------|------------|-----------|--------------|
+| Base | `#1E293B` | `#94A3B8` | Dark slate invisible on dark bg |
+| Bridge | `#7C3AED` | `#A78BFA` | Slightly brighter violet |
+| Modifier | `#EC4899` | `#F472B6` | Slightly brighter pink |
+| Sweetener | `#6366F1` | `#818CF8` | Slightly brighter indigo |
+| Reagent | `#F59E0B` | `#FBBF24` | Slightly brighter amber |
+| Catalyst | `#EF4444` | `#F87171` | Slightly brighter red |
+
+Components detect theme via `MutationObserver` watching `data-theme` attribute on `<html>` and select the appropriate color variant.
+
 ### 2. Leading Zeros on All Measurements
 Never `1.5 oz`. Always `01.50 oz`. This is a laboratory. Precision matters. Use `font-variant-numeric: tabular-nums` so columns align.
 
@@ -947,7 +996,12 @@ type InventoryItem = IngredientNode & {
 
 4. **Font Loading**: Inter and JetBrains Mono loaded via Google Fonts in `globals.css`. Uses `font-display: swap`.
 
-5. **Dark Mode**: CSS variables defined for dark mode. Toggle via class on `<html>` or `prefers-color-scheme`.
+5. **Dark Mode**: Implemented via `ThemeProvider` component that wraps the root layout.
+   - Theme settings stored in localStorage (`alchemix-settings`)
+   - Supports three modes: `light`, `dark`, `system` (browser preference)
+   - Applied globally via `data-theme` attribute on `<html>` element
+   - CSS modules use `:global([data-theme="dark"])` selectors
+   - Periodic table colors use `colorDark` variants for visibility (especially "Base" group)
 
 6. **State Management**: Zustand with slices (auth, inventory, recipes, chat). LocalStorage persistence for user data.
 
@@ -994,7 +1048,8 @@ src/
 │   ├── RecipeCard/           # Recipe card with molecule
 │   ├── PeriodicTableV2/      # 6×6 periodic table
 │   ├── GlassSelector/        # Glassware picker
-│   └── RecipeMolecule.tsx    # Molecule wrapper
+│   ├── RecipeMolecule.tsx    # Molecule wrapper
+│   └── ThemeProvider.tsx     # Global theme application
 ├── lib/
 │   ├── api.ts                # API client
 │   ├── store/                # Zustand slices
