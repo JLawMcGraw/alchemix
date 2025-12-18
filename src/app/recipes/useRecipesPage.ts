@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
@@ -58,6 +58,7 @@ export function useRecipesPage() {
   const [activeTab, setActiveTab] = useState<'collections' | 'all'>('collections');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const prevDebouncedSearchRef = useRef<string>('');
   const [filterSpirit, setFilterSpirit] = useState<SpiritCategory | 'all'>('all');
   const [masteryFilter, setMasteryFilter] = useState<string | null>(null);
   const [csvModalOpen, setCsvModalOpen] = useState(false);
@@ -149,14 +150,19 @@ export function useRecipesPage() {
   useEffect(() => {
     if (!isAuthenticated || isValidating || !hasInitiallyLoaded) return;
 
+    const prevSearch = prevDebouncedSearchRef.current;
+    prevDebouncedSearchRef.current = debouncedSearch;
+
     // Only trigger server-side search when there's a search term and we're in 'all' tab
     if (activeTab === 'all' && debouncedSearch) {
       loadRecipes(1, true, { search: debouncedSearch });
-    } else if (activeTab === 'all' && !debouncedSearch && !masteryFilter) {
-      // Clear search - reload without filter
+    } else if (activeTab === 'all' && !debouncedSearch && !masteryFilter && prevSearch) {
+      // Clear search - reload without filter only if we HAD a previous search
       loadRecipes(1, false);
     }
-  }, [debouncedSearch, activeTab, isAuthenticated, isValidating, hasInitiallyLoaded, masteryFilter, loadRecipes]);
+    // Note: loadRecipes is stable (empty deps array) so safe to exclude from deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, activeTab, isAuthenticated, isValidating, hasInitiallyLoaded, masteryFilter]);
 
   // Handle URL parameters
   useEffect(() => {
@@ -439,7 +445,10 @@ export function useRecipesPage() {
       setBulkMoveCollectionId(null);
       showToast('success', result.message);
     } catch (error) {
-      showToast('error', 'Failed to move recipes');
+      // Extract error message from API response or use generic fallback
+      const errorMsg = error instanceof Error ? error.message : 'Failed to move recipes';
+      console.error('Bulk move failed:', error);
+      showToast('error', errorMsg);
     }
   }, [selectedRecipes, bulkMoveCollectionId, loadRecipes, fetchCollections, showToast]);
 

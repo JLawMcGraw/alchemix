@@ -48,12 +48,16 @@ describe('ShoppingListService', () => {
     });
 
     it('should handle dashes in measurements', () => {
-      expect(shoppingListService.parseIngredientName('2 dashes Angostura Bitters')).toBe('bitters');
+      // Angostura is kept as it's a distinct bitters type (not just a brand)
+      expect(shoppingListService.parseIngredientName('2 dashes Angostura Bitters')).toBe('angostura bitters');
       expect(shoppingListService.parseIngredientName('3 drops Orange Bitters')).toBe('orange bitters');
     });
 
-    it('should remove brand prefixes', () => {
-      expect(shoppingListService.parseIngredientName('Angostura Bitters')).toBe('bitters');
+    it('should remove brand prefixes but keep distinct product types', () => {
+      // Angostura/Peychaud's are distinct bitters types, not interchangeable brands
+      expect(shoppingListService.parseIngredientName('Angostura Bitters')).toBe('angostura bitters');
+      expect(shoppingListService.parseIngredientName('Peychaud Bitters')).toBe('peychaud bitters');
+      // Luxardo is a brand prefix that should be removed
       expect(shoppingListService.parseIngredientName('Luxardo Maraschino')).toBe('maraschino');
     });
 
