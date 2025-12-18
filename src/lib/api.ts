@@ -298,7 +298,11 @@ export const inventoryApi = {
 
 // Recipe API
 export const recipeApi = {
-  async getAll(page: number = 1, limit: number = 50): Promise<{
+  async getAll(
+    page: number = 1,
+    limit: number = 50,
+    options?: { search?: string; masteryIds?: number[] }
+  ): Promise<{
     recipes: Recipe[];
     pagination: {
       page: number;
@@ -309,6 +313,17 @@ export const recipeApi = {
       hasPreviousPage: boolean;
     }
   }> {
+    const params = new URLSearchParams();
+    params.set('page', String(page));
+    params.set('limit', String(limit));
+
+    if (options?.search) {
+      params.set('search', options.search);
+    }
+    if (options?.masteryIds && options.masteryIds.length > 0) {
+      params.set('masteryIds', options.masteryIds.join(','));
+    }
+
     const { data } = await apiClient.get<{
       success: boolean;
       data: Recipe[];
@@ -320,7 +335,7 @@ export const recipeApi = {
         hasNextPage: boolean;
         hasPreviousPage: boolean;
       };
-    }>(`/api/recipes?page=${page}&limit=${limit}`);
+    }>(`/api/recipes?${params.toString()}`);
     return { recipes: data.data, pagination: data.pagination };
   },
 
@@ -348,6 +363,14 @@ export const recipeApi = {
   async deleteAll(): Promise<{ deleted: number; message: string }> {
     const { data } = await apiClient.delete<{ success: boolean; deleted: number; message: string }>('/api/recipes/all');
     return { deleted: data.deleted, message: data.message };
+  },
+
+  async bulkMove(recipeIds: number[], collectionId: number | null): Promise<{ moved: number; message: string }> {
+    const { data } = await apiClient.post<{ success: boolean; moved: number; message: string }>(
+      '/api/recipes/bulk-move',
+      { recipeIds, collectionId }
+    );
+    return { moved: data.moved, message: data.message };
   },
 
   async importCSV(file: File, collectionId?: number): Promise<{ imported: number; failed: number; errors?: Array<{ row: number; error: string }> }> {
