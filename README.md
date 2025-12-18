@@ -6,7 +6,7 @@
 
 Modern cocktail inventory and recipe management system with AI-powered bartender recommendations. Features a "Molecular Mixology" design system that treats cocktails as chemical formulas and ingredients as periodic table elements.
 
-**Version:** v1.31.0 | **Last Updated:** December 17, 2025
+**Version:** v1.31.0 | **Last Updated:** December 18, 2025
 
 ## Features
 
@@ -16,7 +16,7 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 - **Recipe Management** - Full CRUD, collections/folders, bulk operations, CSV import, spirit detection
 - **Recipe Molecule Visualization** - Chemical bond-style molecular diagrams for cocktail recipes
 - **Smart Shopping List** - Near-miss algorithm, ingredient recommendations, 6 recipe buckets
-- **AI Bartender** - Claude-powered assistant with hybrid search (SQLite + MemMachine) and concept expansion (spirit-forward, tiki, boozy, etc.)
+- **AI Bartender** - Claude-powered assistant with hybrid search (PostgreSQL + MemMachine) and concept expansion (spirit-forward, tiki, boozy, etc.)
 - **Dashboard** - Lab overview with My Bar composition, Recipe Mastery stats, Collections sidebar
 
 ### Design & UX

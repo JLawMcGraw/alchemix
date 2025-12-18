@@ -4,6 +4,53 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-12-18 - Claude Prompt Caching Optimization
+
+### The Problem
+AI cost metrics showed `cacheHit: false` on every request. Claude prompt caching wasn't working.
+
+### Root Cause
+The `staticContent` portion of the prompt was only ~1,300 characters (~330 tokens). Claude's prompt caching requires a minimum of **1,024 tokens** in the cached block.
+
+### The Fix
+Moved all stable rules from `dynamicContent` to `staticContent`:
+- Craftability marker explanations
+- Response format rules
+- "No ingredient names" rules
+- Multiple recommendations rules
+- Spirit substitution rules
+
+### Results
+```
+Before: staticChars: 1,327  (~330 tokens)  - no caching
+After:  staticChars: 8,324  (~2,080 tokens) - caching enabled
+
+cacheCreation: 2,520 tokens (first request)
+cacheRead: 2,520 tokens (subsequent requests)
+```
+
+**Cost savings**: ~90% reduction on cached portion (2,520 tokens per request).
+
+---
+
+## 2025-12-18 - Bitters Matching: Brand vs Type
+
+### The Decision
+Removed 'angostura' and 'peychaud' from `PREFIXES_TO_REMOVE` in ShoppingListService.
+
+### Why
+The prefix-stripping was designed for actual brand names (e.g., "Bacardi rum" → "rum"). But bitters type indicators are NOT interchangeable brands:
+
+- **Peychaud's bitters** - Anise-forward, essential for Sazeracs
+- **Angostura bitters** - Spice-forward, essential for Old Fashioneds
+
+Stripping the prefix reduced both to just "bitters", causing incorrect craftability matches.
+
+### Rule
+When adding brand prefixes to strip, ask: "Can any product with this prefix substitute for another?" For bitters, the answer is NO.
+
+---
+
 ## 2025-12-17 - PostgreSQL Migration from SQLite
 
 ### The Decision

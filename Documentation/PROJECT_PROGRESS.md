@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2025-12-17
+Last updated: 2025-12-18
 
 ---
 
@@ -29,7 +29,55 @@ Last updated: 2025-12-17
 
 ---
 
-## Recent Session (2025-12-17 Night): Comprehensive Dark Mode Fixes & Global Theme Provider
+## Recent Session (2025-12-18): AI Search Quality Improvements & Prompt Caching
+
+### Summary
+Fixed multiple AI search issues including craftability bugs, recommendation quantity, and enabled Claude prompt caching for cost optimization. Cross-session memory filtering working well.
+
+### Work Completed
+
+#### 1. Bitters Craftability Bug Fix
+- **Problem**: Peychaud's bitters incorrectly matching Angostura bitters (and vice versa)
+- **Root Cause**: `PREFIXES_TO_REMOVE` was stripping "peychaud" and "angostura" as brand prefixes, reducing both to just "bitters"
+- **Solution**: Removed 'angostura' and 'peychaud' from prefix list - these are distinct bitters types, not interchangeable brands
+- **File**: `api/src/services/ShoppingListService.ts`
+
+#### 2. Multiple Recommendations Rule
+- **Problem**: AI was giving only 1 recommendation when 10+ craftable recipes were available
+- **Solution**: Added mandatory "MULTIPLE RECOMMENDATIONS" section to prompt requiring 3+ options when available
+- **File**: `api/src/services/AIService.ts`
+
+#### 3. Cocktails-Only Rule
+- **Problem**: AI was recommending syrups (e.g., "Ginger Syrup") as if they were cocktails
+- **Solution**: Added "ONLY RECOMMEND COCKTAILS" rule explicitly forbidding syrups, ingredients, garnishes
+- **File**: `api/src/services/AIService.ts`
+
+#### 4. Prompt Caching Optimization
+- **Problem**: `cacheHit: false` on every request - static content (~330 tokens) was below Claude's 1024 token minimum
+- **Solution**: Moved all stable rules (craftability markers, response format, ingredient rules, etc.) from `dynamicContent` to `staticContent`
+- **Result**:
+  - Static content: ~1,300 chars → ~8,300 chars (~2,080 tokens)
+  - Cache creation: 2,520 tokens now cached
+  - Subsequent requests: `cacheRead: 2520, cacheHit: true`
+  - ~90% cost savings on cached portion
+- **File**: `api/src/services/AIService.ts`
+
+#### 5. Cross-Session Memory Filtering
+- Verified working correctly: 24 previously recommended recipes tracked
+- Second pass system triggers appropriately when < 3 good recommendations
+- Correctly allows re-recommendation for new query concepts (e.g., "Last Word alternatives" vs "something for wife tonight")
+
+### Files Changed
+- `api/src/services/ShoppingListService.ts` - Bitters prefix fix
+- `api/src/services/AIService.ts` - Prompt restructuring for caching, multiple recommendations rule, cocktails-only rule
+
+### Next Priorities
+- PostgreSQL deployment (Phase 6)
+- Production testing of AI search improvements
+
+---
+
+## Previous Session (2025-12-17 Night): Comprehensive Dark Mode Fixes & Global Theme Provider
 
 ### Summary
 Fixed comprehensive dark mode issues across the entire application including molecule visualization, periodic table colors, CSS module selectors, page-specific styles, and created a global ThemeProvider to ensure theme persistence across all pages.

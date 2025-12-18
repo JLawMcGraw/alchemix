@@ -168,17 +168,50 @@ export default function AIPage() {
     // Exact match (highest priority)
     if (cleanDB === cleanAI) return true;
 
+    // For comparison, work with cleaned versions
+    const cleanDBNoSuffix = cleanDB;
+    const cleanAINoSuffix = cleanAI;
+
+    if (cleanDBNoSuffix === cleanAINoSuffix) return true;
+
     // Strip common prefixes and check exact match
     const prefixes = /^(sc|classic|traditional|original|the|a)\s+/i;
-    const strippedAI = cleanAI.replace(prefixes, '');
-    const strippedDB = cleanDB.replace(prefixes, '');
+    const strippedAI = cleanAINoSuffix.replace(prefixes, '');
+    const strippedDB = cleanDBNoSuffix.replace(prefixes, '');
 
     if (strippedDB === strippedAI) return true;
+
+    // Handle parenthetical variations like "Beachcomber's Gold (Hollywood)" vs "Beachcomber's Gold (Hollywood and Palm Springs) New"
+    // Extract base name before parentheses
+    const baseNamePattern = /^([^(]+)/;
+    const aiBaseMatch = cleanAINoSuffix.match(baseNamePattern);
+    const dbBaseMatch = cleanDBNoSuffix.match(baseNamePattern);
+
+    if (aiBaseMatch && dbBaseMatch) {
+      const aiBase = aiBaseMatch[1].trim();
+      const dbBase = dbBaseMatch[1].trim();
+
+      // If base names match and AI has parenthetical content
+      if (aiBase === dbBase && cleanAINoSuffix.includes('(')) {
+        // Extract parenthetical content
+        const aiParenMatch = cleanAINoSuffix.match(/\(([^)]+)\)/);
+        const dbParenMatch = cleanDBNoSuffix.match(/\(([^)]+)\)/);
+
+        if (aiParenMatch && dbParenMatch) {
+          const aiParen = aiParenMatch[1].toLowerCase();
+          const dbParen = dbParenMatch[1].toLowerCase();
+          // Match if DB parenthetical contains AI parenthetical (e.g., "hollywood and palm springs" contains "hollywood")
+          if (dbParen.includes(aiParen) || aiParen.includes(dbParen)) {
+            return true;
+          }
+        }
+      }
+    }
 
     // Only allow DB to contain AI name (AI might use shorter form)
     // But NOT the reverse - "navy grog".includes("grog") should NOT match "Grog" recipe
     // This prevents "Navy Grog" from matching "Grog" when we want exact "Navy Grog"
-    if (cleanDB.includes(cleanAI) && cleanAI.length > 3) return true;
+    if (cleanDBNoSuffix.includes(cleanAINoSuffix) && cleanAINoSuffix.length > 3) return true;
     if (strippedDB.includes(strippedAI) && strippedAI.length > 3) return true;
 
     return false;
@@ -233,11 +266,43 @@ export default function AIPage() {
     const normalizedExplanation = normalizeApostrophes(explanation).toLowerCase();
     recipesArray.forEach((recipe) => {
       const normalizedName = normalizeApostrophes(recipe.name).toLowerCase();
+
       // Check if recipe name appears in the text (word boundary check)
-      const escapedName = normalizedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Make apostrophe matching flexible - replace any apostrophe with a pattern that matches all variants
+      const escapedName = normalizedName
+        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        .replace(/'/g, "[\\u0027\\u2018\\u2019\\u0060\\u00B4\\u02BC\\u02BB]?"); // Make apostrophe optional/flexible
       const nameRegex = new RegExp(`(?:^|[^\\w])${escapedName}(?:[^\\w]|$)`, 'i');
       if (nameRegex.test(normalizedExplanation)) {
         linkableRecipes.add(recipe.name);
+        return; // Found exact match, no need for fuzzy matching
+      }
+
+      // Fuzzy matching for parenthetical variations
+      // e.g., AI says "Beachcomber's Gold (Hollywood)" but DB has "Beachcomber's Gold (Hollywood and Palm Springs) New"
+      const baseNameMatch = normalizedName.match(/^([^(]+)\s*\(/);
+      if (baseNameMatch) {
+        const baseName = baseNameMatch[1].trim();
+        const escapedBase = baseName
+          .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          .replace(/'/g, "[\\u0027\\u2018\\u2019\\u0060\\u00B4\\u02BC\\u02BB]?");
+
+        // Look for base name followed by any parenthetical in the AI text
+        const baseWithParenRegex = new RegExp(`(?:^|[^\\w])${escapedBase}\\s*\\(([^)]+)\\)`, 'gi');
+        const matches = normalizedExplanation.matchAll(baseWithParenRegex);
+
+        for (const match of matches) {
+          const aiParen = match[1].toLowerCase();
+          const dbParenMatch = normalizedName.match(/\(([^)]+)\)/);
+          if (dbParenMatch) {
+            const dbParen = dbParenMatch[1].toLowerCase();
+            // Match if one contains the other (e.g., "hollywood" vs "hollywood and palm springs")
+            if (dbParen.includes(aiParen) || aiParen.includes(dbParen)) {
+              linkableRecipes.add(recipe.name);
+              return;
+            }
+          }
+        }
       }
     });
 
@@ -245,15 +310,27 @@ export default function AIPage() {
       return <div className={styles.messageText}>{message.content}</div>;
     }
 
-    // CRITICAL FIX: Filter out substring collisions
-    // If we have both "Navy Grog" and "Grog", remove "Grog" to prevent partial linking
+    // CRITICAL FIX: Filter out substring collisions ONLY when the substring appears
+    // in the actual AI response as part of a longer name
+    // If we have both "Navy Grog" and "Grog", remove "Grog" only if "Navy Grog" appears in text
+    // But keep "Scorpion" even if "Scorpion Bowl" exists, if only "Scorpion" is mentioned
+    const normalizedText = normalizeApostrophes(explanation).toLowerCase();
     const filteredRecipes = Array.from(linkableRecipes).filter((name) => {
       const lowerName = normalizeApostrophes(name).toLowerCase();
-      // Keep this recipe ONLY if no other recipe in the set contains it as a substring
-      const shouldFilter = Array.from(linkableRecipes).some((other) => {
+      // Find other recipes that contain this one as a substring
+      const longerRecipes = Array.from(linkableRecipes).filter((other) => {
         if (other === name) return false;
         const lowerOther = normalizeApostrophes(other).toLowerCase();
         return lowerOther.includes(lowerName);
+      });
+      // Only filter out if the LONGER recipe actually appears in the text
+      // If "Scorpion" is in text but "Scorpion Bowl" is NOT, keep "Scorpion"
+      const shouldFilter = longerRecipes.some((longer) => {
+        const lowerLonger = normalizeApostrophes(longer).toLowerCase();
+        // Check if the longer name actually appears in the AI response
+        const escapedLonger = lowerLonger.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const longerRegex = new RegExp(`(?:^|[^\\w])${escapedLonger}(?:[^\\w]|$)`, 'i');
+        return longerRegex.test(normalizedText);
       });
       return !shouldFilter;
     });
@@ -284,6 +361,8 @@ export default function AIPage() {
       // Capture boundary chars so we can preserve them in replacement
       const fullNameRegex = new RegExp(`(^|[^\\w])(${escapedFullName})([^\\w]|$)`, 'gi');
 
+      let didMatch = false;
+
       // Replace only if not already inside markers
       displayText = displayText.replace(fullNameRegex, (match, before, name, after, offset) => {
         // Check if this match is already inside __RECIPE__...__RECIPE__
@@ -294,9 +373,47 @@ export default function AIPage() {
           return match; // Don't replace, already inside markers (odd = between open/close)
         }
 
+        didMatch = true;
         // Preserve boundary characters, wrap recipe name with markers
         return `${before}__RECIPE__${recipeName}__RECIPE__${after}`;
       });
+
+      // If exact match didn't work and recipe has parenthetical, try flexible matching
+      // e.g., DB: "Beachcomber's Gold (Hollywood and Palm Springs) New"
+      // AI might say: "Beachcomber's Gold (Hollywood)" or "Beachcomber's Gold (Waikiki)"
+      if (!didMatch && recipeName.includes('(')) {
+        const baseMatch = normalizeApostrophes(recipeName).match(/^([^(]+)\s*\(/);
+        const dbParenMatch = normalizeApostrophes(recipeName).match(/\(([^)]+)\)/);
+
+        if (baseMatch && dbParenMatch) {
+          const baseName = baseMatch[1].trim();
+          const dbParen = dbParenMatch[1].toLowerCase();
+          const escapedBase = escapeForRegex(baseName);
+
+          // Match base name followed by any parenthetical content
+          const flexibleRegex = new RegExp(`(^|[^\\w])(${escapedBase}\\s*\\([^)]+\\))([^\\w]|$)`, 'gi');
+
+          displayText = displayText.replace(flexibleRegex, (match, before, name, after, offset) => {
+            // Check if already inside markers
+            const beforeMatch = displayText.substring(0, offset);
+            const markerCount = (beforeMatch.match(/__RECIPE__/g) || []).length;
+            if (markerCount % 2 === 1) {
+              return match;
+            }
+
+            // Check if the parenthetical content matches (one contains the other)
+            const aiParenMatch = normalizeApostrophes(name).match(/\(([^)]+)\)/);
+            if (aiParenMatch) {
+              const aiParen = aiParenMatch[1].toLowerCase();
+              if (dbParen.includes(aiParen) || aiParen.includes(dbParen)) {
+                // Use the name as it appears in the AI text - handleRecipeClick will fuzzy match to DB
+                return `${before}__RECIPE__${name}__RECIPE__${after}`;
+              }
+            }
+            return match;
+          });
+        }
+      }
     });
 
     const parts = displayText.split(/__RECIPE__(.*?)__RECIPE__/);
@@ -305,9 +422,14 @@ export default function AIPage() {
       <div className={styles.messageText}>
         {parts.map((part, index) => {
           const normalizedPart = normalizeApostrophes(part).toLowerCase();
-          const isRecipe = sortedRecipes.some(
-            (r) => normalizeApostrophes(r).toLowerCase() === normalizedPart
-          );
+          // Check if this is a recipe - use fuzzy matching since the text might differ from DB name
+          const isRecipe = sortedRecipes.some((r) => {
+            const normalizedR = normalizeApostrophes(r).toLowerCase();
+            // Exact match
+            if (normalizedR === normalizedPart) return true;
+            // Fuzzy match (handleRecipeClick will resolve to correct DB recipe)
+            return fuzzyRecipeMatch(part, r);
+          });
 
           if (isRecipe) {
             return (

@@ -283,7 +283,8 @@ const PREFIXES_TO_REMOVE = [
   'pierre ferrand', 'ferrand', 'cointreau', 'grand marnier',
   'john d taylor', "john d. taylor['']s?", 'taylors',
   'trader joe', 'trader joes',
-  'angostura', 'peychaud', 'peychauds',
+  // NOTE: 'angostura', 'peychaud' intentionally NOT included here
+  // These are distinct bitters types, not interchangeable brands
   'luxardo', 'st germain', 'st-germain', 'st. germain',
   'lemon hart', 'hamilton', 'cruzan', 'appleton', 'plantation',
   'wray & nephew', 'wray and nephew', 'myers', "myers['']s",

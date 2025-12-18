@@ -879,7 +879,8 @@ export class MemoryService {
     userId: number,
     checkDatabase: boolean = false,
     limit: number = MAX_PROMPT_RECIPES,
-    alreadyRecommended: Set<string> = new Set()
+    alreadyRecommended: Set<string> = new Set(),
+    requiredSpiritType: string | null = null
   ): Promise<string> {
     if (!searchResult || (!searchResult.episodic?.length && !searchResult.semantic?.length)) {
       return '';
@@ -963,7 +964,55 @@ export class MemoryService {
         }
       }
 
-      const limitedRecipes = validRecipes.slice(0, limit);
+      // Filter by spirit type if constraint is provided
+      let filteredRecipes = validRecipes;
+      if (requiredSpiritType) {
+        filteredRecipes = validRecipes.filter(({ episode, recipeName }) => {
+          const ingredients = this.extractIngredientsFromContent(episode.content);
+          const ingredientText = ingredients.join(' ').toLowerCase();
+
+          // Spirit synonyms for matching
+          const spiritSynonyms: Record<string, string[]> = {
+            'rum': ['rum', 'rhum', 'cachaça', 'cachaca'],
+            'whiskey': ['whiskey', 'whisky', 'bourbon', 'rye', 'scotch'],
+            'gin': ['gin'],
+            'vodka': ['vodka'],
+            'tequila': ['tequila', 'mezcal'],
+            'brandy': ['brandy', 'cognac', 'armagnac', 'pisco'],
+          };
+
+          // Check if required spirit is in ingredients
+          const requiredSynonyms = spiritSynonyms[requiredSpiritType] || [requiredSpiritType];
+          const hasRequiredSpirit = requiredSynonyms.some(syn => ingredientText.includes(syn));
+
+          if (hasRequiredSpirit) return true;
+
+          // Check if recipe has a DIFFERENT base spirit (conflict)
+          for (const [spirit, synonyms] of Object.entries(spiritSynonyms)) {
+            if (spirit !== requiredSpiritType) {
+              const hasOtherSpirit = synonyms.some(syn => ingredientText.includes(syn));
+              if (hasOtherSpirit) {
+                logger.info('MemMachine: Filtered recipe - spirit mismatch', {
+                  recipeName,
+                  requiredSpirit: requiredSpiritType,
+                  foundSpirit: spirit
+                });
+                return false; // Recipe uses different base spirit
+              }
+            }
+          }
+
+          return true; // No clear base spirit, allow it
+        });
+
+        logger.info('MemMachine: Spirit type filtering applied', {
+          requiredSpirit: requiredSpiritType,
+          beforeCount: validRecipes.length,
+          afterCount: filteredRecipes.length
+        });
+      }
+
+      const limitedRecipes = filteredRecipes.slice(0, limit);
 
       // Sort: craftable recipes first
       const recipesWithCraftability = limitedRecipes.map(({ episode, recipeName }) => {
@@ -977,15 +1026,6 @@ export class MemoryService {
             missingIngredients = shoppingListService.findMissingIngredients(ingredients, userBottles);
           }
         }
-
-        // DIAGNOSTIC: Log craftability calculation for each recipe
-        logger.info('MemMachine: DIAGNOSTIC - Craftability check', {
-          recipeName,
-          extractedIngredients: ingredients,
-          craftable,
-          missingIngredients,
-          userBottleCount: userBottles.length
-        });
 
         return { episode, recipeName, craftable, missingIngredients };
       });
