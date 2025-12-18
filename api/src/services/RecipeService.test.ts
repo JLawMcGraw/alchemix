@@ -647,6 +647,60 @@ describe('RecipeService', () => {
     });
   });
 
+  describe('bulkMove', () => {
+    it('should move multiple recipes to a collection', async () => {
+      // Mock collection validation
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: collectionId });
+      // Mock update
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({ rowCount: 3 });
+
+      const result = await recipeService.bulkMove([1, 2, 3], userId, collectionId);
+
+      expect(result.moved).toBe(3);
+      expect(execute).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE recipes SET collection_id'),
+        expect.arrayContaining([collectionId, userId, [1, 2, 3]])
+      );
+    });
+
+    it('should move recipes to uncategorized (null collection)', async () => {
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({ rowCount: 2 });
+
+      const result = await recipeService.bulkMove([1, 2], userId, null);
+
+      expect(result.moved).toBe(2);
+      expect(execute).toHaveBeenCalledWith(
+        expect.stringContaining('collection_id = $1'),
+        expect.arrayContaining([null, userId, [1, 2]])
+      );
+    });
+
+    it('should return error for invalid collection', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      const result = await recipeService.bulkMove([1, 2], userId, 999);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Collection not found or access denied');
+    });
+
+    it('should return error for empty recipe array', async () => {
+      const result = await recipeService.bulkMove([], userId, collectionId);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('No recipe IDs provided');
+    });
+
+    it('should return error when exceeding max recipes', async () => {
+      const tooManyIds = Array.from({ length: 101 }, (_, i) => i + 1);
+
+      const result = await recipeService.bulkMove(tooManyIds, userId, collectionId);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Maximum 100 recipes per bulk operation');
+    });
+  });
+
   describe('importFromCSV', () => {
     it('should import valid records', async () => {
       let callIndex = 0;

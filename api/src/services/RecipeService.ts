@@ -143,6 +143,15 @@ export interface SyncStats {
 }
 
 /**
+ * Bulk move result
+ */
+export interface BulkMoveResult {
+  success: boolean;
+  moved?: number;
+  error?: string;
+}
+
+/**
  * Recipe Service
  *
  * Handles all recipe business logic independent of HTTP layer.
@@ -512,6 +521,47 @@ export class RecipeService {
     }
 
     return deletedCount;
+  }
+
+  /**
+   * Bulk move recipes to a collection
+   *
+   * @param recipeIds - Array of recipe IDs to move
+   * @param userId - User ID (for ownership validation)
+   * @param collectionId - Target collection ID (null for uncategorized)
+   */
+  async bulkMove(
+    recipeIds: number[],
+    userId: number,
+    collectionId: number | null
+  ): Promise<BulkMoveResult> {
+    // Validate input
+    if (!recipeIds || recipeIds.length === 0) {
+      return { success: false, error: 'No recipe IDs provided' };
+    }
+
+    if (recipeIds.length > 100) {
+      return { success: false, error: 'Maximum 100 recipes per bulk operation' };
+    }
+
+    // Validate collection belongs to user (if not null)
+    if (collectionId !== null) {
+      const collectionExists = await this.validateCollection(collectionId, userId);
+      if (!collectionExists) {
+        return { success: false, error: 'Collection not found or access denied' };
+      }
+    }
+
+    // Execute bulk update
+    const result = await execute(
+      `UPDATE recipes SET collection_id = $1 WHERE user_id = $2 AND id = ANY($3)`,
+      [collectionId, userId, recipeIds]
+    );
+
+    return {
+      success: true,
+      moved: result.rowCount ?? 0
+    };
   }
 
   /**
