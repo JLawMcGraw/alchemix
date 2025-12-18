@@ -222,36 +222,3 @@ process.on('SIGTERM', async () => {
   await closeDatabase();
   process.exit(0);
 });
-
-/**
- * Legacy Compatibility Layer
- *
- * These exports maintain compatibility with existing code during migration.
- * They wrap the async pool in a way that mimics the old sync API.
- *
- * DEPRECATED: Remove after full migration to async patterns.
- */
-
-// For backwards compatibility - will be removed
-export const db = {
-  prepare: (sql: string) => ({
-    get: async (...params: unknown[]) => queryOne(convertPlaceholders(sql), params),
-    all: async (...params: unknown[]) => queryAll(convertPlaceholders(sql), params),
-    run: async (...params: unknown[]) => execute(convertPlaceholders(sql), params),
-  }),
-  exec: async (sql: string) => execute(sql),
-  pragma: () => {}, // No-op for PostgreSQL
-  close: async () => closeDatabase(),
-  transaction: <T>(fn: () => T) => transaction(async () => fn()),
-};
-
-/**
- * Convert SQLite placeholders to PostgreSQL
- *
- * SQLite: SELECT * FROM users WHERE id = ?
- * PostgreSQL: SELECT * FROM users WHERE id = $1
- */
-function convertPlaceholders(sql: string): string {
-  let index = 0;
-  return sql.replace(/\?/g, () => `$${++index}`);
-}
