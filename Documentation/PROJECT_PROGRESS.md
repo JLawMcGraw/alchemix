@@ -12,10 +12,10 @@ Last updated: 2025-12-18
 **Blockers**: None
 
 **Test Coverage**:
-- Backend: 866 tests (35 test files)
+- Backend: 876 tests (35 test files)
 - Frontend: 206 tests
 - Recipe-Molecule: 124 tests
-- **Total: 1,196 tests**
+- **Total: 1,206 tests**
 
 **Redesign Progress**:
 - Phase 1-4 (Batch A - Foundation): **Complete**
@@ -29,7 +29,65 @@ Last updated: 2025-12-18
 
 ---
 
-## Recent Session (2025-12-18): AI Search Quality Improvements & Prompt Caching
+## Recent Session (2025-12-18 Afternoon): Code Review Fixes - Server-Side Search & Bulk Operations
+
+### Summary
+Addressed code review findings: removed unsafe legacy db wrapper, implemented server-side recipe search to fix broken UX, added bulk move endpoint to eliminate N+1 API calls. All 1,206 tests passing.
+
+### Work Completed
+
+#### 1. Legacy db Wrapper Removal
+- **Issue**: Unused SQLite compatibility wrapper with unsafe transaction handling
+- **Fix**: Removed 33 lines of dead code from `api/src/database/db.ts`
+- **Also fixed**: `server.ts` was still using removed `db.close()` → updated to `closeDatabase()`
+
+#### 2. Server-Side Recipe Search
+- **Issue**: Search only filtered loaded 50 recipes (broken UX - couldn't find recipes on page 2+)
+- **Fix**:
+  - Added `SearchOptions` interface to RecipeService with `search` and `masteryIds` params
+  - Updated `getAll` with dynamic WHERE clause (LIKE on name/ingredients)
+  - Added query params to GET /api/recipes route
+  - Frontend uses debounced search (300ms) triggering server reload
+- **Tests**: 6 new tests for search functionality
+
+#### 3. Bulk Move Endpoint
+- **Issue**: Moving N recipes = N API calls (N+1 pattern)
+- **Fix**:
+  - Added `bulkMove` method to RecipeService (single UPDATE with `ANY($1)`)
+  - Added POST /api/recipes/bulk-move route
+  - Added `recipeApi.bulkMove()` to frontend
+  - Updated `handleBulkMove` to use single API call
+- **Tests**: 5 new tests for bulk move
+
+#### 4. Code Quality Fixes
+- Fixed `loadRecipes` dependency array fragility (useRef + eslint-disable)
+- Fixed clear-search causing unnecessary reload (only on transition)
+- Improved bulkMove error handling (extract error message)
+- Fixed ShoppingListService tests (Angostura/Peychaud's are distinct types)
+
+### Files Changed
+- `api/src/database/db.ts` - Removed legacy wrapper
+- `api/src/server.ts` - Fixed closeDatabase usage
+- `api/src/services/RecipeService.ts` - Added search + bulkMove
+- `api/src/services/RecipeService.test.ts` - 11 new tests
+- `api/src/services/ShoppingListService.test.ts` - Fixed test expectations
+- `api/src/routes/recipes.ts` - Added query params + bulk-move route
+- `src/lib/api.ts` - Added search params + bulkMove method
+- `src/app/recipes/useRecipesPage.ts` - Server-side search + bulk move integration
+- `docs/plans/2025-12-18-code-review-fixes-*.md` - Design and implementation plans
+
+### Not Addressed (Deferred)
+- AIService monolithic structure (2000+ lines) - Works well, maintainability concern only
+- AIService prompt templates extraction - No user-facing benefit
+- AIService RAG-lite approach - Only relevant for power users with 500+ recipes
+
+### Next Priorities
+- PostgreSQL deployment (Phase 6)
+- Production testing
+
+---
+
+## Previous Session (2025-12-18): AI Search Quality Improvements & Prompt Caching
 
 ### Summary
 Fixed multiple AI search issues including craftability bugs, recommendation quantity, and enabled Claude prompt caching for cost optimization. Cross-session memory filtering working well.

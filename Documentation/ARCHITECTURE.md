@@ -1,7 +1,7 @@
 # AlcheMix Architecture
 
-**Version**: v1.31.0
-**Last Updated**: December 17, 2025
+**Version**: v1.32.0
+**Last Updated**: December 18, 2025
 
 This document provides a comprehensive map of the AlcheMix system architecture, including high-level diagrams, component relationships, and data flows.
 
@@ -421,7 +421,7 @@ graph TD
         subgraph ProtectedRoutes["Protected Routes (JWT)"]
             AUTH["/auth/*"]
             INV["/api/inventory/*"]
-            REC["/api/recipes/*"]
+            REC["/api/recipes/*<br/>(search, bulk-move)"]
             COL["/api/collections/*"]
             FAV["/api/favorites/*"]
             MSG["/api/messages"]
@@ -892,7 +892,7 @@ npm run dev:all          # Start frontend + backend
 npm run type-check       # TypeScript checks (all packages)
 
 # Testing
-cd api && npm test       # Backend tests (750)
+cd api && npm test       # Backend tests (876)
 npm test                 # Frontend tests (206)
 cd packages/recipe-molecule && npm test  # Molecule tests (124)
 
@@ -973,16 +973,16 @@ docker compose -f docker/docker-compose.yml up -d
 | `middleware/userRateLimit.ts` | - | (pure, in-memory) |
 | `routes/auth/*` | services/EmailService, database/db | bcryptjs, jsonwebtoken |
 | `routes/inventoryItems.ts` | services/InventoryService | (pure) |
-| `routes/recipes.ts` | services/RecipeService | (pure) |
+| `routes/recipes.ts` | services/RecipeService | (pure) - supports search/mastery filtering, bulk-move |
 | `routes/messages.ts` | services/AIService, MemoryService | (pure) |
 | `services/InventoryService.ts` | database/db | (pure) |
-| `services/RecipeService.ts` | database/db, MemoryService | (pure) |
+| `services/RecipeService.ts` | database/db, MemoryService | (pure) - server-side search, bulkMove |
 | `services/AIService.ts` | ShoppingListService, data/cocktailIngredients.json | @anthropic-ai/sdk |
 | `services/ShoppingListService.ts` | database/db | (pure) |
 | `services/MemoryService.ts` | utils/logger | fetch (built-in) |
 | `services/EmailService.ts` | config/validateEnv | nodemailer |
 | `utils/logger.ts` | - | winston |
-| `database/db.ts` | - | pg (node-postgres) |
+| `database/db.ts` | - | pg (node-postgres) - pure PostgreSQL, no legacy wrappers |
 
 ### Frontend Module Dependencies
 
@@ -1155,4 +1155,4 @@ Request Flow:
 
 ---
 
-*Last updated: December 17, 2025*
+*Last updated: December 18, 2025*
