@@ -6,7 +6,7 @@
 
 Modern cocktail inventory and recipe management system with AI-powered bartender recommendations. Features a "Molecular Mixology" design system that treats cocktails as chemical formulas and ingredients as periodic table elements.
 
-**Version:** v1.30.0 | **Last Updated:** December 17, 2025
+**Version:** v1.31.0 | **Last Updated:** December 17, 2025
 
 ## Features
 
@@ -41,7 +41,7 @@ Before you begin, ensure you have the following installed:
 | Node.js | 18.x or higher | `node --version` |
 | npm | 9.x or higher | `npm --version` |
 | Git | Any recent | `git --version` |
-| Docker | (Optional) For AI features | `docker --version` |
+| Docker | Required for database | `docker --version` |
 
 ## Quick Start
 
@@ -53,7 +53,17 @@ cd alchemix
 npm run install:all
 ```
 
-### 2. Configure Environment
+### 2. Start Docker Services
+
+```bash
+# Start PostgreSQL, Neo4j, and MemMachine
+cd docker && docker compose up -d
+
+# Create the alchemix database (first time only)
+docker exec alchemix-postgres psql -U memmachine -c "CREATE DATABASE alchemix;"
+```
+
+### 3. Configure Environment
 
 ```bash
 # Copy the example environment file
@@ -66,8 +76,8 @@ Edit `api/.env` and set the required values:
 # REQUIRED - Generate a secure secret (minimum 32 characters)
 JWT_SECRET=your-super-secure-secret-key-at-least-32-chars
 
-# REQUIRED - Database location (auto-created)
-DATABASE_PATH=./data/alchemix.db
+# REQUIRED - PostgreSQL connection string
+DATABASE_URL=postgresql://memmachine:memmachinepassword@localhost:5432/alchemix
 
 # REQUIRED - Frontend URL for CORS
 FRONTEND_URL=http://localhost:3001
@@ -76,9 +86,9 @@ FRONTEND_URL=http://localhost:3001
 Optional settings for full functionality:
 - `ANTHROPIC_API_KEY` - Enable AI Bartender features
 - `SMTP_*` - Enable email verification and password reset
-- `MEMMACHINE_API_URL` - Enable semantic recipe search (requires Docker)
+- `MEMMACHINE_API_URL` - Enable semantic recipe search
 
-### 3. Start Development Servers
+### 4. Start Development Servers
 
 ```bash
 npm run dev:all
@@ -88,7 +98,7 @@ This starts both servers:
 - **Frontend**: http://localhost:3001
 - **Backend**: http://localhost:3000
 
-### 4. Create an Account
+### 5. Create an Account
 
 1. Open http://localhost:3001
 2. Click "Sign Up" and create an account
@@ -100,8 +110,8 @@ This starts both servers:
 | Layer | Technology |
 |-------|------------|
 | Frontend | Next.js 14, TypeScript, Zustand, CSS Modules |
-| Backend | Express.js, TypeScript, SQLite, JWT |
-| AI | Claude Sonnet 4.5, SQLite + MemMachine v2 hybrid search |
+| Backend | Express.js, TypeScript, PostgreSQL (pg driver), JWT |
+| AI | Claude Sonnet 4.5, PostgreSQL + MemMachine v2 hybrid search |
 | Infrastructure | Docker, Neo4j 5.23, PostgreSQL 16 (pgvector) |
 | Email | Nodemailer (Gmail, SendGrid, Mailgun, Amazon SES) |
 
@@ -128,7 +138,7 @@ alchemix/
 │   │   ├── middleware/    # Auth, CSRF, rate limiting, request logging
 │   │   ├── config/        # Environment, rate limiters
 │   │   ├── utils/         # Logger, validators, token blacklist
-│   │   ├── database/      # SQLite setup
+│   │   ├── database/      # PostgreSQL pool + schema
 │   │   └── data/          # Static data (cocktailIngredients.json)
 │   └── .env               # Environment configuration
 ├── packages/               # Shared packages
@@ -181,7 +191,7 @@ alchemix/
 ```env
 # Required
 JWT_SECRET=your-secret-key-minimum-32-chars
-DATABASE_PATH=./data/alchemix.db
+DATABASE_URL=postgresql://memmachine:memmachinepassword@localhost:5432/alchemix
 FRONTEND_URL=http://localhost:3001
 
 # Optional - AI
@@ -217,9 +227,9 @@ The project has comprehensive test coverage using Vitest:
 | Suite | Tests | Description |
 |-------|-------|-------------|
 | Frontend | 206 | API client, store, UI components, page tests |
-| Backend | 921 | Auth, inventory, recipes, collections, favorites, messages, shopping list, middleware, services |
+| Backend | 866 | Auth, inventory, recipes, collections, favorites, messages, shopping list, middleware, services |
 | Recipe Molecule | 124 | Ingredient parser, classifier, layout engine |
-| **Total** | **1,251** | |
+| **Total** | **1,196** | |
 
 ```bash
 # Run all tests
@@ -229,16 +239,18 @@ npm test && cd api && npm test && cd ../packages/recipe-molecule && npm test
 cd api && npm test -- --coverage
 ```
 
-## Docker (Required for AI Features)
+## Docker (Required)
 
-The AI Bartender requires MemMachine (semantic memory) which runs in Docker alongside Neo4j and Postgres.
+Docker provides PostgreSQL (app database), Neo4j (vector embeddings), and MemMachine (semantic search).
 
 ```bash
-# Start all services (Neo4j, Postgres, MemMachine, API, Frontend)
-docker compose -f docker/docker-compose.yml up
+# Start infrastructure (PostgreSQL, Neo4j, MemMachine)
+cd docker && docker compose up -d
 
-# Or infrastructure only (for local dev with hot reload)
-docker compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml up -d
+# Create the alchemix database (first time only)
+docker exec alchemix-postgres psql -U memmachine -c "CREATE DATABASE alchemix;"
+
+# Start development servers (with hot reload)
 npm run dev:all
 ```
 
@@ -246,17 +258,17 @@ npm run dev:all
 
 | Service | Port | Description |
 |---------|------|-------------|
-| Neo4j | 7474, 7687 | Graph database for vector embeddings |
-| Postgres | 5432 | Profile storage for MemMachine |
+| PostgreSQL | 5432 | App database + MemMachine profiles |
+| Neo4j | 17474, 17687 | Graph database for vector embeddings |
 | MemMachine | 8080 | Semantic memory API (v2) |
-| API | 3000 | Express backend |
-| Frontend | 3001 | Next.js frontend |
+| API | 3000 | Express backend (run locally) |
+| Frontend | 3001 | Next.js frontend (run locally) |
 
 ### Hybrid Search Architecture
 
 AlcheMix uses a sophisticated hybrid search combining multiple strategies:
 - **Concept expansion** - Queries like "spirit-forward" expand to relevant cocktails (daiquiri, old fashioned, manhattan, etc.)
-- **SQLite ingredient matching** - Fast exact matching with 100+ cocktail query expansions
+- **PostgreSQL ingredient matching** - Fast exact matching with 100+ cocktail query expansions
 - **MemMachine semantic search** - Vector similarity for recipe discovery
 - **Intelligent prioritization** - Specific ingredients (green chartreuse) searched before generic (gin, lime)
 - **Pre-computed craftability** - Markers (CRAFTABLE, NEAR-MISS, MISSING) verified against user inventory
@@ -323,6 +335,17 @@ nvm use 20
 
 ### Server Startup Issues
 
+**Docker containers must start first**
+```
+Error: ECONNREFUSED 127.0.0.1:5432
+```
+Start Docker containers before the backend:
+```bash
+cd docker && docker compose up -d
+# Wait for containers to be healthy, then start backend
+npm run dev:all
+```
+
 **Port already in use (EADDRINUSE)**
 ```bash
 # Find what's using port 3000 or 3001
@@ -346,15 +369,22 @@ Edit `api/.env` and set a longer secret:
 JWT_SECRET=my-super-secure-secret-key-that-is-at-least-32-characters-long
 ```
 
-**SQLite "no such table" error**
+**PostgreSQL connection error**
 ```
-SqliteError: no such table: users
+Error: password authentication failed
 ```
-The database auto-creates on first run. If corrupted:
+Ensure `DATABASE_URL` in `api/.env` matches the Docker PostgreSQL credentials:
+```env
+DATABASE_URL=postgresql://memmachine:memmachinepassword@localhost:5432/alchemix
+```
+
+**Database does not exist**
+```
+Error: database "alchemix" does not exist
+```
+Create the database:
 ```bash
-# Delete and recreate database
-rm -rf api/data/alchemix.db
-npm run dev:all
+docker exec alchemix-postgres psql -U memmachine -c "CREATE DATABASE alchemix;"
 ```
 
 ### Authentication Issues
@@ -431,14 +461,14 @@ cd api && npm run build
 
 ### Database Issues
 
-**Database locked errors**
-- Only one server instance should run at a time
-- Check for zombie Node processes: `ps aux | grep node`
+**Connection pool errors**
+- Ensure Docker containers are running: `docker ps`
+- Check PostgreSQL logs: `docker logs alchemix-postgres`
 
 **Data not persisting**
-- Check `DATABASE_PATH` in `api/.env`
-- Ensure the `api/data/` directory is writable
-- Don't delete `api/data/alchemix.db` while server is running
+- Data is stored in Docker volumes
+- Don't run `docker compose down -v` (removes volumes)
+- To reset database: stop containers, remove volumes, restart
 
 ### Docker Issues
 

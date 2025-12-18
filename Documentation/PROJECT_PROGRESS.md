@@ -6,16 +6,16 @@ Last updated: 2025-12-17
 
 ## Current Status
 
-**Version**: v1.30.0
-**Phase**: Feature Development - AI Enhancement & Code Quality
-**Branch**: `alchemix-redesign`
+**Version**: v1.31.0
+**Phase**: Deployment Preparation - PostgreSQL Migration
+**Branch**: `postgresql-deployment`
 **Blockers**: None
 
 **Test Coverage**:
-- Backend: 921 tests (35 test files, +6 new)
+- Backend: 866 tests (35 test files)
 - Frontend: 206 tests
 - Recipe-Molecule: 124 tests
-- **Total: 1,251 tests (+171 new tests)**
+- **Total: 1,196 tests**
 
 **Redesign Progress**:
 - Phase 1-4 (Batch A - Foundation): **Complete**
@@ -25,9 +25,71 @@ Last updated: 2025-12-17
 - Landing Page: **Complete**
 - Login Page Two-Panel Layout: **Complete**
 
+**PostgreSQL Migration**: **Complete** (Phase 1-5 done, Phase 6 Deploy pending)
+
 ---
 
-## Recent Session (2025-12-17): Chemical Formula Notation v2 & System Documentation
+## Recent Session (2025-12-17): PostgreSQL Migration for Railway Deployment
+
+### Summary
+Complete migration from SQLite (better-sqlite3) to PostgreSQL (pg driver) for Railway deployment with multi-user support. All services, routes, middleware, and tests converted to async PostgreSQL pattern. 866 backend tests passing.
+
+### Work Completed
+
+#### 1. Database Layer Rewrite
+- Replaced `better-sqlite3` sync API with `pg` async Pool
+- Created `db.ts` with `queryOne`, `queryAll`, `execute`, `transaction` helpers
+- Created `schema.sql` for PostgreSQL (SERIAL, TIMESTAMP, BOOLEAN types)
+- Added graceful error handling for database shutdown
+- Fixed env loading order (dotenv before Pool creation)
+
+#### 2. Services Converted (All Async/Await)
+- InventoryService, RecipeService, FavoriteService
+- ShoppingListService, CollectionService, GlassService
+- ClassificationService, MemoryService, AIService
+- All use `$1, $2` parameterized queries instead of `?`
+
+#### 3. Routes Converted
+- auth/* (login, signup, password, verification, account)
+- inventory, inventoryItems, recipes, collections
+- favorites, shoppingList, glasses, classifications
+- messages, health
+
+#### 4. Middleware & Utils
+- `auth.ts` token versioning with async DB queries
+- `tokenBlacklist.ts` with PostgreSQL persistence
+
+#### 5. Tests Updated (866 Passing)
+- All service tests use PostgreSQL mock pattern
+- All route tests use service/middleware mocks
+- Updated `validateEnv.test.ts` for `DATABASE_URL`
+- Fixed `db.test.ts` mock to include `pool.on()` handler
+
+#### 6. Configuration
+- `validateEnv.ts` accepts `DATABASE_URL` (postgresql:// or postgres://)
+- Added `pg` driver dependency, removed `better-sqlite3`
+- `.env.example` updated with PostgreSQL connection string
+
+### Files Changed
+- `api/src/database/db.ts` (complete rewrite)
+- `api/src/database/schema.sql` (new)
+- `api/src/database/db.test.ts`
+- `api/src/config/validateEnv.ts`, `validateEnv.test.ts`
+- All 8 service files + tests
+- All 12 route files + tests
+- `api/src/middleware/auth.ts`, `auth.tokenVersioning.test.ts`
+- `api/src/utils/tokenBlacklist.ts`, `tokenBlacklist.test.ts`
+- `api/package.json` (pg driver)
+
+### Next Priority
+1. Railway deployment (Phase 6)
+   - Add PostgreSQL plugin on Railway
+   - Set `DATABASE_URL` env var
+   - Deploy and verify with beta users
+
+---
+
+## Session (2025-12-17): Chemical Formula Notation v2 & System Documentation
 
 ### Summary
 Major overhaul of the chemical formula notation system with v2 logic (coefficients, subscripts, smart grouping, signature ingredients), fixed element matching order and spirit grouping, resolved login page molecule visualization clipping, and created comprehensive documentation for both the molecule visualization and periodic table classification systems.

@@ -4,6 +4,70 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-12-17 - PostgreSQL Migration from SQLite
+
+### The Decision
+Migrated from SQLite (better-sqlite3) to PostgreSQL (pg driver) for Railway deployment with multi-user support.
+
+### Why PostgreSQL
+- Railway provides managed PostgreSQL with easy setup
+- Connection pooling for concurrent users
+- Better suited for production multi-tenant workloads
+- Shared PostgreSQL instance with MemMachine already running
+
+### Key Changes
+
+**Query Syntax:**
+```typescript
+// SQLite (sync)
+const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+
+// PostgreSQL (async)
+const user = await queryOne<User>('SELECT * FROM users WHERE id = $1', [userId]);
+```
+
+**Schema Types:**
+| SQLite | PostgreSQL |
+|--------|------------|
+| `INTEGER PRIMARY KEY AUTOINCREMENT` | `SERIAL PRIMARY KEY` |
+| `DATETIME DEFAULT CURRENT_TIMESTAMP` | `TIMESTAMP DEFAULT NOW()` |
+| `INTEGER` (0/1 for booleans) | `BOOLEAN` (native) |
+
+**Insert with Returning:**
+```typescript
+// SQLite
+const result = db.prepare('INSERT INTO...').run(...);
+const newId = result.lastInsertRowid;
+
+// PostgreSQL
+const { rows } = await execute('INSERT INTO... RETURNING id', [...]);
+const newId = rows[0].id;
+```
+
+### Gotchas
+
+1. **Environment Loading Order**: Pool is created at module load time. Must import `env.ts` BEFORE `pg` to ensure `DATABASE_URL` is available.
+
+2. **Pool Error Handling**: Add `pool.on('error', ...)` to handle connection termination gracefully (e.g., during docker-compose down).
+
+3. **Mock Updates**: Test mocks need `on: vi.fn()` for the pool error handler.
+
+4. **Docker Startup Order**: Must start containers (PostgreSQL) before backend server.
+
+### Local Development
+```bash
+# Start containers first
+cd docker && docker compose up -d
+
+# Create alchemix database (one-time)
+docker exec alchemix-postgres psql -U memmachine -c "CREATE DATABASE alchemix;"
+
+# Then start backend
+cd api && npm run dev
+```
+
+---
+
 ## 2025-12-15 - Vitest Mock Hoisting with vi.hoisted()
 
 ### The Problem

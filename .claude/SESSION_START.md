@@ -4,9 +4,9 @@
 
 | Field | Value |
 |-------|-------|
-| Version | v1.30.0 |
-| Branch | `alchemix-redesign` |
-| Tests | 1,251 total (921 backend, 206 frontend, 124 recipe-molecule) |
+| Version | v1.31.0 |
+| Branch | `postgresql-deployment` |
+| Tests | 1,196 total (866 backend, 206 frontend, 124 recipe-molecule) |
 | Last Updated | December 17, 2025 |
 
 ---
@@ -28,9 +28,9 @@ A full-stack cocktail inventory and recipe management app with AI-powered barten
 | Layer | Technology |
 |-------|------------|
 | Frontend | Next.js 14, TypeScript, Zustand, CSS Modules |
-| Backend | Express.js, TypeScript, SQLite (better-sqlite3) |
+| Backend | Express.js, TypeScript, PostgreSQL (pg driver) |
 | AI | Claude Sonnet 4.5 with Prompt Caching |
-| Memory | MemMachine (Neo4j vector store) + SQLite hybrid search |
+| Memory | MemMachine (Neo4j vector store) + PostgreSQL hybrid search |
 | Auth | JWT + bcrypt, token blacklist, database-backed versioning |
 | Molecule Viz | `@alchemix/recipe-molecule` (custom d3-force SVG) |
 
@@ -66,9 +66,8 @@ alchemix/
 │   │   ├── services/           # AIService, MemoryService, ClassificationService, ShoppingListService
 │   │   ├── middleware/         # auth.ts, csrf.ts, errorHandler.ts, requestId.ts, requestLogger.ts
 │   │   ├── config/             # env.ts, rateLimiter.ts, validateEnv.ts
-│   │   ├── database/           # db.ts (SQLite schema)
+│   │   ├── database/           # db.ts (PostgreSQL pool), schema.sql
 │   │   └── utils/              # logger.ts, tokenBlacklist.ts, inputValidation.ts
-│   └── data/                   # SQLite database (auto-generated)
 ├── packages/
 │   ├── recipe-molecule/        # Chemical bond-style recipe visualization
 │   └── types/                  # Shared TypeScript definitions
@@ -86,7 +85,7 @@ alchemix/
 npm run dev:all                 # Frontend (3001) + Backend (3000)
 
 # Testing
-cd api && npm test              # All 921 backend tests
+cd api && npm test              # All 866 backend tests
 cd api && npm run test:unit     # Unit tests only
 cd api && npm run test:routes   # Route tests only
 
@@ -160,9 +159,10 @@ npm run lint
 |---------|------|
 | Frontend | 3001 |
 | Backend | 3000 |
+| PostgreSQL | 5432 |
 | MemMachine | 8080 |
-| Neo4j HTTP | 7474 |
-| Neo4j Bolt | 7687 |
+| Neo4j HTTP | 17474 |
+| Neo4j Bolt | 17687 |
 
 ---
 
