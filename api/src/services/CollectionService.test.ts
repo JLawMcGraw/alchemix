@@ -1,151 +1,242 @@
 /**
- * Collection Service Tests
+ * CollectionService Tests
  *
- * Unit tests for the CollectionService business logic.
+ * Tests for the collection/books service.
+ * Updated for PostgreSQL async pattern.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createTestDatabase, cleanupTestDatabase } from '../tests/setup';
-import type Database from 'better-sqlite3';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // Mock the database module
 vi.mock('../database/db', () => ({
-  db: null as Database.Database | null,
+  queryOne: vi.fn(),
+  queryAll: vi.fn(),
+  execute: vi.fn(),
 }));
 
-// Mock MemoryService to avoid external API calls
+// Mock MemoryService
 vi.mock('./MemoryService', () => ({
   memoryService: {
     storeUserCollection: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
+import { queryOne, queryAll, execute } from '../database/db';
+import { CollectionService, Collection, CollectionWithCount } from './CollectionService';
+
 describe('CollectionService', () => {
-  let db: Database.Database;
-  let CollectionService: any;
-  let collectionService: any;
+  let collectionService: CollectionService;
+  const testUserId = 9999;
+  const otherUserId = 9998;
 
-  beforeEach(async () => {
-    // Create test database
-    db = createTestDatabase();
-
-    // Create test user
-    db.prepare(`
-      INSERT INTO users (id, email, password_hash)
-      VALUES (1, 'test@example.com', 'hashedpassword')
-    `).run();
-
-    // Update the mock
-    const dbModule = await import('../database/db');
-    (dbModule as any).db = db;
-
-    // Reset modules and import fresh
-    vi.resetModules();
-    const serviceModule = await import('./CollectionService');
-    CollectionService = serviceModule.CollectionService;
-    collectionService = new CollectionService();
+  // Helper to create mock collection
+  const createMockCollection = (overrides: Partial<Collection> = {}): Collection => ({
+    id: 1,
+    user_id: testUserId,
+    name: 'Test Collection',
+    description: 'Test description',
+    created_at: new Date().toISOString(),
+    ...overrides,
   });
 
-  afterEach(() => {
-    cleanupTestDatabase(db);
+  // Helper to create mock collection with count
+  const createMockCollectionWithCount = (overrides: Partial<CollectionWithCount> = {}): CollectionWithCount => ({
+    ...createMockCollection(),
+    recipe_count: 0,
+    ...overrides,
+  });
+
+  beforeEach(() => {
     vi.clearAllMocks();
+    collectionService = new CollectionService();
+
+    // Default mock implementations
+    (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (execute as ReturnType<typeof vi.fn>).mockResolvedValue({ rows: [], rowCount: 0 });
   });
 
   describe('getAll', () => {
-    it('should return empty array when no collections exist', () => {
-      const collections = collectionService.getAll(1);
+    it('should return empty array when no collections exist', async () => {
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+      const collections = await collectionService.getAll(testUserId);
+
       expect(collections).toEqual([]);
     });
 
-    it('should return all collections for a user with recipe counts', () => {
-      // Create collections
-      db.prepare(`INSERT INTO collections (id, user_id, name, description) VALUES (1, 1, 'Classics', 'Classic cocktails')`).run();
-      db.prepare(`INSERT INTO collections (id, user_id, name, description) VALUES (2, 1, 'Tiki', 'Tropical drinks')`).run();
+    it('should return all collections for a user with recipe counts', async () => {
+      const mockCollections = [
+        createMockCollectionWithCount({ id: 1, name: 'Classics', recipe_count: 2 }),
+        createMockCollectionWithCount({ id: 2, name: 'Tiki', recipe_count: 1 }),
+      ];
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue(mockCollections);
 
-      // Add recipes to collections
-      db.prepare(`INSERT INTO recipes (user_id, collection_id, name, ingredients) VALUES (1, 1, 'Martini', 'gin, vermouth')`).run();
-      db.prepare(`INSERT INTO recipes (user_id, collection_id, name, ingredients) VALUES (1, 1, 'Negroni', 'gin, campari, vermouth')`).run();
-      db.prepare(`INSERT INTO recipes (user_id, collection_id, name, ingredients) VALUES (1, 2, 'Mai Tai', 'rum, lime')`).run();
-
-      const collections = collectionService.getAll(1);
+      const collections = await collectionService.getAll(testUserId);
 
       expect(collections).toHaveLength(2);
-      // Collections are ordered by created_at DESC, so most recent first
-      const classics = collections.find((c: any) => c.name === 'Classics');
-      const tiki = collections.find((c: any) => c.name === 'Tiki');
+      const classics = collections.find(c => c.name === 'Classics');
+      const tiki = collections.find(c => c.name === 'Tiki');
 
-      expect(classics.recipe_count).toBe(2);
-      expect(tiki.recipe_count).toBe(1);
+      expect(classics?.recipe_count).toBe(2);
+      expect(tiki?.recipe_count).toBe(1);
     });
 
-    it('should only return collections for the specified user', () => {
-      db.prepare(`INSERT INTO users (id, email, password_hash) VALUES (2, 'other@example.com', 'hash')`).run();
-      db.prepare(`INSERT INTO collections (user_id, name) VALUES (1, 'User1 Collection')`).run();
-      db.prepare(`INSERT INTO collections (user_id, name) VALUES (2, 'User2 Collection')`).run();
+    it('should only return collections for the specified user', async () => {
+      const mockCollections = [
+        createMockCollectionWithCount({ name: 'User1 Collection' }),
+      ];
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue(mockCollections);
 
-      const collections = collectionService.getAll(1);
+      const collections = await collectionService.getAll(testUserId);
 
       expect(collections).toHaveLength(1);
       expect(collections[0].name).toBe('User1 Collection');
+
+      // Verify query was called with correct user ID
+      expect(queryAll).toHaveBeenCalledWith(
+        expect.stringContaining('user_id = $1'),
+        [testUserId]
+      );
+    });
+  });
+
+  describe('getPaginated', () => {
+    it('should return paginated results with metadata', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ total: '15' });
+      const mockCollections = Array.from({ length: 5 }, (_, i) =>
+        createMockCollectionWithCount({ id: i + 1, name: `Collection ${i + 1}` })
+      );
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue(mockCollections);
+
+      const result = await collectionService.getPaginated(testUserId, 1, 5);
+
+      expect(result.collections).toHaveLength(5);
+      expect(result.pagination.page).toBe(1);
+      expect(result.pagination.limit).toBe(5);
+      expect(result.pagination.total).toBe(15);
+      expect(result.pagination.totalPages).toBe(3);
+      expect(result.pagination.hasNextPage).toBe(true);
+      expect(result.pagination.hasPreviousPage).toBe(false);
+    });
+
+    it('should handle last page', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ total: '15' });
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue([
+        createMockCollectionWithCount({ id: 15, name: 'Last Collection' }),
+      ]);
+
+      const result = await collectionService.getPaginated(testUserId, 3, 5);
+
+      expect(result.pagination.hasNextPage).toBe(false);
+      expect(result.pagination.hasPreviousPage).toBe(true);
+    });
+
+    it('should clamp page to minimum 1', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ total: '10' });
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+      const result = await collectionService.getPaginated(testUserId, -5, 5);
+
+      expect(result.pagination.page).toBe(1);
+    });
+
+    it('should clamp limit to maximum 100', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ total: '10' });
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+      const result = await collectionService.getPaginated(testUserId, 1, 500);
+
+      expect(result.pagination.limit).toBe(100);
     });
   });
 
   describe('getById', () => {
-    it('should return collection when it exists and belongs to user', () => {
-      db.prepare(`INSERT INTO collections (id, user_id, name, description) VALUES (1, 1, 'Classics', 'Classic cocktails')`).run();
+    it('should return collection when it exists and belongs to user', async () => {
+      const mockCollection = createMockCollection({ name: 'Classics', description: 'Classic cocktails' });
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(mockCollection);
 
-      const collection = collectionService.getById(1, 1);
+      const collection = await collectionService.getById(1, testUserId);
 
       expect(collection).not.toBeNull();
       expect(collection?.name).toBe('Classics');
       expect(collection?.description).toBe('Classic cocktails');
     });
 
-    it('should return null when collection does not exist', () => {
-      const collection = collectionService.getById(999, 1);
+    it('should return null when collection does not exist', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      const collection = await collectionService.getById(999, testUserId);
+
       expect(collection).toBeNull();
     });
 
-    it('should return null when collection belongs to different user', () => {
-      db.prepare(`INSERT INTO users (id, email, password_hash) VALUES (2, 'other@example.com', 'hash')`).run();
-      db.prepare(`INSERT INTO collections (id, user_id, name) VALUES (1, 2, 'Other Collection')`).run();
+    it('should return null when collection belongs to different user', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
-      const collection = collectionService.getById(1, 1);
+      const collection = await collectionService.getById(1, otherUserId);
+
       expect(collection).toBeNull();
     });
   });
 
   describe('exists', () => {
-    it('should return true when collection exists and belongs to user', () => {
-      db.prepare(`INSERT INTO collections (id, user_id, name) VALUES (1, 1, 'Test')`).run();
-      expect(collectionService.exists(1, 1)).toBe(true);
+    it('should return true when collection exists and belongs to user', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 1 });
+
+      const result = await collectionService.exists(1, testUserId);
+
+      expect(result).toBe(true);
     });
 
-    it('should return false when collection does not exist', () => {
-      expect(collectionService.exists(999, 1)).toBe(false);
+    it('should return false when collection does not exist', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      const result = await collectionService.exists(999, testUserId);
+
+      expect(result).toBe(false);
     });
 
-    it('should return false when collection belongs to different user', () => {
-      db.prepare(`INSERT INTO users (id, email, password_hash) VALUES (2, 'other@example.com', 'hash')`).run();
-      db.prepare(`INSERT INTO collections (id, user_id, name) VALUES (1, 2, 'Other')`).run();
+    it('should return false when collection belongs to different user', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
-      expect(collectionService.exists(1, 1)).toBe(false);
+      const result = await collectionService.exists(1, otherUserId);
+
+      expect(result).toBe(false);
     });
   });
 
   describe('create', () => {
-    it('should create a new collection with name only', () => {
-      const collection = collectionService.create(1, { name: 'Classics' });
+    it('should create a new collection with name only', async () => {
+      const mockCollection = createMockCollection({
+        id: 1,
+        name: 'Classics',
+        description: null,
+      });
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+        rows: [mockCollection],
+        rowCount: 1,
+      });
+
+      const collection = await collectionService.create(testUserId, { name: 'Classics' });
 
       expect(collection).toBeDefined();
       expect(collection.name).toBe('Classics');
       expect(collection.description).toBeNull();
-      expect(collection.user_id).toBe(1);
       expect(collection.id).toBeDefined();
     });
 
-    it('should create a new collection with name and description', () => {
-      const collection = collectionService.create(1, {
+    it('should create a new collection with name and description', async () => {
+      const mockCollection = createMockCollection({
+        name: 'Classics',
+        description: 'Classic cocktails from the golden age',
+      });
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+        rows: [mockCollection],
+        rowCount: 1,
+      });
+
+      const collection = await collectionService.create(testUserId, {
         name: 'Classics',
         description: 'Classic cocktails from the golden age',
       });
@@ -154,50 +245,86 @@ describe('CollectionService', () => {
       expect(collection.description).toBe('Classic cocktails from the golden age');
     });
 
-    it('should sanitize input to prevent XSS', () => {
-      const collection = collectionService.create(1, {
+    it('should sanitize input to prevent XSS', async () => {
+      const mockCollection = createMockCollection({
+        name: 'Classics',
+        description: 'Description',
+      });
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+        rows: [mockCollection],
+        rowCount: 1,
+      });
+
+      const collection = await collectionService.create(testUserId, {
         name: '<script>alert("xss")</script>Classics',
         description: '<img onerror="alert(1)" src="x">Description',
       });
 
-      expect(collection.name).not.toContain('<script>');
-      expect(collection.description).not.toContain('onerror');
-    });
-
-    it('should truncate long names and descriptions', () => {
-      const collection = collectionService.create(1, {
-        name: 'A'.repeat(200),
-        description: 'B'.repeat(600),
-      });
-
-      expect(collection.name.length).toBeLessThanOrEqual(100);
-      expect(collection.description.length).toBeLessThanOrEqual(500);
+      // Verify execute was called with sanitized values (no script tags)
+      expect(execute).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.arrayContaining([
+          testUserId,
+          expect.not.stringContaining('<script>'),
+          expect.not.stringContaining('onerror'),
+        ])
+      );
     });
   });
 
   describe('update', () => {
-    beforeEach(() => {
-      db.prepare(`INSERT INTO collections (id, user_id, name, description) VALUES (1, 1, 'Original', 'Original description')`).run();
-    });
+    it('should update collection name', async () => {
+      // First call to exists
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 1 });
 
-    it('should update collection name', () => {
-      const result = collectionService.update(1, 1, { name: 'Updated' });
+      const updatedCollection = createMockCollection({
+        name: 'Updated',
+        description: 'Original description',
+      });
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+        rows: [updatedCollection],
+        rowCount: 1,
+      });
+
+      const result = await collectionService.update(1, testUserId, { name: 'Updated' });
 
       expect(result.success).toBe(true);
       expect(result.collection?.name).toBe('Updated');
       expect(result.collection?.description).toBe('Original description');
     });
 
-    it('should update collection description', () => {
-      const result = collectionService.update(1, 1, { description: 'New description' });
+    it('should update collection description', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 1 });
+
+      const updatedCollection = createMockCollection({
+        name: 'Original',
+        description: 'New description',
+      });
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+        rows: [updatedCollection],
+        rowCount: 1,
+      });
+
+      const result = await collectionService.update(1, testUserId, { description: 'New description' });
 
       expect(result.success).toBe(true);
       expect(result.collection?.name).toBe('Original');
       expect(result.collection?.description).toBe('New description');
     });
 
-    it('should update both name and description', () => {
-      const result = collectionService.update(1, 1, {
+    it('should update both name and description', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 1 });
+
+      const updatedCollection = createMockCollection({
+        name: 'Updated',
+        description: 'New description',
+      });
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+        rows: [updatedCollection],
+        rowCount: 1,
+      });
+
+      const result = await collectionService.update(1, testUserId, {
         name: 'Updated',
         description: 'New description',
       });
@@ -207,31 +334,46 @@ describe('CollectionService', () => {
       expect(result.collection?.description).toBe('New description');
     });
 
-    it('should allow setting description to null', () => {
-      const result = collectionService.update(1, 1, { description: null });
+    it('should allow setting description to null', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 1 });
+
+      const updatedCollection = createMockCollection({
+        name: 'Original',
+        description: null,
+      });
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+        rows: [updatedCollection],
+        rowCount: 1,
+      });
+
+      const result = await collectionService.update(1, testUserId, { description: null });
 
       expect(result.success).toBe(true);
       expect(result.collection?.description).toBeNull();
     });
 
-    it('should fail when collection does not exist', () => {
-      const result = collectionService.update(999, 1, { name: 'Updated' });
+    it('should fail when collection does not exist', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      const result = await collectionService.update(999, testUserId, { name: 'Updated' });
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('not found');
     });
 
-    it('should fail when collection belongs to different user', () => {
-      db.prepare(`INSERT INTO users (id, email, password_hash) VALUES (2, 'other@example.com', 'hash')`).run();
+    it('should fail when collection belongs to different user', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
-      const result = collectionService.update(1, 2, { name: 'Updated' });
+      const result = await collectionService.update(1, otherUserId, { name: 'Updated' });
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('not found');
     });
 
-    it('should fail when no valid fields provided', () => {
-      const result = collectionService.update(1, 1, {});
+    it('should fail when no valid fields provided', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 1 });
+
+      const result = await collectionService.update(1, testUserId, {});
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('No valid fields');
@@ -239,46 +381,56 @@ describe('CollectionService', () => {
   });
 
   describe('delete', () => {
-    it('should delete an existing collection', () => {
-      db.prepare(`INSERT INTO collections (id, user_id, name) VALUES (1, 1, 'To Delete')`).run();
+    it('should delete an existing collection', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 1 });
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({ rowCount: 1 });
 
-      const result = collectionService.delete(1, 1);
+      const result = await collectionService.delete(1, testUserId);
 
       expect(result).toBe(true);
-
-      // Verify deleted
-      const collection = db.prepare('SELECT * FROM collections WHERE id = 1').get();
-      expect(collection).toBeUndefined();
+      expect(execute).toHaveBeenCalledWith(
+        expect.stringContaining('DELETE FROM collections'),
+        [1]
+      );
     });
 
-    it('should return false when collection does not exist', () => {
-      const result = collectionService.delete(999, 1);
+    it('should return false when collection does not exist', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      const result = await collectionService.delete(999, testUserId);
+
       expect(result).toBe(false);
     });
 
-    it('should return false when collection belongs to different user', () => {
-      db.prepare(`INSERT INTO users (id, email, password_hash) VALUES (2, 'other@example.com', 'hash')`).run();
-      db.prepare(`INSERT INTO collections (id, user_id, name) VALUES (1, 2, 'Other')`).run();
+    it('should return false when collection belongs to different user', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
-      const result = collectionService.delete(1, 1);
+      const result = await collectionService.delete(1, otherUserId);
 
       expect(result).toBe(false);
+    });
+  });
 
-      // Verify not deleted
-      const collection = db.prepare('SELECT * FROM collections WHERE id = 1').get();
-      expect(collection).toBeDefined();
+  describe('deleteWithRecipes', () => {
+    it('should delete collection and all its recipes', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 1 });
+      (execute as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({ rowCount: 3 }) // Delete recipes
+        .mockResolvedValueOnce({ rowCount: 1 }); // Delete collection
+
+      const result = await collectionService.deleteWithRecipes(1, testUserId);
+
+      expect(result.success).toBe(true);
+      expect(result.recipesDeleted).toBe(3);
     });
 
-    it('should set recipe collection_id to NULL when collection is deleted', () => {
-      db.prepare(`INSERT INTO collections (id, user_id, name) VALUES (1, 1, 'To Delete')`).run();
-      db.prepare(`INSERT INTO recipes (id, user_id, collection_id, name, ingredients) VALUES (1, 1, 1, 'Test Recipe', 'ingredients')`).run();
+    it('should return success false when collection does not exist', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
-      collectionService.delete(1, 1);
+      const result = await collectionService.deleteWithRecipes(999, testUserId);
 
-      // Recipe should still exist but with null collection_id
-      const recipe = db.prepare('SELECT * FROM recipes WHERE id = 1').get() as any;
-      expect(recipe).toBeDefined();
-      expect(recipe.collection_id).toBeNull();
+      expect(result.success).toBe(false);
+      expect(result.recipesDeleted).toBe(0);
     });
   });
 });

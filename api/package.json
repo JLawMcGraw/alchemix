@@ -44,10 +44,10 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.11",
+    "pg": "^8.16.3",
     "winston": "^3.18.3"
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "^1.6.1",
     "@types/bcrypt": "^5.0.2",
     "@types/better-sqlite3": "^7.6.8",
     "@types/cookie-parser": "^1.4.10",
@@ -56,7 +56,9 @@
     "@types/jsonwebtoken": "^9.0.5",
     "@types/multer": "^2.0.0",
     "@types/nodemailer": "^7.0.4",
+    "@types/pg": "^8.16.0",
     "@types/supertest": "^6.0.3",
+    "@vitest/coverage-v8": "^1.6.1",
     "supertest": "^6.3.4",
     "tsx": "^4.21.0",
     "typescript": "^5.3.3",

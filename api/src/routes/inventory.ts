@@ -27,7 +27,7 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import { parse } from 'csv-parse/sync';
-import { db } from '../database/db';
+import { queryOne, queryAll, execute, transaction } from '../database/db';
 import { authMiddleware } from '../middleware/auth';
 import { validateNumber } from '../utils/inputValidator';
 import { Bottle } from '../types';
@@ -116,7 +116,7 @@ router.use(authMiddleware);
  * - Input validation: page/limit validated as numbers
  * - SQL injection: Parameterized queries
  */
-router.get('/', (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
 
@@ -197,32 +197,33 @@ router.get('/', (req: Request, res: Response) => {
      * - COUNT(*) on indexed user_id column is fast (<1ms)
      * - Result is small (single integer)
      */
-    const countResult = db.prepare(
-      'SELECT COUNT(*) as total FROM bottles WHERE user_id = ?'
-    ).get(userId) as { total: number };
+    const countResult = await queryOne<{ total: string }>(
+      'SELECT COUNT(*) as total FROM bottles WHERE user_id = $1',
+      [userId]
+    );
 
-    const total = countResult.total;
+    const total = parseInt(countResult?.total || '0', 10);
 
     /**
      * Step 5: Fetch Paginated Bottles
      *
      * SQL Query Breakdown:
      * - SELECT *: All bottle columns (12 fields + metadata)
-     * - WHERE user_id = ?: User isolation for security
+     * - WHERE user_id = $1: User isolation for security
      * - ORDER BY created_at DESC: Newest bottles first
-     * - LIMIT ?: Number of rows to return
-     * - OFFSET ?: Number of rows to skip
+     * - LIMIT $2: Number of rows to return
+     * - OFFSET $3: Number of rows to skip
      *
      * Example SQL:
      * SELECT * FROM bottles WHERE user_id = 1
      * ORDER BY created_at DESC LIMIT 50 OFFSET 0
      */
-    const bottles = db.prepare(`
+    const bottles = await queryAll<Bottle>(`
       SELECT * FROM bottles
-      WHERE user_id = ?
+      WHERE user_id = $1
       ORDER BY created_at DESC
-      LIMIT ? OFFSET ?
-    `).all(userId, limit, offset) as Bottle[];
+      LIMIT $2 OFFSET $3
+    `, [userId, limit, offset]);
 
     /**
      * Step 6: Calculate Pagination Metadata
@@ -318,7 +319,7 @@ router.get('/', (req: Request, res: Response) => {
  * - User ownership: bottle.user_id set to authenticated user
  * - XSS prevention: HTML tags stripped from text fields
  */
-router.post('/', (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
 
@@ -364,22 +365,23 @@ router.post('/', (req: Request, res: Response) => {
      * SQL INSERT with 13 parameters (user_id + 12 bottle fields).
      * Parameterized query prevents SQL injection.
      *
-     * Note: Field names with spaces require double quotes in SQLite.
+     * Note: Field names with spaces require double quotes in PostgreSQL.
      * Example: "Stock Number" vs Stock_Number
      *
      * Database automatically adds:
      * - id: Auto-increment primary key
      * - created_at: Current timestamp (DEFAULT)
      */
-    const result = db.prepare(`
+    const createdBottle = await queryOne<Bottle>(`
       INSERT INTO bottles (
         user_id, name, "Stock Number", "Liquor Type",
         "Detailed Spirit Classification", "Distillation Method",
         "ABV (%)", "Distillery Location",
         "Age Statement or Barrel Finish", "Additional Notes",
         "Profile (Nose)", "Palate", "Finish"
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      RETURNING *
+    `, [
       userId,
       bottle.name,
       bottle['Stock Number'] || null,
@@ -393,22 +395,10 @@ router.post('/', (req: Request, res: Response) => {
       bottle['Profile (Nose)'] || null,
       bottle['Palate'] || null,
       bottle['Finish'] || null
-    );
-
-    const bottleId = result.lastInsertRowid as number;
+    ]);
 
     /**
-     * Step 4: Retrieve Created Bottle
-     *
-     * Fetch the complete bottle record to return in response.
-     * This includes database-generated fields (id, created_at).
-     */
-    const createdBottle = db.prepare(
-      'SELECT * FROM bottles WHERE id = ?'
-    ).get(bottleId) as Bottle;
-
-    /**
-     * Step 5: Return Success Response
+     * Step 4: Return Success Response
      *
      * 201 Created status indicates new resource was created.
      * Return complete bottle object for frontend to display.
@@ -471,7 +461,7 @@ router.post('/', (req: Request, res: Response) => {
  * - SQL injection: Parameterized queries only
  * - Authorization: Even with valid ID, users can't update others' bottles
  */
-router.put('/:id', (req: Request, res: Response) => {
+router.put('/:id', async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
     const bottleId = parseInt(req.params.id);
@@ -506,13 +496,14 @@ router.put('/:id', (req: Request, res: Response) => {
      * This prevents users from updating others' bottles.
      *
      * Security Note:
-     * - WHERE id = ? AND user_id = ? ensures both conditions
+     * - WHERE id = $1 AND user_id = $2 ensures both conditions
      * - If bottle exists but belongs to another user → 404 (not 403)
      * - Prevents leaking information about other users' inventories
      */
-    const existingBottle = db.prepare(
-      'SELECT id FROM bottles WHERE id = ? AND user_id = ?'
-    ).get(bottleId, userId);
+    const existingBottle = await queryOne<{ id: number }>(
+      'SELECT id FROM bottles WHERE id = $1 AND user_id = $2',
+      [bottleId, userId]
+    );
 
     if (!existingBottle) {
       return res.status(404).json({
@@ -540,30 +531,28 @@ router.put('/:id', (req: Request, res: Response) => {
     const bottle = validation.sanitized;
 
     /**
-     * Step 5: Update Bottle in Database
+     * Step 5: Update Bottle in Database and Return Updated Record
      *
-     * SQL UPDATE with 14 parameters (12 fields + id + user_id).
+     * SQL UPDATE with RETURNING to get updated record.
      * WHERE clause ensures user ownership (defense in depth).
-     *
-     * Note: updated_at timestamp would auto-update if we had that column.
-     * Consider adding in Phase 3 for audit trails.
      */
-    db.prepare(`
+    const updatedBottle = await queryOne<Bottle>(`
       UPDATE bottles SET
-        name = ?,
-        "Stock Number" = ?,
-        "Liquor Type" = ?,
-        "Detailed Spirit Classification" = ?,
-        "Distillation Method" = ?,
-        "ABV (%)" = ?,
-        "Distillery Location" = ?,
-        "Age Statement or Barrel Finish" = ?,
-        "Additional Notes" = ?,
-        "Profile (Nose)" = ?,
-        "Palate" = ?,
-        "Finish" = ?
-      WHERE id = ? AND user_id = ?
-    `).run(
+        name = $1,
+        "Stock Number" = $2,
+        "Liquor Type" = $3,
+        "Detailed Spirit Classification" = $4,
+        "Distillation Method" = $5,
+        "ABV (%)" = $6,
+        "Distillery Location" = $7,
+        "Age Statement or Barrel Finish" = $8,
+        "Additional Notes" = $9,
+        "Profile (Nose)" = $10,
+        "Palate" = $11,
+        "Finish" = $12
+      WHERE id = $13 AND user_id = $14
+      RETURNING *
+    `, [
       bottle.name,
       bottle['Stock Number'] || null,
       bottle['Liquor Type'] || null,
@@ -578,19 +567,10 @@ router.put('/:id', (req: Request, res: Response) => {
       bottle['Finish'] || null,
       bottleId,
       userId
-    );
+    ]);
 
     /**
-     * Step 6: Retrieve Updated Bottle
-     *
-     * Fetch the complete updated record to return in response.
-     */
-    const updatedBottle = db.prepare(
-      'SELECT * FROM bottles WHERE id = ?'
-    ).get(bottleId) as Bottle;
-
-    /**
-     * Step 7: Return Success Response
+     * Step 6: Return Success Response
      */
     res.json({
       success: true,
@@ -644,7 +624,7 @@ router.put('/:id', (req: Request, res: Response) => {
  * - Filter out deleted bottles in queries
  * - Allows data recovery and audit trails
  */
-router.delete('/:id', (req: Request, res: Response) => {
+router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
     const bottleId = parseInt(req.params.id);
@@ -670,16 +650,18 @@ router.delete('/:id', (req: Request, res: Response) => {
     }
 
     /**
-     * Step 3: Verify Ownership
+     * Step 3: Verify Ownership and Delete
      *
      * Check that bottle exists AND belongs to authenticated user.
      * Prevents deleting other users' bottles.
+     * Delete in one query with rowCount check.
      */
-    const existingBottle = db.prepare(
-      'SELECT id FROM bottles WHERE id = ? AND user_id = ?'
-    ).get(bottleId, userId);
+    const result = await execute(
+      'DELETE FROM bottles WHERE id = $1 AND user_id = $2',
+      [bottleId, userId]
+    );
 
-    if (!existingBottle) {
+    if (result.rowCount === 0) {
       return res.status(404).json({
         success: false,
         error: 'Bottle not found'
@@ -687,24 +669,7 @@ router.delete('/:id', (req: Request, res: Response) => {
     }
 
     /**
-     * Step 4: Delete Bottle
-     *
-     * Permanent removal from database.
-     * WHERE clause ensures user ownership (defense in depth).
-     *
-     * SQL: DELETE FROM bottles WHERE id = ? AND user_id = ?
-     *
-     * Future Enhancement (Phase 3):
-     * Implement soft delete for data recovery:
-     * - Add `deleted_at` TIMESTAMP column
-     * - UPDATE bottles SET deleted_at = CURRENT_TIMESTAMP
-     * - WHERE deleted_at IS NULL in all queries
-     */
-    db.prepare('DELETE FROM bottles WHERE id = ? AND user_id = ?')
-      .run(bottleId, userId);
-
-    /**
-     * Step 5: Return Success Response
+     * Step 4: Return Success Response
      *
      * 200 OK with confirmation message.
      * No data returned (bottle is deleted).
@@ -719,7 +684,7 @@ router.delete('/:id', (req: Request, res: Response) => {
      *
      * Common errors:
      * - Database constraint violation (e.g., foreign key if we add them)
-     * - SQLite error (database locked)
+     * - PostgreSQL error
      */
     logger.error('Delete bottle error', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(500).json({
@@ -929,15 +894,15 @@ router.post('/import', upload.single('file'), async (req: Request, res: Response
         const bottle = validation.sanitized;
 
         // Insert into database
-        db.prepare(`
+        await execute(`
           INSERT INTO bottles (
             user_id, name, "Stock Number", "Liquor Type",
             "Detailed Spirit Classification", "Distillation Method",
             "ABV (%)", "Distillery Location",
             "Age Statement or Barrel Finish", "Additional Notes",
             "Profile (Nose)", "Palate", "Finish"
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        `, [
           userId,
           bottle.name,
           bottle['Stock Number'] || null,
@@ -951,7 +916,7 @@ router.post('/import', upload.single('file'), async (req: Request, res: Response
           bottle['Profile (Nose)'] || null,
           bottle['Palate'] || null,
           bottle['Finish'] || null
-        );
+        ]);
 
         imported++;
       } catch (error: unknown) {

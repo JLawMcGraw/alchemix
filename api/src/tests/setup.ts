@@ -1,198 +1,189 @@
-import { beforeAll, afterAll, afterEach } from 'vitest';
-import Database from 'better-sqlite3';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
-import { randomBytes } from 'crypto';
-
-// Use a temp directory for test database to avoid path issues
-const TEST_DIR = path.join(os.tmpdir(), 'alchemix-test');
-
-// Generate unique database path for each test run to avoid conflicts
-function generateTestDbPath(): string {
-  const uniqueId = randomBytes(8).toString('hex');
-  return path.join(TEST_DIR, `test-${uniqueId}.db`);
-}
-
-// Legacy path export for backwards compatibility (not used anymore)
-export const TEST_DB_PATH = path.join(TEST_DIR, 'test.db');
-
-// Ensure test database directory exists
-// Note: We also check this in createTestDatabase() to handle parallel test execution
-beforeAll(() => {
-  if (!fs.existsSync(TEST_DIR)) {
-    fs.mkdirSync(TEST_DIR, { recursive: true });
-  }
-});
-
-// Note: We don't clean up the entire TEST_DIR in afterAll because:
-// 1. Tests run in parallel and may still need the directory
-// 2. Each test cleans up its own database file via cleanupTestDatabase()
-// 3. The OS temp directory is cleaned up automatically by the system
+import { beforeAll, vi } from 'vitest';
+import { Pool, PoolClient, QueryResult } from 'pg';
 
 /**
- * Create a test database with schema
- * Each call creates a unique database file to avoid test interference
+ * Test Setup for PostgreSQL Migration
+ *
+ * This provides mock implementations for the PostgreSQL database layer.
+ * Tests should mock the db module and use these helpers.
  */
-export function createTestDatabase(): Database.Database {
-  // Ensure directory exists before creating database
-  if (!fs.existsSync(TEST_DIR)) {
-    fs.mkdirSync(TEST_DIR, { recursive: true });
-  }
 
-  const uniqueDbPath = generateTestDbPath();
-  const db = new Database(uniqueDbPath);
-
-  // Enable foreign keys
-  db.pragma('foreign_keys = ON');
-
-  // Create users table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      email TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
-      token_version INTEGER NOT NULL DEFAULT 0,
-      is_verified INTEGER NOT NULL DEFAULT 0,
-      verification_token TEXT,
-      verification_token_expires DATETIME,
-      reset_token TEXT,
-      reset_token_expires DATETIME,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  // Create inventory_items table (matches production schema)
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS inventory_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      name TEXT NOT NULL,
-      category TEXT NOT NULL CHECK(category IN ('spirit', 'liqueur', 'mixer', 'garnish', 'syrup', 'wine', 'beer', 'other')),
-      type TEXT,
-      abv TEXT,
-      stock_number INTEGER,
-      spirit_classification TEXT,
-      distillation_method TEXT,
-      distillery_location TEXT,
-      age_statement TEXT,
-      additional_notes TEXT,
-      profile_nose TEXT,
-      palate TEXT,
-      finish TEXT,
-      tasting_notes TEXT,
-      periodic_group TEXT CHECK(periodic_group IN ('Base', 'Bridge', 'Modifier', 'Sweetener', 'Reagent', 'Catalyst')),
-      periodic_period TEXT CHECK(periodic_period IN ('Agave', 'Cane', 'Grain', 'Grape', 'Fruit', 'Botanic')),
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
-  `);
-
-  // Create collections table (needed for recipes FK)
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS collections (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      name TEXT NOT NULL,
-      description TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
-  `);
-
-  // Create recipes table (v2 API uses memmachine_uid, not memmachine_uuid)
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS recipes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      collection_id INTEGER,
-      name TEXT NOT NULL,
-      ingredients TEXT NOT NULL,
-      instructions TEXT,
-      glass TEXT,
-      category TEXT,
-      memmachine_uid TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-      FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE SET NULL
-    )
-  `);
-
-  // Create favorites table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS favorites (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      recipe_name TEXT NOT NULL,
-      recipe_id INTEGER,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-      FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE SET NULL,
-      UNIQUE(user_id, recipe_id)
-    )
-  `);
-
-  // Shopping list items table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS shopping_list_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      name TEXT NOT NULL,
-      checked INTEGER NOT NULL DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
-  `);
-
-  // Token blacklist table for logout tests
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS token_blacklist (
-      token TEXT PRIMARY KEY,
-      expires_at INTEGER NOT NULL
-    )
-  `);
-
-  // Create indices
-  db.exec('CREATE INDEX IF NOT EXISTS idx_inventory_items_user_id ON inventory_items(user_id)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_inventory_items_category ON inventory_items(category)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_collections_user_id ON collections(user_id)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_recipes_user_id ON recipes(user_id)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_recipes_collection_id ON recipes(collection_id)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_recipes_memmachine_uid ON recipes(memmachine_uid)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites(user_id)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_favorites_recipe_id ON favorites(recipe_id)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_shopping_list_items_user_id ON shopping_list_items(user_id)');
-
-  // Store the database path on the instance for cleanup
-  (db as any).__testDbPath = uniqueDbPath;
-
-  return db;
+// Type definitions for test data
+interface TestRow {
+  [key: string]: unknown;
 }
 
 /**
- * Helper function to clean up a test database
- * Call this in your afterEach to delete the database file
+ * In-Memory Test Store
+ * Simulates PostgreSQL tables using Maps for fast test execution.
  */
-export function cleanupTestDatabase(db: Database.Database): void {
-  const dbPath = (db as any).__testDbPath;
+class TestStore {
+  private tables: Map<string, Map<number, TestRow>> = new Map();
+  private sequences: Map<string, number> = new Map();
 
-  // Close the database
-  if (db && typeof db.close === 'function') {
-    try {
-      db.close();
-    } catch (err) {
-      // Database might already be closed
+  constructor() {
+    this.reset();
+  }
+
+  reset(): void {
+    this.tables.clear();
+    this.sequences.clear();
+
+    // Initialize tables
+    const tableNames = [
+      'users', 'inventory_items', 'recipes', 'favorites',
+      'collections', 'shopping_list_items', 'token_blacklist',
+      'bottles', 'glasses', 'messages', 'classifications'
+    ];
+
+    for (const name of tableNames) {
+      this.tables.set(name, new Map());
+      this.sequences.set(name, 1);
     }
   }
 
-  // Delete the database file
-  if (dbPath && fs.existsSync(dbPath)) {
-    try {
-      fs.unlinkSync(dbPath);
-    } catch (err) {
-      console.warn(`Failed to delete test database: ${dbPath}`, err);
+  getTable(name: string): Map<number, TestRow> {
+    if (!this.tables.has(name)) {
+      this.tables.set(name, new Map());
+      this.sequences.set(name, 1);
     }
+    return this.tables.get(name)!;
   }
+
+  nextId(table: string): number {
+    const current = this.sequences.get(table) || 1;
+    this.sequences.set(table, current + 1);
+    return current;
+  }
+
+  insert(table: string, row: TestRow): TestRow {
+    const id = this.nextId(table);
+    const rowWithId = { ...row, id, created_at: new Date().toISOString() };
+    this.getTable(table).set(id, rowWithId);
+    return rowWithId;
+  }
+
+  findById(table: string, id: number): TestRow | undefined {
+    return this.getTable(table).get(id);
+  }
+
+  findAll(table: string, predicate?: (row: TestRow) => boolean): TestRow[] {
+    const rows = Array.from(this.getTable(table).values());
+    return predicate ? rows.filter(predicate) : rows;
+  }
+
+  update(table: string, id: number, updates: Partial<TestRow>): TestRow | undefined {
+    const row = this.findById(table, id);
+    if (!row) return undefined;
+    const updated = { ...row, ...updates };
+    this.getTable(table).set(id, updated);
+    return updated;
+  }
+
+  delete(table: string, id: number): boolean {
+    return this.getTable(table).delete(id);
+  }
+
+  deleteWhere(table: string, predicate: (row: TestRow) => boolean): number {
+    const tableData = this.getTable(table);
+    let deleted = 0;
+    for (const [id, row] of tableData.entries()) {
+      if (predicate(row)) {
+        tableData.delete(id);
+        deleted++;
+      }
+    }
+    return deleted;
+  }
+}
+
+// Global test store instance
+export const testStore = new TestStore();
+
+/**
+ * Create mock database functions matching the PostgreSQL db.ts API
+ */
+export function createMockDbFunctions() {
+  return {
+    queryOne: vi.fn().mockImplementation(async <T>(_sql: string, _params?: unknown[]): Promise<T | null> => {
+      // Default implementation returns null
+      // Override in specific tests
+      return null;
+    }),
+
+    queryAll: vi.fn().mockImplementation(async <T>(_sql: string, _params?: unknown[]): Promise<T[]> => {
+      // Default implementation returns empty array
+      // Override in specific tests
+      return [];
+    }),
+
+    execute: vi.fn().mockImplementation(async (_sql: string, _params?: unknown[]): Promise<QueryResult> => {
+      // Default implementation returns success with 0 rows
+      return { rows: [], rowCount: 0, command: '', oid: 0, fields: [] };
+    }),
+
+    transaction: vi.fn().mockImplementation(async <T>(callback: (client: PoolClient) => Promise<T>): Promise<T> => {
+      // Mock client with query method
+      const mockClient = {
+        query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }),
+      } as unknown as PoolClient;
+      return callback(mockClient);
+    }),
+
+    getPool: vi.fn().mockReturnValue({} as Pool),
+  };
+}
+
+/**
+ * Reset test store before each test
+ */
+export function resetTestStore(): void {
+  testStore.reset();
+}
+
+/**
+ * Create a test user and return their ID
+ */
+export async function createTestUser(
+  mockDb: ReturnType<typeof createMockDbFunctions>,
+  email: string = 'test@example.com',
+  passwordHash: string = 'hashed_password'
+): Promise<number> {
+  const user = testStore.insert('users', {
+    email,
+    password_hash: passwordHash,
+    token_version: 0,
+    is_verified: true,
+  });
+
+  // Configure mock to return this user
+  mockDb.queryOne.mockImplementation(async (sql: string, params?: unknown[]) => {
+    if (sql.includes('FROM users') && params?.[0] === email) {
+      return user;
+    }
+    if (sql.includes('FROM users') && sql.includes('id =') && params?.[0] === user.id) {
+      return user;
+    }
+    return null;
+  });
+
+  return user.id as number;
+}
+
+/**
+ * Create a test recipe and return it
+ */
+export async function createTestRecipe(
+  userId: number,
+  name: string = 'Test Recipe',
+  ingredients: string = '["Gin", "Vermouth"]'
+): Promise<TestRow> {
+  return testStore.insert('recipes', {
+    user_id: userId,
+    name,
+    ingredients,
+    instructions: 'Test instructions',
+  });
 }
 
 /**
@@ -246,3 +237,31 @@ export const testRecipes = {
     instructions: 'Stir with ice and strain over ice',
   },
 };
+
+// Ensure test directory exists (for any file-based tests)
+beforeAll(() => {
+  // No-op - we no longer use file-based SQLite for tests
+});
+
+// ============================================================================
+// LEGACY EXPORTS - For backwards compatibility during migration
+// These are deprecated and will be removed once all tests are updated
+// ============================================================================
+
+/**
+ * @deprecated Use createMockDbFunctions() instead
+ * Legacy function to create test database - now returns mock functions
+ */
+export function createTestDatabase(): ReturnType<typeof createMockDbFunctions> {
+  console.warn('createTestDatabase() is deprecated. Use createMockDbFunctions() instead.');
+  return createMockDbFunctions();
+}
+
+/**
+ * @deprecated No longer needed with mock-based tests
+ * Legacy cleanup function - now a no-op
+ */
+export function cleanupTestDatabase(_db: unknown): void {
+  // No-op - test cleanup is handled by resetTestStore()
+  resetTestStore();
+}

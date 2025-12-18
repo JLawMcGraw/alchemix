@@ -72,7 +72,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const skipPagination = req.query.all === 'true';
 
   if (skipPagination) {
-    const collections = collectionService.getAll(userId);
+    const collections = await collectionService.getAll(userId);
     return res.json({
       success: true,
       data: collections
@@ -107,7 +107,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
 
   const limit = limitValidation.sanitized || 50;
 
-  const result = collectionService.getPaginated(userId, page, limit);
+  const result = await collectionService.getPaginated(userId, page, limit);
 
   res.json({
     success: true,
@@ -157,7 +157,7 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  const collection = collectionService.create(userId, { name, description });
+  const collection = await collectionService.create(userId, { name, description });
 
   res.status(201).json({
     success: true,
@@ -205,7 +205,7 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
 
   const { name, description } = req.body;
 
-  const result = collectionService.update(collectionId, userId, { name, description });
+  const result = await collectionService.update(collectionId, userId, { name, description });
 
   if (!result.success) {
     const status = result.error === 'Collection not found or access denied' ? 404 : 400;
@@ -259,7 +259,7 @@ router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
   const deleteRecipes = req.query.deleteRecipes === 'true';
 
   if (deleteRecipes) {
-    const result = collectionService.deleteWithRecipes(collectionId, userId);
+    const result = await collectionService.deleteWithRecipes(collectionId, userId);
 
     if (!result.success) {
       return res.status(404).json({
@@ -276,7 +276,7 @@ router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
   }
 
   // Default behavior: just delete collection, orphan recipes
-  const deleted = collectionService.delete(collectionId, userId);
+  const deleted = await collectionService.delete(collectionId, userId);
 
   if (!deleted) {
     return res.status(404).json({

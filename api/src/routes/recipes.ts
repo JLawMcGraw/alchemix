@@ -99,7 +99,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
 
   const limit = limitValidation.sanitized || 50;
 
-  const result = recipeService.getAll(userId, { page, limit });
+  const result = await recipeService.getAll(userId, { page, limit });
 
   res.json({
     success: true,
@@ -121,7 +121,7 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  const sanitizeResult = recipeService.sanitizeCreateInput(req.body, userId);
+  const sanitizeResult = await recipeService.sanitizeCreateInput(req.body, userId);
 
   if (!sanitizeResult.valid) {
     return res.status(400).json({
@@ -130,7 +130,7 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  const recipe = recipeService.create(userId, sanitizeResult.data!);
+  const recipe = await recipeService.create(userId, sanitizeResult.data!);
 
   res.status(201).json({
     success: true,
@@ -164,7 +164,7 @@ router.post('/import', upload.single('file'), asyncHandler(async (req: Request, 
     : null;
 
   // Validate collection belongs to user if provided
-  if (collectionId && !recipeService.validateCollection(collectionId, userId)) {
+  if (collectionId && !await recipeService.validateCollection(collectionId, userId)) {
     return res.status(400).json({
       success: false,
       error: 'Collection not found or access denied'
@@ -223,7 +223,7 @@ router.post('/import', upload.single('file'), asyncHandler(async (req: Request, 
     });
   }
 
-  const result = recipeService.importFromCSV(userId, records, collectionId);
+  const result = await recipeService.importFromCSV(userId, records, collectionId);
 
   res.json({
     success: true,
@@ -254,7 +254,7 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  const result = recipeService.update(recipeId, userId, req.body);
+  const result = await recipeService.update(recipeId, userId, req.body);
 
   if (!result.success) {
     const status = result.error === 'Recipe not found or access denied' ? 404 : 400;
@@ -347,7 +347,7 @@ router.delete('/all', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  const deleted = recipeService.deleteAll(userId);
+  const deleted = await recipeService.deleteAll(userId);
 
   res.json({
     success: true,
@@ -399,7 +399,7 @@ router.delete('/bulk', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  const deleted = recipeService.bulkDelete(sanitizedIds, userId);
+  const deleted = await recipeService.bulkDelete(sanitizedIds, userId);
 
   res.json({
     success: true,
@@ -428,7 +428,7 @@ router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  const result = recipeService.delete(recipeId, userId);
+  const result = await recipeService.delete(recipeId, userId);
 
   if (!result.success) {
     return res.status(404).json({

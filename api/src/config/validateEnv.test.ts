@@ -148,23 +148,40 @@ describe('validateEnv', () => {
     });
   });
 
-  describe('DATABASE_PATH', () => {
-    it('should use provided path', async () => {
-      process.env.DATABASE_PATH = '/custom/path/db.sqlite';
+  describe('DATABASE_URL', () => {
+    it('should use provided PostgreSQL URL', async () => {
+      process.env.DATABASE_URL = 'postgresql://user:pass@host:5432/mydb';
 
       const { validateEnv } = await import('./validateEnv');
       const config = validateEnv();
 
-      expect(config.DATABASE_PATH).toBe('/custom/path/db.sqlite');
+      expect(config.DATABASE_URL).toBe('postgresql://user:pass@host:5432/mydb');
     });
 
-    it('should default to ./data/alchemix.db', async () => {
-      delete process.env.DATABASE_PATH;
+    it('should default to local PostgreSQL connection', async () => {
+      delete process.env.DATABASE_URL;
 
       const { validateEnv } = await import('./validateEnv');
       const config = validateEnv();
 
-      expect(config.DATABASE_PATH).toBe('./data/alchemix.db');
+      expect(config.DATABASE_URL).toBe('postgresql://alchemix:alchemix@localhost:5432/alchemix');
+    });
+
+    it('should accept postgres:// URL scheme', async () => {
+      process.env.DATABASE_URL = 'postgres://user:pass@host:5432/mydb';
+
+      const { validateEnv } = await import('./validateEnv');
+      const config = validateEnv();
+
+      expect(config.DATABASE_URL).toBe('postgres://user:pass@host:5432/mydb');
+    });
+
+    it('should reject invalid URL scheme', async () => {
+      process.env.DATABASE_URL = 'mysql://user:pass@host:3306/mydb';
+
+      await expect(async () => {
+        await import('./validateEnv');
+      }).rejects.toThrow('PostgreSQL connection string');
     });
   });
 

@@ -18,7 +18,9 @@ export interface Config {
   JWT_SECRET: string;
   NODE_ENV: 'development' | 'production' | 'test';
   PORT: number;
-  DATABASE_PATH: string;
+
+  // Database - PostgreSQL connection string
+  DATABASE_URL: string;
 
   // Optional - AI Services
   OPENAI_API_KEY?: string;
@@ -76,8 +78,19 @@ export function validateEnv(): Config {
     errors.push(`PORT must be a number between 1 and 65535. Got: ${process.env.PORT}`);
   }
 
-  // DATABASE_PATH - Default based on environment
-  const DATABASE_PATH = process.env.DATABASE_PATH || './data/alchemix.db';
+  // DATABASE_URL - PostgreSQL connection string
+  // Default for development: local PostgreSQL
+  const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://alchemix:alchemix@localhost:5432/alchemix';
+  if (!DATABASE_URL) {
+    errors.push(
+      'DATABASE_URL is required. ' +
+      'Set it to your PostgreSQL connection string (e.g., postgresql://user:pass@host:5432/dbname)'
+    );
+  } else if (!DATABASE_URL.startsWith('postgresql://') && !DATABASE_URL.startsWith('postgres://')) {
+    errors.push(
+      'DATABASE_URL must be a valid PostgreSQL connection string starting with postgresql:// or postgres://'
+    );
+  }
 
   // ============ Optional Variables ============
 
@@ -157,7 +170,7 @@ export function validateEnv(): Config {
     JWT_SECRET: JWT_SECRET!,
     NODE_ENV,
     PORT,
-    DATABASE_PATH,
+    DATABASE_URL,
     OPENAI_API_KEY,
     ANTHROPIC_API_KEY,
     MEMMACHINE_API_URL,

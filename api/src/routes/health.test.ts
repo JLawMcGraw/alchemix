@@ -5,13 +5,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 
-// Mock the database
+// Mock the database with async queryOne
 vi.mock('../database/db', () => ({
-  db: {
-    prepare: vi.fn().mockReturnValue({
-      get: vi.fn().mockReturnValue({ ready: 1 }),
-    }),
-  },
+  queryOne: vi.fn().mockResolvedValue({ ready: 1 }),
 }));
 
 // Mock logger
@@ -25,7 +21,7 @@ vi.mock('../utils/logger', () => ({
 }));
 
 import healthRouter from './health';
-import { db } from '../database/db';
+import { queryOne } from '../database/db';
 
 describe('Health Routes', () => {
   let app: express.Application;
@@ -37,6 +33,9 @@ describe('Health Routes', () => {
 
     // Set JWT_SECRET for tests
     process.env.JWT_SECRET = 'test-secret';
+
+    // Reset mock to default success
+    (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ ready: 1 });
   });
 
   describe('GET /health/live', () => {
@@ -79,11 +78,7 @@ describe('Health Routes', () => {
 
     it('should return not_ready when database fails', async () => {
       // Mock database failure
-      (db.prepare as vi.Mock).mockReturnValue({
-        get: vi.fn().mockImplementation(() => {
-          throw new Error('Connection failed');
-        }),
-      });
+      (queryOne as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Connection failed'));
 
       const response = await request(app).get('/health/ready');
 
@@ -97,11 +92,6 @@ describe('Health Routes', () => {
       // Remove JWT_SECRET
       const originalSecret = process.env.JWT_SECRET;
       delete process.env.JWT_SECRET;
-
-      // Restore db mock
-      (db.prepare as vi.Mock).mockReturnValue({
-        get: vi.fn().mockReturnValue({ ready: 1 }),
-      });
 
       const response = await request(app).get('/health/ready');
 
@@ -123,9 +113,7 @@ describe('Health Routes', () => {
     });
 
     it('should handle unexpected database response', async () => {
-      (db.prepare as vi.Mock).mockReturnValue({
-        get: vi.fn().mockReturnValue({ ready: 0 }),
-      });
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ ready: 0 });
 
       const response = await request(app).get('/health/ready');
 

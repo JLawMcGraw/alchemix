@@ -8,7 +8,7 @@
  * @date December 2025
  */
 
-import { db } from '../database/db';
+import { queryOne, queryAll, execute } from '../database/db';
 import { sanitizeString, validateNumber } from '../utils/inputValidator';
 import { Favorite } from '../types';
 
@@ -62,10 +62,11 @@ export class FavoriteService {
   /**
    * Get all favorites for a user (no pagination - backwards compatible)
    */
-  getAll(userId: number): Favorite[] {
-    return db.prepare(
-      'SELECT * FROM favorites WHERE user_id = ? ORDER BY created_at DESC'
-    ).all(userId) as Favorite[];
+  async getAll(userId: number): Promise<Favorite[]> {
+    return queryAll<Favorite>(
+      'SELECT * FROM favorites WHERE user_id = $1 ORDER BY created_at DESC',
+      [userId]
+    );
   }
 
   /**
@@ -75,24 +76,26 @@ export class FavoriteService {
    * @param page - Page number (1-indexed, default 1)
    * @param limit - Items per page (default 50, max 100)
    */
-  getPaginated(userId: number, page: number = 1, limit: number = 50): PaginatedFavorites {
+  async getPaginated(userId: number, page: number = 1, limit: number = 50): Promise<PaginatedFavorites> {
     // Validate and clamp parameters
     const safePage = Math.max(1, Math.floor(page));
     const safeLimit = Math.min(100, Math.max(1, Math.floor(limit)));
     const offset = (safePage - 1) * safeLimit;
 
     // Get total count
-    const countResult = db.prepare(
-      'SELECT COUNT(*) as total FROM favorites WHERE user_id = ?'
-    ).get(userId) as { total: number };
+    const countResult = await queryOne<{ total: string }>(
+      'SELECT COUNT(*) as total FROM favorites WHERE user_id = $1',
+      [userId]
+    );
 
-    const total = countResult.total;
+    const total = parseInt(countResult?.total ?? '0', 10);
     const totalPages = Math.ceil(total / safeLimit);
 
     // Get paginated results
-    const favorites = db.prepare(
-      'SELECT * FROM favorites WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
-    ).all(userId, safeLimit, offset) as Favorite[];
+    const favorites = await queryAll<Favorite>(
+      'SELECT * FROM favorites WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3',
+      [userId, safeLimit, offset]
+    );
 
     return {
       favorites,
@@ -110,22 +113,21 @@ export class FavoriteService {
   /**
    * Get a single favorite by ID (with ownership check)
    */
-  getById(favoriteId: number, userId: number): Favorite | null {
-    const favorite = db.prepare(
-      'SELECT * FROM favorites WHERE id = ? AND user_id = ?'
-    ).get(favoriteId, userId) as Favorite | undefined;
-
-    return favorite || null;
+  async getById(favoriteId: number, userId: number): Promise<Favorite | null> {
+    return queryOne<Favorite>(
+      'SELECT * FROM favorites WHERE id = $1 AND user_id = $2',
+      [favoriteId, userId]
+    );
   }
 
   /**
    * Check if a favorite exists and belongs to user
    */
-  exists(favoriteId: number, userId: number): boolean {
-    const result = db.prepare(
-      'SELECT id FROM favorites WHERE id = ? AND user_id = ?'
-    ).get(favoriteId, userId);
-
+  async exists(favoriteId: number, userId: number): Promise<boolean> {
+    const result = await queryOne<{ id: number }>(
+      'SELECT id FROM favorites WHERE id = $1 AND user_id = $2',
+      [favoriteId, userId]
+    );
     return !!result;
   }
 
@@ -172,17 +174,15 @@ export class FavoriteService {
    *
    * Expects pre-validated input (use validateRecipeName/validateRecipeId first)
    */
-  create(userId: number, sanitizedName: string, recipeId: number | null): Favorite {
-    const result = db.prepare(`
-      INSERT INTO favorites (user_id, recipe_name, recipe_id)
-      VALUES (?, ?, ?)
-    `).run(userId, sanitizedName, recipeId);
+  async create(userId: number, sanitizedName: string, recipeId: number | null): Promise<Favorite> {
+    const result = await execute(
+      `INSERT INTO favorites (user_id, recipe_name, recipe_id)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [userId, sanitizedName, recipeId]
+    );
 
-    const favoriteId = result.lastInsertRowid as number;
-
-    return db.prepare(
-      'SELECT * FROM favorites WHERE id = ?'
-    ).get(favoriteId) as Favorite;
+    return result.rows[0] as Favorite;
   }
 
   /**
@@ -190,13 +190,15 @@ export class FavoriteService {
    *
    * Returns false if favorite doesn't exist or doesn't belong to user.
    */
-  delete(favoriteId: number, userId: number): boolean {
-    if (!this.exists(favoriteId, userId)) {
+  async delete(favoriteId: number, userId: number): Promise<boolean> {
+    if (!await this.exists(favoriteId, userId)) {
       return false;
     }
 
-    db.prepare('DELETE FROM favorites WHERE id = ? AND user_id = ?')
-      .run(favoriteId, userId);
+    await execute(
+      'DELETE FROM favorites WHERE id = $1 AND user_id = $2',
+      [favoriteId, userId]
+    );
 
     return true;
   }
@@ -204,23 +206,22 @@ export class FavoriteService {
   /**
    * Check if a recipe is already favorited by user
    */
-  isRecipeFavorited(userId: number, recipeId: number): boolean {
-    const result = db.prepare(
-      'SELECT id FROM favorites WHERE user_id = ? AND recipe_id = ?'
-    ).get(userId, recipeId);
-
+  async isRecipeFavorited(userId: number, recipeId: number): Promise<boolean> {
+    const result = await queryOne<{ id: number }>(
+      'SELECT id FROM favorites WHERE user_id = $1 AND recipe_id = $2',
+      [userId, recipeId]
+    );
     return !!result;
   }
 
   /**
    * Get favorite by recipe ID (if exists)
    */
-  getByRecipeId(userId: number, recipeId: number): Favorite | null {
-    const favorite = db.prepare(
-      'SELECT * FROM favorites WHERE user_id = ? AND recipe_id = ?'
-    ).get(userId, recipeId) as Favorite | undefined;
-
-    return favorite || null;
+  async getByRecipeId(userId: number, recipeId: number): Promise<Favorite | null> {
+    return queryOne<Favorite>(
+      'SELECT * FROM favorites WHERE user_id = $1 AND recipe_id = $2',
+      [userId, recipeId]
+    );
   }
 }
 

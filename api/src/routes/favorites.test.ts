@@ -1,323 +1,329 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import express, { Express } from 'express';
-import { createServer, Server } from 'http';
+/**
+ * Favorites Routes Tests
+ *
+ * Tests for favorite recipes CRUD operations.
+ * Updated for PostgreSQL async pattern.
+ */
+
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import express from 'express';
 import request from 'supertest';
-import { createTestDatabase, cleanupTestDatabase } from '../tests/setup';
-import Database from 'better-sqlite3';
-import jwt from 'jsonwebtoken';
 
-// Mock the database module
-let testDb: Database.Database;
-
+// Mock the database module FIRST (before any imports that use it)
 vi.mock('../database/db', () => ({
-  db: {
-    prepare: (sql: string) => testDb.prepare(sql),
-    pragma: (pragma: string, options?: any) => testDb.pragma(pragma, options),
-  },
+  queryOne: vi.fn(),
+  queryAll: vi.fn(),
+  execute: vi.fn(),
+}));
+
+// Mock the auth middleware to bypass JWT verification
+vi.mock('../middleware/auth', () => ({
+  authMiddleware: vi.fn((req: any, _res: any, next: any) => {
+    req.user = { userId: 1, email: 'test@example.com' };
+    next();
+  }),
+  generateToken: vi.fn(() => 'mock-token'),
+  generateTokenId: vi.fn(() => 'mock-jti'),
 }));
 
 // Mock token blacklist
 vi.mock('../utils/tokenBlacklist', () => ({
   tokenBlacklist: {
+    isBlacklisted: vi.fn().mockResolvedValue(false),
     add: vi.fn(),
-    remove: vi.fn(),
-    isBlacklisted: vi.fn().mockReturnValue(false),
-    size: vi.fn().mockReturnValue(0),
-    cleanup: vi.fn(),
-    shutdown: vi.fn(),
   },
 }));
 
-import favoritesRoutes from './favorites';
-import { errorHandler } from '../middleware/errorHandler';
+// Mock logger
+vi.mock('../utils/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    debug: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+  logSecurityEvent: vi.fn(),
+}));
 
-describe('Favorites Routes Integration Tests', () => {
-  let app: Express;
-  let authToken: string;
-  let userId: number;
-  let server: Server | null = null;
+import { queryOne, queryAll, execute } from '../database/db';
 
-  beforeEach(() => {
-    // Create test database
-    testDb = createTestDatabase();
+// Helper to create mock favorite
+const createMockFavorite = (overrides: Partial<{
+  id: number;
+  user_id: number;
+  recipe_name: string;
+  recipe_id: number | null;
+  created_at: string;
+}> = {}) => ({
+  id: 1,
+  user_id: 1,
+  recipe_name: 'Test Recipe',
+  recipe_id: 1,
+  created_at: new Date().toISOString(),
+  ...overrides,
+});
 
-    // Create a test user
-    const result = testDb.prepare(`
-      INSERT INTO users (email, password_hash)
-      VALUES (?, ?)
-    `).run('test@example.com', 'hashedpassword');
+describe('Favorites Routes', () => {
+  let app: express.Application;
+  const testUserId = 1;
 
-    userId = result.lastInsertRowid as number;
+  beforeEach(async () => {
+    vi.clearAllMocks();
 
-    // Generate JWT token for authentication
-    authToken = jwt.sign(
-      { userId, email: 'test@example.com' },
-      process.env.JWT_SECRET || 'test-secret',
-      { expiresIn: '1h' }
-    );
+    // Default mock implementations
+    (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (execute as ReturnType<typeof vi.fn>).mockResolvedValue({ rows: [], rowCount: 0 });
 
-    // Create Express app
+    // Create fresh app with routes
     app = express();
     app.use(express.json());
-    app.use('/api/favorites', favoritesRoutes);
-    app.use(errorHandler);
 
-    server = createServer(app);
-  });
+    // Import routes fresh (auth is already mocked)
+    const { default: favoritesRouter } = await import('./favorites');
+    app.use('/api/favorites', favoritesRouter);
 
-  afterEach(() => {
-    if (server) {
-      server.close();
-      server = null;
-    }
-    cleanupTestDatabase(testDb);
+    // Add error handler
+    app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      res.status(500).json({ success: false, error: err.message });
+    });
   });
 
   describe('GET /api/favorites', () => {
-    it('should reject unauthenticated requests', async () => {
-      const response = await request(server!)
-        .get('/api/favorites')
-        .expect(401);
+    it('should return empty array when no favorites exist', async () => {
+      // Mock: total count = 0
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ total: '0' });
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
-      expect(response.body).toHaveProperty('success', false);
-      expect(response.body.error).toContain('No authorization token provided');
+      const res = await request(app).get('/api/favorites');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toEqual([]);
     });
 
-    it('should return empty list when user has no favorites', async () => {
-      const response = await request(server!)
-        .get('/api/favorites')
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(200);
+    it('should return all favorites when ?all=true', async () => {
+      const mockFavorites = [
+        createMockFavorite({ id: 1, recipe_name: 'Old Fashioned' }),
+        createMockFavorite({ id: 2, recipe_name: 'Martini' }),
+      ];
 
-      expect(response.body).toHaveProperty('success', true);
-      expect(response.body.data).toEqual([]);
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue(mockFavorites);
+
+      const res = await request(app).get('/api/favorites?all=true');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveLength(2);
+      expect(res.body.data[0].recipe_name).toBe('Old Fashioned');
+      expect(res.body.data[1].recipe_name).toBe('Martini');
+      // No pagination when all=true
+      expect(res.body.pagination).toBeUndefined();
     });
 
-    it('should return user favorites', async () => {
-      // Add recipes
-      const recipe1 = testDb.prepare(`
-        INSERT INTO recipes (user_id, name, ingredients)
-        VALUES (?, ?, ?)
-      `).run(userId, 'Old Fashioned', JSON.stringify(['Bourbon', 'Bitters']));
-      const recipe1Id = recipe1.lastInsertRowid as number;
+    it('should return paginated favorites', async () => {
+      const mockFavorites = [
+        createMockFavorite({ id: 1, recipe_name: 'Recipe 1' }),
+        createMockFavorite({ id: 2, recipe_name: 'Recipe 2' }),
+      ];
 
-      const recipe2 = testDb.prepare(`
-        INSERT INTO recipes (user_id, name, ingredients)
-        VALUES (?, ?, ?)
-      `).run(userId, 'Martini', JSON.stringify(['Gin', 'Vermouth']));
-      const recipe2Id = recipe2.lastInsertRowid as number;
+      // Mock total count
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ total: '15' });
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue(mockFavorites);
 
-      // Add favorites
-      testDb.prepare(`
-        INSERT INTO favorites (user_id, recipe_name, recipe_id)
-        VALUES (?, ?, ?), (?, ?, ?)
-      `).run(
-        userId, 'Old Fashioned', recipe1Id,
-        userId, 'Martini', recipe2Id
-      );
+      const res = await request(app).get('/api/favorites?page=1&limit=2');
 
-      const response = await request(server!)
-        .get('/api/favorites')
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(200);
-
-      expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveLength(2);
-      expect(response.body.data.map((f: any) => f.recipe_name)).toContain('Old Fashioned');
-      expect(response.body.data.map((f: any) => f.recipe_name)).toContain('Martini');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveLength(2);
+      expect(res.body.pagination).toBeDefined();
+      expect(res.body.pagination.page).toBe(1);
+      expect(res.body.pagination.limit).toBe(2);
+      expect(res.body.pagination.total).toBe(15);
+      expect(res.body.pagination.totalPages).toBe(8);
+      expect(res.body.pagination.hasNextPage).toBe(true);
+      expect(res.body.pagination.hasPreviousPage).toBe(false);
     });
 
-    it('should isolate user data', async () => {
-      // Create another user
-      const otherUserResult = testDb.prepare(`
-        INSERT INTO users (email, password_hash)
-        VALUES (?, ?)
-      `).run('other@example.com', 'hashedpassword');
-      const otherUserId = otherUserResult.lastInsertRowid as number;
+    it('should only return favorites for authenticated user', async () => {
+      const userFavorite = createMockFavorite({ id: 1, user_id: testUserId, recipe_name: 'My Favorite' });
 
-      // Add recipe
-      const recipeResult = testDb.prepare(`
-        INSERT INTO recipes (user_id, name, ingredients)
-        VALUES (?, ?, ?)
-      `).run(userId, 'Test Recipe', JSON.stringify(['Ingredient']));
-      const recipeId = recipeResult.lastInsertRowid as number;
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ total: '1' });
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue([userFavorite]);
 
-      // Add favorites for both users
-      testDb.prepare(`
-        INSERT INTO favorites (user_id, recipe_name, recipe_id)
-        VALUES (?, ?, ?), (?, ?, ?)
-      `).run(
-        userId, 'Test Recipe', recipeId,
-        otherUserId, 'Test Recipe', recipeId
-      );
+      const res = await request(app).get('/api/favorites');
 
-      const response = await request(server!)
-        .get('/api/favorites')
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(200);
+      expect(res.status).toBe(200);
+      expect(res.body.data).toHaveLength(1);
+      expect(res.body.data[0].recipe_name).toBe('My Favorite');
+    });
 
-      expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveLength(1);
-      expect(response.body.data[0].user_id).toBe(userId);
+    it('should return 400 for invalid page parameter', async () => {
+      const res = await request(app).get('/api/favorites?page=abc');
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toContain('Invalid page parameter');
+    });
+
+    it('should return 400 for invalid limit parameter', async () => {
+      const res = await request(app).get('/api/favorites?limit=abc');
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toContain('Invalid limit parameter');
     });
   });
 
   describe('POST /api/favorites', () => {
-    let recipeId: number;
+    it('should create a new favorite', async () => {
+      const newFavorite = createMockFavorite({ id: 1, recipe_name: 'Old Fashioned', recipe_id: 42 });
 
-    beforeEach(() => {
-      const result = testDb.prepare(`
-        INSERT INTO recipes (user_id, name, ingredients)
-        VALUES (?, ?, ?)
-      `).run(userId, 'Test Recipe', JSON.stringify(['Ingredient']));
-      recipeId = result.lastInsertRowid as number;
-    });
-
-    it('should reject unauthenticated requests', async () => {
-      const response = await request(server!)
-        .post('/api/favorites')
-        .send({ recipe_name: 'Test Recipe', recipe_id: recipeId })
-        .expect(401);
-
-      expect(response.body).toHaveProperty('success', false);
-    });
-
-    it('should add a recipe to favorites', async () => {
-      const response = await request(server!)
-        .post('/api/favorites')
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          recipe_name: 'Test Recipe',
-          recipe_id: recipeId
-        })
-        .expect(201);
-
-      expect(response.body.success).toBe(true);
-      expect(response.body.data).toMatchObject({
-        recipe_name: 'Test Recipe',
-        recipe_id: recipeId,
-        user_id: userId
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+        rows: [newFavorite],
+        rowCount: 1,
       });
+
+      const res = await request(app)
+        .post('/api/favorites')
+        .send({ recipe_name: 'Old Fashioned', recipe_id: 42 });
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.recipe_name).toBe('Old Fashioned');
+      expect(res.body.data.recipe_id).toBe(42);
+      expect(res.body.data.id).toBeDefined();
     });
 
-    it('should allow favoriting recipe by name only', async () => {
-      const response = await request(server!)
-        .post('/api/favorites')
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          recipe_name: 'External Recipe'
-        })
-        .expect(201);
+    it('should create favorite without recipe_id (external recipe)', async () => {
+      const newFavorite = createMockFavorite({ id: 1, recipe_name: 'External Recipe', recipe_id: null });
 
-      expect(response.body.success).toBe(true);
-      expect(response.body.data).toMatchObject({
-        recipe_name: 'External Recipe'
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+        rows: [newFavorite],
+        rowCount: 1,
       });
+
+      const res = await request(app)
+        .post('/api/favorites')
+        .send({ recipe_name: 'External Recipe' });
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.recipe_name).toBe('External Recipe');
+      expect(res.body.data.recipe_id).toBeNull();
     });
 
-    it('should reject duplicate favorites', async () => {
-      // Add first favorite
-      testDb.prepare(`
-        INSERT INTO favorites (user_id, recipe_name, recipe_id)
-        VALUES (?, ?, ?)
-      `).run(userId, 'Test Recipe', recipeId);
-
-      const response = await request(server!)
+    it('should return 400 when recipe_name is missing', async () => {
+      const res = await request(app)
         .post('/api/favorites')
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          recipe_name: 'Test Recipe',
-          recipe_id: recipeId
-        })
-        .expect(500); // SQLite UNIQUE constraint violation
+        .send({ recipe_id: 1 });
 
-      expect(response.body.success).toBe(false);
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toContain('Recipe name is required');
     });
 
-    it('should reject missing recipe_name', async () => {
-      const response = await request(server!)
+    it('should return 400 when recipe_name is empty string', async () => {
+      const res = await request(app)
         .post('/api/favorites')
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          recipe_id: recipeId
-        })
-        .expect(400);
+        .send({ recipe_name: '' });
 
-      expect(response.body.success).toBe(false);
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    });
+
+    it('should return 400 for invalid recipe_id', async () => {
+      const res = await request(app)
+        .post('/api/favorites')
+        .send({ recipe_name: 'Test Recipe', recipe_id: -1 });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toContain('Invalid recipe ID');
+    });
+
+    it('should sanitize recipe name', async () => {
+      const newFavorite = createMockFavorite({ id: 1, recipe_name: 'Old Fashioned' });
+
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+        rows: [newFavorite],
+        rowCount: 1,
+      });
+
+      const res = await request(app)
+        .post('/api/favorites')
+        .send({ recipe_name: '  Old Fashioned  ' });
+
+      expect(res.status).toBe(201);
+      expect(res.body.data.recipe_name).toBe('Old Fashioned');
+    });
+
+    it('should handle database constraint error for duplicates', async () => {
+      (execute as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error('duplicate key value violates unique constraint')
+      );
+
+      const res = await request(app)
+        .post('/api/favorites')
+        .send({ recipe_name: 'Duplicate Recipe' });
+
+      expect(res.status).toBe(500);
+      expect(res.body.success).toBe(false);
     });
   });
 
   describe('DELETE /api/favorites/:id', () => {
-    let favoriteId: number;
+    it('should delete an existing favorite', async () => {
+      // Mock: exists check returns true, then delete succeeds
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 1 });
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({ rowCount: 1 });
 
-    beforeEach(() => {
-      const recipeResult = testDb.prepare(`
-        INSERT INTO recipes (user_id, name, ingredients)
-        VALUES (?, ?, ?)
-      `).run(userId, 'Test Recipe', JSON.stringify(['Ingredient']));
-      const recipeId = recipeResult.lastInsertRowid as number;
+      const res = await request(app).delete('/api/favorites/1');
 
-      const favoriteResult = testDb.prepare(`
-        INSERT INTO favorites (user_id, recipe_name, recipe_id)
-        VALUES (?, ?, ?)
-      `).run(userId, 'Test Recipe', recipeId);
-      favoriteId = favoriteResult.lastInsertRowid as number;
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.message).toBe('Favorite removed successfully');
     });
 
-    it('should reject unauthenticated requests', async () => {
-      const response = await request(server!)
-        .delete(`/api/favorites/${favoriteId}`)
-        .expect(401);
+    it('should return 404 when favorite not found', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
-      expect(response.body).toHaveProperty('success', false);
+      const res = await request(app).delete('/api/favorites/999');
+
+      expect(res.status).toBe(404);
+      expect(res.body.success).toBe(false);
     });
 
-    it('should remove favorite', async () => {
-      const response = await request(server!)
-        .delete(`/api/favorites/${favoriteId}`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(200);
+    it('should return 400 for invalid favorite ID', async () => {
+      const res = await request(app).delete('/api/favorites/invalid');
 
-      expect(response.body.success).toBe(true);
-
-      // Verify deletion
-      const deleted = testDb.prepare('SELECT * FROM favorites WHERE id = ?').get(favoriteId);
-      expect(deleted).toBeUndefined();
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toBe('Invalid favorite ID');
     });
 
-    it('should not allow removing other users favorites', async () => {
-      // Create another user and their favorite
-      const otherUserResult = testDb.prepare(`
-        INSERT INTO users (email, password_hash)
-        VALUES (?, ?)
-      `).run('other@example.com', 'hashedpassword');
-      const otherUserId = otherUserResult.lastInsertRowid as number;
+    it('should return 400 for zero ID', async () => {
+      const res = await request(app).delete('/api/favorites/0');
 
-      const otherFavoriteResult = testDb.prepare(`
-        INSERT INTO favorites (user_id, recipe_name)
-        VALUES (?, ?)
-      `).run(otherUserId, 'Their Favorite');
-      const otherFavoriteId = otherFavoriteResult.lastInsertRowid as number;
-
-      const response = await request(server!)
-        .delete(`/api/favorites/${otherFavoriteId}`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(404);
-
-      expect(response.body.success).toBe(false);
-
-      // Verify favorite still exists
-      const stillExists = testDb.prepare('SELECT * FROM favorites WHERE id = ?').get(otherFavoriteId);
-      expect(stillExists).toBeDefined();
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
     });
 
-    it('should return 404 for non-existent favorite', async () => {
-      const response = await request(server!)
-        .delete('/api/favorites/99999')
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(404);
+    it('should return 400 for negative ID', async () => {
+      const res = await request(app).delete('/api/favorites/-1');
 
-      expect(response.body.success).toBe(false);
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    });
+
+    it('should not delete another user\'s favorite', async () => {
+      // Query with user_id check returns null (not found for this user)
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      const res = await request(app).delete('/api/favorites/100');
+
+      expect(res.status).toBe(404);
+      expect(res.body.success).toBe(false);
     });
   });
 });

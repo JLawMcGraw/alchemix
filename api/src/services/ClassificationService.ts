@@ -11,7 +11,7 @@
  * - Persists across sessions
  */
 
-import { db } from '../database/db';
+import { queryOne, queryAll, execute } from '../database/db';
 import type { MixologyGroup, MixologyPeriod, CellPosition } from '../types/periodicTable';
 
 // ============================================================================
@@ -43,91 +43,6 @@ export interface ClassificationOverride {
 }
 
 // ============================================================================
-// Prepared Statements (Lazy Initialization)
-// ============================================================================
-
-/**
- * Lazy-initialized prepared statements
- *
- * IMPORTANT: Statements are created on first access, not at module load time.
- * This ensures the database tables exist before preparing statements.
- *
- * Why lazy initialization?
- * - Database initialization (initializeDatabase) runs after imports
- * - Eager preparation would fail with "no such table" error
- * - Lazy init defers preparation until first actual use
- */
-let _statements: {
-  getByUser: ReturnType<typeof db.prepare<[number], ClassificationRow>>;
-  getOne: ReturnType<typeof db.prepare<[number, number], ClassificationRow>>;
-  upsert: ReturnType<typeof db.prepare<[number, number, number, number]>>;
-  delete: ReturnType<typeof db.prepare<[number, number]>>;
-  deleteAll: ReturnType<typeof db.prepare<[number]>>;
-  count: ReturnType<typeof db.prepare<[number], { count: number }>>;
-} | null = null;
-
-function getStatements() {
-  if (!_statements) {
-    _statements = {
-      /**
-       * Get all classification overrides for a user
-       */
-      getByUser: db.prepare<[number], ClassificationRow>(`
-        SELECT * FROM inventory_classifications
-        WHERE user_id = ?
-        ORDER BY updated_at DESC
-      `),
-
-      /**
-       * Get a single classification override
-       */
-      getOne: db.prepare<[number, number], ClassificationRow>(`
-        SELECT * FROM inventory_classifications
-        WHERE user_id = ? AND inventory_item_id = ?
-      `),
-
-      /**
-       * Insert or update a classification override
-       * Uses SQLite's UPSERT syntax (INSERT OR REPLACE)
-       */
-      upsert: db.prepare<[number, number, number, number]>(`
-        INSERT INTO inventory_classifications (user_id, inventory_item_id, group_num, period_num)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(user_id, inventory_item_id) DO UPDATE SET
-          group_num = excluded.group_num,
-          period_num = excluded.period_num,
-          updated_at = CURRENT_TIMESTAMP
-      `),
-
-      /**
-       * Delete a classification override (revert to auto-classification)
-       */
-      delete: db.prepare<[number, number]>(`
-        DELETE FROM inventory_classifications
-        WHERE user_id = ? AND inventory_item_id = ?
-      `),
-
-      /**
-       * Delete all overrides for a user (bulk reset)
-       */
-      deleteAll: db.prepare<[number]>(`
-        DELETE FROM inventory_classifications
-        WHERE user_id = ?
-      `),
-
-      /**
-       * Count overrides for a user
-       */
-      count: db.prepare<[number], { count: number }>(`
-        SELECT COUNT(*) as count FROM inventory_classifications
-        WHERE user_id = ?
-      `),
-    };
-  }
-  return _statements;
-}
-
-// ============================================================================
 // Service Functions
 // ============================================================================
 
@@ -137,8 +52,14 @@ function getStatements() {
  * @param userId - User ID
  * @returns Map of inventory item ID to CellPosition for use with classification engine
  */
-export function getUserOverrides(userId: number): Map<number, CellPosition> {
-  const rows = getStatements().getByUser.all(userId);
+export async function getUserOverrides(userId: number): Promise<Map<number, CellPosition>> {
+  const rows = await queryAll<ClassificationRow>(
+    `SELECT * FROM inventory_classifications
+     WHERE user_id = $1
+     ORDER BY updated_at DESC`,
+    [userId]
+  );
+
   const overrides = new Map<number, CellPosition>();
 
   for (const row of rows) {
@@ -157,8 +78,13 @@ export function getUserOverrides(userId: number): Map<number, CellPosition> {
  * @param userId - User ID
  * @returns Array of classification overrides
  */
-export function getAll(userId: number): ClassificationOverride[] {
-  const rows = getStatements().getByUser.all(userId);
+export async function getAll(userId: number): Promise<ClassificationOverride[]> {
+  const rows = await queryAll<ClassificationRow>(
+    `SELECT * FROM inventory_classifications
+     WHERE user_id = $1
+     ORDER BY updated_at DESC`,
+    [userId]
+  );
 
   return rows.map((row) => ({
     inventoryItemId: row.inventory_item_id,
@@ -176,11 +102,15 @@ export function getAll(userId: number): ClassificationOverride[] {
  * @param inventoryItemId - Inventory item ID
  * @returns Classification override or null if not found
  */
-export function getOne(
+export async function getOne(
   userId: number,
   inventoryItemId: number
-): ClassificationOverride | null {
-  const row = getStatements().getOne.get(userId, inventoryItemId);
+): Promise<ClassificationOverride | null> {
+  const row = await queryOne<ClassificationRow>(
+    `SELECT * FROM inventory_classifications
+     WHERE user_id = $1 AND inventory_item_id = $2`,
+    [userId, inventoryItemId]
+  );
 
   if (!row) return null;
 
@@ -202,12 +132,12 @@ export function getOne(
  * @param period - Period number (1-6)
  * @returns Updated override
  */
-export function setOverride(
+export async function setOverride(
   userId: number,
   inventoryItemId: number,
   group: MixologyGroup,
   period: MixologyPeriod
-): ClassificationOverride {
+): Promise<ClassificationOverride> {
   // Validate group and period range
   if (group < 1 || group > 6) {
     throw new Error(`Invalid group: ${group}. Must be 1-6.`);
@@ -216,10 +146,19 @@ export function setOverride(
     throw new Error(`Invalid period: ${period}. Must be 1-6.`);
   }
 
-  getStatements().upsert.run(userId, inventoryItemId, group, period);
+  // PostgreSQL UPSERT using ON CONFLICT
+  await execute(
+    `INSERT INTO inventory_classifications (user_id, inventory_item_id, group_num, period_num)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (user_id, inventory_item_id) DO UPDATE SET
+       group_num = EXCLUDED.group_num,
+       period_num = EXCLUDED.period_num,
+       updated_at = NOW()`,
+    [userId, inventoryItemId, group, period]
+  );
 
   // Fetch and return the updated row
-  const result = getOne(userId, inventoryItemId);
+  const result = await getOne(userId, inventoryItemId);
   if (!result) {
     throw new Error('Failed to save classification override');
   }
@@ -234,12 +173,16 @@ export function setOverride(
  * @param inventoryItemId - Inventory item ID
  * @returns true if deleted, false if not found
  */
-export function deleteOverride(
+export async function deleteOverride(
   userId: number,
   inventoryItemId: number
-): boolean {
-  const result = getStatements().delete.run(userId, inventoryItemId);
-  return result.changes > 0;
+): Promise<boolean> {
+  const result = await execute(
+    `DELETE FROM inventory_classifications
+     WHERE user_id = $1 AND inventory_item_id = $2`,
+    [userId, inventoryItemId]
+  );
+  return (result.rowCount ?? 0) > 0;
 }
 
 /**
@@ -248,9 +191,12 @@ export function deleteOverride(
  * @param userId - User ID
  * @returns Number of overrides deleted
  */
-export function deleteAllOverrides(userId: number): number {
-  const result = getStatements().deleteAll.run(userId);
-  return result.changes;
+export async function deleteAllOverrides(userId: number): Promise<number> {
+  const result = await execute(
+    `DELETE FROM inventory_classifications WHERE user_id = $1`,
+    [userId]
+  );
+  return result.rowCount ?? 0;
 }
 
 /**
@@ -259,9 +205,12 @@ export function deleteAllOverrides(userId: number): number {
  * @param userId - User ID
  * @returns Number of overrides
  */
-export function countOverrides(userId: number): number {
-  const result = getStatements().count.get(userId);
-  return result?.count ?? 0;
+export async function countOverrides(userId: number): Promise<number> {
+  const result = await queryOne<{ count: string }>(
+    `SELECT COUNT(*) as count FROM inventory_classifications WHERE user_id = $1`,
+    [userId]
+  );
+  return parseInt(result?.count ?? '0', 10);
 }
 
 // ============================================================================

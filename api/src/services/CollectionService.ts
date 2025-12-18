@@ -8,7 +8,7 @@
  * @date December 2025
  */
 
-import { db } from '../database/db';
+import { queryOne, queryAll, execute } from '../database/db';
 import { sanitizeString } from '../utils/inputValidator';
 import { memoryService } from './MemoryService';
 
@@ -79,17 +79,18 @@ export class CollectionService {
   /**
    * Get all collections for a user with recipe counts (no pagination - backwards compatible)
    */
-  getAll(userId: number): CollectionWithCount[] {
-    return db.prepare(`
-      SELECT
+  async getAll(userId: number): Promise<CollectionWithCount[]> {
+    return queryAll<CollectionWithCount>(
+      `SELECT
         c.*,
         COUNT(r.id) as recipe_count
       FROM collections c
       LEFT JOIN recipes r ON r.collection_id = c.id
-      WHERE c.user_id = ?
+      WHERE c.user_id = $1
       GROUP BY c.id
-      ORDER BY c.created_at DESC
-    `).all(userId) as CollectionWithCount[];
+      ORDER BY c.created_at DESC`,
+      [userId]
+    );
   }
 
   /**
@@ -99,32 +100,34 @@ export class CollectionService {
    * @param page - Page number (1-indexed, default 1)
    * @param limit - Items per page (default 50, max 100)
    */
-  getPaginated(userId: number, page: number = 1, limit: number = 50): PaginatedCollections {
+  async getPaginated(userId: number, page: number = 1, limit: number = 50): Promise<PaginatedCollections> {
     // Validate and clamp parameters
     const safePage = Math.max(1, Math.floor(page));
     const safeLimit = Math.min(100, Math.max(1, Math.floor(limit)));
     const offset = (safePage - 1) * safeLimit;
 
     // Get total count
-    const countResult = db.prepare(
-      'SELECT COUNT(*) as total FROM collections WHERE user_id = ?'
-    ).get(userId) as { total: number };
+    const countResult = await queryOne<{ total: string }>(
+      'SELECT COUNT(*) as total FROM collections WHERE user_id = $1',
+      [userId]
+    );
 
-    const total = countResult.total;
+    const total = parseInt(countResult?.total ?? '0', 10);
     const totalPages = Math.ceil(total / safeLimit);
 
     // Get paginated results with recipe counts
-    const collections = db.prepare(`
-      SELECT
+    const collections = await queryAll<CollectionWithCount>(
+      `SELECT
         c.*,
         COUNT(r.id) as recipe_count
       FROM collections c
       LEFT JOIN recipes r ON r.collection_id = c.id
-      WHERE c.user_id = ?
+      WHERE c.user_id = $1
       GROUP BY c.id
       ORDER BY c.created_at DESC
-      LIMIT ? OFFSET ?
-    `).all(userId, safeLimit, offset) as CollectionWithCount[];
+      LIMIT $2 OFFSET $3`,
+      [userId, safeLimit, offset]
+    );
 
     return {
       collections,
@@ -142,42 +145,41 @@ export class CollectionService {
   /**
    * Get a single collection by ID (with ownership check)
    */
-  getById(collectionId: number, userId: number): Collection | null {
-    const collection = db.prepare(
-      'SELECT * FROM collections WHERE id = ? AND user_id = ?'
-    ).get(collectionId, userId) as Collection | undefined;
-
-    return collection || null;
+  async getById(collectionId: number, userId: number): Promise<Collection | null> {
+    return queryOne<Collection>(
+      'SELECT * FROM collections WHERE id = $1 AND user_id = $2',
+      [collectionId, userId]
+    );
   }
 
   /**
    * Check if a collection exists and belongs to user
    */
-  exists(collectionId: number, userId: number): boolean {
-    const result = db.prepare(
-      'SELECT id FROM collections WHERE id = ? AND user_id = ?'
-    ).get(collectionId, userId);
-
+  async exists(collectionId: number, userId: number): Promise<boolean> {
+    const result = await queryOne<{ id: number }>(
+      'SELECT id FROM collections WHERE id = $1 AND user_id = $2',
+      [collectionId, userId]
+    );
     return !!result;
   }
 
   /**
    * Create a new collection
    */
-  create(userId: number, input: CreateCollectionInput): Collection {
+  async create(userId: number, input: CreateCollectionInput): Promise<Collection> {
     const sanitizedName = sanitizeString(input.name, 100);
     const sanitizedDescription = input.description
       ? sanitizeString(input.description, 500)
       : null;
 
-    const result = db.prepare(`
-      INSERT INTO collections (user_id, name, description)
-      VALUES (?, ?, ?)
-    `).run(userId, sanitizedName, sanitizedDescription);
+    const result = await execute(
+      `INSERT INTO collections (user_id, name, description)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [userId, sanitizedName, sanitizedDescription]
+    );
 
-    const collection = db.prepare(
-      'SELECT * FROM collections WHERE id = ?'
-    ).get(result.lastInsertRowid) as Collection;
+    const collection = result.rows[0] as Collection;
 
     // Store in MemMachine (fire-and-forget)
     memoryService.storeUserCollection(userId, {
@@ -195,20 +197,21 @@ export class CollectionService {
    *
    * Returns null if collection doesn't exist or doesn't belong to user
    */
-  update(collectionId: number, userId: number, input: UpdateCollectionInput): UpdateResult {
+  async update(collectionId: number, userId: number, input: UpdateCollectionInput): Promise<UpdateResult> {
     // Check ownership
-    if (!this.exists(collectionId, userId)) {
+    if (!await this.exists(collectionId, userId)) {
       return { success: false, error: 'Collection not found or access denied' };
     }
 
     // Build update query dynamically
     const updates: string[] = [];
     const values: (string | number | null)[] = [];
+    let paramIndex = 1;
 
     if (input.name !== undefined) {
       const sanitizedName = sanitizeString(input.name, 100);
       if (sanitizedName) {
-        updates.push('name = ?');
+        updates.push(`name = $${paramIndex++}`);
         values.push(sanitizedName);
       }
     }
@@ -217,7 +220,7 @@ export class CollectionService {
       const sanitizedDescription = input.description
         ? sanitizeString(input.description, 500)
         : null;
-      updates.push('description = ?');
+      updates.push(`description = $${paramIndex++}`);
       values.push(sanitizedDescription);
     }
 
@@ -227,15 +230,15 @@ export class CollectionService {
 
     values.push(collectionId);
 
-    db.prepare(`
-      UPDATE collections
-      SET ${updates.join(', ')}
-      WHERE id = ?
-    `).run(...values);
+    const result = await execute(
+      `UPDATE collections
+       SET ${updates.join(', ')}
+       WHERE id = $${paramIndex}
+       RETURNING *`,
+      values
+    );
 
-    const collection = db.prepare(
-      'SELECT * FROM collections WHERE id = ?'
-    ).get(collectionId) as Collection;
+    const collection = result.rows[0] as Collection;
 
     return { success: true, collection };
   }
@@ -246,12 +249,12 @@ export class CollectionService {
    * Recipes in this collection will have collection_id set to NULL (not deleted).
    * Returns false if collection doesn't exist or doesn't belong to user.
    */
-  delete(collectionId: number, userId: number): boolean {
-    if (!this.exists(collectionId, userId)) {
+  async delete(collectionId: number, userId: number): Promise<boolean> {
+    if (!await this.exists(collectionId, userId)) {
       return false;
     }
 
-    db.prepare('DELETE FROM collections WHERE id = ?').run(collectionId);
+    await execute('DELETE FROM collections WHERE id = $1', [collectionId]);
     return true;
   }
 
@@ -260,20 +263,21 @@ export class CollectionService {
    *
    * Returns the number of recipes deleted, or -1 if collection doesn't exist.
    */
-  deleteWithRecipes(collectionId: number, userId: number): { success: boolean; recipesDeleted: number } {
-    if (!this.exists(collectionId, userId)) {
+  async deleteWithRecipes(collectionId: number, userId: number): Promise<{ success: boolean; recipesDeleted: number }> {
+    if (!await this.exists(collectionId, userId)) {
       return { success: false, recipesDeleted: 0 };
     }
 
     // Delete recipes in this collection first
-    const deleteRecipesResult = db.prepare(
-      'DELETE FROM recipes WHERE collection_id = ? AND user_id = ?'
-    ).run(collectionId, userId);
+    const deleteRecipesResult = await execute(
+      'DELETE FROM recipes WHERE collection_id = $1 AND user_id = $2',
+      [collectionId, userId]
+    );
 
     // Then delete the collection
-    db.prepare('DELETE FROM collections WHERE id = ?').run(collectionId);
+    await execute('DELETE FROM collections WHERE id = $1', [collectionId]);
 
-    return { success: true, recipesDeleted: deleteRecipesResult.changes };
+    return { success: true, recipesDeleted: deleteRecipesResult.rowCount ?? 0 };
   }
 }
 

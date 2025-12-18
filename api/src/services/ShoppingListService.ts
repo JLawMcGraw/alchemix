@@ -17,7 +17,7 @@
  * - Common pantry items auto-available
  */
 
-import { db } from '../database/db';
+import { queryOne, queryAll, execute } from '../database/db';
 import { Recipe } from '../types';
 import { logger } from '../utils/logger';
 
@@ -39,7 +39,7 @@ export interface ShoppingListItem {
   id: number;
   user_id: number;
   name: string;
-  checked: number;
+  checked: boolean;
   created_at: string;
 }
 
@@ -599,22 +599,22 @@ class ShoppingListService {
   /**
    * Get user's inventory as BottleData array
    */
-  getUserBottles(userId: number): BottleData[] {
-    const bottlesRaw = db.prepare(`
-      SELECT
-        name,
-        type as liquorType,
-        spirit_classification as detailedClassification,
-        stock_number as stockNumber
-      FROM inventory_items
-      WHERE user_id = ?
-        AND (stock_number IS NOT NULL AND stock_number > 0)
-    `).all(userId) as Array<{
+  async getUserBottles(userId: number): Promise<BottleData[]> {
+    const bottlesRaw = await queryAll<{
       name: string;
       liquorType: string | null;
       detailedClassification: string | null;
       stockNumber: number | null;
-    }>;
+    }>(`
+      SELECT
+        name,
+        type as "liquorType",
+        spirit_classification as "detailedClassification",
+        stock_number as "stockNumber"
+      FROM inventory_items
+      WHERE user_id = $1
+        AND (stock_number IS NOT NULL AND stock_number > 0)
+    `, [userId]);
 
     return bottlesRaw.map(b => ({
       name: b.name,
@@ -626,10 +626,11 @@ class ShoppingListService {
   /**
    * Get user's recipes with parsed ingredients
    */
-  getUserRecipes(userId: number): ParsedRecipe[] {
-    const recipes = db.prepare(`
-      SELECT id, name, ingredients FROM recipes WHERE user_id = ?
-    `).all(userId) as Recipe[];
+  async getUserRecipes(userId: number): Promise<ParsedRecipe[]> {
+    const recipes = await queryAll<Recipe>(
+      'SELECT id, name, ingredients FROM recipes WHERE user_id = $1',
+      [userId]
+    );
 
     return recipes
       .filter((recipe): recipe is Recipe & { id: number } => recipe.id !== undefined)
@@ -659,11 +660,11 @@ class ShoppingListService {
   /**
    * Get smart shopping recommendations
    */
-  getSmartRecommendations(userId: number): SmartShoppingResult {
+  async getSmartRecommendations(userId: number): Promise<SmartShoppingResult> {
     logger.debug('[DEBUG-VERIFY-v2] Smart Shopping List Request Received');
 
-    const bottles = this.getUserBottles(userId);
-    const parsedRecipes = this.getUserRecipes(userId);
+    const bottles = await this.getUserBottles(userId);
+    const parsedRecipes = await this.getUserRecipes(userId);
 
     // Find craftable recipes
     const craftableRecipes = parsedRecipes.filter(recipe =>
@@ -756,18 +757,18 @@ class ShoppingListService {
   /**
    * Get all shopping list items for a user
    */
-  getItems(userId: number): { id: number; name: string; checked: boolean; createdAt: string }[] {
-    const items = db.prepare(`
+  async getItems(userId: number): Promise<{ id: number; name: string; checked: boolean; createdAt: string }[]> {
+    const items = await queryAll<ShoppingListItem>(`
       SELECT id, name, checked, created_at
       FROM shopping_list_items
-      WHERE user_id = ?
+      WHERE user_id = $1
       ORDER BY created_at DESC
-    `).all(userId) as ShoppingListItem[];
+    `, [userId]);
 
     return items.map(item => ({
       id: item.id,
       name: item.name,
-      checked: item.checked === 1,
+      checked: item.checked,
       createdAt: item.created_at
     }));
   }
@@ -775,7 +776,7 @@ class ShoppingListService {
   /**
    * Get paginated shopping list items for a user
    */
-  getItemsPaginated(userId: number, page: number = 1, limit: number = 50): {
+  async getItemsPaginated(userId: number, page: number = 1, limit: number = 50): Promise<{
     items: { id: number; name: string; checked: boolean; createdAt: string }[];
     pagination: {
       page: number;
@@ -785,34 +786,34 @@ class ShoppingListService {
       hasNextPage: boolean;
       hasPreviousPage: boolean;
     };
-  } {
+  }> {
     // Validate and clamp parameters
     const safePage = Math.max(1, Math.floor(page));
     const safeLimit = Math.min(100, Math.max(1, Math.floor(limit)));
     const offset = (safePage - 1) * safeLimit;
 
     // Get total count
-    const countResult = db.prepare(`
-      SELECT COUNT(*) as total FROM shopping_list_items WHERE user_id = ?
-    `).get(userId) as { total: number };
+    const countResult = await queryOne<{ total: string }>(`
+      SELECT COUNT(*) as total FROM shopping_list_items WHERE user_id = $1
+    `, [userId]);
 
-    const total = countResult.total;
+    const total = parseInt(countResult?.total ?? '0', 10);
     const totalPages = Math.ceil(total / safeLimit);
 
     // Get paginated results
-    const items = db.prepare(`
+    const items = await queryAll<ShoppingListItem>(`
       SELECT id, name, checked, created_at
       FROM shopping_list_items
-      WHERE user_id = ?
+      WHERE user_id = $1
       ORDER BY created_at DESC
-      LIMIT ? OFFSET ?
-    `).all(userId, safeLimit, offset) as ShoppingListItem[];
+      LIMIT $2 OFFSET $3
+    `, [userId, safeLimit, offset]);
 
     return {
       items: items.map(item => ({
         id: item.id,
         name: item.name,
-        checked: item.checked === 1,
+        checked: item.checked,
         createdAt: item.created_at
       })),
       pagination: {
@@ -829,34 +830,31 @@ class ShoppingListService {
   /**
    * Add item to shopping list
    */
-  addItem(userId: number, name: string): { id: number; name: string; checked: boolean; createdAt: string } | null {
+  async addItem(userId: number, name: string): Promise<{ id: number; name: string; checked: boolean; createdAt: string } | null> {
     const trimmedName = name.trim();
 
-    // Check for duplicate
-    const existing = db.prepare(`
+    // Check for duplicate (case-insensitive)
+    const existing = await queryOne<ShoppingListItem>(`
       SELECT id FROM shopping_list_items
-      WHERE user_id = ? AND LOWER(name) = LOWER(?)
-    `).get(userId, trimmedName) as ShoppingListItem | undefined;
+      WHERE user_id = $1 AND LOWER(name) = LOWER($2)
+    `, [userId, trimmedName]);
 
     if (existing) {
       return null; // Duplicate
     }
 
-    const result = db.prepare(`
+    const result = await execute(`
       INSERT INTO shopping_list_items (user_id, name, checked)
-      VALUES (?, ?, 0)
-    `).run(userId, trimmedName);
+      VALUES ($1, $2, false)
+      RETURNING id, name, checked, created_at
+    `, [userId, trimmedName]);
 
-    const newItem = db.prepare(`
-      SELECT id, name, checked, created_at
-      FROM shopping_list_items
-      WHERE id = ?
-    `).get(result.lastInsertRowid) as ShoppingListItem;
+    const newItem = result.rows[0] as ShoppingListItem;
 
     return {
       id: newItem.id,
       name: newItem.name,
-      checked: newItem.checked === 1,
+      checked: newItem.checked,
       createdAt: newItem.created_at
     };
   }
@@ -864,12 +862,12 @@ class ShoppingListService {
   /**
    * Update item in shopping list
    */
-  updateItem(userId: number, itemId: number, updates: { checked?: boolean; name?: string }): { id: number; name: string; checked: boolean; createdAt: string } | null {
+  async updateItem(userId: number, itemId: number, updates: { checked?: boolean; name?: string }): Promise<{ id: number; name: string; checked: boolean; createdAt: string } | null> {
     // Verify ownership
-    const existing = db.prepare(`
+    const existing = await queryOne<{ id: number }>(`
       SELECT id FROM shopping_list_items
-      WHERE id = ? AND user_id = ?
-    `).get(itemId, userId) as ShoppingListItem | undefined;
+      WHERE id = $1 AND user_id = $2
+    `, [itemId, userId]);
 
     if (!existing) {
       return null;
@@ -877,15 +875,16 @@ class ShoppingListService {
 
     // Build update query
     const updateParts: string[] = [];
-    const params: (string | number)[] = [];
+    const params: (string | number | boolean)[] = [];
+    let paramIndex = 1;
 
     if (typeof updates.checked === 'boolean') {
-      updateParts.push('checked = ?');
-      params.push(updates.checked ? 1 : 0);
+      updateParts.push(`checked = $${paramIndex++}`);
+      params.push(updates.checked);
     }
 
     if (typeof updates.name === 'string' && updates.name.trim().length > 0) {
-      updateParts.push('name = ?');
+      updateParts.push(`name = $${paramIndex++}`);
       params.push(updates.name.trim());
     }
 
@@ -895,22 +894,19 @@ class ShoppingListService {
 
     params.push(itemId, userId);
 
-    db.prepare(`
+    const result = await execute(`
       UPDATE shopping_list_items
       SET ${updateParts.join(', ')}
-      WHERE id = ? AND user_id = ?
-    `).run(...params);
+      WHERE id = $${paramIndex++} AND user_id = $${paramIndex}
+      RETURNING id, name, checked, created_at
+    `, params);
 
-    const updated = db.prepare(`
-      SELECT id, name, checked, created_at
-      FROM shopping_list_items
-      WHERE id = ?
-    `).get(itemId) as ShoppingListItem;
+    const updated = result.rows[0] as ShoppingListItem;
 
     return {
       id: updated.id,
       name: updated.name,
-      checked: updated.checked === 1,
+      checked: updated.checked,
       createdAt: updated.created_at
     };
   }
@@ -918,25 +914,25 @@ class ShoppingListService {
   /**
    * Delete item from shopping list
    */
-  deleteItem(userId: number, itemId: number): boolean {
-    const result = db.prepare(`
+  async deleteItem(userId: number, itemId: number): Promise<boolean> {
+    const result = await execute(`
       DELETE FROM shopping_list_items
-      WHERE id = ? AND user_id = ?
-    `).run(itemId, userId);
+      WHERE id = $1 AND user_id = $2
+    `, [itemId, userId]);
 
-    return result.changes > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   /**
    * Delete all checked items
    */
-  deleteCheckedItems(userId: number): number {
-    const result = db.prepare(`
+  async deleteCheckedItems(userId: number): Promise<number> {
+    const result = await execute(`
       DELETE FROM shopping_list_items
-      WHERE user_id = ? AND checked = 1
-    `).run(userId);
+      WHERE user_id = $1 AND checked = true
+    `, [userId]);
 
-    return result.changes;
+    return result.rowCount ?? 0;
   }
 }
 

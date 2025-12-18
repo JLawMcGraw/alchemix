@@ -50,7 +50,7 @@ router.get('/smart', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  const result = shoppingListService.getSmartRecommendations(userId);
+  const result = await shoppingListService.getSmartRecommendations(userId);
 
   res.json({
     success: true,
@@ -81,7 +81,7 @@ router.get('/items', asyncHandler(async (req: Request, res: Response) => {
 
   // Support backwards compatibility - return all items if 'all' param is set
   if (req.query.all === 'true') {
-    const items = shoppingListService.getItems(userId);
+    const items = await shoppingListService.getItems(userId);
     return res.json({ success: true, data: items });
   }
 
@@ -113,7 +113,7 @@ router.get('/items', asyncHandler(async (req: Request, res: Response) => {
 
   const limit = limitValidation.sanitized || 50;
 
-  const result = shoppingListService.getItemsPaginated(userId, page, limit);
+  const result = await shoppingListService.getItemsPaginated(userId, page, limit);
 
   res.json({
     success: true,
@@ -138,7 +138,7 @@ router.post('/items', asyncHandler(async (req: Request, res: Response) => {
     return res.status(400).json({ success: false, error: 'Item name is required' });
   }
 
-  const newItem = shoppingListService.addItem(userId, name);
+  const newItem = await shoppingListService.addItem(userId, name);
 
   if (!newItem) {
     return res.status(409).json({ success: false, error: 'Item already in list' });
@@ -176,7 +176,7 @@ router.put('/items/:id', asyncHandler(async (req: Request, res: Response) => {
     return res.status(400).json({ success: false, error: 'No valid fields to update' });
   }
 
-  const updated = shoppingListService.updateItem(userId, itemId, updates);
+  const updated = await shoppingListService.updateItem(userId, itemId, updates);
 
   if (!updated) {
     return res.status(404).json({ success: false, error: 'Item not found' });
@@ -197,7 +197,7 @@ router.delete('/items/checked', asyncHandler(async (req: Request, res: Response)
     return res.status(401).json({ success: false, error: 'Authentication required' });
   }
 
-  const deleted = shoppingListService.deleteCheckedItems(userId);
+  const deleted = await shoppingListService.deleteCheckedItems(userId);
   res.json({ success: true, deleted });
 }));
 
@@ -217,7 +217,7 @@ router.delete('/items/:id', asyncHandler(async (req: Request, res: Response) => 
     return res.status(400).json({ success: false, error: 'Invalid item ID' });
   }
 
-  const deleted = shoppingListService.deleteItem(userId, itemId);
+  const deleted = await shoppingListService.deleteItem(userId, itemId);
 
   if (!deleted) {
     return res.status(404).json({ success: false, error: 'Item not found' });

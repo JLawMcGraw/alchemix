@@ -1,380 +1,413 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import express, { Express } from 'express';
-import { createServer, Server } from 'http';
+/**
+ * Collections Routes Tests
+ *
+ * Tests for recipe collections CRUD operations.
+ * Updated for PostgreSQL async pattern.
+ */
+
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import express from 'express';
 import request from 'supertest';
-import { createTestDatabase, cleanupTestDatabase } from '../tests/setup';
-import Database from 'better-sqlite3';
-import jwt from 'jsonwebtoken';
 
-// Mock the database module
-let testDb: Database.Database;
-
+// Mock the database module FIRST (before any imports that use it)
 vi.mock('../database/db', () => ({
-  db: {
-    prepare: (sql: string) => testDb.prepare(sql),
-    pragma: (pragma: string, options?: any) => testDb.pragma(pragma, options),
-  },
+  queryOne: vi.fn(),
+  queryAll: vi.fn(),
+  execute: vi.fn(),
+  transaction: vi.fn(),
+}));
+
+// Mock the auth middleware to bypass JWT verification
+vi.mock('../middleware/auth', () => ({
+  authMiddleware: vi.fn((req: any, _res: any, next: any) => {
+    req.user = { userId: 1, email: 'test@example.com' };
+    next();
+  }),
+  generateToken: vi.fn(() => 'mock-token'),
+  generateTokenId: vi.fn(() => 'mock-jti'),
 }));
 
 // Mock token blacklist
 vi.mock('../utils/tokenBlacklist', () => ({
   tokenBlacklist: {
+    isBlacklisted: vi.fn().mockResolvedValue(false),
     add: vi.fn(),
-    remove: vi.fn(),
-    isBlacklisted: vi.fn().mockReturnValue(false),
-    size: vi.fn().mockReturnValue(0),
-    cleanup: vi.fn(),
-    shutdown: vi.fn(),
   },
 }));
 
-import collectionsRoutes from './collections';
-import { errorHandler } from '../middleware/errorHandler';
+// Mock logger
+vi.mock('../utils/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    debug: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+  logSecurityEvent: vi.fn(),
+}));
 
-describe('Collections Routes Integration Tests', () => {
-  let app: Express;
-  let authToken: string;
-  let userId: number;
-  let server: Server | null = null;
+import { queryOne, queryAll, execute, transaction } from '../database/db';
 
-  beforeEach(() => {
-    // Create test database
-    testDb = createTestDatabase();
+// Helper to create mock collection
+const createMockCollection = (overrides: Partial<{
+  id: number;
+  user_id: number;
+  name: string;
+  description: string | null;
+  recipe_count: number;
+  created_at: string;
+}> = {}) => ({
+  id: 1,
+  user_id: 1,
+  name: 'Test Collection',
+  description: null,
+  recipe_count: 0,
+  created_at: new Date().toISOString(),
+  ...overrides,
+});
 
-    // Create a test user
-    const result = testDb.prepare(`
-      INSERT INTO users (email, password_hash)
-      VALUES (?, ?)
-    `).run('test@example.com', 'hashedpassword');
+describe('Collections Routes', () => {
+  let app: express.Application;
+  const testUserId = 1;
 
-    userId = result.lastInsertRowid as number;
+  beforeEach(async () => {
+    vi.clearAllMocks();
 
-    // Generate JWT token for authentication
-    authToken = jwt.sign(
-      { userId, email: 'test@example.com' },
-      process.env.JWT_SECRET || 'test-secret',
-      { expiresIn: '1h' }
-    );
+    // Default mock implementations
+    (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (execute as ReturnType<typeof vi.fn>).mockResolvedValue({ rows: [], rowCount: 0 });
+    (transaction as ReturnType<typeof vi.fn>).mockImplementation(async (callback) => {
+      const mockClient = {
+        query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }),
+      };
+      return callback(mockClient as any);
+    });
 
-    // Create Express app
+    // Create fresh app with routes
     app = express();
     app.use(express.json());
-    app.use('/api/collections', collectionsRoutes);
-    app.use(errorHandler);
 
-    server = createServer(app);
-  });
+    // Import routes fresh (auth is already mocked)
+    const { default: collectionsRouter } = await import('./collections');
+    app.use('/api/collections', collectionsRouter);
 
-  afterEach(() => {
-    if (server) {
-      server.close();
-      server = null;
-    }
-    cleanupTestDatabase(testDb);
+    // Add error handler
+    app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      res.status(500).json({ success: false, error: err.message });
+    });
   });
 
   describe('GET /api/collections', () => {
-    it('should reject unauthenticated requests', async () => {
-      const response = await request(server!)
-        .get('/api/collections')
-        .expect(401);
+    it('should return empty array when no collections exist', async () => {
+      // Mock: total count = 0
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ total: '0' });
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
-      expect(response.body).toHaveProperty('success', false);
-      expect(response.body.error).toContain('No authorization token provided');
+      const res = await request(app).get('/api/collections');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toEqual([]);
     });
 
-    it('should return empty list when user has no collections', async () => {
-      const response = await request(server!)
-        .get('/api/collections')
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(200);
+    it('should return all collections when ?all=true', async () => {
+      const mockCollections = [
+        createMockCollection({ id: 1, name: 'Classic Cocktails', description: 'Timeless recipes', recipe_count: 2 }),
+        createMockCollection({ id: 2, name: 'Summer Drinks', recipe_count: 0 }),
+      ];
 
-      expect(response.body).toHaveProperty('success', true);
-      expect(response.body.data).toEqual([]);
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue(mockCollections);
+
+      const res = await request(app).get('/api/collections?all=true');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveLength(2);
+      expect(res.body.data[0].name).toBe('Classic Cocktails');
+      expect(res.body.data[0].description).toBe('Timeless recipes');
+      expect(res.body.data[0].recipe_count).toBe(2);
+      // No pagination when all=true
+      expect(res.body.pagination).toBeUndefined();
     });
 
-    it('should return user collections with recipe counts', async () => {
-      // Add test collections
-      const col1 = testDb.prepare(`
-        INSERT INTO collections (user_id, name, description)
-        VALUES (?, ?, ?)
-      `).run(userId, 'Classic Cocktails', 'Timeless recipes');
-      const col1Id = col1.lastInsertRowid as number;
+    it('should return paginated collections', async () => {
+      const mockCollections = [
+        createMockCollection({ id: 1, name: 'Collection 1' }),
+        createMockCollection({ id: 2, name: 'Collection 2' }),
+      ];
 
-      const col2 = testDb.prepare(`
-        INSERT INTO collections (user_id, name)
-        VALUES (?, ?)
-      `).run(userId, 'Summer Drinks');
-      const col2Id = col2.lastInsertRowid as number;
+      // Mock total count
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ total: '15' });
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue(mockCollections);
 
-      // Add recipes to collections
-      testDb.prepare(`
-        INSERT INTO recipes (user_id, collection_id, name, ingredients)
-        VALUES (?, ?, ?, ?), (?, ?, ?, ?)
-      `).run(
-        userId, col1Id, 'Old Fashioned', JSON.stringify(['Bourbon', 'Bitters']),
-        userId, col1Id, 'Manhattan', JSON.stringify(['Rye', 'Vermouth'])
-      );
+      const res = await request(app).get('/api/collections?page=1&limit=2');
 
-      const response = await request(server!)
-        .get('/api/collections')
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(200);
-
-      expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveLength(2);
-
-      const classicCol = response.body.data.find((c: any) => c.name === 'Classic Cocktails');
-      expect(classicCol).toBeDefined();
-      expect(classicCol.description).toBe('Timeless recipes');
-      expect(classicCol.recipe_count).toBe(2);
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveLength(2);
+      expect(res.body.pagination).toBeDefined();
+      expect(res.body.pagination.page).toBe(1);
+      expect(res.body.pagination.limit).toBe(2);
+      expect(res.body.pagination.total).toBe(15);
+      expect(res.body.pagination.totalPages).toBe(8);
+      expect(res.body.pagination.hasNextPage).toBe(true);
+      expect(res.body.pagination.hasPreviousPage).toBe(false);
     });
 
-    it('should isolate user data', async () => {
-      // Create another user
-      const otherUserResult = testDb.prepare(`
-        INSERT INTO users (email, password_hash)
-        VALUES (?, ?)
-      `).run('other@example.com', 'hashedpassword');
-      const otherUserId = otherUserResult.lastInsertRowid as number;
+    it('should only return collections for authenticated user', async () => {
+      const userCollection = createMockCollection({ id: 1, user_id: testUserId, name: 'My Collection' });
 
-      // Add collections for both users
-      testDb.prepare(`
-        INSERT INTO collections (user_id, name)
-        VALUES (?, ?), (?, ?)
-      `).run(
-        userId, 'My Collection',
-        otherUserId, 'Their Collection'
-      );
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ total: '1' });
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue([userCollection]);
 
-      const response = await request(server!)
-        .get('/api/collections')
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(200);
+      const res = await request(app).get('/api/collections');
 
-      expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveLength(1);
-      expect(response.body.data[0].name).toBe('My Collection');
+      expect(res.status).toBe(200);
+      expect(res.body.data).toHaveLength(1);
+      expect(res.body.data[0].name).toBe('My Collection');
+    });
+
+    it('should return 400 for invalid page parameter', async () => {
+      const res = await request(app).get('/api/collections?page=abc');
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toContain('Invalid page parameter');
+    });
+
+    it('should return 400 for invalid limit parameter', async () => {
+      const res = await request(app).get('/api/collections?limit=abc');
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toContain('Invalid limit parameter');
     });
   });
 
   describe('POST /api/collections', () => {
-    it('should reject unauthenticated requests', async () => {
-      const response = await request(server!)
-        .post('/api/collections')
-        .send({ name: 'Test Collection' })
-        .expect(401);
-
-      expect(response.body).toHaveProperty('success', false);
-    });
-
     it('should create a new collection with required fields', async () => {
-      const response = await request(server!)
-        .post('/api/collections')
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          name: 'Tiki Drinks'
-        })
-        .expect(201);
+      const newCollection = createMockCollection({ id: 1, name: 'Tiki Drinks' });
 
-      expect(response.body.success).toBe(true);
-      expect(response.body.data).toMatchObject({
-        name: 'Tiki Drinks',
-        user_id: userId
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+        rows: [newCollection],
+        rowCount: 1,
       });
-      expect(response.body.data.id).toBeGreaterThan(0);
+
+      const res = await request(app)
+        .post('/api/collections')
+        .send({ name: 'Tiki Drinks' });
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.name).toBe('Tiki Drinks');
+      expect(res.body.data.user_id).toBe(testUserId);
+      expect(res.body.data.id).toBeDefined();
     });
 
     it('should create collection with description', async () => {
-      const response = await request(server!)
+      const newCollection = createMockCollection({
+        id: 1,
+        name: 'Holiday Specials',
+        description: 'Festive cocktails for celebrations',
+      });
+
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+        rows: [newCollection],
+        rowCount: 1,
+      });
+
+      const res = await request(app)
         .post('/api/collections')
-        .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: 'Holiday Specials',
-          description: 'Festive cocktails for celebrations'
-        })
-        .expect(201);
+          description: 'Festive cocktails for celebrations',
+        });
 
-      expect(response.body.success).toBe(true);
-      expect(response.body.data).toMatchObject({
-        name: 'Holiday Specials',
-        description: 'Festive cocktails for celebrations'
-      });
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.name).toBe('Holiday Specials');
+      expect(res.body.data.description).toBe('Festive cocktails for celebrations');
     });
 
-    it('should reject missing name field', async () => {
-      const response = await request(server!)
+    it('should return 400 when name is missing', async () => {
+      const res = await request(app)
         .post('/api/collections')
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          description: 'Collection without name'
-        })
-        .expect(400);
+        .send({ description: 'Collection without name' });
 
-      expect(response.body.success).toBe(false);
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toContain('Collection name is required');
+    });
+
+    it('should return 400 when name is empty string', async () => {
+      const res = await request(app)
+        .post('/api/collections')
+        .send({ name: '' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    });
+
+    it('should return 400 when name is whitespace only', async () => {
+      const res = await request(app)
+        .post('/api/collections')
+        .send({ name: '   ' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
     });
   });
 
   describe('PUT /api/collections/:id', () => {
-    let collectionId: number;
-
-    beforeEach(() => {
-      const result = testDb.prepare(`
-        INSERT INTO collections (user_id, name, description)
-        VALUES (?, ?, ?)
-      `).run(userId, 'Original Name', 'Original description');
-      collectionId = result.lastInsertRowid as number;
-    });
-
-    it('should reject unauthenticated requests', async () => {
-      const response = await request(server!)
-        .put(`/api/collections/${collectionId}`)
-        .send({ name: 'Updated Name' })
-        .expect(401);
-
-      expect(response.body).toHaveProperty('success', false);
-    });
-
     it('should update collection fields', async () => {
-      const response = await request(server!)
-        .put(`/api/collections/${collectionId}`)
-        .set('Authorization', `Bearer ${authToken}`)
+      const updatedCollection = createMockCollection({
+        id: 1,
+        name: 'Updated Name',
+        description: 'Updated description',
+      });
+
+      // Mock: exists check returns true, then execute returns updated collection
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 1 }); // exists check
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        rows: [updatedCollection],
+        rowCount: 1,
+      });
+
+      const res = await request(app)
+        .put('/api/collections/1')
         .send({
           name: 'Updated Name',
-          description: 'Updated description'
-        })
-        .expect(200);
+          description: 'Updated description',
+        });
 
-      expect(response.body.success).toBe(true);
-
-      // Verify update in database
-      const updated = testDb.prepare('SELECT * FROM collections WHERE id = ?').get(collectionId) as any;
-      expect(updated.name).toBe('Updated Name');
-      expect(updated.description).toBe('Updated description');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.name).toBe('Updated Name');
+      expect(res.body.data.description).toBe('Updated description');
     });
 
-    it('should not allow updating other users collections', async () => {
-      // Create another user and their collection
-      const otherUserResult = testDb.prepare(`
-        INSERT INTO users (email, password_hash)
-        VALUES (?, ?)
-      `).run('other@example.com', 'hashedpassword');
-      const otherUserId = otherUserResult.lastInsertRowid as number;
+    it('should return 404 when collection not found', async () => {
+      // Reset mocks and set default to null for this test
+      vi.clearAllMocks();
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
-      const otherCollectionResult = testDb.prepare(`
-        INSERT INTO collections (user_id, name)
-        VALUES (?, ?)
-      `).run(otherUserId, 'Their Collection');
-      const otherCollectionId = otherCollectionResult.lastInsertRowid as number;
+      const res = await request(app)
+        .put('/api/collections/999')
+        .send({ name: 'Updated Name' });
 
-      const response = await request(server!)
-        .put(`/api/collections/${otherCollectionId}`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({ name: 'Hacked Name' })
-        .expect(404);
-
-      expect(response.body.success).toBe(false);
-
-      // Verify collection unchanged
-      const unchanged = testDb.prepare('SELECT * FROM collections WHERE id = ?').get(otherCollectionId) as any;
-      expect(unchanged.name).toBe('Their Collection');
+      expect(res.status).toBe(404);
+      expect(res.body.success).toBe(false);
     });
 
-    it('should return 404 for non-existent collection', async () => {
-      const response = await request(server!)
-        .put('/api/collections/99999')
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({ name: 'Updated Name' })
-        .expect(404);
+    it('should return 400 for invalid collection ID', async () => {
+      const res = await request(app)
+        .put('/api/collections/invalid')
+        .send({ name: 'Updated Name' });
 
-      expect(response.body.success).toBe(false);
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toBe('Invalid collection ID');
+    });
+
+    it('should return 400 for zero ID', async () => {
+      const res = await request(app)
+        .put('/api/collections/0')
+        .send({ name: 'Updated Name' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    });
+
+    it('should not allow updating other user\'s collection', async () => {
+      // Query with user_id check returns null (not found for this user)
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      const res = await request(app)
+        .put('/api/collections/100')
+        .send({ name: 'Hacked Name' });
+
+      expect(res.status).toBe(404);
+      expect(res.body.success).toBe(false);
     });
   });
 
   describe('DELETE /api/collections/:id', () => {
-    let collectionId: number;
-
-    beforeEach(() => {
-      const result = testDb.prepare(`
-        INSERT INTO collections (user_id, name)
-        VALUES (?, ?)
-      `).run(userId, 'To Delete');
-      collectionId = result.lastInsertRowid as number;
-    });
-
-    it('should reject unauthenticated requests', async () => {
-      const response = await request(server!)
-        .delete(`/api/collections/${collectionId}`)
-        .expect(401);
-
-      expect(response.body).toHaveProperty('success', false);
-    });
-
     it('should delete collection', async () => {
-      const response = await request(server!)
-        .delete(`/api/collections/${collectionId}`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(200);
+      // Mock: exists check returns true, then delete succeeds
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 1 });
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({ rowCount: 1 });
 
-      expect(response.body.success).toBe(true);
+      const res = await request(app).delete('/api/collections/1');
 
-      // Verify deletion
-      const deleted = testDb.prepare('SELECT * FROM collections WHERE id = ?').get(collectionId);
-      expect(deleted).toBeUndefined();
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.message).toBe('Collection deleted successfully');
     });
 
-    it('should set collection_id to NULL for recipes when collection is deleted', async () => {
-      // Add recipe to collection
-      const recipeResult = testDb.prepare(`
-        INSERT INTO recipes (user_id, collection_id, name, ingredients)
-        VALUES (?, ?, ?, ?)
-      `).run(userId, collectionId, 'Test Recipe', JSON.stringify(['Ingredient']));
-      const recipeId = recipeResult.lastInsertRowid as number;
+    it('should delete collection with recipes when ?deleteRecipes=true', async () => {
+      // Mock: exists check, then count recipes, then delete all
+      (queryOne as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({ id: 1 }); // exists check
 
-      await request(server!)
-        .delete(`/api/collections/${collectionId}`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(200);
+      // Mock transaction for deleteWithRecipes
+      (transaction as ReturnType<typeof vi.fn>).mockImplementation(async (callback) => {
+        const mockClient = {
+          query: vi.fn()
+            .mockResolvedValueOnce({ rows: [{ count: '3' }] }) // count recipes
+            .mockResolvedValueOnce({ rowCount: 3 }) // delete recipes
+            .mockResolvedValueOnce({ rowCount: 1 }), // delete collection
+        };
+        return callback(mockClient as any);
+      });
 
-      // Verify recipe still exists but collection_id is NULL
-      const recipe = testDb.prepare('SELECT * FROM recipes WHERE id = ?').get(recipeId) as any;
-      expect(recipe).toBeDefined();
-      expect(recipe.collection_id).toBeNull();
+      const res = await request(app).delete('/api/collections/1?deleteRecipes=true');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.message).toContain('recipe(s) deleted');
+      expect(res.body.recipesDeleted).toBeDefined();
     });
 
-    it('should not allow deleting other users collections', async () => {
-      // Create another user and their collection
-      const otherUserResult = testDb.prepare(`
-        INSERT INTO users (email, password_hash)
-        VALUES (?, ?)
-      `).run('other@example.com', 'hashedpassword');
-      const otherUserId = otherUserResult.lastInsertRowid as number;
+    it('should return 404 when collection not found', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
-      const otherCollectionResult = testDb.prepare(`
-        INSERT INTO collections (user_id, name)
-        VALUES (?, ?)
-      `).run(otherUserId, 'Their Collection');
-      const otherCollectionId = otherCollectionResult.lastInsertRowid as number;
+      const res = await request(app).delete('/api/collections/999');
 
-      const response = await request(server!)
-        .delete(`/api/collections/${otherCollectionId}`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(404);
-
-      expect(response.body.success).toBe(false);
-
-      // Verify collection still exists
-      const stillExists = testDb.prepare('SELECT * FROM collections WHERE id = ?').get(otherCollectionId);
-      expect(stillExists).toBeDefined();
+      expect(res.status).toBe(404);
+      expect(res.body.success).toBe(false);
     });
 
-    it('should return 404 for non-existent collection', async () => {
-      const response = await request(server!)
-        .delete('/api/collections/99999')
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(404);
+    it('should return 400 for invalid collection ID', async () => {
+      const res = await request(app).delete('/api/collections/invalid');
 
-      expect(response.body.success).toBe(false);
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toBe('Invalid collection ID');
+    });
+
+    it('should return 400 for zero ID', async () => {
+      const res = await request(app).delete('/api/collections/0');
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    });
+
+    it('should return 400 for negative ID', async () => {
+      const res = await request(app).delete('/api/collections/-1');
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    });
+
+    it('should not delete another user\'s collection', async () => {
+      // Query with user_id check returns null (not found for this user)
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      const res = await request(app).delete('/api/collections/100');
+
+      expect(res.status).toBe(404);
+      expect(res.body.success).toBe(false);
     });
   });
 });

@@ -14,7 +14,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { db } from '../database/db';
+import { queryOne } from '../database/db';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -64,13 +64,13 @@ router.get('/health/live', (req: Request, res: Response) => {
  * Response: 200 if ready, 503 if not ready
  * Failure: Traffic routed away from this instance
  */
-router.get('/health/ready', (req: Request, res: Response) => {
+router.get('/health/ready', async (req: Request, res: Response) => {
   const checks: Record<string, HealthCheckResult> = {};
 
   try {
     // Check 1: Database connectivity
     try {
-      const dbCheck = db.prepare('SELECT 1 as ready').get() as { ready: number } | undefined;
+      const dbCheck = await queryOne<{ ready: number }>('SELECT 1 as ready');
       if (dbCheck?.ready === 1) {
         checks.database = { status: 'ok' };
       } else {

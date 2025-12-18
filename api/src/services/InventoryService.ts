@@ -8,15 +8,8 @@
  * @date December 2025
  */
 
-import { db as defaultDb } from '../database/db';
+import { queryOne, queryAll, execute, transaction } from '../database/db';
 import { InventoryItem, PeriodicGroup, PeriodicPeriod } from '../types';
-import type Database from 'better-sqlite3';
-
-/**
- * Database type for dependency injection
- * Uses the actual better-sqlite3 Database type for full compatibility
- */
-export type IDatabase = Database.Database;
 
 /**
  * Valid inventory categories
@@ -121,46 +114,49 @@ export interface ImportResult {
  * Inventory Service
  *
  * Handles all inventory business logic independent of HTTP layer.
- * Supports dependency injection for testability.
  */
 export class InventoryService {
-  private db: IDatabase;
-
-  /**
-   * Create an InventoryService instance
-   * @param database - Database instance (defaults to production db)
-   */
-  constructor(database?: IDatabase) {
-    this.db = database || defaultDb;
-  }
-
   /**
    * Get paginated inventory items with optional category filter
    */
-  getAll(userId: number, options: PaginationOptions, category?: string): PaginatedResult<InventoryItem> {
+  async getAll(userId: number, options: PaginationOptions, category?: string): Promise<PaginatedResult<InventoryItem>> {
     const { page, limit } = options;
     const offset = (page - 1) * limit;
 
-    const whereClause = category
-      ? 'WHERE user_id = ? AND category = ?'
-      : 'WHERE user_id = ?';
+    let total: number;
+    let items: InventoryItem[];
 
-    const queryParams = category ? [userId, category] : [userId];
+    if (category) {
+      // Get total count with category filter
+      const countResult = await queryOne<{ total: string }>(
+        'SELECT COUNT(*) as total FROM inventory_items WHERE user_id = $1 AND category = $2',
+        [userId, category]
+      );
+      total = parseInt(countResult?.total ?? '0', 10);
 
-    // Get total count
-    const countResult = this.db.prepare(
-      `SELECT COUNT(*) as total FROM inventory_items ${whereClause}`
-    ).get(...queryParams) as { total: number };
+      // Get items with category filter
+      items = await queryAll<InventoryItem>(`
+        SELECT * FROM inventory_items
+        WHERE user_id = $1 AND category = $2
+        ORDER BY created_at DESC
+        LIMIT $3 OFFSET $4
+      `, [userId, category, limit, offset]);
+    } else {
+      // Get total count without filter
+      const countResult = await queryOne<{ total: string }>(
+        'SELECT COUNT(*) as total FROM inventory_items WHERE user_id = $1',
+        [userId]
+      );
+      total = parseInt(countResult?.total ?? '0', 10);
 
-    const total = countResult.total;
-
-    // Get items
-    const items = this.db.prepare(`
-      SELECT * FROM inventory_items
-      ${whereClause}
-      ORDER BY created_at DESC
-      LIMIT ? OFFSET ?
-    `).all(...queryParams, limit, offset) as InventoryItem[];
+      // Get items without filter
+      items = await queryAll<InventoryItem>(`
+        SELECT * FROM inventory_items
+        WHERE user_id = $1
+        ORDER BY created_at DESC
+        LIMIT $2 OFFSET $3
+      `, [userId, limit, offset]);
+    }
 
     // Calculate pagination metadata
     const totalPages = Math.ceil(total / limit);
@@ -181,23 +177,24 @@ export class InventoryService {
   /**
    * Get category counts for a user
    */
-  getCategoryCounts(userId: number): CategoryCounts {
+  async getCategoryCounts(userId: number): Promise<CategoryCounts> {
     // Get total count
-    const totalResult = this.db.prepare(
-      'SELECT COUNT(*) as total FROM inventory_items WHERE user_id = ?'
-    ).get(userId) as { total: number };
+    const totalResult = await queryOne<{ total: string }>(
+      'SELECT COUNT(*) as total FROM inventory_items WHERE user_id = $1',
+      [userId]
+    );
 
     // Get category breakdown
-    const categoryResults = this.db.prepare(`
+    const categoryResults = await queryAll<{ category: string; count: string }>(`
       SELECT category, COUNT(*) as count
       FROM inventory_items
-      WHERE user_id = ?
+      WHERE user_id = $1
       GROUP BY category
-    `).all(userId) as Array<{ category: string; count: number }>;
+    `, [userId]);
 
     // Build complete response with all categories
     const counts: CategoryCounts = {
-      all: totalResult.total,
+      all: parseInt(totalResult?.total ?? '0', 10),
       spirit: 0,
       liqueur: 0,
       mixer: 0,
@@ -211,7 +208,7 @@ export class InventoryService {
     // Fill in actual counts
     categoryResults.forEach(({ category, count }) => {
       if (category in counts) {
-        counts[category as keyof CategoryCounts] = count;
+        counts[category as keyof CategoryCounts] = parseInt(count, 10);
       }
     });
 
@@ -221,21 +218,21 @@ export class InventoryService {
   /**
    * Get a single item by ID (with ownership check)
    */
-  getById(itemId: number, userId: number): InventoryItem | null {
-    const item = this.db.prepare(
-      'SELECT * FROM inventory_items WHERE id = ? AND user_id = ?'
-    ).get(itemId, userId) as InventoryItem | undefined;
-
-    return item || null;
+  async getById(itemId: number, userId: number): Promise<InventoryItem | null> {
+    return queryOne<InventoryItem>(
+      'SELECT * FROM inventory_items WHERE id = $1 AND user_id = $2',
+      [itemId, userId]
+    );
   }
 
   /**
    * Check if an item exists and belongs to user
    */
-  exists(itemId: number, userId: number): boolean {
-    const result = this.db.prepare(
-      'SELECT id FROM inventory_items WHERE id = ? AND user_id = ?'
-    ).get(itemId, userId);
+  async exists(itemId: number, userId: number): Promise<boolean> {
+    const result = await queryOne<{ id: number }>(
+      'SELECT id FROM inventory_items WHERE id = $1 AND user_id = $2',
+      [itemId, userId]
+    );
 
     return !!result;
   }
@@ -243,7 +240,7 @@ export class InventoryService {
   /**
    * Create a new inventory item
    */
-  create(userId: number, data: SanitizedInventoryItem): InventoryItem {
+  async create(userId: number, data: SanitizedInventoryItem): Promise<InventoryItem> {
     // Normalize zero/negative stock to null
     const stockNumber = data.stock_number !== null && data.stock_number <= 0
       ? null
@@ -267,15 +264,16 @@ export class InventoryService {
       periodicPeriod = periodicPeriod || autoTags.period;
     }
 
-    const result = this.db.prepare(`
+    const result = await execute(`
       INSERT INTO inventory_items (
         user_id, name, category, type, abv,
         stock_number, spirit_classification, distillation_method,
         distillery_location, age_statement, additional_notes,
         profile_nose, palate, finish, tasting_notes,
         periodic_group, periodic_period
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+      RETURNING *
+    `, [
       userId,
       data.name,
       data.category,
@@ -293,11 +291,9 @@ export class InventoryService {
       data.tasting_notes || null,
       periodicGroup,
       periodicPeriod
-    );
+    ]);
 
-    return this.db.prepare(
-      'SELECT * FROM inventory_items WHERE id = ?'
-    ).get(result.lastInsertRowid) as InventoryItem;
+    return result.rows[0] as InventoryItem;
   }
 
   /**
@@ -305,8 +301,8 @@ export class InventoryService {
    *
    * Returns null if item doesn't exist or doesn't belong to user
    */
-  update(itemId: number, userId: number, data: SanitizedInventoryItem): InventoryItem | null {
-    if (!this.exists(itemId, userId)) {
+  async update(itemId: number, userId: number, data: SanitizedInventoryItem): Promise<InventoryItem | null> {
+    if (!await this.exists(itemId, userId)) {
       return null;
     }
 
@@ -315,26 +311,27 @@ export class InventoryService {
       ? null
       : data.stock_number;
 
-    this.db.prepare(`
+    const result = await execute(`
       UPDATE inventory_items SET
-        name = ?,
-        category = ?,
-        type = ?,
-        abv = ?,
-        stock_number = ?,
-        spirit_classification = ?,
-        distillation_method = ?,
-        distillery_location = ?,
-        age_statement = ?,
-        additional_notes = ?,
-        profile_nose = ?,
-        palate = ?,
-        finish = ?,
-        tasting_notes = ?,
-        periodic_group = ?,
-        periodic_period = ?
-      WHERE id = ? AND user_id = ?
-    `).run(
+        name = $1,
+        category = $2,
+        type = $3,
+        abv = $4,
+        stock_number = $5,
+        spirit_classification = $6,
+        distillation_method = $7,
+        distillery_location = $8,
+        age_statement = $9,
+        additional_notes = $10,
+        profile_nose = $11,
+        palate = $12,
+        finish = $13,
+        tasting_notes = $14,
+        periodic_group = $15,
+        periodic_period = $16
+      WHERE id = $17 AND user_id = $18
+      RETURNING *
+    `, [
       data.name,
       data.category,
       data.type || null,
@@ -353,11 +350,9 @@ export class InventoryService {
       data.periodic_period || null,
       itemId,
       userId
-    );
+    ]);
 
-    return this.db.prepare(
-      'SELECT * FROM inventory_items WHERE id = ?'
-    ).get(itemId) as InventoryItem;
+    return result.rows[0] as InventoryItem;
   }
 
   /**
@@ -365,13 +360,15 @@ export class InventoryService {
    *
    * Returns false if item doesn't exist or doesn't belong to user
    */
-  delete(itemId: number, userId: number): boolean {
-    if (!this.exists(itemId, userId)) {
+  async delete(itemId: number, userId: number): Promise<boolean> {
+    if (!await this.exists(itemId, userId)) {
       return false;
     }
 
-    this.db.prepare('DELETE FROM inventory_items WHERE id = ? AND user_id = ?')
-      .run(itemId, userId);
+    await execute(
+      'DELETE FROM inventory_items WHERE id = $1 AND user_id = $2',
+      [itemId, userId]
+    );
 
     return true;
   }
@@ -381,21 +378,21 @@ export class InventoryService {
    *
    * Returns count of deleted items (only deletes items belonging to user)
    */
-  bulkDelete(ids: number[], userId: number): number {
-    const placeholders = ids.map(() => '?').join(',');
+  async bulkDelete(ids: number[], userId: number): Promise<number> {
+    const placeholders = ids.map((_, i) => `$${i + 2}`).join(',');
 
-    const result = this.db.prepare(`
+    const result = await execute(`
       DELETE FROM inventory_items
-      WHERE id IN (${placeholders}) AND user_id = ?
-    `).run(...ids, userId);
+      WHERE id IN (${placeholders}) AND user_id = $1
+    `, [userId, ...ids]);
 
-    return result.changes;
+    return result.rowCount ?? 0;
   }
 
   /**
    * Import items from parsed CSV records
    */
-  importFromCSV(userId: number, records: Record<string, unknown>[]): ImportResult {
+  async importFromCSV(userId: number, records: Record<string, unknown>[]): Promise<ImportResult> {
     let imported = 0;
     const errors: Array<{ row: number; error: string }> = [];
 
@@ -414,7 +411,7 @@ export class InventoryService {
           continue;
         }
 
-        this.create(userId, validation.sanitized!);
+        await this.create(userId, validation.sanitized!);
         imported++;
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to import row';
@@ -850,29 +847,31 @@ export class InventoryService {
    * Backfill periodic tags for all items missing them
    * Returns count of items updated
    */
-  backfillPeriodicTags(userId: number): { updated: number; total: number } {
+  async backfillPeriodicTags(userId: number): Promise<{ updated: number; total: number }> {
     // Get all items without periodic tags for this user
-    const items = this.db.prepare(`
+    const items = await queryAll<InventoryItem>(`
       SELECT * FROM inventory_items
-      WHERE user_id = ?
+      WHERE user_id = $1
       AND (periodic_group IS NULL OR periodic_period IS NULL)
-    `).all(userId) as InventoryItem[];
+    `, [userId]);
 
     const total = items.length;
     let updated = 0;
 
-    // Classify and update each item
-    for (const item of items) {
-      const tags = this.autoClassifyPeriodicTags(item);
+    // Classify and update each item in a transaction
+    await transaction(async (client) => {
+      for (const item of items) {
+        const tags = this.autoClassifyPeriodicTags(item);
 
-      this.db.prepare(`
-        UPDATE inventory_items
-        SET periodic_group = ?, periodic_period = ?
-        WHERE id = ? AND user_id = ?
-      `).run(tags.group, tags.period, item.id, userId);
+        await client.query(`
+          UPDATE inventory_items
+          SET periodic_group = $1, periodic_period = $2
+          WHERE id = $3 AND user_id = $4
+        `, [tags.group, tags.period, item.id, userId]);
 
-      updated++;
-    }
+        updated++;
+      }
+    });
 
     return { updated, total };
   }

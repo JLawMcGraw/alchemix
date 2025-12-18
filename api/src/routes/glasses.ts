@@ -54,7 +54,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  const glasses = glassService.getAll(userId);
+  const glasses = await glassService.getAll(userId);
 
   res.json({
     success: true,
@@ -100,7 +100,7 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  const result = glassService.create(userId, name);
+  const result = await glassService.create(userId, name);
 
   if (!result.success) {
     return res.status(400).json({
@@ -143,7 +143,7 @@ router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  const result = glassService.delete(userId, glassId);
+  const result = await glassService.delete(userId, glassId);
 
   if (!result.success) {
     return res.status(404).json({

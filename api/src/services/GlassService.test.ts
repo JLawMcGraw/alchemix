@@ -1,202 +1,257 @@
 /**
- * Glass Service Tests
+ * GlassService Tests
  *
- * Unit tests for the GlassService business logic.
+ * Tests for the custom glassware service.
+ * Updated for PostgreSQL async pattern.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createTestDatabase, cleanupTestDatabase } from '../tests/setup';
-import type Database from 'better-sqlite3';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // Mock the database module
 vi.mock('../database/db', () => ({
-  db: null as Database.Database | null,
+  queryOne: vi.fn(),
+  queryAll: vi.fn(),
+  execute: vi.fn(),
 }));
 
+import { queryOne, queryAll, execute } from '../database/db';
+import { GlassService, CustomGlass } from './GlassService';
+
 describe('GlassService', () => {
-  let db: Database.Database;
-  let GlassService: any;
-  let glassService: any;
+  let glassService: GlassService;
+  const testUserId = 9999;
+  const otherUserId = 9998;
 
-  beforeEach(async () => {
-    // Create test database
-    db = createTestDatabase();
-
-    // Add custom_glasses table
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS custom_glasses (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        name TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        UNIQUE(user_id, name COLLATE NOCASE)
-      )
-    `);
-
-    // Create a test user
-    db.prepare(`
-      INSERT INTO users (id, email, password_hash)
-      VALUES (1, 'test@example.com', 'hashedpassword')
-    `).run();
-
-    // Update the mock
-    const dbModule = await import('../database/db');
-    (dbModule as any).db = db;
-
-    // Reset modules and import fresh
-    vi.resetModules();
-    const serviceModule = await import('./GlassService');
-    GlassService = serviceModule.GlassService;
-    glassService = new GlassService();
+  // Helper to create mock glass
+  const createMockGlass = (overrides: Partial<CustomGlass> = {}): CustomGlass => ({
+    id: 1,
+    user_id: testUserId,
+    name: 'Hurricane',
+    created_at: new Date().toISOString(),
+    ...overrides,
   });
 
-  afterEach(() => {
-    cleanupTestDatabase(db);
+  beforeEach(() => {
     vi.clearAllMocks();
+    glassService = new GlassService();
+
+    // Default mock implementations
+    (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (execute as ReturnType<typeof vi.fn>).mockResolvedValue({ rows: [], rowCount: 0 });
   });
 
   describe('getAll', () => {
-    it('should return empty array when no glasses exist', () => {
-      const glasses = glassService.getAll(1);
+    it('should return empty array when no glasses exist', async () => {
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+      const glasses = await glassService.getAll(testUserId);
+
       expect(glasses).toEqual([]);
     });
 
-    it('should return all glasses for a user', () => {
-      db.prepare(`
-        INSERT INTO custom_glasses (user_id, name) VALUES (1, 'Hurricane'), (1, 'Tiki Mug')
-      `).run();
+    it('should return all glasses for a user', async () => {
+      const mockGlasses = [
+        createMockGlass({ id: 1, name: 'Hurricane' }),
+        createMockGlass({ id: 2, name: 'Tiki Mug' }),
+      ];
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue(mockGlasses);
 
-      const glasses = glassService.getAll(1);
+      const glasses = await glassService.getAll(testUserId);
+
       expect(glasses).toHaveLength(2);
     });
 
-    it('should return glasses in alphabetical order', () => {
-      db.prepare(`
-        INSERT INTO custom_glasses (user_id, name) VALUES (1, 'Zombie'), (1, 'Absinthe'), (1, 'Mint Julep')
-      `).run();
+    it('should return glasses in alphabetical order', async () => {
+      const mockGlasses = [
+        createMockGlass({ id: 1, name: 'Absinthe' }),
+        createMockGlass({ id: 2, name: 'Mint Julep' }),
+        createMockGlass({ id: 3, name: 'Zombie' }),
+      ];
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue(mockGlasses);
 
-      const glasses = glassService.getAll(1);
+      const glasses = await glassService.getAll(testUserId);
+
       expect(glasses[0].name).toBe('Absinthe');
       expect(glasses[1].name).toBe('Mint Julep');
       expect(glasses[2].name).toBe('Zombie');
     });
 
-    it('should only return glasses for the specified user', () => {
-      db.prepare(`INSERT INTO users (id, email, password_hash) VALUES (2, 'other@example.com', 'hash')`).run();
-      db.prepare(`
-        INSERT INTO custom_glasses (user_id, name) VALUES (1, 'User1 Glass'), (2, 'User2 Glass')
-      `).run();
+    it('should only return glasses for the specified user', async () => {
+      const mockGlasses = [createMockGlass({ name: 'User1 Glass' })];
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue(mockGlasses);
 
-      const user1Glasses = glassService.getAll(1);
+      const user1Glasses = await glassService.getAll(testUserId);
+
       expect(user1Glasses).toHaveLength(1);
       expect(user1Glasses[0].name).toBe('User1 Glass');
 
-      const user2Glasses = glassService.getAll(2);
-      expect(user2Glasses).toHaveLength(1);
-      expect(user2Glasses[0].name).toBe('User2 Glass');
+      // Verify query was called with correct user ID
+      expect(queryAll).toHaveBeenCalledWith(
+        expect.stringContaining('user_id = $1'),
+        [testUserId]
+      );
     });
   });
 
   describe('create', () => {
-    it('should create a new glass', () => {
-      const result = glassService.create(1, 'Hurricane');
+    it('should create a new glass', async () => {
+      const mockGlass = createMockGlass({ name: 'Hurricane' });
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null); // No duplicate
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+        rows: [mockGlass],
+        rowCount: 1,
+      });
+
+      const result = await glassService.create(testUserId, 'Hurricane');
 
       expect(result.success).toBe(true);
       expect(result.glass).toBeDefined();
       expect(result.glass?.name).toBe('Hurricane');
-      expect(result.glass?.user_id).toBe(1);
+      expect(result.glass?.user_id).toBe(testUserId);
     });
 
-    it('should fail when name is empty', () => {
-      const result = glassService.create(1, '');
+    it('should fail when name is empty', async () => {
+      const result = await glassService.create(testUserId, '');
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('Glass name is required');
     });
 
-    it('should fail when name is only whitespace', () => {
-      const result = glassService.create(1, '   ');
+    it('should fail when name is only whitespace', async () => {
+      const result = await glassService.create(testUserId, '   ');
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('Glass name is required');
     });
 
-    it('should trim whitespace from name', () => {
-      const result = glassService.create(1, '  Hurricane  ');
+    it('should trim whitespace from name', async () => {
+      const mockGlass = createMockGlass({ name: 'Hurricane' });
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+        rows: [mockGlass],
+        rowCount: 1,
+      });
+
+      const result = await glassService.create(testUserId, '  Hurricane  ');
 
       expect(result.success).toBe(true);
       expect(result.glass?.name).toBe('Hurricane');
     });
 
-    it('should fail when duplicate name exists (case-insensitive)', () => {
-      glassService.create(1, 'Hurricane');
-      const result = glassService.create(1, 'HURRICANE');
+    it('should fail when duplicate name exists (case-insensitive)', async () => {
+      // First create succeeds
+      const mockGlass = createMockGlass({ name: 'Hurricane' });
+      (queryOne as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce(null) // First create - no duplicate
+        .mockResolvedValueOnce({ id: 1 }); // Second create - duplicate exists
+
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+        rows: [mockGlass],
+        rowCount: 1,
+      });
+
+      await glassService.create(testUserId, 'Hurricane');
+      const result = await glassService.create(testUserId, 'HURRICANE');
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('already exists');
     });
 
-    it('should allow same name for different users', () => {
-      db.prepare(`INSERT INTO users (id, email, password_hash) VALUES (2, 'other@example.com', 'hash')`).run();
+    it('should allow same name for different users', async () => {
+      const mockGlass1 = createMockGlass({ id: 1, user_id: testUserId, name: 'Hurricane' });
+      const mockGlass2 = createMockGlass({ id: 2, user_id: otherUserId, name: 'Hurricane' });
 
-      const result1 = glassService.create(1, 'Hurricane');
-      const result2 = glassService.create(2, 'Hurricane');
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null); // No duplicates
+      (execute as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({ rows: [mockGlass1], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [mockGlass2], rowCount: 1 });
+
+      const result1 = await glassService.create(testUserId, 'Hurricane');
+      const result2 = await glassService.create(otherUserId, 'Hurricane');
 
       expect(result1.success).toBe(true);
       expect(result2.success).toBe(true);
     });
 
-    it('should sanitize name to prevent XSS', () => {
-      const result = glassService.create(1, '<script>alert("xss")</script>Hurricane');
+    it('should sanitize name to prevent XSS', async () => {
+      const mockGlass = createMockGlass({ name: 'Hurricane' });
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+        rows: [mockGlass],
+        rowCount: 1,
+      });
+
+      const result = await glassService.create(testUserId, '<script>alert("xss")</script>Hurricane');
 
       expect(result.success).toBe(true);
-      expect(result.glass?.name).not.toContain('<script>');
+      // Verify execute was called with sanitized value
+      expect(execute).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.arrayContaining([
+          testUserId,
+          expect.not.stringContaining('<script>'),
+        ])
+      );
     });
 
-    it('should truncate long names', () => {
+    it('should truncate long names', async () => {
+      const mockGlass = createMockGlass({ name: 'A'.repeat(100) });
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+        rows: [mockGlass],
+        rowCount: 1,
+      });
+
       const longName = 'A'.repeat(200);
-      const result = glassService.create(1, longName);
+      const result = await glassService.create(testUserId, longName);
 
       expect(result.success).toBe(true);
-      expect(result.glass?.name.length).toBeLessThanOrEqual(100);
+      // Verify execute was called with truncated name
+      expect(execute).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.arrayContaining([
+          testUserId,
+          expect.any(String),
+        ])
+      );
+      const callArgs = (execute as ReturnType<typeof vi.fn>).mock.calls[0][1];
+      expect(callArgs[1].length).toBeLessThanOrEqual(100);
     });
   });
 
   describe('delete', () => {
-    it('should delete an existing glass', () => {
-      const createResult = glassService.create(1, 'Hurricane');
-      const glassId = createResult.glass!.id;
+    it('should delete an existing glass', async () => {
+      const mockGlass = createMockGlass({ id: 1, name: 'Hurricane' });
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(mockGlass);
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({ rowCount: 1 });
 
-      const deleteResult = glassService.delete(1, glassId);
+      const result = await glassService.delete(testUserId, 1);
 
-      expect(deleteResult.success).toBe(true);
-      expect(deleteResult.glass?.name).toBe('Hurricane');
-
-      // Verify deleted
-      const glasses = glassService.getAll(1);
-      expect(glasses).toHaveLength(0);
+      expect(result.success).toBe(true);
+      expect(result.glass?.name).toBe('Hurricane');
+      expect(execute).toHaveBeenCalledWith(
+        expect.stringContaining('DELETE FROM custom_glasses'),
+        [1, testUserId]
+      );
     });
 
-    it('should fail when glass does not exist', () => {
-      const result = glassService.delete(1, 999);
+    it('should fail when glass does not exist', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      const result = await glassService.delete(testUserId, 999);
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('not found');
     });
 
-    it('should fail when glass belongs to different user', () => {
-      db.prepare(`INSERT INTO users (id, email, password_hash) VALUES (2, 'other@example.com', 'hash')`).run();
-      db.prepare(`INSERT INTO custom_glasses (id, user_id, name) VALUES (100, 2, 'Other Glass')`).run();
+    it('should fail when glass belongs to different user', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
-      const result = glassService.delete(1, 100);
+      const result = await glassService.delete(testUserId, 100);
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('not found');
-
-      // Verify glass still exists
-      const glass = db.prepare('SELECT * FROM custom_glasses WHERE id = 100').get();
-      expect(glass).toBeDefined();
     });
   });
 });

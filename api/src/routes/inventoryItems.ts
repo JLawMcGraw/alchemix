@@ -109,7 +109,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  const result = inventoryService.getAll(userId, { page, limit }, categoryParam);
+  const result = await inventoryService.getAll(userId, { page, limit }, categoryParam);
 
   res.json({
     success: true,
@@ -131,7 +131,7 @@ router.get('/category-counts', asyncHandler(async (req: Request, res: Response) 
     });
   }
 
-  const counts = inventoryService.getCategoryCounts(userId);
+  const counts = await inventoryService.getCategoryCounts(userId);
 
   logger.debug('Category counts calculated', { counts });
 
@@ -164,7 +164,7 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  const item = inventoryService.create(userId, validation.sanitized!);
+  const item = await inventoryService.create(userId, validation.sanitized!);
 
   res.status(201).json({
     success: true,
@@ -203,7 +203,7 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  const updatedItem = inventoryService.update(itemId, userId, validation.sanitized!);
+  const updatedItem = await inventoryService.update(itemId, userId, validation.sanitized!);
 
   if (!updatedItem) {
     return res.status(404).json({
@@ -267,7 +267,7 @@ router.delete('/bulk', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  const deleted = inventoryService.bulkDelete(ids, userId);
+  const deleted = await inventoryService.bulkDelete(ids, userId);
 
   res.json({
     success: true,
@@ -297,7 +297,7 @@ router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  const deleted = inventoryService.delete(itemId, userId);
+  const deleted = await inventoryService.delete(itemId, userId);
 
   if (!deleted) {
     return res.status(404).json({
@@ -328,7 +328,7 @@ router.post('/backfill-periodic-tags', asyncHandler(async (req: Request, res: Re
     });
   }
 
-  const result = inventoryService.backfillPeriodicTags(userId);
+  const result = await inventoryService.backfillPeriodicTags(userId);
 
   res.json({
     success: true,
@@ -411,7 +411,7 @@ router.post('/import', upload.single('file'), asyncHandler(async (req: Request, 
     });
   }
 
-  const result = inventoryService.importFromCSV(userId, records);
+  const result = await inventoryService.importFromCSV(userId, records);
 
   res.json({
     success: true,

@@ -16,6 +16,22 @@ vi.mock('../utils/logger', () => ({
   },
 }));
 
+// Mock database module for formatContextForPrompt
+vi.mock('../database/db', () => ({
+  queryOne: vi.fn(),
+  queryAll: vi.fn(),
+  execute: vi.fn(),
+}));
+
+// Mock ShoppingListService for formatContextForPrompt
+vi.mock('./ShoppingListService', () => ({
+  shoppingListService: {
+    getUserBottles: vi.fn().mockResolvedValue([]),
+    isCraftable: vi.fn().mockReturnValue(true),
+    findMissingIngredients: vi.fn().mockReturnValue([]),
+  },
+}));
+
 import { MemoryService } from './MemoryService';
 import type { RecipeData, NormalizedSearchResult } from './MemoryService';
 
@@ -374,18 +390,18 @@ describe('MemoryService', () => {
   });
 
   describe('formatContextForPrompt', () => {
-    it('should return empty string for empty results', () => {
+    it('should return empty string for empty results', async () => {
       const emptyResult: NormalizedSearchResult = {
         episodic: [],
         semantic: [],
       };
 
-      const result = memoryService.formatContextForPrompt(emptyResult, 1);
+      const result = await memoryService.formatContextForPrompt(emptyResult, 1);
 
       expect(result).toBe('');
     });
 
-    it('should format episodic memories', () => {
+    it('should format episodic memories', async () => {
       const searchResult: NormalizedSearchResult = {
         episodic: [
           { content: 'Recipe: Mojito. Ingredients: Rum, Lime.', uid: 'uid1' },
@@ -393,13 +409,13 @@ describe('MemoryService', () => {
         semantic: [],
       };
 
-      const result = memoryService.formatContextForPrompt(searchResult, 1);
+      const result = await memoryService.formatContextForPrompt(searchResult, 1);
 
       expect(result).toContain('Mojito');
       expect(result).toContain('SEMANTIC SEARCH RESULTS');
     });
 
-    it('should format semantic memories', () => {
+    it('should format semantic memories', async () => {
       const searchResult: NormalizedSearchResult = {
         episodic: [],
         semantic: [
@@ -407,13 +423,13 @@ describe('MemoryService', () => {
         ],
       };
 
-      const result = memoryService.formatContextForPrompt(searchResult, 1);
+      const result = await memoryService.formatContextForPrompt(searchResult, 1);
 
       expect(result).toContain('User Preferences');
       expect(result).toContain('sweet cocktails');
     });
 
-    it('should filter already recommended recipes', () => {
+    it('should filter already recommended recipes', async () => {
       const searchResult: NormalizedSearchResult = {
         episodic: [
           { content: 'Recipe: Mojito. Category: Cocktail.', uid: 'uid1' },
@@ -423,10 +439,10 @@ describe('MemoryService', () => {
       };
 
       const alreadyRecommended = new Set(['Mojito']);
-      const result = memoryService.formatContextForPrompt(
+      const result = await memoryService.formatContextForPrompt(
         searchResult,
         1,
-        undefined,
+        false, // checkDatabase = false to avoid DB queries
         10,
         alreadyRecommended
       );
@@ -435,7 +451,7 @@ describe('MemoryService', () => {
       expect(result).not.toContain('1. Recipe: Mojito');
     });
 
-    it('should limit number of recipes', () => {
+    it('should limit number of recipes', async () => {
       const searchResult: NormalizedSearchResult = {
         episodic: [
           { content: 'Recipe: Mojito', uid: 'uid1' },
@@ -445,7 +461,7 @@ describe('MemoryService', () => {
         semantic: [],
       };
 
-      const result = memoryService.formatContextForPrompt(searchResult, 1, undefined, 2);
+      const result = await memoryService.formatContextForPrompt(searchResult, 1, false, 2);
 
       // Should only include 2 recipes
       const recipeMatches = result.match(/\d\. Recipe:/g);

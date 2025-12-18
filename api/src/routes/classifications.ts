@@ -50,7 +50,7 @@ router.get(
       });
     }
 
-    const overrides = ClassificationService.getAll(userId);
+    const overrides = await ClassificationService.getAll(userId);
 
     return res.json({
       success: true,
@@ -82,7 +82,7 @@ router.delete(
       });
     }
 
-    const deletedCount = ClassificationService.deleteAllOverrides(userId);
+    const deletedCount = await ClassificationService.deleteAllOverrides(userId);
 
     return res.json({
       success: true,
@@ -125,7 +125,7 @@ router.get(
     }
 
     const inventoryItemId = idValidation.sanitized;
-    const override = ClassificationService.getOne(userId, inventoryItemId);
+    const override = await ClassificationService.getOne(userId, inventoryItemId);
 
     if (!override) {
       return res.status(404).json({
@@ -202,7 +202,7 @@ router.put(
     }
 
     try {
-      const override = ClassificationService.setOverride(
+      const override = await ClassificationService.setOverride(
         userId,
         inventoryItemId,
         group as MixologyGroup,
@@ -259,7 +259,7 @@ router.delete(
     }
 
     const inventoryItemId = idValidation.sanitized;
-    const deleted = ClassificationService.deleteOverride(userId, inventoryItemId);
+    const deleted = await ClassificationService.deleteOverride(userId, inventoryItemId);
 
     if (!deleted) {
       return res.status(404).json({

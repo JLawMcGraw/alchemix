@@ -13,7 +13,7 @@
  * - Call Claude API with prompt caching
  */
 
-import { db } from '../database/db';
+import { queryOne, queryAll } from '../database/db';
 import { sanitizeString } from '../utils/inputValidator';
 import { memoryService } from './MemoryService';
 import { shoppingListService } from './ShoppingListService';
@@ -279,17 +279,17 @@ class AIService {
    * Query SQLite for recipes by cocktail name
    * Used when concept matches (e.g., "spirit-forward") expand to specific cocktail names
    */
-  private queryRecipesByName(userId: number, cocktailName: string): RecipeRecord[] {
+  private async queryRecipesByName(userId: number, cocktailName: string): Promise<RecipeRecord[]> {
     try {
       const searchPattern = `%${cocktailName.toLowerCase()}%`;
 
-      const recipes = db.prepare(`
+      const recipes = await queryAll<RecipeRecord>(`
         SELECT id, user_id, name, category, ingredients, memmachine_uid
         FROM recipes
-        WHERE user_id = ? AND LOWER(name) LIKE ?
+        WHERE user_id = $1 AND LOWER(name) LIKE $2
         ORDER BY RANDOM()
         LIMIT 20
-      `).all(userId, searchPattern) as RecipeRecord[];
+      `, [userId, searchPattern]);
 
       if (recipes.length > 0) {
         logger.info('Hybrid search: Found recipes by name', {
@@ -316,18 +316,18 @@ class AIService {
    * Query SQLite for recipes containing specific ingredients
    * This provides exact matches that semantic search may miss
    */
-  private queryRecipesWithIngredient(userId: number, ingredient: string): RecipeRecord[] {
+  private async queryRecipesWithIngredient(userId: number, ingredient: string): Promise<RecipeRecord[]> {
     try {
       const searchPattern = `%${ingredient.toLowerCase()}%`;
 
       // Search for ingredient in the ingredients JSON field
-      const recipes = db.prepare(`
+      const recipes = await queryAll<RecipeRecord>(`
         SELECT id, user_id, name, category, ingredients, memmachine_uid
         FROM recipes
-        WHERE user_id = ? AND LOWER(ingredients) LIKE ?
+        WHERE user_id = $1 AND LOWER(ingredients) LIKE $2
         ORDER BY RANDOM()
         LIMIT 50
-      `).all(userId, searchPattern) as RecipeRecord[];
+      `, [userId, searchPattern]);
 
       logger.info('Hybrid search: Found recipes with ingredient', {
         userId,
@@ -670,23 +670,29 @@ class AIService {
    */
   async buildDashboardInsightPrompt(userId: number): Promise<ContentBlock[]> {
     // OPTIMIZED: Only fetch counts and a small sample for faster dashboard loading
-    const inventoryCount = (db.prepare(
-      'SELECT COUNT(*) as count FROM inventory_items WHERE user_id = ? AND (stock_number IS NOT NULL AND stock_number > 0)'
-    ).get(userId) as { count: number }).count;
+    const inventoryCountResult = await queryOne<{ count: string }>(
+      'SELECT COUNT(*) as count FROM inventory_items WHERE user_id = $1 AND (stock_number IS NOT NULL AND stock_number > 0)',
+      [userId]
+    );
+    const inventoryCount = parseInt(inventoryCountResult?.count || '0', 10);
 
-    const recipeCount = (db.prepare(
-      'SELECT COUNT(*) as count FROM recipes WHERE user_id = ?'
-    ).get(userId) as { count: number }).count;
+    const recipeCountResult = await queryOne<{ count: string }>(
+      'SELECT COUNT(*) as count FROM recipes WHERE user_id = $1',
+      [userId]
+    );
+    const recipeCount = parseInt(recipeCountResult?.count || '0', 10);
 
     // Get a random sample of 15 recipes (not all 371!)
-    const recipeSample = db.prepare(
-      'SELECT name, category FROM recipes WHERE user_id = ? ORDER BY RANDOM() LIMIT 15'
-    ).all(userId) as Array<{ name: string; category?: string }>;
+    const recipeSample = await queryAll<{ name: string; category?: string }>(
+      'SELECT name, category FROM recipes WHERE user_id = $1 ORDER BY RANDOM() LIMIT 15',
+      [userId]
+    );
 
     // Get a random sample of 10 inventory items
-    const inventorySample = db.prepare(
-      'SELECT name, type FROM inventory_items WHERE user_id = ? AND (stock_number IS NOT NULL AND stock_number > 0) ORDER BY RANDOM() LIMIT 10'
-    ).all(userId) as Array<{ name: string; type?: string }>;
+    const inventorySample = await queryAll<{ name: string; type?: string }>(
+      'SELECT name, type FROM inventory_items WHERE user_id = $1 AND (stock_number IS NOT NULL AND stock_number > 0) ORDER BY RANDOM() LIMIT 10',
+      [userId]
+    );
 
     const now = new Date();
     const month = now.getMonth() + 1;
@@ -786,17 +792,20 @@ Return ONLY the JSON object. No markdown, no code blocks, no explanations.`;
     const MAX_RECIPES = 500;
     const MAX_FAVORITES = 100;
 
-    const inventory = db.prepare(
-      'SELECT * FROM inventory_items WHERE user_id = ? AND (stock_number IS NOT NULL AND stock_number > 0) ORDER BY name LIMIT ?'
-    ).all(userId, MAX_INVENTORY_ITEMS) as InventoryItemRecord[];
+    const inventory = await queryAll<InventoryItemRecord>(
+      'SELECT * FROM inventory_items WHERE user_id = $1 AND (stock_number IS NOT NULL AND stock_number > 0) ORDER BY name LIMIT $2',
+      [userId, MAX_INVENTORY_ITEMS]
+    );
 
-    const recipes = db.prepare(
-      'SELECT * FROM recipes WHERE user_id = ? ORDER BY name LIMIT ?'
-    ).all(userId, MAX_RECIPES) as RecipeRecord[];
+    const recipes = await queryAll<RecipeRecord>(
+      'SELECT * FROM recipes WHERE user_id = $1 ORDER BY name LIMIT $2',
+      [userId, MAX_RECIPES]
+    );
 
-    const favorites = db.prepare(
-      'SELECT * FROM favorites WHERE user_id = ? ORDER BY created_at DESC LIMIT ?'
-    ).all(userId, MAX_FAVORITES) as FavoriteRecord[];
+    const favorites = await queryAll<FavoriteRecord>(
+      'SELECT * FROM favorites WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2',
+      [userId, MAX_FAVORITES]
+    );
 
     // Build inventory entries
     const inventoryEntries = inventory
@@ -889,7 +898,7 @@ Return ONLY the JSON object. No markdown, no code blocks, no explanations.`;
 
           // Search user's recipes for cocktails matching this concept
           for (const cocktailName of cocktails) {
-            const matches = this.queryRecipesByName(userId, cocktailName);
+            const matches = await this.queryRecipesByName(userId, cocktailName);
             for (const recipe of matches) {
               if (!conceptRecipes.some(r => r.id === recipe.id)) {
                 conceptRecipes.push(recipe);
@@ -939,7 +948,7 @@ Return ONLY the JSON object. No markdown, no code blocks, no explanations.`;
         logger.info('Hybrid search: Prioritized ingredients', { specific: specificIngredients, generic: genericMatches });
 
         for (const ingredient of prioritizedIngredients) {
-          const matches = this.queryRecipesWithIngredient(userId, ingredient);
+          const matches = await this.queryRecipesWithIngredient(userId, ingredient);
           for (const recipe of matches) {
             // Avoid duplicates
             if (!allRecipes.some(r => r.id === recipe.id)) {
@@ -960,7 +969,7 @@ Return ONLY the JSON object. No markdown, no code blocks, no explanations.`;
           : '';
 
       // Get user's bottles for craftability check
-      const userBottles = shoppingListService.getUserBottles(userId);
+      const userBottles = await shoppingListService.getUserBottles(userId);
 
       // Step 3: Process initial recipe matches
       let { formatted, craftableCount, nearMissCount, processedRecipes } =
@@ -990,7 +999,7 @@ Return ONLY the JSON object. No markdown, no code blocks, no explanations.`;
         const additionalRecipes: RecipeRecord[] = [];
         for (const term of broaderTerms) {
           // Search by name (for cocktail types like "daiquiri", "sour")
-          const nameMatches = this.queryRecipesByName(userId, term);
+          const nameMatches = await this.queryRecipesByName(userId, term);
           for (const recipe of nameMatches) {
             if (!ingredientRecipes.some(r => r.id === recipe.id) &&
                 !additionalRecipes.some(r => r.id === recipe.id)) {
@@ -999,7 +1008,7 @@ Return ONLY the JSON object. No markdown, no code blocks, no explanations.`;
           }
 
           // Search by ingredient
-          const ingredientMatches = this.queryRecipesWithIngredient(userId, term);
+          const ingredientMatches = await this.queryRecipesWithIngredient(userId, term);
           for (const recipe of ingredientMatches) {
             if (!ingredientRecipes.some(r => r.id === recipe.id) &&
                 !additionalRecipes.some(r => r.id === recipe.id)) {
@@ -1069,7 +1078,7 @@ Return ONLY the JSON object. No markdown, no code blocks, no explanations.`;
 
         // Add recipe search results
         if (userContext) {
-          const formattedContext = memoryService.formatContextForPrompt(userContext, userId, db, 10, alreadyRecommended);
+          const formattedContext = await memoryService.formatContextForPrompt(userContext, userId, true, 10, alreadyRecommended);
           memoryContext += formattedContext;
           logger.info('MemMachine: Formatted context for AI', {
             contextLength: formattedContext.length,

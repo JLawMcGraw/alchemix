@@ -8,7 +8,7 @@
  * @date December 2025
  */
 
-import { db } from '../database/db';
+import { queryOne, queryAll, execute } from '../database/db';
 import { sanitizeString } from '../utils/inputValidator';
 
 /**
@@ -39,18 +39,18 @@ export class GlassService {
   /**
    * Get all custom glasses for a user
    */
-  getAll(userId: number): CustomGlass[] {
-    return db.prepare(`
+  async getAll(userId: number): Promise<CustomGlass[]> {
+    return queryAll<CustomGlass>(`
       SELECT * FROM custom_glasses
-      WHERE user_id = ?
+      WHERE user_id = $1
       ORDER BY name ASC
-    `).all(userId) as CustomGlass[];
+    `, [userId]);
   }
 
   /**
    * Create a new custom glass
    */
-  create(userId: number, name: string): GlassResult {
+  async create(userId: number, name: string): Promise<GlassResult> {
     // Sanitize and validate
     const sanitizedName = sanitizeString(name, 100);
 
@@ -60,25 +60,24 @@ export class GlassService {
 
     const trimmedName = sanitizedName.trim();
 
-    // Check for duplicate
-    const existing = db.prepare(`
+    // Check for duplicate (case-insensitive)
+    const existing = await queryOne<{ id: number }>(`
       SELECT id FROM custom_glasses
-      WHERE user_id = ? AND LOWER(name) = LOWER(?)
-    `).get(userId, trimmedName);
+      WHERE user_id = $1 AND LOWER(name) = LOWER($2)
+    `, [userId, trimmedName]);
 
     if (existing) {
       return { success: false, error: 'A glass with this name already exists' };
     }
 
     try {
-      const result = db.prepare(`
+      const result = await execute(`
         INSERT INTO custom_glasses (user_id, name)
-        VALUES (?, ?)
-      `).run(userId, trimmedName);
+        VALUES ($1, $2)
+        RETURNING *
+      `, [userId, trimmedName]);
 
-      const glass = db.prepare(`
-        SELECT * FROM custom_glasses WHERE id = ?
-      `).get(result.lastInsertRowid) as CustomGlass;
+      const glass = result.rows[0] as CustomGlass;
 
       return { success: true, glass };
     } catch (error) {
@@ -90,21 +89,21 @@ export class GlassService {
   /**
    * Delete a custom glass
    */
-  delete(userId: number, glassId: number): GlassResult {
-    // Verify ownership
-    const glass = db.prepare(`
+  async delete(userId: number, glassId: number): Promise<GlassResult> {
+    // Verify ownership and get glass data
+    const glass = await queryOne<CustomGlass>(`
       SELECT * FROM custom_glasses
-      WHERE id = ? AND user_id = ?
-    `).get(glassId, userId) as CustomGlass | undefined;
+      WHERE id = $1 AND user_id = $2
+    `, [glassId, userId]);
 
     if (!glass) {
       return { success: false, error: 'Glass not found or access denied' };
     }
 
     try {
-      db.prepare(`
-        DELETE FROM custom_glasses WHERE id = ? AND user_id = ?
-      `).run(glassId, userId);
+      await execute(`
+        DELETE FROM custom_glasses WHERE id = $1 AND user_id = $2
+      `, [glassId, userId]);
 
       return { success: true, glass };
     } catch (error) {

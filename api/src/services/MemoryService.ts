@@ -24,7 +24,7 @@
  * @date December 2, 2025
  */
 
-import type Database from 'better-sqlite3';
+import { queryOne } from '../database/db';
 import { logger } from '../utils/logger';
 import { shoppingListService, BottleData } from './ShoppingListService';
 import {
@@ -874,22 +874,22 @@ export class MemoryService {
       .filter(i => i.length > 0);
   }
 
-  formatContextForPrompt(
+  async formatContextForPrompt(
     searchResult: NormalizedSearchResult,
     userId: number,
-    db?: Database.Database,
+    checkDatabase: boolean = false,
     limit: number = MAX_PROMPT_RECIPES,
     alreadyRecommended: Set<string> = new Set()
-  ): string {
+  ): Promise<string> {
     if (!searchResult || (!searchResult.episodic?.length && !searchResult.semantic?.length)) {
       return '';
     }
 
     // Get user's bottles for craftability check
     let userBottles: BottleData[] = [];
-    if (db) {
+    if (checkDatabase) {
       try {
-        userBottles = shoppingListService.getUserBottles(userId);
+        userBottles = await shoppingListService.getUserBottles(userId);
       } catch (error) {
         logger.warn('Failed to get user bottles for craftability check', { error });
       }
@@ -916,7 +916,7 @@ export class MemoryService {
 
       // Extract recipe names and cross-reference with database (if provided)
       const validRecipes: Array<{ episode: typeof recipeEpisodes[0]; recipeName: string }> = [];
-      if (db) {
+      if (checkDatabase) {
         for (const episode of recipeEpisodes) {
           // Extract recipe name from "Recipe: NAME" format
           const match = episode.content.match(/Recipe:\s*([^\n.]+)/);
@@ -924,7 +924,10 @@ export class MemoryService {
             const recipeName = match[1].trim();
 
             // Check if recipe still exists in AlcheMix database
-            const exists = db.prepare('SELECT 1 FROM recipes WHERE user_id = ? AND name = ? LIMIT 1').get(userId, recipeName);
+            const exists = await queryOne<{ one: number }>(
+              'SELECT 1 as one FROM recipes WHERE user_id = $1 AND name = $2 LIMIT 1',
+              [userId, recipeName]
+            );
 
             if (!exists) {
               logger.info('Filtered out deleted recipe from MemMachine context', { recipeName });

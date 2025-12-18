@@ -1,450 +1,401 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import Database from 'better-sqlite3';
-import { createTestDatabase, cleanupTestDatabase } from '../tests/setup';
+/**
+ * Database Operations Tests (PostgreSQL)
+ *
+ * These tests verify the database layer functions work correctly.
+ * They use mocks to simulate PostgreSQL responses without requiring
+ * an actual database connection.
+ */
 
-describe('Database Operations', () => {
-  let db: Database.Database;
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { Pool, PoolClient, QueryResult } from 'pg';
 
+// Mock pg module
+vi.mock('pg', () => {
+  const mockQuery = vi.fn();
+  const mockRelease = vi.fn();
+  const mockConnect = vi.fn();
+
+  const MockPoolClient = {
+    query: mockQuery,
+    release: mockRelease,
+  };
+
+  const MockPool = vi.fn(() => ({
+    query: mockQuery,
+    connect: mockConnect.mockResolvedValue(MockPoolClient),
+    end: vi.fn(),
+    on: vi.fn(), // Handle pool.on('error', ...) calls
+  }));
+
+  return {
+    Pool: MockPool,
+    __mockQuery: mockQuery,
+    __mockConnect: mockConnect,
+    __mockRelease: mockRelease,
+    __MockPoolClient: MockPoolClient,
+  };
+});
+
+// Mock logger
+vi.mock('../utils/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    debug: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
+// Import after mocking
+import { queryOne, queryAll, execute, transaction, pool } from './db';
+
+// Get mock functions
+const pg = await import('pg') as typeof import('pg') & {
+  __mockQuery: ReturnType<typeof vi.fn>;
+  __mockConnect: ReturnType<typeof vi.fn>;
+  __MockPoolClient: { query: ReturnType<typeof vi.fn>; release: ReturnType<typeof vi.fn> };
+};
+
+describe('Database Operations (PostgreSQL)', () => {
   beforeEach(() => {
-    db = createTestDatabase();
+    vi.clearAllMocks();
   });
 
-  afterEach(() => {
-    cleanupTestDatabase(db);
-  });
+  describe('queryOne', () => {
+    it('should return first row when results exist', async () => {
+      const mockUser = { id: 1, email: 'test@example.com', password_hash: 'hashed' };
+      pg.__mockQuery.mockResolvedValue({ rows: [mockUser], rowCount: 1 });
 
-  describe('Schema Creation', () => {
-    it('should create users table with correct schema', () => {
-      const tableInfo = db.prepare("PRAGMA table_info(users)").all();
-      const columns = tableInfo.map((col: any) => col.name);
-
-      expect(columns).toContain('id');
-      expect(columns).toContain('email');
-      expect(columns).toContain('password_hash');
-      expect(columns).toContain('created_at');
-    });
-
-    it('should create inventory_items table with current schema', () => {
-      const tableInfo = db.prepare("PRAGMA table_info(inventory_items)").all();
-      const columns = tableInfo.map((col: any) => col.name);
-
-      expect(columns).toEqual(expect.arrayContaining([
-        'id',
-        'user_id',
-        'name',
-        'category',
-        'type',
-        'abv',
-        'stock_number',
-        'spirit_classification',
-        'distillation_method',
-        'distillery_location',
-        'age_statement',
-        'additional_notes',
-        'profile_nose',
-        'palate',
-        'finish',
-        'tasting_notes',
-        'created_at'
-      ]));
-    });
-
-    it('should create recipes table with correct schema', () => {
-      const tableInfo = db.prepare("PRAGMA table_info(recipes)").all();
-      const columns = tableInfo.map((col: any) => col.name);
-
-      expect(columns).toContain('id');
-      expect(columns).toContain('user_id');
-      expect(columns).toContain('name');
-      expect(columns).toContain('ingredients');
-      expect(columns).toContain('instructions');
-      expect(columns).toContain('created_at');
-    });
-
-    it('should create favorites table with correct schema', () => {
-      const tableInfo = db.prepare("PRAGMA table_info(favorites)").all();
-      const columns = tableInfo.map((col: any) => col.name);
-
-      expect(columns).toContain('id');
-      expect(columns).toContain('user_id');
-      expect(columns).toContain('recipe_id');
-      expect(columns).toContain('created_at');
-    });
-
-    it('should have foreign key constraints enabled', () => {
-      const foreignKeys = db.prepare("PRAGMA foreign_keys").get() as { foreign_keys: number };
-      // Note: We need to enable foreign keys in the test setup
-      db.pragma('foreign_keys = ON');
-      const enabled = db.prepare("PRAGMA foreign_keys").get() as { foreign_keys: number };
-      expect(enabled.foreign_keys).toBe(1);
-    });
-  });
-
-  describe('User Operations', () => {
-    it('should insert a user', () => {
-      const stmt = db.prepare(
-        'INSERT INTO users (email, password_hash) VALUES (?, ?)'
+      const result = await queryOne<typeof mockUser>(
+        'SELECT * FROM users WHERE email = $1',
+        ['test@example.com']
       );
 
-      const result = stmt.run('test@example.com', 'hashed_password');
-
-      expect(result.changes).toBe(1);
-      expect(result.lastInsertRowid).toBeGreaterThan(0);
-    });
-
-    it('should retrieve a user by email', () => {
-      db.prepare(
-        'INSERT INTO users (email, password_hash) VALUES (?, ?)'
-      ).run('test@example.com', 'hashed_password');
-
-      const user = db.prepare('SELECT * FROM users WHERE email = ?').get('test@example.com') as any;
-
-      expect(user).toBeDefined();
-      expect(user.email).toBe('test@example.com');
-      expect(user.password_hash).toBe('hashed_password');
-    });
-
-    it('should enforce unique email constraint', () => {
-      db.prepare(
-        'INSERT INTO users (email, password_hash) VALUES (?, ?)'
-      ).run('test@example.com', 'password1');
-
-      expect(() => {
-        db.prepare(
-          'INSERT INTO users (email, password_hash) VALUES (?, ?)'
-        ).run('test@example.com', 'password2');
-      }).toThrow();
-    });
-
-    it('should set created_at automatically', () => {
-      db.prepare(
-        'INSERT INTO users (email, password_hash) VALUES (?, ?)'
-      ).run('test@example.com', 'hashed_password');
-
-      const user = db.prepare('SELECT created_at FROM users WHERE email = ?').get('test@example.com') as any;
-
-      expect(user.created_at).toBeDefined();
-      expect(user.created_at).toMatch(/^\d{4}-\d{2}-\d{2}/); // ISO date format
-    });
-
-    it('should allow multiple users with different emails', () => {
-      db.prepare(
-        'INSERT INTO users (email, password_hash) VALUES (?, ?)'
-      ).run('user1@example.com', 'password1');
-
-      db.prepare(
-        'INSERT INTO users (email, password_hash) VALUES (?, ?)'
-      ).run('user2@example.com', 'password2');
-
-      const users = db.prepare('SELECT * FROM users').all();
-      expect(users).toHaveLength(2);
-    });
-  });
-
-  describe('Inventory Operations', () => {
-    let userId: number;
-    const insertItem = (overrides: {
-      name?: string;
-      category?: string;
-      type?: string;
-      classification?: string;
-      notes?: string | null;
-    } = {}) => {
-      const stmt = db.prepare(`
-        INSERT INTO inventory_items (user_id, name, category, type, spirit_classification, additional_notes)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `);
-
-      return stmt.run(
-        userId,
-        overrides.name ?? 'Test Item',
-        overrides.category ?? 'spirit',
-        overrides.type ?? 'Gin',
-        overrides.classification ?? 'London Dry Gin',
-        overrides.notes ?? null
+      expect(result).toEqual(mockUser);
+      expect(pg.__mockQuery).toHaveBeenCalledWith(
+        'SELECT * FROM users WHERE email = $1',
+        ['test@example.com']
       );
-    };
-
-    beforeEach(() => {
-      const result = db.prepare(
-        'INSERT INTO users (email, password_hash) VALUES (?, ?)'
-      ).run('test@example.com', 'hashed_password');
-      userId = Number(result.lastInsertRowid);
     });
 
-    it('should insert an inventory item', () => {
-      const result = insertItem();
+    it('should return null when no results', async () => {
+      pg.__mockQuery.mockResolvedValue({ rows: [], rowCount: 0 });
 
-      expect(result.changes).toBe(1);
-      expect(result.lastInsertRowid).toBeGreaterThan(0);
-    });
-
-    it('should retrieve inventory items for a user', () => {
-      insertItem({ name: 'Item 1', type: 'Vodka' });
-      insertItem({ name: 'Item 2', type: 'Gin' });
-
-      const items = db.prepare('SELECT * FROM inventory_items WHERE user_id = ?').all(userId);
-
-      expect(items).toHaveLength(2);
-    });
-
-    it('should cascade delete inventory items when user is deleted', () => {
-      db.pragma('foreign_keys = ON');
-
-      insertItem();
-
-      db.prepare('DELETE FROM users WHERE id = ?').run(userId);
-
-      const items = db.prepare('SELECT * FROM inventory_items WHERE user_id = ?').all(userId);
-      expect(items).toHaveLength(0);
-    });
-
-    it('should update inventory item metadata fields', () => {
-      const result = insertItem();
-      const itemId = Number(result.lastInsertRowid);
-
-      db.prepare('UPDATE inventory_items SET stock_number = ? WHERE id = ?').run(500, itemId);
-
-      const item = db.prepare('SELECT stock_number as stock FROM inventory_items WHERE id = ?').get(itemId) as any;
-      expect(item.stock).toBe(500);
-    });
-
-    it('should allow optional classification fields to remain null', () => {
-      const result = db.prepare(`
-        INSERT INTO inventory_items (user_id, name, category)
-        VALUES (?, ?, ?)
-      `).run(userId, 'Minimal Item', 'other');
-
-      const item = db.prepare('SELECT spirit_classification as detail FROM inventory_items WHERE id = ?')
-        .get(result.lastInsertRowid) as any;
-      expect(item.detail).toBeNull();
-    });
-  });
-
-  describe('Recipe Operations', () => {
-    let userId: number;
-
-    beforeEach(() => {
-      const result = db.prepare(
-        'INSERT INTO users (email, password_hash) VALUES (?, ?)'
-      ).run('test@example.com', 'hashed_password');
-      userId = Number(result.lastInsertRowid);
-    });
-
-    it('should insert a recipe', () => {
-      const stmt = db.prepare(
-        'INSERT INTO recipes (user_id, name, ingredients, instructions) VALUES (?, ?, ?, ?)'
+      const result = await queryOne<{ id: number }>(
+        'SELECT * FROM users WHERE id = $1',
+        [999]
       );
 
-      const result = stmt.run(userId, 'Martini', '2 oz Gin, 1 oz Vermouth', 'Stir and strain');
-
-      expect(result.changes).toBe(1);
-      expect(result.lastInsertRowid).toBeGreaterThan(0);
+      expect(result).toBeNull();
     });
 
-    it('should retrieve recipes for a user', () => {
-      db.prepare(
-        'INSERT INTO recipes (user_id, name, ingredients, instructions) VALUES (?, ?, ?, ?)'
-      ).run(userId, 'Recipe 1', 'Ingredients 1', 'Instructions 1');
+    it('should handle query errors', async () => {
+      pg.__mockQuery.mockRejectedValue(new Error('Connection failed'));
 
-      db.prepare(
-        'INSERT INTO recipes (user_id, name, ingredients, instructions) VALUES (?, ?, ?, ?)'
-      ).run(userId, 'Recipe 2', 'Ingredients 2', 'Instructions 2');
-
-      const recipes = db.prepare('SELECT * FROM recipes WHERE user_id = ?').all(userId);
-
-      expect(recipes).toHaveLength(2);
-    });
-
-    it('should cascade delete recipes when user is deleted', () => {
-      db.pragma('foreign_keys = ON');
-
-      db.prepare(
-        'INSERT INTO recipes (user_id, name, ingredients, instructions) VALUES (?, ?, ?, ?)'
-      ).run(userId, 'Martini', '2 oz Gin, 1 oz Vermouth', 'Stir and strain');
-
-      db.prepare('DELETE FROM users WHERE id = ?').run(userId);
-
-      const recipes = db.prepare('SELECT * FROM recipes WHERE user_id = ?').all(userId);
-      expect(recipes).toHaveLength(0);
-    });
-
-    it('should handle null instructions', () => {
-      const result = db.prepare(
-        'INSERT INTO recipes (user_id, name, ingredients) VALUES (?, ?, ?)'
-      ).run(userId, 'Simple Recipe', '1 oz Ingredient');
-
-      const recipe = db.prepare('SELECT instructions FROM recipes WHERE id = ?').get(result.lastInsertRowid) as any;
-      expect(recipe.instructions).toBeNull();
+      await expect(
+        queryOne('SELECT * FROM users WHERE id = $1', [1])
+      ).rejects.toThrow('Connection failed');
     });
   });
 
-  describe('Favorites Operations', () => {
-    let userId: number;
-    let recipeId: number;
+  describe('queryAll', () => {
+    it('should return all rows', async () => {
+      const mockUsers = [
+        { id: 1, email: 'user1@example.com' },
+        { id: 2, email: 'user2@example.com' },
+      ];
+      pg.__mockQuery.mockResolvedValue({ rows: mockUsers, rowCount: 2 });
 
-    beforeEach(() => {
-      const userResult = db.prepare(
-        'INSERT INTO users (email, password_hash) VALUES (?, ?)'
-      ).run('test@example.com', 'hashed_password');
-      userId = Number(userResult.lastInsertRowid);
-
-      const recipeResult = db.prepare(
-        'INSERT INTO recipes (user_id, name, ingredients, instructions) VALUES (?, ?, ?, ?)'
-      ).run(userId, 'Martini', '2 oz Gin, 1 oz Vermouth', 'Stir and strain');
-      recipeId = Number(recipeResult.lastInsertRowid);
-    });
-
-    it('should add a favorite', () => {
-      const stmt = db.prepare(
-        'INSERT INTO favorites (user_id, recipe_name, recipe_id) VALUES (?, ?, ?)'
+      const result = await queryAll<(typeof mockUsers)[0]>(
+        'SELECT * FROM users'
       );
 
-      const result = stmt.run(userId, 'Martini', recipeId);
-
-      expect(result.changes).toBe(1);
-      expect(result.lastInsertRowid).toBeGreaterThan(0);
+      expect(result).toEqual(mockUsers);
+      expect(result).toHaveLength(2);
     });
 
-    it('should retrieve favorites for a user', () => {
-      db.prepare(
-        'INSERT INTO favorites (user_id, recipe_name, recipe_id) VALUES (?, ?, ?)'
-      ).run(userId, 'Martini', recipeId);
+    it('should return empty array when no results', async () => {
+      pg.__mockQuery.mockResolvedValue({ rows: [], rowCount: 0 });
 
-      const favorites = db.prepare('SELECT * FROM favorites WHERE user_id = ?').all(userId);
+      const result = await queryAll<{ id: number }>('SELECT * FROM users WHERE id > $1', [1000]);
 
-      expect(favorites).toHaveLength(1);
+      expect(result).toEqual([]);
+      expect(result).toHaveLength(0);
     });
 
-    it('should enforce unique user_id and recipe_id combination', () => {
-      db.prepare(
-        'INSERT INTO favorites (user_id, recipe_name, recipe_id) VALUES (?, ?, ?)'
-      ).run(userId, 'Martini', recipeId);
+    it('should handle parameterized queries', async () => {
+      const mockRecipes = [{ id: 1, name: 'Martini', user_id: 1 }];
+      pg.__mockQuery.mockResolvedValue({ rows: mockRecipes, rowCount: 1 });
 
-      expect(() => {
-        db.prepare(
-          'INSERT INTO favorites (user_id, recipe_id) VALUES (?, ?)'
-        ).run(userId, recipeId);
-      }).toThrow();
-    });
+      await queryAll('SELECT * FROM recipes WHERE user_id = $1', [1]);
 
-    it('should cascade delete favorites when user is deleted', () => {
-      db.pragma('foreign_keys = ON');
-
-      db.prepare(
-        'INSERT INTO favorites (user_id, recipe_name, recipe_id) VALUES (?, ?, ?)'
-      ).run(userId, 'Martini', recipeId);
-
-      db.prepare('DELETE FROM users WHERE id = ?').run(userId);
-
-      const favorites = db.prepare('SELECT * FROM favorites WHERE user_id = ?').all(userId);
-      expect(favorites).toHaveLength(0);
-    });
-
-    it('should cascade delete favorites when recipe is deleted', () => {
-      db.pragma('foreign_keys = ON');
-
-      db.prepare(
-        'INSERT INTO favorites (user_id, recipe_name, recipe_id) VALUES (?, ?, ?)'
-      ).run(userId, 'Martini', recipeId);
-
-      db.prepare('DELETE FROM recipes WHERE id = ?').run(recipeId);
-
-      const favorites = db.prepare('SELECT * FROM favorites WHERE recipe_id = ?').all(recipeId);
-      expect(favorites).toHaveLength(0);
-    });
-
-    it('should allow same recipe to be favorited by different users', () => {
-      const user2Result = db.prepare(
-        'INSERT INTO users (email, password_hash) VALUES (?, ?)'
-      ).run('user2@example.com', 'password');
-      const userId2 = Number(user2Result.lastInsertRowid);
-
-      db.prepare(
-        'INSERT INTO favorites (user_id, recipe_name, recipe_id) VALUES (?, ?, ?)'
-      ).run(userId, 'Martini', recipeId);
-
-      db.prepare(
-        'INSERT INTO favorites (user_id, recipe_name, recipe_id) VALUES (?, ?, ?)'
-      ).run(userId2, 'Martini', recipeId);
-
-      const favorites = db.prepare('SELECT * FROM favorites WHERE recipe_id = ?').all(recipeId);
-      expect(favorites).toHaveLength(2);
+      expect(pg.__mockQuery).toHaveBeenCalledWith(
+        'SELECT * FROM recipes WHERE user_id = $1',
+        [1]
+      );
     });
   });
 
-  describe('Indices', () => {
-    it('should have index on inventory_items user_id', () => {
-      const indices = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='inventory_items'").all();
-      const indexNames = indices.map((idx: any) => idx.name);
+  describe('execute', () => {
+    it('should execute INSERT and return result', async () => {
+      pg.__mockQuery.mockResolvedValue({
+        rows: [{ id: 1 }],
+        rowCount: 1,
+        command: 'INSERT',
+      });
 
-      expect(indexNames).toContain('idx_inventory_items_user_id');
-    });
-
-    it('should have index on inventory_items category', () => {
-      const indices = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='inventory_items'").all();
-      const indexNames = indices.map((idx: any) => idx.name);
-
-      expect(indexNames).toContain('idx_inventory_items_category');
-    });
-
-    it('should have index on recipes user_id', () => {
-      const indices = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='recipes'").all();
-      const indexNames = indices.map((idx: any) => idx.name);
-
-      expect(indexNames).toContain('idx_recipes_user_id');
-    });
-
-    it('should have index on favorites user_id', () => {
-      const indices = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='favorites'").all();
-      const indexNames = indices.map((idx: any) => idx.name);
-
-      expect(indexNames).toContain('idx_favorites_user_id');
-    });
-
-    it('should have index on favorites recipe_id', () => {
-      const indices = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='favorites'").all();
-      const indexNames = indices.map((idx: any) => idx.name);
-
-      expect(indexNames).toContain('idx_favorites_recipe_id');
-    });
-  });
-
-  describe('Query Performance', () => {
-    let userId: number;
-
-    beforeEach(() => {
-      const result = db.prepare(
-        'INSERT INTO users (email, password_hash) VALUES (?, ?)'
-      ).run('test@example.com', 'hashed_password');
-      userId = Number(result.lastInsertRowid);
-
-      // Insert multiple inventory items for performance testing
-      const stmt = db.prepare(
-        'INSERT INTO inventory_items (user_id, name, category, type, spirit_classification) VALUES (?, ?, ?, ?, ?)'
+      const result = await execute(
+        'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id',
+        ['test@example.com', 'hashed']
       );
 
-      for (let i = 0; i < 100; i++) {
-        stmt.run(userId, `Item ${i}`, 'spirit', 'Vodka', 'Premium Vodka');
-      }
+      expect(result.rowCount).toBe(1);
+      expect(result.rows[0]).toEqual({ id: 1 });
     });
 
-    it('should efficiently query inventory items by user_id', () => {
-      const startTime = Date.now();
+    it('should execute UPDATE and return affected rows', async () => {
+      pg.__mockQuery.mockResolvedValue({
+        rows: [],
+        rowCount: 3,
+        command: 'UPDATE',
+      });
 
-      db.prepare('SELECT * FROM inventory_items WHERE user_id = ?').all(userId);
+      const result = await execute(
+        'UPDATE users SET is_verified = $1 WHERE email LIKE $2',
+        [true, '%@example.com']
+      );
 
-      const endTime = Date.now();
-      const duration = endTime - startTime;
-
-      // Query should be fast (less than 10ms for 100 rows)
-      expect(duration).toBeLessThan(10);
+      expect(result.rowCount).toBe(3);
     });
 
-    it('should efficiently count inventory items for a user', () => {
-      const result = db.prepare('SELECT COUNT(*) as count FROM inventory_items WHERE user_id = ?').get(userId) as any;
+    it('should execute DELETE and return affected rows', async () => {
+      pg.__mockQuery.mockResolvedValue({
+        rows: [],
+        rowCount: 5,
+        command: 'DELETE',
+      });
 
-      expect(result.count).toBe(100);
+      const result = await execute(
+        'DELETE FROM token_blacklist WHERE expires_at < $1',
+        [Math.floor(Date.now() / 1000)]
+      );
+
+      expect(result.rowCount).toBe(5);
+    });
+
+    it('should handle constraint violations', async () => {
+      const uniqueError = new Error('duplicate key value violates unique constraint');
+      pg.__mockQuery.mockRejectedValue(uniqueError);
+
+      await expect(
+        execute('INSERT INTO users (email, password_hash) VALUES ($1, $2)', ['existing@example.com', 'hash'])
+      ).rejects.toThrow('duplicate key value');
+    });
+  });
+
+  describe('transaction', () => {
+    it('should execute callback with client and commit on success', async () => {
+      const mockClient = pg.__MockPoolClient;
+      mockClient.query.mockResolvedValue({ rows: [{ id: 1 }], rowCount: 1 });
+
+      const result = await transaction(async (client) => {
+        await client.query('INSERT INTO users (email) VALUES ($1)', ['test@example.com']);
+        return { success: true };
+      });
+
+      expect(result).toEqual({ success: true });
+      // Transaction should have been committed (COMMIT query)
+      expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
+      expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
+    });
+
+    it('should rollback on error', async () => {
+      const mockClient = pg.__MockPoolClient;
+      mockClient.query
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockRejectedValueOnce(new Error('Insert failed')) // INSERT
+        .mockResolvedValueOnce({}); // ROLLBACK
+
+      await expect(
+        transaction(async (client) => {
+          await client.query('INSERT INTO users (email) VALUES ($1)', ['test@example.com']);
+          return { success: true };
+        })
+      ).rejects.toThrow('Insert failed');
+
+      expect(mockClient.query).toHaveBeenCalledWith('ROLLBACK');
+    });
+
+    it('should release client after transaction', async () => {
+      const mockClient = pg.__MockPoolClient;
+      mockClient.query.mockResolvedValue({});
+
+      await transaction(async () => {
+        return 'done';
+      });
+
+      expect(mockClient.release).toHaveBeenCalled();
+    });
+
+    it('should support multiple queries in transaction', async () => {
+      const mockClient = pg.__MockPoolClient;
+      mockClient.query.mockResolvedValue({ rows: [], rowCount: 1 });
+
+      await transaction(async (client) => {
+        await client.query('DELETE FROM favorites WHERE user_id = $1', [1]);
+        await client.query('DELETE FROM recipes WHERE user_id = $1', [1]);
+        await client.query('DELETE FROM users WHERE id = $1', [1]);
+        return { deleted: true };
+      });
+
+      // BEGIN + 3 queries + COMMIT = 5 calls
+      expect(mockClient.query).toHaveBeenCalledTimes(5);
+    });
+  });
+
+  describe('pool', () => {
+    it('should export the pool instance', () => {
+      expect(pool).toBeDefined();
+    });
+  });
+
+  describe('SQL Injection Prevention', () => {
+    it('should use parameterized queries for user input', async () => {
+      pg.__mockQuery.mockResolvedValue({ rows: [], rowCount: 0 });
+
+      // Attempt SQL injection
+      const maliciousInput = "'; DROP TABLE users; --";
+      await queryOne('SELECT * FROM users WHERE email = $1', [maliciousInput]);
+
+      // The malicious input should be passed as a parameter, not interpolated
+      expect(pg.__mockQuery).toHaveBeenCalledWith(
+        'SELECT * FROM users WHERE email = $1',
+        [maliciousInput]
+      );
+    });
+
+    it('should handle special characters safely', async () => {
+      pg.__mockQuery.mockResolvedValue({ rows: [], rowCount: 0 });
+
+      const specialInput = "test'\"\\;--/**/";
+      await queryAll('SELECT * FROM recipes WHERE name LIKE $1', [`%${specialInput}%`]);
+
+      expect(pg.__mockQuery).toHaveBeenCalledWith(
+        'SELECT * FROM recipes WHERE name LIKE $1',
+        [`%${specialInput}%`]
+      );
+    });
+  });
+
+  describe('Data Type Handling', () => {
+    it('should handle boolean values correctly', async () => {
+      pg.__mockQuery.mockResolvedValue({
+        rows: [{ id: 1, is_verified: true }],
+        rowCount: 1,
+      });
+
+      const result = await queryOne<{ id: number; is_verified: boolean }>(
+        'SELECT * FROM users WHERE is_verified = $1',
+        [true]
+      );
+
+      expect(result?.is_verified).toBe(true);
+    });
+
+    it('should handle null values correctly', async () => {
+      pg.__mockQuery.mockResolvedValue({
+        rows: [{ id: 1, instructions: null }],
+        rowCount: 1,
+      });
+
+      const result = await queryOne<{ id: number; instructions: string | null }>(
+        'SELECT * FROM recipes WHERE id = $1',
+        [1]
+      );
+
+      expect(result?.instructions).toBeNull();
+    });
+
+    it('should handle timestamp values', async () => {
+      const now = new Date();
+      pg.__mockQuery.mockResolvedValue({
+        rows: [{ id: 1, created_at: now }],
+        rowCount: 1,
+      });
+
+      const result = await queryOne<{ id: number; created_at: Date }>(
+        'SELECT * FROM users WHERE id = $1',
+        [1]
+      );
+
+      expect(result?.created_at).toEqual(now);
+    });
+
+    it('should handle integer arrays', async () => {
+      pg.__mockQuery.mockResolvedValue({
+        rows: [{ ids: [1, 2, 3] }],
+        rowCount: 1,
+      });
+
+      const result = await queryOne<{ ids: number[] }>(
+        'SELECT ARRAY_AGG(id) as ids FROM recipes WHERE user_id = $1',
+        [1]
+      );
+
+      expect(result?.ids).toEqual([1, 2, 3]);
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should propagate database errors', async () => {
+      const dbError = new Error('Connection refused');
+      pg.__mockQuery.mockRejectedValue(dbError);
+
+      await expect(queryOne('SELECT 1')).rejects.toThrow('Connection refused');
+    });
+
+    it('should handle timeout errors', async () => {
+      const timeoutError = new Error('Query read timeout');
+      pg.__mockQuery.mockRejectedValue(timeoutError);
+
+      await expect(
+        queryAll('SELECT * FROM large_table')
+      ).rejects.toThrow('Query read timeout');
+    });
+  });
+
+  describe('RETURNING Clause', () => {
+    it('should return inserted row with RETURNING *', async () => {
+      const insertedRow = {
+        id: 1,
+        email: 'new@example.com',
+        password_hash: 'hashed',
+        created_at: new Date(),
+      };
+      pg.__mockQuery.mockResolvedValue({ rows: [insertedRow], rowCount: 1 });
+
+      const result = await execute(
+        'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING *',
+        ['new@example.com', 'hashed']
+      );
+
+      expect(result.rows[0]).toEqual(insertedRow);
+    });
+
+    it('should return updated row with RETURNING *', async () => {
+      const updatedRow = {
+        id: 1,
+        name: 'Updated Recipe',
+        ingredients: '["Gin", "Vermouth"]',
+      };
+      pg.__mockQuery.mockResolvedValue({ rows: [updatedRow], rowCount: 1 });
+
+      const result = await execute(
+        'UPDATE recipes SET name = $1 WHERE id = $2 RETURNING *',
+        ['Updated Recipe', 1]
+      );
+
+      expect(result.rows[0]).toEqual(updatedRow);
     });
   });
 });

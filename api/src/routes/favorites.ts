@@ -72,7 +72,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const skipPagination = req.query.all === 'true';
 
   if (skipPagination) {
-    const favorites = favoriteService.getAll(userId);
+    const favorites = await favoriteService.getAll(userId);
     return res.json({
       success: true,
       data: favorites
@@ -107,7 +107,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
 
   const limit = limitValidation.sanitized || 50;
 
-  const result = favoriteService.getPaginated(userId, page, limit);
+  const result = await favoriteService.getPaginated(userId, page, limit);
 
   res.json({
     success: true,
@@ -168,7 +168,7 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  const favorite = favoriteService.create(userId, sanitizedName, recipeIdValidation.value);
+  const favorite = await favoriteService.create(userId, sanitizedName, recipeIdValidation.value);
 
   res.status(201).json({
     success: true,
@@ -205,7 +205,7 @@ router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  const deleted = favoriteService.delete(favoriteId, userId);
+  const deleted = await favoriteService.delete(favoriteId, userId);
 
   if (!deleted) {
     return res.status(404).json({

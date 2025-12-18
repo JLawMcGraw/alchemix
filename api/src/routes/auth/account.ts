@@ -9,7 +9,7 @@
 
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
-import { db } from '../../database/db';
+import { queryOne, queryAll, execute, transaction } from '../../database/db';
 import { authMiddleware } from '../../middleware/auth';
 import { UserRow } from '../../types';
 import { asyncHandler } from '../../utils/asyncHandler';
@@ -46,9 +46,10 @@ router.get('/me', authMiddleware, asyncHandler(async (req: Request, res: Respons
   }
 
   // Fetch user from database
-  const user = db.prepare(
-    'SELECT id, email, created_at, is_verified FROM users WHERE id = ?'
-  ).get(userId) as UserRow | undefined;
+  const user = await queryOne<UserRow>(
+    'SELECT id, email, created_at, is_verified FROM users WHERE id = $1',
+    [userId]
+  );
 
   if (!user) {
     return res.status(404).json({
@@ -102,9 +103,10 @@ router.delete('/account', authMiddleware, asyncHandler(async (req: Request, res:
   }
 
   // Get user with password hash
-  const user = db.prepare(
-    'SELECT id, email, password_hash FROM users WHERE id = ?'
-  ).get(userId) as UserRow | undefined;
+  const user = await queryOne<UserRow>(
+    'SELECT id, email, password_hash FROM users WHERE id = $1',
+    [userId]
+  );
 
   if (!user) {
     return res.status(404).json({
@@ -123,17 +125,15 @@ router.delete('/account', authMiddleware, asyncHandler(async (req: Request, res:
   }
 
   // Atomic transaction: Delete all user data
-  const deleteAccountTransaction = db.transaction(() => {
-    db.prepare('DELETE FROM favorites WHERE user_id = ?').run(userId);
-    db.prepare('DELETE FROM recipes WHERE user_id = ?').run(userId);
-    db.prepare('DELETE FROM collections WHERE user_id = ?').run(userId);
-    db.prepare('DELETE FROM inventory_items WHERE user_id = ?').run(userId);
-    db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+  await transaction(async (client) => {
+    await client.query('DELETE FROM favorites WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM recipes WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM collections WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM inventory_items WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM users WHERE id = $1', [userId]);
 
     logger.info('Account deleted', { userId, email: user.email, action: 'account_delete' });
   });
-
-  deleteAccountTransaction();
 
   // Clear cookies
   res.clearCookie('auth_token', getClearCookieOptions());
@@ -168,9 +168,10 @@ router.get('/export', authMiddleware, asyncHandler(async (req: Request, res: Res
   }
 
   // Get user info (without sensitive fields)
-  const user = db.prepare(
-    'SELECT id, email, created_at, is_verified FROM users WHERE id = ?'
-  ).get(userId) as UserRow | undefined;
+  const user = await queryOne<UserRow>(
+    'SELECT id, email, created_at, is_verified FROM users WHERE id = $1',
+    [userId]
+  );
 
   if (!user) {
     return res.status(404).json({
@@ -180,10 +181,10 @@ router.get('/export', authMiddleware, asyncHandler(async (req: Request, res: Res
   }
 
   // Get all user data
-  const inventory = db.prepare('SELECT * FROM inventory_items WHERE user_id = ?').all(userId);
-  const recipes = db.prepare('SELECT * FROM recipes WHERE user_id = ?').all(userId);
-  const favorites = db.prepare('SELECT * FROM favorites WHERE user_id = ?').all(userId);
-  const collections = db.prepare('SELECT * FROM collections WHERE user_id = ?').all(userId);
+  const inventory = await queryAll('SELECT * FROM inventory_items WHERE user_id = $1', [userId]);
+  const recipes = await queryAll('SELECT * FROM recipes WHERE user_id = $1', [userId]);
+  const favorites = await queryAll('SELECT * FROM favorites WHERE user_id = $1', [userId]);
+  const collections = await queryAll('SELECT * FROM collections WHERE user_id = $1', [userId]);
 
   const exportData = {
     user: {
@@ -254,102 +255,99 @@ router.post('/import', authMiddleware, asyncHandler(async (req: Request, res: Re
     collections: 0
   };
 
-  // Use transaction for atomicity
-  const importTransaction = db.transaction(() => {
-    // If overwrite, clear existing data first
-    if (overwrite) {
-      db.prepare('DELETE FROM favorites WHERE user_id = ?').run(userId);
-      db.prepare('DELETE FROM recipes WHERE user_id = ?').run(userId);
-      db.prepare('DELETE FROM collections WHERE user_id = ?').run(userId);
-      db.prepare('DELETE FROM inventory_items WHERE user_id = ?').run(userId);
-    }
-
-    // Import collections first (recipes may reference them)
-    if (Array.isArray(data.collections)) {
-      const insertCollection = db.prepare(
-        'INSERT INTO collections (user_id, name, description) VALUES (?, ?, ?)'
-      );
-      for (const collection of data.collections) {
-        if (collection.name) {
-          insertCollection.run(userId, collection.name, collection.description || null);
-          imported.collections++;
-        }
-      }
-    }
-
-    // Import inventory items
-    if (Array.isArray(data.inventory)) {
-      const insertInventory = db.prepare(`
-        INSERT INTO inventory_items (
-          user_id, name, category, type, abv, stock_number,
-          spirit_classification, distillation_method, distillery_location,
-          age_statement, additional_notes, profile_nose, palate, finish
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-      for (const item of data.inventory) {
-        if (item.name && item.category) {
-          insertInventory.run(
-            userId,
-            item.name,
-            item.category,
-            item.type || null,
-            item.abv || null,
-            item.stock_number || null,
-            item.spirit_classification || null,
-            item.distillation_method || null,
-            item.distillery_location || null,
-            item.age_statement || null,
-            item.additional_notes || null,
-            item.profile_nose || null,
-            item.palate || null,
-            item.finish || null
-          );
-          imported.inventory++;
-        }
-      }
-    }
-
-    // Import recipes
-    if (Array.isArray(data.recipes)) {
-      const insertRecipe = db.prepare(`
-        INSERT INTO recipes (user_id, name, ingredients, instructions, glass, category)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `);
-      for (const recipe of data.recipes) {
-        if (recipe.name && recipe.ingredients) {
-          const ingredients = typeof recipe.ingredients === 'string'
-            ? recipe.ingredients
-            : JSON.stringify(recipe.ingredients);
-          insertRecipe.run(
-            userId,
-            recipe.name,
-            ingredients,
-            recipe.instructions || null,
-            recipe.glass || null,
-            recipe.category || null
-          );
-          imported.recipes++;
-        }
-      }
-    }
-
-    // Import favorites
-    if (Array.isArray(data.favorites)) {
-      const insertFavorite = db.prepare(
-        'INSERT INTO favorites (user_id, recipe_name) VALUES (?, ?)'
-      );
-      for (const favorite of data.favorites) {
-        const recipeName = favorite.recipe_name || favorite.name;
-        if (recipeName) {
-          insertFavorite.run(userId, recipeName);
-          imported.favorites++;
-        }
-      }
-    }
-  });
-
   try {
-    importTransaction();
+    // Use transaction for atomicity
+    await transaction(async (client) => {
+      // If overwrite, clear existing data first
+      if (overwrite) {
+        await client.query('DELETE FROM favorites WHERE user_id = $1', [userId]);
+        await client.query('DELETE FROM recipes WHERE user_id = $1', [userId]);
+        await client.query('DELETE FROM collections WHERE user_id = $1', [userId]);
+        await client.query('DELETE FROM inventory_items WHERE user_id = $1', [userId]);
+      }
+
+      // Import collections first (recipes may reference them)
+      if (Array.isArray(data.collections)) {
+        for (const collection of data.collections) {
+          if (collection.name) {
+            await client.query(
+              'INSERT INTO collections (user_id, name, description) VALUES ($1, $2, $3)',
+              [userId, collection.name, collection.description || null]
+            );
+            imported.collections++;
+          }
+        }
+      }
+
+      // Import inventory items
+      if (Array.isArray(data.inventory)) {
+        for (const item of data.inventory) {
+          if (item.name && item.category) {
+            await client.query(`
+              INSERT INTO inventory_items (
+                user_id, name, category, type, abv, stock_number,
+                spirit_classification, distillation_method, distillery_location,
+                age_statement, additional_notes, profile_nose, palate, finish
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+            `, [
+              userId,
+              item.name,
+              item.category,
+              item.type || null,
+              item.abv || null,
+              item.stock_number || null,
+              item.spirit_classification || null,
+              item.distillation_method || null,
+              item.distillery_location || null,
+              item.age_statement || null,
+              item.additional_notes || null,
+              item.profile_nose || null,
+              item.palate || null,
+              item.finish || null
+            ]);
+            imported.inventory++;
+          }
+        }
+      }
+
+      // Import recipes
+      if (Array.isArray(data.recipes)) {
+        for (const recipe of data.recipes) {
+          if (recipe.name && recipe.ingredients) {
+            const ingredients = typeof recipe.ingredients === 'string'
+              ? recipe.ingredients
+              : JSON.stringify(recipe.ingredients);
+            await client.query(`
+              INSERT INTO recipes (user_id, name, ingredients, instructions, glass, category)
+              VALUES ($1, $2, $3, $4, $5, $6)
+            `, [
+              userId,
+              recipe.name,
+              ingredients,
+              recipe.instructions || null,
+              recipe.glass || null,
+              recipe.category || null
+            ]);
+            imported.recipes++;
+          }
+        }
+      }
+
+      // Import favorites
+      if (Array.isArray(data.favorites)) {
+        for (const favorite of data.favorites) {
+          const recipeName = favorite.recipe_name || favorite.name;
+          if (recipeName) {
+            await client.query(
+              'INSERT INTO favorites (user_id, recipe_name) VALUES ($1, $2)',
+              [userId, recipeName]
+            );
+            imported.favorites++;
+          }
+        }
+      }
+    });
+
     logger.info('Data imported', { userId, imported, action: 'data_import' });
 
     res.json({

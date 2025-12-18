@@ -6,7 +6,7 @@
 
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
-import { db } from '../../database/db';
+import { queryOne, execute } from '../../database/db';
 import { generateToken, getTokenVersion, generateJTI } from '../../middleware/auth';
 import { validatePassword } from '../../utils/passwordValidator';
 import { emailService } from '../../services/EmailService';
@@ -79,7 +79,7 @@ router.post('/signup', asyncHandler(async (req: Request, res: Response) => {
   }
 
   // Step 4: Check for Existing User
-  const existingUser = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+  const existingUser = await queryOne<{ id: number }>('SELECT id FROM users WHERE email = $1', [email]);
   if (existingUser) {
     // Generic error to prevent email enumeration attacks
     return res.status(400).json({
@@ -96,11 +96,12 @@ router.post('/signup', asyncHandler(async (req: Request, res: Response) => {
   const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
 
   // Step 7: Create User in Database
-  const result = db.prepare(
-    'INSERT INTO users (email, password_hash, verification_token, verification_token_expires) VALUES (?, ?, ?, ?)'
-  ).run(email, password_hash, verificationToken, verificationExpires);
+  const result = await queryOne<{ id: number }>(
+    'INSERT INTO users (email, password_hash, verification_token, verification_token_expires) VALUES ($1, $2, $3, $4) RETURNING id',
+    [email, password_hash, verificationToken, verificationExpires]
+  );
 
-  const userId = result.lastInsertRowid as number;
+  const userId = result!.id;
 
   // Step 8: Send Verification Email (non-blocking)
   try {
@@ -113,16 +114,17 @@ router.post('/signup', asyncHandler(async (req: Request, res: Response) => {
   }
 
   // Step 9: Retrieve Created User
-  const user = db.prepare(
-    'SELECT id, email, created_at, is_verified FROM users WHERE id = ?'
-  ).get(userId) as User;
+  const user = await queryOne<User>(
+    'SELECT id, email, created_at, is_verified FROM users WHERE id = $1',
+    [userId]
+  );
 
   // Step 10: Generate JWT Token
-  const tokenVersion = getTokenVersion(user.id);
+  const tokenVersion = await getTokenVersion(user!.id);
   const jti = generateJTI();
   const token = generateToken({
-    userId: user.id,
-    email: user.email,
+    userId: user!.id,
+    email: user!.email,
     tokenVersion: tokenVersion,
     jti: jti
   });
@@ -141,8 +143,8 @@ router.post('/signup', asyncHandler(async (req: Request, res: Response) => {
     data: {
       csrfToken,
       user: {
-        ...user,
-        is_verified: Boolean(user.is_verified)
+        ...user!,
+        is_verified: Boolean(user!.is_verified)
       }
     }
   });

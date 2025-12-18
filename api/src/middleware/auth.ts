@@ -19,7 +19,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { JWTPayload } from '../types';
 import { tokenBlacklist } from '../utils/tokenBlacklist';
-import { db } from '../database/db';
+import { queryOne, execute } from '../database/db';
 import { logger, logSecurityEvent } from '../utils/logger';
 
 /**
@@ -256,9 +256,9 @@ export function generateJTI(): string {
  * - User not found → return 0 (graceful degradation)
  * - Database error → throw (middleware will catch and return 500)
  */
-export function getTokenVersion(userId: number): number {
+export async function getTokenVersion(userId: number): Promise<number> {
   try {
-    const result = db.prepare('SELECT token_version FROM users WHERE id = ?').get(userId) as { token_version: number } | undefined;
+    const result = await queryOne<{ token_version: number }>('SELECT token_version FROM users WHERE id = $1', [userId]);
     return result?.token_version ?? 0;
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -313,13 +313,13 @@ export function getTokenVersion(userId: number): number {
  * - Helps track when/why tokens were invalidated
  * - Useful for debugging "why was I logged out?" issues
  */
-export function incrementTokenVersion(userId: number): number {
+export async function incrementTokenVersion(userId: number): Promise<number> {
   try {
-    const currentVersion = getTokenVersion(userId);
+    const currentVersion = await getTokenVersion(userId);
     const newVersion = currentVersion + 1;
 
     // Persist to database (survives restarts)
-    db.prepare('UPDATE users SET token_version = ? WHERE id = ?').run(newVersion, userId);
+    await execute('UPDATE users SET token_version = $1 WHERE id = $2', [newVersion, userId]);
 
     logSecurityEvent('Token version incremented - all sessions invalidated', {
       userId,
@@ -364,7 +364,7 @@ export function incrementTokenVersion(userId: number): number {
  * @param res - Express response object
  * @param next - Express next middleware function
  */
-export function authMiddleware(req: Request, res: Response, next: NextFunction) {
+export async function authMiddleware(req: Request, res: Response, next: NextFunction) {
   try {
     /**
      * Step 1: Extract Token from Cookie or Authorization Header
@@ -419,7 +419,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
      * - Map lookup: <0.1ms
      * - Negligible overhead on every request
      */
-    if (tokenBlacklist.isBlacklisted(token)) {
+    if (await tokenBlacklist.isBlacklisted(token)) {
       return res.status(401).json({
         success: false,
         error: 'Token has been revoked. Please login again.'
@@ -498,7 +498,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
      * - Only tokens with version 2 are valid
      */
     const tokenVersion = decoded.tokenVersion ?? 0; // Default to 0 for backward compatibility
-    const currentVersion = getTokenVersion(decoded.userId);
+    const currentVersion = await getTokenVersion(decoded.userId);
 
     if (tokenVersion !== currentVersion) {
       logSecurityEvent('Token version mismatch - token invalidated', {

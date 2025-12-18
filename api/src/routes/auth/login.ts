@@ -8,7 +8,7 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { db } from '../../database/db';
+import { queryOne } from '../../database/db';
 import { generateToken, authMiddleware, getTokenVersion, generateJTI } from '../../middleware/auth';
 import { tokenBlacklist } from '../../utils/tokenBlacklist';
 import { UserRow } from '../../types';
@@ -60,9 +60,10 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
   }
 
   // Step 2: Fetch User from Database
-  const user = db.prepare(
-    'SELECT id, email, password_hash, created_at, is_verified FROM users WHERE email = ?'
-  ).get(email) as UserRow | undefined;
+  const user = await queryOne<UserRow>(
+    'SELECT id, email, password_hash, created_at, is_verified FROM users WHERE email = $1',
+    [email]
+  );
 
   // Step 3: Timing Attack Prevention
   // Always run bcrypt.compare() even for non-existent users
@@ -81,7 +82,7 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
   }
 
   // Step 6: Generate JWT Token
-  const tokenVersion = getTokenVersion(user.id);
+  const tokenVersion = await getTokenVersion(user.id);
   const jti = generateJTI();
   const token = generateToken({
     userId: user.id,

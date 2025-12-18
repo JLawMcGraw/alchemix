@@ -16,7 +16,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
-import { db } from '../database/db';
+import { queryAll } from '../database/db';
 import { memoryService } from '../services/MemoryService';
 
 async function seedMemMachine() {
@@ -24,7 +24,7 @@ async function seedMemMachine() {
 
   try {
     // Get all users
-    const users = db.prepare('SELECT id, email FROM users').all() as Array<{ id: number; email: string }>;
+    const users = await queryAll<{ id: number; email: string }>('SELECT id, email FROM users');
 
     console.log(`📊 Found ${users.length} users in database\n`);
 
@@ -32,9 +32,10 @@ async function seedMemMachine() {
       console.log(`👤 Processing user ${user.id} (${user.email})...`);
 
       // Get all recipes for this user
-      const recipes = db.prepare(
-        'SELECT * FROM recipes WHERE user_id = ? ORDER BY name'
-      ).all(user.id) as any[];
+      const recipes = await queryAll<{ name: string; ingredients: string; instructions?: string; glass?: string; category?: string }>(
+        'SELECT * FROM recipes WHERE user_id = $1 ORDER BY name',
+        [user.id]
+      );
 
       console.log(`   📚 Found ${recipes.length} recipes`);
 

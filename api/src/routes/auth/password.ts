@@ -8,7 +8,7 @@
 
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
-import { db } from '../../database/db';
+import { queryOne, execute, transaction } from '../../database/db';
 import { authMiddleware, getTokenVersion } from '../../middleware/auth';
 import { validatePassword } from '../../utils/passwordValidator';
 import { emailService } from '../../services/EmailService';
@@ -48,9 +48,10 @@ router.post('/forgot-password', asyncHandler(async (req: Request, res: Response)
   const genericSuccessMessage = 'If an account exists with this email, a password reset link has been sent.';
 
   // Find user by email
-  const user = db.prepare(
-    'SELECT id, email FROM users WHERE email = ?'
-  ).get(email) as UserRow | undefined;
+  const user = await queryOne<UserRow>(
+    'SELECT id, email FROM users WHERE email = $1',
+    [email]
+  );
 
   if (!user) {
     // Don't reveal that user doesn't exist
@@ -65,9 +66,10 @@ router.post('/forgot-password', asyncHandler(async (req: Request, res: Response)
   const resetExpires = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
 
   // Update token in database
-  db.prepare(
-    'UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?'
-  ).run(resetToken, resetExpires, user.id);
+  await execute(
+    'UPDATE users SET reset_token = $1, reset_token_expires = $2 WHERE id = $3',
+    [resetToken, resetExpires, user.id]
+  );
 
   // Send password reset email
   try {
@@ -113,9 +115,10 @@ router.post('/reset-password', asyncHandler(async (req: Request, res: Response) 
   }
 
   // Find user with this reset token
-  const user = db.prepare(
-    'SELECT id, email, reset_token_expires FROM users WHERE reset_token = ?'
-  ).get(token) as UserRow | undefined;
+  const user = await queryOne<UserRow>(
+    'SELECT id, email, reset_token_expires FROM users WHERE reset_token = $1',
+    [token]
+  );
 
   if (!user) {
     return res.status(400).json({
@@ -147,21 +150,20 @@ router.post('/reset-password', asyncHandler(async (req: Request, res: Response) 
   const password_hash = await bcrypt.hash(password, 10);
 
   // Atomic transaction: Update password, clear reset token, and increment token_version
-  const resetPasswordTransaction = db.transaction(() => {
+  await transaction(async (client) => {
     // Update password and clear reset token
-    db.prepare(
-      'UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?'
-    ).run(password_hash, user.id);
+    await client.query(
+      'UPDATE users SET password_hash = $1, reset_token = NULL, reset_token_expires = NULL WHERE id = $2',
+      [password_hash, user.id]
+    );
 
     // Increment token version to invalidate all existing sessions
-    const currentVersion = getTokenVersion(user.id);
+    const currentVersion = await getTokenVersion(user.id);
     const newVersion = currentVersion + 1;
-    db.prepare('UPDATE users SET token_version = ? WHERE id = ?').run(newVersion, user.id);
+    await client.query('UPDATE users SET token_version = $1 WHERE id = $2', [newVersion, user.id]);
 
     logger.info('Token version incremented', { userId: user.id, oldVersion: currentVersion, newVersion, action: 'reset_password' });
   });
-
-  resetPasswordTransaction();
 
   logger.info('Password reset completed', { userId: user.id, email: user.email, action: 'reset_password' });
 
@@ -208,9 +210,10 @@ router.post('/change-password', authMiddleware, asyncHandler(async (req: Request
   }
 
   // Get user with password hash
-  const user = db.prepare(
-    'SELECT id, email, password_hash FROM users WHERE id = ?'
-  ).get(userId) as UserRow | undefined;
+  const user = await queryOne<UserRow>(
+    'SELECT id, email, password_hash FROM users WHERE id = $1',
+    [userId]
+  );
 
   if (!user) {
     return res.status(404).json({
@@ -242,18 +245,16 @@ router.post('/change-password', authMiddleware, asyncHandler(async (req: Request
   const password_hash = await bcrypt.hash(newPassword, 10);
 
   // Atomic transaction: Update password and increment token_version
-  const changePasswordTransaction = db.transaction(() => {
-    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(password_hash, userId);
+  await transaction(async (client) => {
+    await client.query('UPDATE users SET password_hash = $1 WHERE id = $2', [password_hash, userId]);
 
     // Increment token version to invalidate all existing sessions
-    const currentVersion = getTokenVersion(userId);
+    const currentVersion = await getTokenVersion(userId);
     const newVersion = currentVersion + 1;
-    db.prepare('UPDATE users SET token_version = ? WHERE id = ?').run(newVersion, userId);
+    await client.query('UPDATE users SET token_version = $1 WHERE id = $2', [newVersion, userId]);
 
     logger.info('Password changed', { userId, oldVersion: currentVersion, newVersion, action: 'change_password' });
   });
-
-  changePasswordTransaction();
 
   // Clear cookies to force re-login
   res.clearCookie('auth_token', getClearCookieOptions());

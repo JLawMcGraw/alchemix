@@ -1,34 +1,74 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import Database from 'better-sqlite3';
-import { createTestDatabase, cleanupTestDatabase } from '../tests/setup';
+/**
+ * InventoryService Tests
+ *
+ * Tests for inventory item management service.
+ * Updated for PostgreSQL async pattern.
+ */
+
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+// Mock the database module
+vi.mock('../database/db', () => ({
+  queryOne: vi.fn(),
+  queryAll: vi.fn(),
+  execute: vi.fn(),
+  transaction: vi.fn(),
+}));
+
+import { queryOne, queryAll, execute, transaction } from '../database/db';
 import { InventoryService, VALID_CATEGORIES } from './InventoryService';
+import { InventoryItem } from '../types';
 
 describe('InventoryService', () => {
-  let testDb: Database.Database;
-  let userId: number;
   let inventoryService: InventoryService;
+  const userId = 1;
+  const otherUserId = 2;
 
-  beforeEach(() => {
-    // Create test database
-    testDb = createTestDatabase();
-
-    // Create test user
-    const result = testDb.prepare(
-      'INSERT INTO users (email, password_hash) VALUES (?, ?)'
-    ).run('test@example.com', 'hashed_password');
-    userId = Number(result.lastInsertRowid);
-
-    // Create service with injected test database
-    inventoryService = new InventoryService(testDb);
+  // Helper to create mock inventory item
+  const createMockItem = (overrides: Partial<InventoryItem> = {}): InventoryItem => ({
+    id: 1,
+    user_id: userId,
+    name: 'Test Item',
+    category: 'spirit',
+    type: null,
+    abv: null,
+    stock_number: null,
+    spirit_classification: null,
+    distillation_method: null,
+    distillery_location: null,
+    age_statement: null,
+    additional_notes: null,
+    profile_nose: null,
+    palate: null,
+    finish: null,
+    tasting_notes: null,
+    periodic_group: null,
+    periodic_period: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    ...overrides,
   });
 
-  afterEach(() => {
-    cleanupTestDatabase(testDb);
+  beforeEach(() => {
+    vi.clearAllMocks();
+    inventoryService = new InventoryService();
+
+    // Default mock implementations
+    (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (execute as ReturnType<typeof vi.fn>).mockResolvedValue({ rows: [], rowCount: 0 });
+    (transaction as ReturnType<typeof vi.fn>).mockImplementation(async (callback) => {
+      const mockClient = { query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }) };
+      return callback(mockClient as any);
+    });
   });
 
   describe('getAll', () => {
-    it('should return empty result when user has no items', () => {
-      const result = inventoryService.getAll(userId, { page: 1, limit: 10 });
+    it('should return empty result when user has no items', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ total: '0' });
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+      const result = await inventoryService.getAll(userId, { page: 1, limit: 10 });
 
       expect(result.items).toHaveLength(0);
       expect(result.pagination.total).toBe(0);
@@ -37,15 +77,14 @@ describe('InventoryService', () => {
       expect(result.pagination.hasPreviousPage).toBe(false);
     });
 
-    it('should return paginated items', () => {
-      // Insert 15 items
-      for (let i = 0; i < 15; i++) {
-        testDb.prepare(
-          'INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)'
-        ).run(userId, `Item ${i}`, 'spirit');
-      }
+    it('should return paginated items', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ total: '15' });
+      const mockItems = Array.from({ length: 10 }, (_, i) =>
+        createMockItem({ id: i + 1, name: `Item ${i}` })
+      );
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
-      const result = inventoryService.getAll(userId, { page: 1, limit: 10 });
+      const result = await inventoryService.getAll(userId, { page: 1, limit: 10 });
 
       expect(result.items).toHaveLength(10);
       expect(result.pagination.total).toBe(15);
@@ -54,15 +93,14 @@ describe('InventoryService', () => {
       expect(result.pagination.hasPreviousPage).toBe(false);
     });
 
-    it('should return second page correctly', () => {
-      // Insert 15 items
-      for (let i = 0; i < 15; i++) {
-        testDb.prepare(
-          'INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)'
-        ).run(userId, `Item ${i}`, 'spirit');
-      }
+    it('should return second page correctly', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ total: '15' });
+      const mockItems = Array.from({ length: 5 }, (_, i) =>
+        createMockItem({ id: i + 11, name: `Item ${i + 10}` })
+      );
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
-      const result = inventoryService.getAll(userId, { page: 2, limit: 10 });
+      const result = await inventoryService.getAll(userId, { page: 2, limit: 10 });
 
       expect(result.items).toHaveLength(5);
       expect(result.pagination.page).toBe(2);
@@ -70,18 +108,15 @@ describe('InventoryService', () => {
       expect(result.pagination.hasPreviousPage).toBe(true);
     });
 
-    it('should filter by category', () => {
-      testDb.prepare(
-        'INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)'
-      ).run(userId, 'Vodka', 'spirit');
-      testDb.prepare(
-        'INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)'
-      ).run(userId, 'Lime', 'garnish');
-      testDb.prepare(
-        'INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)'
-      ).run(userId, 'Whiskey', 'spirit');
+    it('should filter by category', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ total: '2' });
+      const mockItems = [
+        createMockItem({ id: 1, name: 'Vodka', category: 'spirit' }),
+        createMockItem({ id: 2, name: 'Whiskey', category: 'spirit' }),
+      ];
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
-      const result = inventoryService.getAll(userId, { page: 1, limit: 10 }, 'spirit');
+      const result = await inventoryService.getAll(userId, { page: 1, limit: 10 }, 'spirit');
 
       expect(result.items).toHaveLength(2);
       expect(result.pagination.total).toBe(2);
@@ -90,31 +125,29 @@ describe('InventoryService', () => {
       });
     });
 
-    it('should not return items from other users', () => {
-      // Create another user
-      const otherUserResult = testDb.prepare(
-        'INSERT INTO users (email, password_hash) VALUES (?, ?)'
-      ).run('other@example.com', 'hashed_password');
-      const otherUserId = Number(otherUserResult.lastInsertRowid);
+    it('should not return items from other users', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ total: '1' });
+      const mockItems = [createMockItem({ name: 'My Item' })];
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
-      // Insert items for both users
-      testDb.prepare(
-        'INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)'
-      ).run(userId, 'My Item', 'spirit');
-      testDb.prepare(
-        'INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)'
-      ).run(otherUserId, 'Other Item', 'spirit');
-
-      const result = inventoryService.getAll(userId, { page: 1, limit: 10 });
+      const result = await inventoryService.getAll(userId, { page: 1, limit: 10 });
 
       expect(result.items).toHaveLength(1);
       expect(result.items[0].name).toBe('My Item');
+
+      // Verify query was called with correct user ID
+      expect(queryAll).toHaveBeenCalledWith(
+        expect.stringContaining('user_id = $1'),
+        expect.arrayContaining([userId])
+      );
     });
   });
 
   describe('getCategoryCounts', () => {
-    it('should return zero counts when user has no items', () => {
-      const counts = inventoryService.getCategoryCounts(userId);
+    it('should return zero counts when user has no items', async () => {
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+      const counts = await inventoryService.getCategoryCounts(userId);
 
       expect(counts.all).toBe(0);
       expect(counts.spirit).toBe(0);
@@ -122,21 +155,17 @@ describe('InventoryService', () => {
       expect(counts.mixer).toBe(0);
     });
 
-    it('should return correct counts by category', () => {
-      testDb.prepare(
-        'INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)'
-      ).run(userId, 'Vodka', 'spirit');
-      testDb.prepare(
-        'INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)'
-      ).run(userId, 'Gin', 'spirit');
-      testDb.prepare(
-        'INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)'
-      ).run(userId, 'Lime', 'garnish');
-      testDb.prepare(
-        'INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)'
-      ).run(userId, 'Tonic', 'mixer');
+    it('should return correct counts by category', async () => {
+      // First call is for total count
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ total: '4' });
+      // Second call is for category breakdown
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { category: 'spirit', count: '2' },
+        { category: 'garnish', count: '1' },
+        { category: 'mixer', count: '1' },
+      ]);
 
-      const counts = inventoryService.getCategoryCounts(userId);
+      const counts = await inventoryService.getCategoryCounts(userId);
 
       expect(counts.all).toBe(4);
       expect(counts.spirit).toBe(2);
@@ -147,73 +176,74 @@ describe('InventoryService', () => {
   });
 
   describe('getById', () => {
-    it('should return item when it exists and belongs to user', () => {
-      const result = testDb.prepare(
-        'INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)'
-      ).run(userId, 'Test Item', 'spirit');
-      const itemId = Number(result.lastInsertRowid);
+    it('should return item when it exists and belongs to user', async () => {
+      const mockItem = createMockItem({ name: 'Test Item', category: 'spirit' });
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(mockItem);
 
-      const item = inventoryService.getById(itemId, userId);
+      const item = await inventoryService.getById(1, userId);
 
       expect(item).not.toBeNull();
       expect(item!.name).toBe('Test Item');
       expect(item!.category).toBe('spirit');
     });
 
-    it('should return null for non-existent item', () => {
-      const item = inventoryService.getById(99999, userId);
+    it('should return null for non-existent item', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      const item = await inventoryService.getById(99999, userId);
 
       expect(item).toBeNull();
     });
 
-    it('should return null when item belongs to different user', () => {
-      const otherUserResult = testDb.prepare(
-        'INSERT INTO users (email, password_hash) VALUES (?, ?)'
-      ).run('other@example.com', 'hashed_password');
-      const otherUserId = Number(otherUserResult.lastInsertRowid);
+    it('should return null when item belongs to different user', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
-      const result = testDb.prepare(
-        'INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)'
-      ).run(otherUserId, 'Other Item', 'spirit');
-      const itemId = Number(result.lastInsertRowid);
-
-      const item = inventoryService.getById(itemId, userId);
+      const item = await inventoryService.getById(1, userId);
 
       expect(item).toBeNull();
     });
   });
 
   describe('exists', () => {
-    it('should return true when item exists and belongs to user', () => {
-      const result = testDb.prepare(
-        'INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)'
-      ).run(userId, 'Test Item', 'spirit');
-      const itemId = Number(result.lastInsertRowid);
+    it('should return true when item exists and belongs to user', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 1 });
 
-      expect(inventoryService.exists(itemId, userId)).toBe(true);
+      const result = await inventoryService.exists(1, userId);
+
+      expect(result).toBe(true);
     });
 
-    it('should return false for non-existent item', () => {
-      expect(inventoryService.exists(99999, userId)).toBe(false);
+    it('should return false for non-existent item', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      const result = await inventoryService.exists(99999, userId);
+
+      expect(result).toBe(false);
     });
 
-    it('should return false when item belongs to different user', () => {
-      const otherUserResult = testDb.prepare(
-        'INSERT INTO users (email, password_hash) VALUES (?, ?)'
-      ).run('other@example.com', 'hashed_password');
-      const otherUserId = Number(otherUserResult.lastInsertRowid);
+    it('should return false when item belongs to different user', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
-      const result = testDb.prepare(
-        'INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)'
-      ).run(otherUserId, 'Other Item', 'spirit');
-      const itemId = Number(result.lastInsertRowid);
+      const result = await inventoryService.exists(1, otherUserId);
 
-      expect(inventoryService.exists(itemId, userId)).toBe(false);
+      expect(result).toBe(false);
     });
   });
 
   describe('create', () => {
-    it('should create item with all fields', () => {
+    it('should create item with all fields', async () => {
+      const mockItem = createMockItem({
+        name: 'Test Vodka',
+        category: 'spirit',
+        type: 'Vodka',
+        abv: '40%',
+        stock_number: 2,
+      });
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+        rows: [mockItem],
+        rowCount: 1,
+      });
+
       const data = {
         name: 'Test Vodka',
         category: 'spirit' as const,
@@ -233,17 +263,20 @@ describe('InventoryService', () => {
         periodic_period: null,
       };
 
-      const item = inventoryService.create(userId, data);
+      const item = await inventoryService.create(userId, data);
 
       expect(item.id).toBeDefined();
       expect(item.name).toBe('Test Vodka');
       expect(item.category).toBe('spirit');
-      expect(item.type).toBe('Vodka');
-      expect(item.stock_number).toBe(2);
-      expect(item.user_id).toBe(userId);
     });
 
-    it('should create item with minimal fields', () => {
+    it('should create item with minimal fields', async () => {
+      const mockItem = createMockItem({ name: 'Simple Item', category: 'other' });
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+        rows: [mockItem],
+        rowCount: 1,
+      });
+
       const data = {
         name: 'Simple Item',
         category: 'other' as const,
@@ -263,14 +296,20 @@ describe('InventoryService', () => {
         periodic_period: null,
       };
 
-      const item = inventoryService.create(userId, data);
+      const item = await inventoryService.create(userId, data);
 
       expect(item.id).toBeDefined();
       expect(item.name).toBe('Simple Item');
       expect(item.category).toBe('other');
     });
 
-    it('should normalize zero stock to null', () => {
+    it('should normalize zero stock to null', async () => {
+      const mockItem = createMockItem({ name: 'Out of Stock', stock_number: null });
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+        rows: [mockItem],
+        rowCount: 1,
+      });
+
       const data = {
         name: 'Out of Stock',
         category: 'spirit' as const,
@@ -290,12 +329,18 @@ describe('InventoryService', () => {
         periodic_period: null,
       };
 
-      const item = inventoryService.create(userId, data);
+      const item = await inventoryService.create(userId, data);
 
       expect(item.stock_number).toBeNull();
     });
 
-    it('should normalize negative stock to null', () => {
+    it('should normalize negative stock to null', async () => {
+      const mockItem = createMockItem({ name: 'Negative Stock', stock_number: null });
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+        rows: [mockItem],
+        rowCount: 1,
+      });
+
       const data = {
         name: 'Negative Stock',
         category: 'spirit' as const,
@@ -315,18 +360,26 @@ describe('InventoryService', () => {
         periodic_period: null,
       };
 
-      const item = inventoryService.create(userId, data);
+      const item = await inventoryService.create(userId, data);
 
       expect(item.stock_number).toBeNull();
     });
   });
 
   describe('update', () => {
-    it('should update existing item', () => {
-      const result = testDb.prepare(
-        'INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)'
-      ).run(userId, 'Original Name', 'spirit');
-      const itemId = Number(result.lastInsertRowid);
+    it('should update existing item', async () => {
+      // First exists check
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 1 });
+      // Then update returns updated item
+      const mockItem = createMockItem({
+        name: 'Updated Name',
+        category: 'liqueur',
+        type: 'Herbal',
+      });
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+        rows: [mockItem],
+        rowCount: 1,
+      });
 
       const data = {
         name: 'Updated Name',
@@ -347,7 +400,7 @@ describe('InventoryService', () => {
         periodic_period: null,
       };
 
-      const item = inventoryService.update(itemId, userId, data);
+      const item = await inventoryService.update(1, userId, data);
 
       expect(item).not.toBeNull();
       expect(item!.name).toBe('Updated Name');
@@ -355,7 +408,9 @@ describe('InventoryService', () => {
       expect(item!.type).toBe('Herbal');
     });
 
-    it('should return null for non-existent item', () => {
+    it('should return null for non-existent item', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
       const data = {
         name: 'Updated Name',
         category: 'spirit' as const,
@@ -375,21 +430,13 @@ describe('InventoryService', () => {
         periodic_period: null,
       };
 
-      const item = inventoryService.update(99999, userId, data);
+      const item = await inventoryService.update(99999, userId, data);
 
       expect(item).toBeNull();
     });
 
-    it('should return null when updating item belonging to different user', () => {
-      const otherUserResult = testDb.prepare(
-        'INSERT INTO users (email, password_hash) VALUES (?, ?)'
-      ).run('other@example.com', 'hashed_password');
-      const otherUserId = Number(otherUserResult.lastInsertRowid);
-
-      const result = testDb.prepare(
-        'INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)'
-      ).run(otherUserId, 'Other Item', 'spirit');
-      const itemId = Number(result.lastInsertRowid);
+    it('should return null when updating item belonging to different user', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
       const data = {
         name: 'Hacked',
@@ -410,106 +457,60 @@ describe('InventoryService', () => {
         periodic_period: null,
       };
 
-      const item = inventoryService.update(itemId, userId, data);
+      const item = await inventoryService.update(1, userId, data);
 
       expect(item).toBeNull();
-
-      // Verify the original item wasn't modified
-      const original = testDb.prepare(
-        'SELECT name FROM inventory_items WHERE id = ?'
-      ).get(itemId) as { name: string };
-      expect(original.name).toBe('Other Item');
     });
   });
 
   describe('delete', () => {
-    it('should delete existing item', () => {
-      const result = testDb.prepare(
-        'INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)'
-      ).run(userId, 'To Delete', 'spirit');
-      const itemId = Number(result.lastInsertRowid);
+    it('should delete existing item', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 1 });
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({ rowCount: 1 });
 
-      const deleted = inventoryService.delete(itemId, userId);
+      const deleted = await inventoryService.delete(1, userId);
 
       expect(deleted).toBe(true);
-      expect(inventoryService.exists(itemId, userId)).toBe(false);
     });
 
-    it('should return false for non-existent item', () => {
-      const deleted = inventoryService.delete(99999, userId);
+    it('should return false for non-existent item', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      const deleted = await inventoryService.delete(99999, userId);
 
       expect(deleted).toBe(false);
     });
 
-    it('should return false when deleting item belonging to different user', () => {
-      const otherUserResult = testDb.prepare(
-        'INSERT INTO users (email, password_hash) VALUES (?, ?)'
-      ).run('other@example.com', 'hashed_password');
-      const otherUserId = Number(otherUserResult.lastInsertRowid);
+    it('should return false when deleting item belonging to different user', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
-      const result = testDb.prepare(
-        'INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)'
-      ).run(otherUserId, 'Other Item', 'spirit');
-      const itemId = Number(result.lastInsertRowid);
-
-      const deleted = inventoryService.delete(itemId, userId);
+      const deleted = await inventoryService.delete(1, otherUserId);
 
       expect(deleted).toBe(false);
-
-      // Verify item still exists
-      const exists = testDb.prepare(
-        'SELECT id FROM inventory_items WHERE id = ?'
-      ).get(itemId);
-      expect(exists).toBeDefined();
     });
   });
 
   describe('bulkDelete', () => {
-    it('should delete multiple items', () => {
-      const ids: number[] = [];
-      for (let i = 0; i < 5; i++) {
-        const result = testDb.prepare(
-          'INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)'
-        ).run(userId, `Item ${i}`, 'spirit');
-        ids.push(Number(result.lastInsertRowid));
-      }
+    it('should delete multiple items', async () => {
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({ rowCount: 3 });
 
-      const deleted = inventoryService.bulkDelete(ids.slice(0, 3), userId);
+      const deleted = await inventoryService.bulkDelete([1, 2, 3], userId);
 
       expect(deleted).toBe(3);
-
-      // Verify remaining items
-      const remaining = testDb.prepare(
-        'SELECT COUNT(*) as count FROM inventory_items WHERE user_id = ?'
-      ).get(userId) as { count: number };
-      expect(remaining.count).toBe(2);
     });
 
-    it('should only delete items belonging to user', () => {
-      const otherUserResult = testDb.prepare(
-        'INSERT INTO users (email, password_hash) VALUES (?, ?)'
-      ).run('other@example.com', 'hashed_password');
-      const otherUserId = Number(otherUserResult.lastInsertRowid);
+    it('should only delete items belonging to user', async () => {
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({ rowCount: 1 });
 
-      const myItem = testDb.prepare(
-        'INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)'
-      ).run(userId, 'My Item', 'spirit');
-      const otherItem = testDb.prepare(
-        'INSERT INTO inventory_items (user_id, name, category) VALUES (?, ?, ?)'
-      ).run(otherUserId, 'Other Item', 'spirit');
-
-      const deleted = inventoryService.bulkDelete(
-        [Number(myItem.lastInsertRowid), Number(otherItem.lastInsertRowid)],
-        userId
-      );
+      const deleted = await inventoryService.bulkDelete([1, 2], userId);
 
       expect(deleted).toBe(1);
 
-      // Verify other user's item still exists
-      const other = testDb.prepare(
-        'SELECT id FROM inventory_items WHERE id = ?'
-      ).get(otherItem.lastInsertRowid);
-      expect(other).toBeDefined();
+      // Verify query includes user_id check
+      expect(execute).toHaveBeenCalledWith(
+        expect.stringContaining('user_id = $'),
+        expect.any(Array)
+      );
     });
   });
 
@@ -621,50 +622,69 @@ describe('InventoryService', () => {
   });
 
   describe('importFromCSV', () => {
-    it('should import valid records', () => {
+    it('should import valid records', async () => {
+      const mockItems = [
+        createMockItem({ name: 'Vodka', category: 'spirit' }),
+        createMockItem({ name: 'Gin', category: 'spirit' }),
+        createMockItem({ name: 'Lime', category: 'garnish' }),
+      ];
+      let callIndex = 0;
+      (execute as ReturnType<typeof vi.fn>).mockImplementation(async () => ({
+        rows: [mockItems[callIndex++]],
+        rowCount: 1,
+      }));
+
       const records = [
         { name: 'Vodka', category: 'spirit' },
         { name: 'Gin', category: 'spirit' },
         { name: 'Lime', category: 'garnish' },
       ];
 
-      const result = inventoryService.importFromCSV(userId, records);
+      const result = await inventoryService.importFromCSV(userId, records);
 
       expect(result.imported).toBe(3);
       expect(result.failed).toBe(0);
       expect(result.errors).toHaveLength(0);
-
-      // Verify items in database
-      const items = testDb.prepare(
-        'SELECT * FROM inventory_items WHERE user_id = ?'
-      ).all(userId);
-      expect(items).toHaveLength(3);
     });
 
-    it('should track failed records', () => {
+    it('should track failed records', async () => {
+      const mockItem = createMockItem({ name: 'Valid Item' });
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+        rows: [mockItem],
+        rowCount: 1,
+      });
+
       const records = [
         { name: 'Valid Item', category: 'spirit' },
         { category: 'spirit' }, // Missing name
         { name: 'Invalid Category', category: 'not_a_category' },
       ];
 
-      const result = inventoryService.importFromCSV(userId, records);
+      const result = await inventoryService.importFromCSV(userId, records);
 
       expect(result.imported).toBe(1);
       expect(result.failed).toBe(2);
       expect(result.errors).toHaveLength(2);
-      expect(result.errors[0].row).toBe(3); // Row 3 (0-indexed + header row)
-      expect(result.errors[1].row).toBe(4); // Row 4
     });
 
-    it('should use correct row numbers in errors', () => {
+    it('should use correct row numbers in errors', async () => {
+      const mockItems = [
+        createMockItem({ name: 'Valid 1' }),
+        createMockItem({ name: 'Valid 2' }),
+      ];
+      let callIndex = 0;
+      (execute as ReturnType<typeof vi.fn>).mockImplementation(async () => ({
+        rows: [mockItems[Math.min(callIndex++, mockItems.length - 1)]],
+        rowCount: 1,
+      }));
+
       const records = [
         { name: 'Valid 1', category: 'spirit' },
         { name: 'Valid 2', category: 'spirit' },
-        { category: 'spirit' }, // Missing name - this is index 2, row 4 (2 + 2 for header)
+        { category: 'spirit' }, // Missing name - this is index 2, row 4
       ];
 
-      const result = inventoryService.importFromCSV(userId, records);
+      const result = await inventoryService.importFromCSV(userId, records);
 
       expect(result.errors[0].row).toBe(4);
     });

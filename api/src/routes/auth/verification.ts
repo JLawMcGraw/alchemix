@@ -6,7 +6,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { db } from '../../database/db';
+import { queryOne, execute } from '../../database/db';
 import { authMiddleware } from '../../middleware/auth';
 import { emailService } from '../../services/EmailService';
 import { UserRow } from '../../types';
@@ -52,9 +52,10 @@ router.post('/verify-email', asyncHandler(async (req: Request, res: Response) =>
   }
 
   // Find user with this verification token
-  const user = db.prepare(
-    'SELECT id, email, verification_token_expires FROM users WHERE verification_token = ?'
-  ).get(token) as UserRow | undefined;
+  const user = await queryOne<UserRow>(
+    'SELECT id, email, verification_token_expires FROM users WHERE verification_token = $1',
+    [token]
+  );
 
   if (!user) {
     return res.status(400).json({
@@ -73,9 +74,10 @@ router.post('/verify-email', asyncHandler(async (req: Request, res: Response) =>
   }
 
   // Mark user as verified and clear the token
-  db.prepare(
-    'UPDATE users SET is_verified = 1, verification_token = NULL, verification_token_expires = NULL WHERE id = ?'
-  ).run(user.id);
+  await execute(
+    'UPDATE users SET is_verified = true, verification_token = NULL, verification_token_expires = NULL WHERE id = $1',
+    [user.id]
+  );
 
   logger.info('Email verified', { userId: user.id, email: user.email, action: 'verify_email' });
 
@@ -113,9 +115,10 @@ router.post('/resend-verification', authMiddleware, asyncHandler(async (req: Req
   }
 
   // Get user's current verification status
-  const user = db.prepare(
-    'SELECT id, email, is_verified FROM users WHERE id = ?'
-  ).get(userId) as UserRow | undefined;
+  const user = await queryOne<UserRow>(
+    'SELECT id, email, is_verified FROM users WHERE id = $1',
+    [userId]
+  );
 
   if (!user) {
     return res.status(404).json({
@@ -136,9 +139,10 @@ router.post('/resend-verification', authMiddleware, asyncHandler(async (req: Req
   const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
 
   // Update token in database
-  db.prepare(
-    'UPDATE users SET verification_token = ?, verification_token_expires = ? WHERE id = ?'
-  ).run(verificationToken, verificationExpires, userId);
+  await execute(
+    'UPDATE users SET verification_token = $1, verification_token_expires = $2 WHERE id = $3',
+    [verificationToken, verificationExpires, userId]
+  );
 
   // Send verification email
   try {

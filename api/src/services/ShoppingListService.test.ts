@@ -2,35 +2,42 @@
  * ShoppingListService Tests
  *
  * Tests for ingredient parsing, matching, and shopping recommendations.
+ * Updated for PostgreSQL async pattern.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { db } from '../database/db';
-import { shoppingListService, BottleData } from './ShoppingListService';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+// Mock the database module
+vi.mock('../database/db', () => ({
+  queryOne: vi.fn(),
+  queryAll: vi.fn(),
+  execute: vi.fn(),
+}));
+
+import { queryOne, queryAll, execute } from '../database/db';
+import { shoppingListService, BottleData, ShoppingListItem } from './ShoppingListService';
 
 describe('ShoppingListService', () => {
   const testUserId = 8888;
+  const otherUserId = 8887;
 
-  beforeEach(() => {
-    // Clean up test data
-    db.prepare('DELETE FROM shopping_list_items WHERE user_id = ?').run(testUserId);
-    db.prepare('DELETE FROM recipes WHERE user_id = ?').run(testUserId);
-    db.prepare('DELETE FROM inventory_items WHERE user_id = ?').run(testUserId);
-
-    // Create test user if needed
-    const existingUser = db.prepare('SELECT id FROM users WHERE id = ?').get(testUserId);
-    if (!existingUser) {
-      db.prepare(`
-        INSERT INTO users (id, email, password_hash, created_at, is_verified)
-        VALUES (?, ?, ?, datetime('now'), 1)
-      `).run(testUserId, 'shoptest@example.com', 'hash123');
-    }
+  // Helper to create mock shopping list item
+  const createMockItem = (overrides: Partial<ShoppingListItem> = {}): ShoppingListItem => ({
+    id: 1,
+    user_id: testUserId,
+    name: 'Test Item',
+    checked: false,
+    created_at: new Date().toISOString(),
+    ...overrides,
   });
 
-  afterEach(() => {
-    db.prepare('DELETE FROM shopping_list_items WHERE user_id = ?').run(testUserId);
-    db.prepare('DELETE FROM recipes WHERE user_id = ?').run(testUserId);
-    db.prepare('DELETE FROM inventory_items WHERE user_id = ?').run(testUserId);
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    // Default mock implementations
+    (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (execute as ReturnType<typeof vi.fn>).mockResolvedValue({ rows: [], rowCount: 0 });
   });
 
   describe('parseIngredientName', () => {
@@ -41,7 +48,6 @@ describe('ShoppingListService', () => {
     });
 
     it('should handle dashes in measurements', () => {
-      // Brand names like "Angostura" are stripped by design
       expect(shoppingListService.parseIngredientName('2 dashes Angostura Bitters')).toBe('bitters');
       expect(shoppingListService.parseIngredientName('3 drops Orange Bitters')).toBe('orange bitters');
     });
@@ -63,10 +69,7 @@ describe('ShoppingListService', () => {
     });
 
     it('should normalize aged rum indicators', () => {
-      // Note: UTF-8 normalization affects ñ character matching
-      // Test the basic normalization pattern
       const result = shoppingListService.parseIngredientName('Anejo Rum');
-      // Should normalize but actual output depends on regex matching
       expect(typeof result).toBe('string');
     });
 
@@ -116,7 +119,6 @@ describe('ShoppingListService', () => {
     });
 
     it('should match synonyms', () => {
-      // light rum = white rum = silver rum
       expect(shoppingListService['hasIngredient'](bottles, 'light rum')).toBe(true);
       expect(shoppingListService['hasIngredient'](bottles, 'silver rum')).toBe(true);
     });
@@ -141,7 +143,6 @@ describe('ShoppingListService', () => {
     ];
 
     it('should return true when all ingredients available', () => {
-      // Test with ingredients that are actually in bottles + pantry items
       const ingredients = ['2 oz White Rum', '0.75 oz Simple Syrup', 'Ice'];
       expect(shoppingListService.isCraftable(ingredients, bottles)).toBe(true);
     });
@@ -161,7 +162,6 @@ describe('ShoppingListService', () => {
     });
 
     it('should handle empty ingredient strings gracefully', () => {
-      // Test that empty strings don't cause errors
       const ingredients = ['2 oz White Rum', '', '0.75 oz Simple Syrup'];
       expect(shoppingListService.isCraftable(ingredients, bottles)).toBe(true);
     });
@@ -195,7 +195,7 @@ describe('ShoppingListService', () => {
       const ingredients = ['2 oz Bourbon or Rye'];
       const missing = shoppingListService.findMissingIngredients(ingredients, bottles);
 
-      expect(missing).toHaveLength(0); // Has rye, so OR is satisfied
+      expect(missing).toHaveLength(0);
     });
 
     it('should list OR alternatives when none available', () => {
@@ -209,139 +209,156 @@ describe('ShoppingListService', () => {
 
   describe('Shopping List CRUD', () => {
     describe('addItem', () => {
-      it('should add item to shopping list', () => {
-        const item = shoppingListService.addItem(testUserId, 'Campari');
+      it('should add item to shopping list', async () => {
+        const mockItem = createMockItem({ name: 'Campari' });
+        (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null); // No duplicate
+        (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+          rows: [mockItem],
+          rowCount: 1,
+        });
+
+        const item = await shoppingListService.addItem(testUserId, 'Campari');
 
         expect(item).not.toBeNull();
         expect(item!.name).toBe('Campari');
         expect(item!.checked).toBe(false);
       });
 
-      it('should trim whitespace', () => {
-        const item = shoppingListService.addItem(testUserId, '  Campari  ');
+      it('should trim whitespace', async () => {
+        const mockItem = createMockItem({ name: 'Campari' });
+        (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+        (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+          rows: [mockItem],
+          rowCount: 1,
+        });
+
+        const item = await shoppingListService.addItem(testUserId, '  Campari  ');
 
         expect(item!.name).toBe('Campari');
       });
 
-      it('should return null for duplicate (case insensitive)', () => {
-        shoppingListService.addItem(testUserId, 'Campari');
-        const duplicate = shoppingListService.addItem(testUserId, 'CAMPARI');
+      it('should return null for duplicate (case insensitive)', async () => {
+        (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 1 }); // Duplicate exists
+
+        const duplicate = await shoppingListService.addItem(testUserId, 'CAMPARI');
 
         expect(duplicate).toBeNull();
       });
     });
 
     describe('getItems', () => {
-      it('should return all items for user', () => {
-        shoppingListService.addItem(testUserId, 'Item 1');
-        shoppingListService.addItem(testUserId, 'Item 2');
+      it('should return all items for user', async () => {
+        const mockItems = [
+          createMockItem({ id: 1, name: 'Item 1' }),
+          createMockItem({ id: 2, name: 'Item 2' }),
+        ];
+        (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
-        const items = shoppingListService.getItems(testUserId);
+        const items = await shoppingListService.getItems(testUserId);
 
         expect(items).toHaveLength(2);
       });
 
-      it('should return items ordered by created_at DESC', () => {
-        shoppingListService.addItem(testUserId, 'First');
-        shoppingListService.addItem(testUserId, 'Second');
+      it('should return empty array for user with no items', async () => {
+        (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
-        const items = shoppingListService.getItems(testUserId);
-
-        // Items should be returned (ordering may vary if timestamps are same)
-        expect(items).toHaveLength(2);
-        expect(items.map(i => i.name)).toContain('First');
-        expect(items.map(i => i.name)).toContain('Second');
-      });
-
-      it('should return empty array for user with no items', () => {
-        const items = shoppingListService.getItems(testUserId);
+        const items = await shoppingListService.getItems(testUserId);
 
         expect(items).toEqual([]);
       });
     });
 
     describe('updateItem', () => {
-      it('should update checked status', () => {
-        const item = shoppingListService.addItem(testUserId, 'Test Item');
+      it('should update checked status', async () => {
+        const updatedItem = createMockItem({ id: 1, name: 'Test Item', checked: true });
+        (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 1 }); // Exists
+        (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+          rows: [updatedItem],
+          rowCount: 1,
+        });
 
-        const updated = shoppingListService.updateItem(testUserId, item!.id, { checked: true });
+        const updated = await shoppingListService.updateItem(testUserId, 1, { checked: true });
 
         expect(updated!.checked).toBe(true);
       });
 
-      it('should update name', () => {
-        const item = shoppingListService.addItem(testUserId, 'Old Name');
+      it('should update name', async () => {
+        const updatedItem = createMockItem({ id: 1, name: 'New Name' });
+        (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 1 });
+        (execute as ReturnType<typeof vi.fn>).mockResolvedValue({
+          rows: [updatedItem],
+          rowCount: 1,
+        });
 
-        const updated = shoppingListService.updateItem(testUserId, item!.id, { name: 'New Name' });
+        const updated = await shoppingListService.updateItem(testUserId, 1, { name: 'New Name' });
 
         expect(updated!.name).toBe('New Name');
       });
 
-      it('should return null for non-existent item', () => {
-        const updated = shoppingListService.updateItem(testUserId, 99999, { checked: true });
+      it('should return null for non-existent item', async () => {
+        (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+        const updated = await shoppingListService.updateItem(testUserId, 99999, { checked: true });
 
         expect(updated).toBeNull();
       });
 
-      it('should return null for wrong user', () => {
-        const item = shoppingListService.addItem(testUserId, 'Private');
+      it('should return null for wrong user', async () => {
+        (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
-        const updated = shoppingListService.updateItem(9997, item!.id, { checked: true });
+        const updated = await shoppingListService.updateItem(otherUserId, 1, { checked: true });
 
         expect(updated).toBeNull();
       });
 
-      it('should return null for empty updates', () => {
-        const item = shoppingListService.addItem(testUserId, 'Test');
+      it('should return null for empty updates', async () => {
+        (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 1 });
 
-        const updated = shoppingListService.updateItem(testUserId, item!.id, {});
+        const updated = await shoppingListService.updateItem(testUserId, 1, {});
 
         expect(updated).toBeNull();
       });
     });
 
     describe('deleteItem', () => {
-      it('should delete item and return true', () => {
-        const item = shoppingListService.addItem(testUserId, 'Delete Me');
+      it('should delete item and return true', async () => {
+        (execute as ReturnType<typeof vi.fn>).mockResolvedValue({ rowCount: 1 });
 
-        const result = shoppingListService.deleteItem(testUserId, item!.id);
+        const result = await shoppingListService.deleteItem(testUserId, 1);
 
         expect(result).toBe(true);
-        expect(shoppingListService.getItems(testUserId)).toHaveLength(0);
       });
 
-      it('should return false for non-existent item', () => {
-        const result = shoppingListService.deleteItem(testUserId, 99999);
+      it('should return false for non-existent item', async () => {
+        (execute as ReturnType<typeof vi.fn>).mockResolvedValue({ rowCount: 0 });
+
+        const result = await shoppingListService.deleteItem(testUserId, 99999);
 
         expect(result).toBe(false);
       });
 
-      it('should return false for wrong user', () => {
-        const item = shoppingListService.addItem(testUserId, 'Protected');
+      it('should return false for wrong user', async () => {
+        (execute as ReturnType<typeof vi.fn>).mockResolvedValue({ rowCount: 0 });
 
-        const result = shoppingListService.deleteItem(9997, item!.id);
+        const result = await shoppingListService.deleteItem(otherUserId, 1);
 
         expect(result).toBe(false);
       });
     });
 
     describe('deleteCheckedItems', () => {
-      it('should delete only checked items', () => {
-        const item1 = shoppingListService.addItem(testUserId, 'Checked');
-        shoppingListService.addItem(testUserId, 'Unchecked');
-        shoppingListService.updateItem(testUserId, item1!.id, { checked: true });
+      it('should delete only checked items and return count', async () => {
+        (execute as ReturnType<typeof vi.fn>).mockResolvedValue({ rowCount: 1 });
 
-        const deleted = shoppingListService.deleteCheckedItems(testUserId);
+        const deleted = await shoppingListService.deleteCheckedItems(testUserId);
 
         expect(deleted).toBe(1);
-        expect(shoppingListService.getItems(testUserId)).toHaveLength(1);
       });
 
-      it('should return 0 when no checked items', () => {
-        shoppingListService.addItem(testUserId, 'Unchecked 1');
-        shoppingListService.addItem(testUserId, 'Unchecked 2');
+      it('should return 0 when no checked items', async () => {
+        (execute as ReturnType<typeof vi.fn>).mockResolvedValue({ rowCount: 0 });
 
-        const deleted = shoppingListService.deleteCheckedItems(testUserId);
+        const deleted = await shoppingListService.deleteCheckedItems(testUserId);
 
         expect(deleted).toBe(0);
       });
@@ -349,94 +366,78 @@ describe('ShoppingListService', () => {
   });
 
   describe('getSmartRecommendations', () => {
-    beforeEach(() => {
-      // Add inventory (category is required)
-      db.prepare(`
-        INSERT INTO inventory_items (user_id, name, category, type, stock_number)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(testUserId, 'White Rum', 'spirit', 'Rum', 1);
+    it('should return stats about recipes', async () => {
+      // Mock inventory
+      (queryAll as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce([ // getUserBottles
+          { name: 'White Rum', liquorType: 'Rum', detailedClassification: 'White Rum', stockNumber: 1 },
+          { name: 'Lime Juice', liquorType: 'Citrus', detailedClassification: null, stockNumber: 1 },
+        ])
+        .mockResolvedValueOnce([ // getUserRecipes
+          { id: 1, name: 'Daiquiri', ingredients: JSON.stringify(['2 oz White Rum', '1 oz Lime Juice', '0.75 oz Simple Syrup']) },
+          { id: 2, name: 'Mojito', ingredients: JSON.stringify(['2 oz White Rum', '1 oz Lime Juice', 'Mint', 'Simple Syrup', 'Club Soda']) },
+          { id: 3, name: 'Negroni', ingredients: JSON.stringify(['1 oz Gin', '1 oz Campari', '1 oz Sweet Vermouth']) },
+        ]);
 
-      db.prepare(`
-        INSERT INTO inventory_items (user_id, name, category, type, stock_number)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(testUserId, 'Lime Juice', 'mixer', 'Citrus', 1);
-
-      // Add recipes
-      db.prepare(`
-        INSERT INTO recipes (user_id, name, ingredients)
-        VALUES (?, ?, ?)
-      `).run(testUserId, 'Daiquiri', JSON.stringify(['2 oz White Rum', '1 oz Lime Juice', '0.75 oz Simple Syrup']));
-
-      db.prepare(`
-        INSERT INTO recipes (user_id, name, ingredients)
-        VALUES (?, ?, ?)
-      `).run(testUserId, 'Mojito', JSON.stringify(['2 oz White Rum', '1 oz Lime Juice', 'Mint', 'Simple Syrup', 'Club Soda']));
-
-      db.prepare(`
-        INSERT INTO recipes (user_id, name, ingredients)
-        VALUES (?, ?, ?)
-      `).run(testUserId, 'Negroni', JSON.stringify(['1 oz Gin', '1 oz Campari', '1 oz Sweet Vermouth']));
-    });
-
-    it('should return stats about recipes', () => {
-      const result = shoppingListService.getSmartRecommendations(testUserId);
+      const result = await shoppingListService.getSmartRecommendations(testUserId);
 
       expect(result.stats.totalRecipes).toBe(3);
       expect(result.stats.inventoryItems).toBe(2);
     });
 
-    it('should identify craftable recipes', () => {
-      const result = shoppingListService.getSmartRecommendations(testUserId);
+    it('should identify craftable recipes', async () => {
+      (queryAll as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce([
+          { name: 'White Rum', liquorType: 'Rum', detailedClassification: 'White Rum', stockNumber: 1 },
+        ])
+        .mockResolvedValueOnce([
+          { id: 1, name: 'Simple Drink', ingredients: JSON.stringify(['2 oz White Rum', 'Ice']) },
+        ]);
 
-      // Should have processed recipes and returned stats
-      expect(result.stats.totalRecipes).toBe(3);
-      // Craftable count depends on ingredient matching - just verify structure
+      const result = await shoppingListService.getSmartRecommendations(testUserId);
+
       expect(result.craftableRecipes).toBeDefined();
       expect(Array.isArray(result.craftableRecipes)).toBe(true);
     });
 
-    it('should identify near-miss recipes', () => {
-      // Add recipe missing just one ingredient
-      db.prepare(`
-        INSERT INTO recipes (user_id, name, ingredients)
-        VALUES (?, ?, ?)
-      `).run(testUserId, 'Cuba Libre', JSON.stringify(['2 oz White Rum', '4 oz Cola', 'Lime']));
+    it('should identify near-miss recipes', async () => {
+      (queryAll as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce([
+          { name: 'White Rum', liquorType: 'Rum', detailedClassification: 'White Rum', stockNumber: 1 },
+        ])
+        .mockResolvedValueOnce([
+          { id: 1, name: 'Cuba Libre', ingredients: JSON.stringify(['2 oz White Rum', '4 oz Cola', 'Lime']) },
+        ]);
 
-      const result = shoppingListService.getSmartRecommendations(testUserId);
+      const result = await shoppingListService.getSmartRecommendations(testUserId);
 
-      // Should have processed the recipe - structure should be valid
       expect(result.nearMissRecipes).toBeDefined();
       expect(Array.isArray(result.nearMissRecipes)).toBe(true);
-      // If there are near-misses, they should have missingIngredient
       result.nearMissRecipes.forEach(r => {
         expect(r.missingIngredient).toBeDefined();
       });
     });
 
-    it('should generate recommendations sorted by unlock count', () => {
-      // Add more recipes that need the same ingredient
-      db.prepare(`
-        INSERT INTO recipes (user_id, name, ingredients)
-        VALUES (?, ?, ?)
-      `).run(testUserId, 'Gin Tonic', JSON.stringify(['2 oz Gin', '4 oz Tonic']));
+    it('should generate recommendations sorted by unlock count', async () => {
+      (queryAll as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce([
+          { name: 'White Rum', liquorType: 'Rum', detailedClassification: 'White Rum', stockNumber: 1 },
+        ])
+        .mockResolvedValueOnce([
+          { id: 1, name: 'Gin Tonic', ingredients: JSON.stringify(['2 oz Gin', '4 oz Tonic']) },
+          { id: 2, name: 'Gimlet', ingredients: JSON.stringify(['2 oz Gin', '1 oz Lime']) },
+          { id: 3, name: 'Martini', ingredients: JSON.stringify(['2 oz Gin', '1 oz Vermouth']) },
+        ]);
 
-      db.prepare(`
-        INSERT INTO recipes (user_id, name, ingredients)
-        VALUES (?, ?, ?)
-      `).run(testUserId, 'Gimlet', JSON.stringify(['2 oz Gin', '1 oz Lime']));
+      const result = await shoppingListService.getSmartRecommendations(testUserId);
 
-      const result = shoppingListService.getSmartRecommendations(testUserId);
-
-      // Recommendations should exist and be valid
       expect(result.recommendations).toBeDefined();
       expect(Array.isArray(result.recommendations)).toBe(true);
 
-      // If there are multiple recommendations, they should be sorted by unlock count
       if (result.recommendations.length >= 2) {
         expect(result.recommendations[0].unlocks).toBeGreaterThanOrEqual(result.recommendations[1].unlocks);
       }
 
-      // Each recommendation should have ingredient and unlocks
       result.recommendations.forEach(r => {
         expect(r.ingredient).toBeDefined();
         expect(typeof r.unlocks).toBe('number');
@@ -445,54 +446,86 @@ describe('ShoppingListService', () => {
   });
 
   describe('getUserBottles', () => {
-    it('should return bottles with stock > 0', () => {
-      db.prepare(`
-        INSERT INTO inventory_items (user_id, name, category, type, stock_number)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(testUserId, 'In Stock', 'spirit', 'Spirit', 2);
+    it('should return bottles with stock > 0', async () => {
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { name: 'In Stock', liquorType: 'Spirit', detailedClassification: null, stockNumber: 2 },
+      ]);
 
-      db.prepare(`
-        INSERT INTO inventory_items (user_id, name, category, type, stock_number)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(testUserId, 'Out of Stock', 'spirit', 'Spirit', 0);
-
-      const bottles = shoppingListService.getUserBottles(testUserId);
+      const bottles = await shoppingListService.getUserBottles(testUserId);
 
       expect(bottles).toHaveLength(1);
       expect(bottles[0].name).toBe('In Stock');
     });
 
-    it('should return empty array for user with no inventory', () => {
-      const bottles = shoppingListService.getUserBottles(testUserId);
+    it('should return empty array for user with no inventory', async () => {
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+      const bottles = await shoppingListService.getUserBottles(testUserId);
 
       expect(bottles).toEqual([]);
     });
   });
 
   describe('getUserRecipes', () => {
-    it('should return parsed recipes', () => {
-      db.prepare(`
-        INSERT INTO recipes (user_id, name, ingredients)
-        VALUES (?, ?, ?)
-      `).run(testUserId, 'Test Recipe', JSON.stringify(['Ingredient 1', 'Ingredient 2']));
+    it('should return parsed recipes', async () => {
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { id: 1, name: 'Test Recipe', ingredients: JSON.stringify(['Ingredient 1', 'Ingredient 2']) },
+      ]);
 
-      const recipes = shoppingListService.getUserRecipes(testUserId);
+      const recipes = await shoppingListService.getUserRecipes(testUserId);
 
       expect(recipes).toHaveLength(1);
       expect(recipes[0].name).toBe('Test Recipe');
       expect(recipes[0].ingredients).toEqual(['Ingredient 1', 'Ingredient 2']);
     });
 
-    it('should handle malformed JSON gracefully', () => {
-      db.prepare(`
-        INSERT INTO recipes (user_id, name, ingredients)
-        VALUES (?, ?, ?)
-      `).run(testUserId, 'Bad Recipe', 'not valid json');
+    it('should handle malformed JSON gracefully', async () => {
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { id: 1, name: 'Bad Recipe', ingredients: 'not valid json' },
+      ]);
 
-      const recipes = shoppingListService.getUserRecipes(testUserId);
+      const recipes = await shoppingListService.getUserRecipes(testUserId);
 
       expect(recipes).toHaveLength(1);
       expect(recipes[0].ingredients).toEqual([]);
+    });
+  });
+
+  describe('getItemsPaginated', () => {
+    it('should return paginated results with metadata', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ total: '15' });
+      const mockItems = Array.from({ length: 5 }, (_, i) =>
+        createMockItem({ id: i + 1, name: `Item ${i + 1}` })
+      );
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
+
+      const result = await shoppingListService.getItemsPaginated(testUserId, 1, 5);
+
+      expect(result.items).toHaveLength(5);
+      expect(result.pagination.page).toBe(1);
+      expect(result.pagination.limit).toBe(5);
+      expect(result.pagination.total).toBe(15);
+      expect(result.pagination.totalPages).toBe(3);
+      expect(result.pagination.hasNextPage).toBe(true);
+      expect(result.pagination.hasPreviousPage).toBe(false);
+    });
+
+    it('should clamp page to minimum 1', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ total: '10' });
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+      const result = await shoppingListService.getItemsPaginated(testUserId, -5, 5);
+
+      expect(result.pagination.page).toBe(1);
+    });
+
+    it('should clamp limit to maximum 100', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ total: '10' });
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+      const result = await shoppingListService.getItemsPaginated(testUserId, 1, 500);
+
+      expect(result.pagination.limit).toBe(100);
     });
   });
 });

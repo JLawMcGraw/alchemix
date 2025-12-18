@@ -8,18 +8,11 @@
  * @date December 2025
  */
 
-import { db as defaultDb } from '../database/db';
+import { queryOne, queryAll, execute, transaction } from '../database/db';
 import { sanitizeString } from '../utils/inputValidator';
 import { Recipe } from '../types';
 import { memoryService as defaultMemoryService } from './MemoryService';
 import { logger } from '../utils/logger';
-import type Database from 'better-sqlite3';
-
-/**
- * Database type for dependency injection
- * Uses the actual better-sqlite3 Database type for full compatibility
- */
-export type IDatabase = Database.Database;
 
 /**
  * MemoryService interface for dependency injection
@@ -147,40 +140,38 @@ export interface SyncStats {
  * Supports dependency injection for testability.
  */
 export class RecipeService {
-  private db: IDatabase;
   private memoryService: IMemoryService;
 
   /**
    * Create a RecipeService instance
-   * @param database - Database instance (defaults to production db)
    * @param memService - MemoryService instance (defaults to production memoryService)
    */
-  constructor(database?: IDatabase, memService?: IMemoryService) {
-    this.db = database || defaultDb;
+  constructor(memService?: IMemoryService) {
     this.memoryService = memService || defaultMemoryService;
   }
 
   /**
    * Get paginated recipes for a user
    */
-  getAll(userId: number, options: PaginationOptions): PaginatedResult<Recipe> {
+  async getAll(userId: number, options: PaginationOptions): Promise<PaginatedResult<Recipe>> {
     const { page, limit } = options;
     const offset = (page - 1) * limit;
 
     // Get total count
-    const countResult = this.db.prepare(
-      'SELECT COUNT(*) as total FROM recipes WHERE user_id = ?'
-    ).get(userId) as { total: number };
+    const countResult = await queryOne<{ total: string }>(
+      'SELECT COUNT(*) as total FROM recipes WHERE user_id = $1',
+      [userId]
+    );
 
-    const total = countResult.total;
+    const total = parseInt(countResult?.total ?? '0', 10);
 
     // Get recipes
-    const recipes = this.db.prepare(`
+    const recipes = await queryAll<Recipe>(`
       SELECT * FROM recipes
-      WHERE user_id = ?
+      WHERE user_id = $1
       ORDER BY created_at DESC
-      LIMIT ? OFFSET ?
-    `).all(userId, limit, offset) as Recipe[];
+      LIMIT $2 OFFSET $3
+    `, [userId, limit, offset]);
 
     // Parse ingredients JSON
     const parsedRecipes = recipes.map(recipe => this.parseRecipeIngredients(recipe));
@@ -204,10 +195,11 @@ export class RecipeService {
   /**
    * Get a single recipe by ID (with ownership check)
    */
-  getById(recipeId: number, userId: number): Recipe | null {
-    const recipe = this.db.prepare(
-      'SELECT * FROM recipes WHERE id = ? AND user_id = ?'
-    ).get(recipeId, userId) as Recipe | undefined;
+  async getById(recipeId: number, userId: number): Promise<Recipe | null> {
+    const recipe = await queryOne<Recipe>(
+      'SELECT * FROM recipes WHERE id = $1 AND user_id = $2',
+      [recipeId, userId]
+    );
 
     if (!recipe) return null;
 
@@ -217,10 +209,11 @@ export class RecipeService {
   /**
    * Check if a recipe exists and belongs to user
    */
-  exists(recipeId: number, userId: number): boolean {
-    const result = this.db.prepare(
-      'SELECT id FROM recipes WHERE id = ? AND user_id = ?'
-    ).get(recipeId, userId);
+  async exists(recipeId: number, userId: number): Promise<boolean> {
+    const result = await queryOne<{ id: number }>(
+      'SELECT id FROM recipes WHERE id = $1 AND user_id = $2',
+      [recipeId, userId]
+    );
 
     return !!result;
   }
@@ -228,10 +221,11 @@ export class RecipeService {
   /**
    * Validate collection belongs to user
    */
-  validateCollection(collectionId: number, userId: number): boolean {
-    const collection = this.db.prepare(
-      'SELECT id FROM collections WHERE id = ? AND user_id = ?'
-    ).get(collectionId, userId);
+  async validateCollection(collectionId: number, userId: number): Promise<boolean> {
+    const collection = await queryOne<{ id: number }>(
+      'SELECT id FROM collections WHERE id = $1 AND user_id = $2',
+      [collectionId, userId]
+    );
 
     return !!collection;
   }
@@ -239,7 +233,7 @@ export class RecipeService {
   /**
    * Sanitize and validate recipe input for creation
    */
-  sanitizeCreateInput(input: CreateRecipeInput, userId: number): { valid: boolean; error?: string; data?: SanitizedRecipeData } {
+  async sanitizeCreateInput(input: CreateRecipeInput, userId: number): Promise<{ valid: boolean; error?: string; data?: SanitizedRecipeData }> {
     // Validate name
     if (!input.name || typeof input.name !== 'string') {
       return { valid: false, error: 'Recipe name is required and must be a string' };
@@ -252,7 +246,7 @@ export class RecipeService {
 
     // Validate collection if provided
     const collectionId = input.collection_id || null;
-    if (collectionId && !this.validateCollection(collectionId, userId)) {
+    if (collectionId && !await this.validateCollection(collectionId, userId)) {
       return { valid: false, error: 'Collection not found or access denied' };
     }
 
@@ -278,12 +272,13 @@ export class RecipeService {
   /**
    * Create a new recipe
    */
-  create(userId: number, data: SanitizedRecipeData): Recipe {
-    const result = this.db.prepare(`
+  async create(userId: number, data: SanitizedRecipeData): Promise<Recipe> {
+    const result = await execute(`
       INSERT INTO recipes (
         user_id, collection_id, name, ingredients, instructions, glass, category
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING *
+    `, [
       userId,
       data.collectionId,
       data.name,
@@ -291,16 +286,13 @@ export class RecipeService {
       data.instructions,
       data.glass,
       data.category
-    );
+    ]);
 
-    const recipeId = result.lastInsertRowid as number;
+    const recipe = result.rows[0] as Recipe;
+    const recipeId = recipe.id!;
 
     // Store in MemMachine (fire-and-forget)
     this.storeInMemMachine(userId, recipeId, data);
-
-    const recipe = this.db.prepare(
-      'SELECT * FROM recipes WHERE id = ?'
-    ).get(recipeId) as Recipe;
 
     return this.parseRecipeIngredients(recipe);
   }
@@ -311,9 +303,9 @@ export class RecipeService {
    * SECURITY: Only fields in ALLOWED_UPDATE_FIELDS are processed.
    * Any attempt to modify user_id or other protected fields is silently ignored.
    */
-  update(recipeId: number, userId: number, updates: UpdateRecipeInput): { success: boolean; recipe?: Recipe; error?: string } {
+  async update(recipeId: number, userId: number, updates: UpdateRecipeInput): Promise<{ success: boolean; recipe?: Recipe; error?: string }> {
     // Check existence
-    if (!this.exists(recipeId, userId)) {
+    if (!await this.exists(recipeId, userId)) {
       return { success: false, error: 'Recipe not found or access denied' };
     }
 
@@ -327,6 +319,7 @@ export class RecipeService {
 
     const fieldsToUpdate: string[] = [];
     const values: (string | number | null)[] = [];
+    let paramIndex = 1;
 
     // Name
     if (safeUpdates.name !== undefined) {
@@ -337,7 +330,7 @@ export class RecipeService {
       if (sanitizedName.length === 0) {
         return { success: false, error: 'Name cannot be empty after sanitization' };
       }
-      fieldsToUpdate.push('name = ?');
+      fieldsToUpdate.push(`name = $${paramIndex++}`);
       values.push(sanitizedName);
     }
 
@@ -347,74 +340,75 @@ export class RecipeService {
       if (!ingredientsResult.valid) {
         return { success: false, error: ingredientsResult.error };
       }
-      fieldsToUpdate.push('ingredients = ?');
+      fieldsToUpdate.push(`ingredients = $${paramIndex++}`);
       values.push(ingredientsResult.str ?? null);
     }
 
     // Instructions
     if (safeUpdates.instructions !== undefined) {
-      fieldsToUpdate.push('instructions = ?');
+      fieldsToUpdate.push(`instructions = $${paramIndex++}`);
       values.push(safeUpdates.instructions ? sanitizeString(safeUpdates.instructions, 2000, true) : null);
     }
 
     // Glass
     if (safeUpdates.glass !== undefined) {
-      fieldsToUpdate.push('glass = ?');
+      fieldsToUpdate.push(`glass = $${paramIndex++}`);
       values.push(safeUpdates.glass ? sanitizeString(safeUpdates.glass, 100, true) : null);
     }
 
     // Category
     if (safeUpdates.category !== undefined) {
-      fieldsToUpdate.push('category = ?');
+      fieldsToUpdate.push(`category = $${paramIndex++}`);
       values.push(safeUpdates.category ? sanitizeString(safeUpdates.category, 100, true) : null);
     }
 
     // Collection ID
     if (safeUpdates.collection_id !== undefined) {
       if (safeUpdates.collection_id === null || safeUpdates.collection_id === undefined) {
-        fieldsToUpdate.push('collection_id = ?');
+        fieldsToUpdate.push(`collection_id = $${paramIndex++}`);
         values.push(null);
       } else {
         const validCollectionId = Number(safeUpdates.collection_id);
         if (isNaN(validCollectionId) || validCollectionId <= 0) {
           return { success: false, error: 'Invalid collection ID' };
         }
-        if (!this.validateCollection(validCollectionId, userId)) {
+        if (!await this.validateCollection(validCollectionId, userId)) {
           return { success: false, error: 'Collection not found or access denied' };
         }
-        fieldsToUpdate.push('collection_id = ?');
+        fieldsToUpdate.push(`collection_id = $${paramIndex++}`);
         values.push(validCollectionId);
       }
     }
 
     // If no fields to update, return current recipe
     if (fieldsToUpdate.length === 0) {
-      const recipe = this.getById(recipeId, userId);
+      const recipe = await this.getById(recipeId, userId);
       return { success: true, recipe: recipe! };
     }
 
     // Execute update
     values.push(recipeId);
-    this.db.prepare(`UPDATE recipes SET ${fieldsToUpdate.join(', ')} WHERE id = ?`).run(...values);
+    await execute(`UPDATE recipes SET ${fieldsToUpdate.join(', ')} WHERE id = $${paramIndex}`, values);
 
-    const recipe = this.getById(recipeId, userId);
+    const recipe = await this.getById(recipeId, userId);
     return { success: true, recipe: recipe! };
   }
 
   /**
    * Delete a single recipe
    */
-  delete(recipeId: number, userId: number): { success: boolean; error?: string } {
-    const recipe = this.db.prepare(
-      'SELECT id, name, memmachine_uid FROM recipes WHERE id = ? AND user_id = ?'
-    ).get(recipeId, userId) as { id: number; name: string; memmachine_uid: string | null } | undefined;
+  async delete(recipeId: number, userId: number): Promise<{ success: boolean; error?: string }> {
+    const recipe = await queryOne<{ id: number; name: string; memmachine_uid: string | null }>(
+      'SELECT id, name, memmachine_uid FROM recipes WHERE id = $1 AND user_id = $2',
+      [recipeId, userId]
+    );
 
     if (!recipe) {
       return { success: false, error: 'Recipe not found or access denied' };
     }
 
     // Delete from database
-    this.db.prepare('DELETE FROM recipes WHERE id = ?').run(recipeId);
+    await execute('DELETE FROM recipes WHERE id = $1', [recipeId]);
 
     // Delete from MemMachine
     if (recipe.memmachine_uid) {
@@ -431,54 +425,57 @@ export class RecipeService {
   /**
    * Delete all recipes for a user
    */
-  deleteAll(userId: number): number {
-    const result = this.db.prepare('DELETE FROM recipes WHERE user_id = ?').run(userId);
+  async deleteAll(userId: number): Promise<number> {
+    const result = await execute('DELETE FROM recipes WHERE user_id = $1', [userId]);
 
     // Trigger auto-sync in background
     this.autoSyncMemMachine(userId, 'delete all recipes');
 
-    return result.changes;
+    return result.rowCount ?? 0;
   }
 
   /**
    * Bulk delete recipes
    */
-  bulkDelete(ids: number[], userId: number): number {
-    const placeholders = ids.map(() => '?').join(', ');
+  async bulkDelete(ids: number[], userId: number): Promise<number> {
+    // Build parameterized query for bulk delete
+    const placeholders = ids.map((_, i) => `$${i + 2}`).join(', ');
 
     // Get UIDs before deletion
-    const recipesToDelete = this.db.prepare(`
+    const recipesToDelete = await queryAll<{ memmachine_uid: string }>(`
       SELECT memmachine_uid FROM recipes
-      WHERE user_id = ? AND id IN (${placeholders}) AND memmachine_uid IS NOT NULL
-    `).all(userId, ...ids) as Array<{ memmachine_uid: string }>;
+      WHERE user_id = $1 AND id IN (${placeholders}) AND memmachine_uid IS NOT NULL
+    `, [userId, ...ids]);
 
     const uidsToDelete = recipesToDelete.map(r => r.memmachine_uid).filter(Boolean);
 
     // Delete from database
-    const result = this.db.prepare(`
-      DELETE FROM recipes WHERE user_id = ? AND id IN (${placeholders})
-    `).run(userId, ...ids);
+    const result = await execute(`
+      DELETE FROM recipes WHERE user_id = $1 AND id IN (${placeholders})
+    `, [userId, ...ids]);
+
+    const deletedCount = result.rowCount ?? 0;
 
     // Handle MemMachine cleanup
-    if (result.changes >= 10) {
-      this.autoSyncMemMachine(userId, `bulk delete ${result.changes} recipes`);
+    if (deletedCount >= 10) {
+      this.autoSyncMemMachine(userId, `bulk delete ${deletedCount} recipes`);
     } else if (uidsToDelete.length > 0) {
       this.memoryService.deleteUserRecipesBatch(userId, uidsToDelete).catch(err => {
         logger.error('Failed to batch delete recipes from MemMachine', { error: err instanceof Error ? err.message : 'Unknown error' });
       });
     }
 
-    return result.changes;
+    return deletedCount;
   }
 
   /**
    * Import recipes from CSV records
    *
-   * PERFORMANCE: Uses transaction + prepared statement for batch insert
+   * PERFORMANCE: Uses transaction for batch insert
    * instead of individual queries (fixes N+1 query pattern).
    * This is ~10x faster for large imports.
    */
-  importFromCSV(userId: number, records: Record<string, unknown>[], collectionId: number | null): ImportResult {
+  async importFromCSV(userId: number, records: Record<string, unknown>[], collectionId: number | null): Promise<ImportResult> {
     let imported = 0;
     const errors: Array<{ row: number; error: string }> = [];
     const recipesForMemMachine: Array<{
@@ -523,17 +520,16 @@ export class RecipeService {
       });
     }
 
-    // Phase 2: Batch insert using transaction (single query instead of N queries)
+    // Phase 2: Batch insert using transaction
     if (validatedRecipes.length > 0) {
-      const insertStmt = this.db.prepare(`
-        INSERT INTO recipes (user_id, collection_id, name, ingredients, instructions, glass, category)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `);
-
-      const insertMany = this.db.transaction((recipes: typeof validatedRecipes) => {
-        for (const recipe of recipes) {
+      await transaction(async (client) => {
+        for (const recipe of validatedRecipes) {
           try {
-            const result = insertStmt.run(
+            const result = await client.query(`
+              INSERT INTO recipes (user_id, collection_id, name, ingredients, instructions, glass, category)
+              VALUES ($1, $2, $3, $4, $5, $6, $7)
+              RETURNING id
+            `, [
               userId,
               collectionId,
               recipe.name,
@@ -541,8 +537,8 @@ export class RecipeService {
               recipe.instructions,
               recipe.glass,
               recipe.category
-            );
-            const recipeId = Number(result.lastInsertRowid);
+            ]);
+            const recipeId = result.rows[0].id as number;
             imported++;
             recipesForMemMachine.push({
               id: recipeId,
@@ -558,8 +554,6 @@ export class RecipeService {
           }
         }
       });
-
-      insertMany(validatedRecipes);
     }
 
     // Batch upload to MemMachine
@@ -582,10 +576,10 @@ export class RecipeService {
     }
 
     // Fetch recipes
-    const recipes = this.db.prepare(`
+    const recipes = await queryAll<{ name: string; ingredients: string; instructions: string | null; glass: string | null; category: string | null }>(`
       SELECT name, ingredients, instructions, glass, category
-      FROM recipes WHERE user_id = ? ORDER BY created_at DESC
-    `).all(userId) as Array<{ name: string; ingredients: string; instructions: string | null; glass: string | null; category: string | null }>;
+      FROM recipes WHERE user_id = $1 ORDER BY created_at DESC
+    `, [userId]);
 
     if (recipes.length === 0) {
       return { cleared: true, recipesInDB: 0, uploaded: 0, failed: 0 };
@@ -739,7 +733,9 @@ export class RecipeService {
       category: data.category || undefined,
     }).then(uid => {
       if (uid) {
-        this.db.prepare('UPDATE recipes SET memmachine_uid = ? WHERE id = ?').run(uid, recipeId);
+        execute('UPDATE recipes SET memmachine_uid = $1 WHERE id = $2', [uid, recipeId]).catch(err => {
+          logger.error('Failed to store MemMachine UID in database', { error: err instanceof Error ? err.message : 'Unknown error' });
+        });
         logger.debug('Stored MemMachine UID for recipe', { recipeId, uid });
       }
     }).catch(err => {
@@ -773,11 +769,10 @@ export class RecipeService {
     // Track which index we're at for each recipe name
     const nameIndexTracker = new Map<string, number>();
 
-    this.memoryService.storeUserRecipesBatch(userId, recipesForApi).then(result => {
+    this.memoryService.storeUserRecipesBatch(userId, recipesForApi).then(async result => {
       if (result.uidMap.size > 0) {
         logger.debug('Storing MemMachine UIDs in database', { count: result.uidMap.size });
 
-        const updateStmt = this.db.prepare('UPDATE recipes SET memmachine_uid = ? WHERE id = ?');
         const updates: Array<{ id: number; uid: string }> = [];
 
         // Match UIDs to recipe IDs
@@ -792,14 +787,13 @@ export class RecipeService {
           }
         }
 
-        const updateMany = this.db.transaction((entries: typeof updates) => {
-          for (const { id, uid } of entries) {
-            updateStmt.run(uid, id);
-          }
-        });
-
+        // Update UIDs in transaction
         try {
-          updateMany(updates);
+          await transaction(async (client) => {
+            for (const { id, uid } of updates) {
+              await client.query('UPDATE recipes SET memmachine_uid = $1 WHERE id = $2', [uid, id]);
+            }
+          });
           logger.info('Stored MemMachine UIDs in database', { count: updates.length });
         } catch (err) {
           logger.error('Failed to store MemMachine UIDs in database', { error: err instanceof Error ? err.message : 'Unknown error' });
