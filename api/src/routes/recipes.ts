@@ -55,11 +55,15 @@ const upload = multer({
 router.use(authMiddleware);
 
 /**
- * GET /api/recipes - List User's Recipes with Pagination
+ * GET /api/recipes - List User's Recipes with Pagination and Search
  *
  * Query Parameters:
  * - page: Page number (default: 1, min: 1)
  * - limit: Items per page (default: 50, max: 100, min: 1)
+ * - search: Search term for name/ingredients (optional, max 100 chars)
+ * - spirit: Spirit category filter (optional) - filtered client-side
+ * - mastery: Mastery filter (craftable|almost|need-few|major-gaps) - requires masteryIds
+ * - masteryIds: Comma-separated recipe IDs matching mastery filter
  */
 router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.userId;
@@ -99,7 +103,30 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
 
   const limit = limitValidation.sanitized || 50;
 
-  const result = await recipeService.getAll(userId, { page, limit });
+  // Validate search parameter
+  const searchParam = req.query.search as string | undefined;
+  let search: string | undefined;
+  if (searchParam) {
+    if (searchParam.length > 100) {
+      return res.status(400).json({
+        success: false,
+        error: 'Search query too long (max 100 chars)'
+      });
+    }
+    search = searchParam.trim();
+  }
+
+  // Parse masteryIds (comma-separated list of recipe IDs)
+  const masteryIdsParam = req.query.masteryIds as string | undefined;
+  let masteryIds: number[] | undefined;
+  if (masteryIdsParam) {
+    masteryIds = masteryIdsParam
+      .split(',')
+      .map(id => parseInt(id.trim(), 10))
+      .filter(id => !isNaN(id) && id > 0);
+  }
+
+  const result = await recipeService.getAll(userId, { page, limit, search, masteryIds });
 
   res.json({
     success: true,
