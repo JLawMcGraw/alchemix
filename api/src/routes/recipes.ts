@@ -12,6 +12,7 @@
  * - DELETE /api/recipes/:id - Delete recipe
  * - DELETE /api/recipes/all - Delete all recipes
  * - DELETE /api/recipes/bulk - Bulk delete recipes
+ * - POST /api/recipes/bulk-move - Bulk move recipes to collection
  * - POST /api/recipes/memmachine/sync - Sync MemMachine
  * - DELETE /api/recipes/memmachine/clear - Clear MemMachine
  *
@@ -31,6 +32,7 @@ import { validateNumber } from '../utils/inputValidator';
 import { asyncHandler } from '../utils/asyncHandler';
 import { recipeService } from '../services/RecipeService';
 import { logger } from '../utils/logger';
+import { queryOne } from '../database/db';
 
 const router = Router();
 
@@ -431,6 +433,93 @@ router.delete('/bulk', asyncHandler(async (req: Request, res: Response) => {
   res.json({
     success: true,
     deleted
+  });
+}));
+
+/**
+ * POST /api/recipes/bulk-move - Bulk Move Recipes to Collection
+ *
+ * Body:
+ * - recipeIds: number[] - Recipe IDs to move (required, max 100)
+ * - collectionId: number | null - Target collection (null = uncategorized)
+ */
+router.post('/bulk-move', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      error: 'Authentication required'
+    });
+  }
+
+  const { recipeIds, collectionId } = req.body;
+
+  // Validate recipeIds
+  if (!Array.isArray(recipeIds)) {
+    return res.status(400).json({
+      success: false,
+      error: 'recipeIds must be an array'
+    });
+  }
+
+  // Sanitize and validate IDs
+  const sanitizedIds = recipeIds
+    .map((id) => Number(id))
+    .filter((id) => Number.isInteger(id) && id > 0);
+
+  if (sanitizedIds.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: 'No valid recipe IDs provided'
+    });
+  }
+
+  if (sanitizedIds.length > 100) {
+    return res.status(400).json({
+      success: false,
+      error: 'Maximum 100 recipes per bulk operation'
+    });
+  }
+
+  // Validate collectionId (must be null, undefined, or positive integer)
+  let targetCollectionId: number | null = null;
+  if (collectionId !== null && collectionId !== undefined) {
+    const parsedCollectionId = Number(collectionId);
+    if (!Number.isInteger(parsedCollectionId) || parsedCollectionId <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid collection ID'
+      });
+    }
+    targetCollectionId = parsedCollectionId;
+  }
+
+  const result = await recipeService.bulkMove(sanitizedIds, userId, targetCollectionId);
+
+  if (!result.success) {
+    return res.status(400).json({
+      success: false,
+      error: result.error
+    });
+  }
+
+  // Get collection name for response message
+  let collectionName = 'Uncategorized';
+  if (targetCollectionId) {
+    const collection = await queryOne<{ name: string }>(
+      'SELECT name FROM collections WHERE id = $1 AND user_id = $2',
+      [targetCollectionId, userId]
+    );
+    if (collection) {
+      collectionName = collection.name;
+    }
+  }
+
+  res.json({
+    success: true,
+    moved: result.moved,
+    message: `Moved ${result.moved} recipe(s) to ${collectionName}`
   });
 }));
 
