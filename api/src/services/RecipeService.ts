@@ -35,6 +35,15 @@ export interface PaginationOptions {
 }
 
 /**
+ * Search and filter options
+ */
+export interface SearchOptions extends PaginationOptions {
+  search?: string;
+  spirit?: string;
+  masteryIds?: number[];  // Recipe IDs that match mastery filter (computed by route)
+}
+
+/**
  * Pagination metadata
  */
 export interface PaginationMeta {
@@ -151,16 +160,53 @@ export class RecipeService {
   }
 
   /**
-   * Get paginated recipes for a user
+   * Get paginated recipes for a user with optional search/filter
    */
-  async getAll(userId: number, options: PaginationOptions): Promise<PaginatedResult<Recipe>> {
-    const { page, limit } = options;
+  async getAll(userId: number, options: SearchOptions): Promise<PaginatedResult<Recipe>> {
+    const { page, limit, search, masteryIds } = options;
     const offset = (page - 1) * limit;
+
+    // Early return if masteryIds is empty array (no recipes match filter)
+    if (masteryIds !== undefined && masteryIds.length === 0) {
+      return {
+        items: [],
+        pagination: {
+          page,
+          limit,
+          total: 0,
+          totalPages: 0,
+          hasNextPage: false,
+          hasPreviousPage: false
+        }
+      };
+    }
+
+    // Build dynamic WHERE clauses
+    const conditions: string[] = ['user_id = $1'];
+    const params: unknown[] = [userId];
+    let paramIndex = 2;
+
+    // Search filter (name OR ingredients)
+    if (search && search.trim()) {
+      const searchTerm = `%${search.trim().toLowerCase()}%`;
+      conditions.push(`(LOWER(name) LIKE $${paramIndex} OR LOWER(ingredients) LIKE $${paramIndex})`);
+      params.push(searchTerm);
+      paramIndex++;
+    }
+
+    // Mastery filter (recipe IDs)
+    if (masteryIds && masteryIds.length > 0) {
+      conditions.push(`id = ANY($${paramIndex})`);
+      params.push(masteryIds);
+      paramIndex++;
+    }
+
+    const whereClause = conditions.join(' AND ');
 
     // Get total count
     const countResult = await queryOne<{ total: string }>(
-      'SELECT COUNT(*) as total FROM recipes WHERE user_id = $1',
-      [userId]
+      `SELECT COUNT(*) as total FROM recipes WHERE ${whereClause}`,
+      params
     );
 
     const total = parseInt(countResult?.total ?? '0', 10);
@@ -168,10 +214,10 @@ export class RecipeService {
     // Get recipes
     const recipes = await queryAll<Recipe>(`
       SELECT * FROM recipes
-      WHERE user_id = $1
+      WHERE ${whereClause}
       ORDER BY LOWER(name) ASC
-      LIMIT $2 OFFSET $3
-    `, [userId, limit, offset]);
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `, [...params, limit, offset]);
 
     // Parse ingredients JSON
     const parsedRecipes = recipes.map(recipe => this.parseRecipeIngredients(recipe));

@@ -148,6 +148,84 @@ describe('RecipeService', () => {
         expect.arrayContaining([userId])
       );
     });
+
+    it('should filter recipes by search term in name', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ total: '1' });
+      const mockRecipes = [
+        createMockRecipe({ id: 1, name: 'Margarita', ingredients: '["Tequila", "Lime"]' as any }),
+      ];
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue(mockRecipes);
+
+      const result = await recipeService.getAll(userId, { page: 1, limit: 10, search: 'margarita' });
+
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].name).toBe('Margarita');
+      expect(queryAll).toHaveBeenCalledWith(
+        expect.stringContaining('LOWER(name) LIKE'),
+        expect.arrayContaining(['%margarita%'])
+      );
+    });
+
+    it('should filter recipes by search term in ingredients', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ total: '1' });
+      const mockRecipes = [
+        createMockRecipe({ id: 1, name: 'Daiquiri', ingredients: '["White Rum", "Lime Juice"]' as any }),
+      ];
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue(mockRecipes);
+
+      const result = await recipeService.getAll(userId, { page: 1, limit: 10, search: 'rum' });
+
+      expect(result.items).toHaveLength(1);
+      expect(queryAll).toHaveBeenCalledWith(
+        expect.stringContaining('LOWER(ingredients) LIKE'),
+        expect.arrayContaining(['%rum%'])
+      );
+    });
+
+    it('should filter recipes by masteryIds', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ total: '2' });
+      const mockRecipes = [
+        createMockRecipe({ id: 1, name: 'Margarita' }),
+        createMockRecipe({ id: 3, name: 'Daiquiri' }),
+      ];
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue(mockRecipes);
+
+      const result = await recipeService.getAll(userId, { page: 1, limit: 10, masteryIds: [1, 3, 5] });
+
+      expect(result.items).toHaveLength(2);
+      expect(queryAll).toHaveBeenCalledWith(
+        expect.stringContaining('id = ANY'),
+        expect.arrayContaining([[1, 3, 5]])
+      );
+    });
+
+    it('should combine search and masteryIds with AND logic', async () => {
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ total: '1' });
+      const mockRecipes = [
+        createMockRecipe({ id: 1, name: 'Margarita' }),
+      ];
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue(mockRecipes);
+
+      const result = await recipeService.getAll(userId, {
+        page: 1,
+        limit: 10,
+        search: 'margarita',
+        masteryIds: [1, 2, 3]
+      });
+
+      expect(result.items).toHaveLength(1);
+      const query = (queryAll as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(query).toContain('LOWER(name) LIKE');
+      expect(query).toContain('id = ANY');
+    });
+
+    it('should return empty when masteryIds is empty array', async () => {
+      const result = await recipeService.getAll(userId, { page: 1, limit: 10, masteryIds: [] });
+
+      expect(result.items).toHaveLength(0);
+      expect(result.pagination.total).toBe(0);
+      expect(queryAll).not.toHaveBeenCalled();
+    });
   });
 
   describe('getById', () => {
