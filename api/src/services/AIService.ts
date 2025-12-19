@@ -18,7 +18,7 @@ import { queryOne, queryAll } from '../database/db';
 import { sanitizeString } from '../utils/inputValidator';
 import { memoryService } from './MemoryService';
 import { shoppingListService } from './ShoppingListService';
-import { logger } from '../utils/logger';
+import { logger, logAIDiagnostic } from '../utils/logger';
 import cocktailData from '../data/cocktailIngredients.json';
 
 // Type for cocktail ingredients and concepts lookup
@@ -277,6 +277,57 @@ class AIService {
   }
 
   /**
+   * Detect if user is flexible about missing ingredients
+   * Returns true if user indicates they're willing to shop or don't care about missing ingredients
+   */
+  private detectIngredientFlexibility(query: string): boolean {
+    const lowerQuery = query.toLowerCase();
+    
+    const flexibilityPatterns = [
+      // Explicit statements about not caring
+      /doesn'?t?\s+matter.*(?:missing|ingredient|have)/i,
+      /don'?t\s+care.*(?:missing|ingredient|have)/i,
+      /(?:missing|ingredient).*doesn'?t?\s+matter/i,
+      /(?:missing|ingredient).*don'?t\s+care/i,
+      
+      // Willingness to shop/buy
+      /willing\s+to\s+(?:shop|buy|get|pick\s*up)/i,
+      /can\s+(?:shop|buy|get|pick\s*up)/i,
+      /i'?ll\s+(?:shop|buy|get|pick\s*up)/i,
+      /happy\s+to\s+(?:shop|buy|get)/i,
+      
+      // Even if missing
+      /even\s+if.*(?:missing|don'?t\s+have|need\s+to\s+buy)/i,
+      
+      // Show me everything / all options
+      /show\s+(?:me\s+)?(?:all|every)/i,
+      /all\s+(?:options|recipes|suggestions)/i,
+      /what\s+(?:else|other)/i,
+      
+      // Aspirational / future buying
+      /what\s+(?:should|could)\s+i\s+(?:buy|get|pick\s*up)/i,
+      /what.*(?:buy|shop\s+for|add\s+to)/i,
+      /shopping\s+list/i,
+      
+      // Direct requests for unavailable recipes
+      /recipes?\s+i\s+can'?t\s+make/i,
+      /what\s+(?:am\s+i|i'?m)\s+missing/i
+    ];
+    
+    for (const pattern of flexibilityPatterns) {
+      if (pattern.test(lowerQuery)) {
+        logger.info('[AI-SEARCH] Detected ingredient flexibility in query', {
+          query: lowerQuery.substring(0, 100),
+          matchedPattern: pattern.toString()
+        });
+        return true;
+      }
+    }
+    
+    return false;
+  }
+
+  /**
    * Query SQLite for recipes by cocktail name
    * Used when concept matches (e.g., "spirit-forward") expand to specific cocktail names
    */
@@ -529,6 +580,9 @@ class AIService {
    *
    * @param skipAlreadyRecommended - If true, filters out already recommended recipes (default: true)
    *                                 Set to false for the "relaxed" second pass
+   * @param includeMissingRecipes - If true, includes recipes with 2+ missing ingredients (for flexible users)
+   * @param maxMissingIngredients - Maximum missing ingredients to include when includeMissingRecipes is true (default: 4)
+   * @param specificIngredients - Specific/rare ingredients to prioritize (e.g., "green chartreuse", "maraschino")
    */
   private processRecipesWithCraftability(
     recipes: RecipeRecord[],
@@ -536,11 +590,15 @@ class AIService {
     alreadyRecommended: Set<string>,
     maxRecipes: number = 10,
     requiredSpiritType: string | null = null,
-    skipAlreadyRecommended: boolean = true
-  ): { formatted: string; craftableCount: number; nearMissCount: number; processedRecipes: string[]; spiritMismatchCount: number; previouslyRecommendedIncluded: string[] } {
+    skipAlreadyRecommended: boolean = true,
+    includeMissingRecipes: boolean = false,
+    maxMissingIngredients: number = 4,
+    specificIngredients: string[] = []
+  ): { formatted: string; craftableCount: number; nearMissCount: number; processedRecipes: string[]; spiritMismatchCount: number; previouslyRecommendedIncluded: string[]; missingCount: number } {
     let formatted = '';
     let craftableCount = 0;
     let nearMissCount = 0;
+    let missingCount = 0;
     let spiritMismatchCount = 0;
     const processedRecipes: string[] = [];
     const previouslyRecommendedIncluded: string[] = [];
@@ -553,6 +611,8 @@ class AIService {
       statusPrefix: string;
       matchesSpirit: boolean;
       wasPreviouslyRecommended: boolean;
+      missingIngredientCount: number;
+      relevanceScore: number; // How many specific ingredients this recipe contains
     }> = [];
 
     for (const recipe of recipes) {
@@ -592,6 +652,7 @@ class AIService {
 
       let status: 'craftable' | 'near-miss' | 'missing' = 'missing';
       let statusPrefix = '⚠️ [UNKNOWN]';
+      let missingIngredientCount = 0;
       const ingredientsArray = ingredientsList.split(',').map(i => i.trim());
 
       if (userBottles.length > 0) {
@@ -602,6 +663,8 @@ class AIService {
           statusPrefix = '✅ [CRAFTABLE]';
         } else {
           const missing = shoppingListService.findMissingIngredients(ingredientsArray, userBottles);
+          missingIngredientCount = missing.length;
+          
           if (missing.length === 1) {
             status = 'near-miss';
             statusPrefix = `⚠️ [NEAR-MISS: need ${missing[0]}]`;
@@ -612,16 +675,90 @@ class AIService {
         }
       }
 
-      recipesWithStatus.push({ recipe, ingredientsList, status, statusPrefix, matchesSpirit, wasPreviouslyRecommended });
+      // Calculate relevance score based on how many specific ingredients this recipe contains
+      let relevanceScore = 0;
+      if (specificIngredients.length > 0) {
+        const lowerIngredients = ingredientsList.toLowerCase();
+        for (const specific of specificIngredients) {
+          if (lowerIngredients.includes(specific.toLowerCase())) {
+            relevanceScore++;
+          }
+        }
+      }
+
+      recipesWithStatus.push({ recipe, ingredientsList, status, statusPrefix, matchesSpirit, wasPreviouslyRecommended, missingIngredientCount, relevanceScore });
     }
 
     // Separate by status and shuffle each group for variety
     const craftableRecipes = this.shuffleArray(recipesWithStatus.filter(r => r.status === 'craftable'));
     const nearMissRecipes = this.shuffleArray(recipesWithStatus.filter(r => r.status === 'near-miss'));
-    const missingRecipes = this.shuffleArray(recipesWithStatus.filter(r => r.status === 'missing'));
+    
+    // When includeMissingRecipes is true, include recipes with up to maxMissingIngredients missing
+    // Otherwise, only include them for display purposes (they'll be at the end anyway)
+    let missingRecipes = this.shuffleArray(recipesWithStatus.filter(r => r.status === 'missing'));
+    if (includeMissingRecipes) {
+      // Filter to only reasonable missing recipes (not too many ingredients missing)
+      missingRecipes = missingRecipes.filter(r => r.missingIngredientCount <= maxMissingIngredients);
+      logger.info('[AI-SEARCH] Including missing recipes (user is flexible)', {
+        totalMissing: recipesWithStatus.filter(r => r.status === 'missing').length,
+        includedMissing: missingRecipes.length,
+        maxMissingIngredients
+      });
+    }
 
-    // Combine: craftable first, then near-miss, then missing (all shuffled within group)
-    const sortedRecipes = [...craftableRecipes, ...nearMissRecipes, ...missingRecipes];
+    // Combine recipes based on whether user is flexible about missing ingredients
+    let sortedRecipes: typeof recipesWithStatus;
+    
+    if (includeMissingRecipes && missingRecipes.length > 0) {
+      // When user is flexible, prioritize by RELEVANCE SCORE first, then by craftability
+      // This ensures recipes with specific ingredients (e.g., green chartreuse) are shown
+      // even if they have more missing ingredients than generic matches
+      
+      // Sort missing recipes by relevance score (highest first), then by missing count (lowest first)
+      const sortedMissing = [...missingRecipes].sort((a, b) => {
+        if (b.relevanceScore !== a.relevanceScore) return b.relevanceScore - a.relevanceScore;
+        return a.missingIngredientCount - b.missingIngredientCount;
+      });
+      
+      // Sort near-miss by relevance too
+      const sortedNearMiss = [...nearMissRecipes].sort((a, b) => b.relevanceScore - a.relevanceScore);
+      
+      // Find high-relevance missing recipes (matching specific ingredients)
+      const highRelevanceMissing = sortedMissing.filter(r => r.relevanceScore > 0);
+      const otherMissing = sortedMissing.filter(r => r.relevanceScore === 0);
+      
+      // Build final list: craftable, then high-relevance (regardless of status), then near-miss, then other missing
+      const interleavedRest: typeof recipesWithStatus = [];
+      
+      // First add high-relevance near-miss
+      const highRelevanceNearMiss = sortedNearMiss.filter(r => r.relevanceScore > 0);
+      const otherNearMiss = sortedNearMiss.filter(r => r.relevanceScore === 0);
+      
+      // Interleave high-relevance recipes first (regardless of near-miss vs missing)
+      const maxHighRelevance = Math.max(highRelevanceNearMiss.length, highRelevanceMissing.length);
+      for (let i = 0; i < maxHighRelevance; i++) {
+        if (i < highRelevanceNearMiss.length) interleavedRest.push(highRelevanceNearMiss[i]);
+        if (i < highRelevanceMissing.length) interleavedRest.push(highRelevanceMissing[i]);
+      }
+      
+      // Then add remaining near-miss and missing
+      interleavedRest.push(...otherNearMiss);
+      interleavedRest.push(...otherMissing);
+      
+      sortedRecipes = [...craftableRecipes, ...interleavedRest];
+      
+      logger.info('[AI-SEARCH] Prioritizing by relevance for flexible user', {
+        craftable: craftableRecipes.length,
+        highRelevanceNearMiss: highRelevanceNearMiss.length,
+        highRelevanceMissing: highRelevanceMissing.length,
+        otherNearMiss: otherNearMiss.length,
+        otherMissing: otherMissing.length,
+        specificIngredients
+      });
+    } else {
+      // Normal order: craftable first, then near-miss, then missing
+      sortedRecipes = [...craftableRecipes, ...nearMissRecipes, ...missingRecipes];
+    }
 
     logger.info('[AI-DIVERSITY] Recipe distribution', {
       total: recipesWithStatus.length,
@@ -632,11 +769,12 @@ class AIService {
       spiritConstraint: requiredSpiritType
     });
 
-    // Format the top maxRecipes (already sorted: craftable first, then near-miss, then missing)
+    // Format the top maxRecipes
     for (const { recipe, ingredientsList, status, statusPrefix, wasPreviouslyRecommended } of sortedRecipes.slice(0, maxRecipes)) {
       // Track counts
       if (status === 'craftable') craftableCount++;
       else if (status === 'near-miss') nearMissCount++;
+      else if (status === 'missing') missingCount++;
 
       // Track if this was previously recommended (for second pass)
       if (wasPreviouslyRecommended) {
@@ -651,7 +789,7 @@ class AIService {
       processedRecipes.push(recipe.name);
     }
 
-    return { formatted, craftableCount, nearMissCount, processedRecipes, spiritMismatchCount, previouslyRecommendedIncluded };
+    return { formatted, craftableCount, nearMissCount, processedRecipes, spiritMismatchCount, previouslyRecommendedIncluded, missingCount };
   }
 
   /**
@@ -1009,8 +1147,8 @@ Generate a **Seasonal Suggestions** insight for the dashboard. Provide TWO thing
 
 1. **Greeting** (1-2 sentences):
    - Be welcoming and reference their bar's state
-   - **CRITICAL:** Wrap numbers and units in <strong> tags
-   - Example: "Your laboratory holds <strong>${inventoryCount} items</strong> and <strong>${recipeCount} recipes</strong>—quite the arsenal for ${season.toLowerCase()} experimentation."
+   - Use **bold** markdown for emphasis on numbers (e.g., "**${inventoryCount} items**")
+   - Example: "Your laboratory holds **${inventoryCount} items** and **${recipeCount} recipes**—quite the arsenal for ${season.toLowerCase()} experimentation."
 
 2. **Seasonal Suggestion** (2-4 sentences):
    - **CONTEXT-AWARE:** Reference the current season (${season})
@@ -1018,12 +1156,17 @@ Generate a **Seasonal Suggestions** insight for the dashboard. Provide TWO thing
    - **BE SPECIFIC:** Reference recipe names or spirit types from the sample shown above
 
 ## CRITICAL FORMAT REQUIREMENT
-Return ONLY a valid JSON object with two keys. No other text.
+You MUST return ONLY a valid JSON object. No other text before or after.
 
-Format:
-{"greeting":"Your greeting here","insight":"Your seasonal suggestion here"}
+Example response format:
+{"greeting":"Your greeting here with **bold numbers**","insight":"Your seasonal suggestion here"}
 
-Return ONLY the JSON object. No markdown, no code blocks, no explanations.`;
+IMPORTANT:
+- Return ONLY the JSON object
+- No markdown code blocks (no \`\`\`)
+- No explanations before or after
+- Escape any quotes inside strings with backslash
+- Keep response concise (under 300 characters per field)`;
 
     return [
       {
@@ -1235,18 +1378,21 @@ Return ONLY the JSON object. No markdown, no code blocks, no explanations.`;
       // Combine concept-matched recipes with ingredient-matched recipes
       const allRecipes: RecipeRecord[] = [...conceptRecipes];
 
+      // Calculate specific vs generic ingredients for relevance scoring
+      // This is used later to prioritize recipes with specific ingredients (e.g., green chartreuse) over generic ones (gin, lime)
+      const genericIngredientSet = new Set(['gin', 'vodka', 'rum', 'tequila', 'whiskey', 'bourbon', 'lime', 'lemon', 'orange']);
+      const specificIngredientsList = detectedIngredients.filter(i => !genericIngredientSet.has(i.toLowerCase()));
+
       if (detectedIngredients.length > 0) {
         logger.info('Hybrid search: Detected ingredient keywords', { ingredients: detectedIngredients });
 
         // Step 2: Query SQLite for exact ingredient matches
         // PRIORITIZE specific/rare ingredients over generic ones (gin, lime, etc.)
-        const genericIngredients = new Set(['gin', 'vodka', 'rum', 'tequila', 'whiskey', 'bourbon', 'lime', 'lemon', 'orange']);
-        const specificIngredients = detectedIngredients.filter(i => !genericIngredients.has(i.toLowerCase()));
-        const genericMatches = detectedIngredients.filter(i => genericIngredients.has(i.toLowerCase()));
+        const genericMatches = detectedIngredients.filter(i => genericIngredientSet.has(i.toLowerCase()));
 
         // Search specific ingredients first, then generic
-        const prioritizedIngredients = [...specificIngredients, ...genericMatches];
-        logger.info('Hybrid search: Prioritized ingredients', { specific: specificIngredients, generic: genericMatches });
+        const prioritizedIngredients = [...specificIngredientsList, ...genericMatches];
+        logger.info('Hybrid search: Prioritized ingredients', { specific: specificIngredientsList, generic: genericMatches });
 
         for (const ingredient of prioritizedIngredients) {
           const matches = await this.queryRecipesWithIngredient(userId, ingredient);
@@ -1320,15 +1466,22 @@ Return ONLY the JSON object. No markdown, no code blocks, no explanations.`;
         }
       }
 
+      // Step 2d: Detect if user is flexible about missing ingredients
+      const userIsFlexible = this.detectIngredientFlexibility(userMessage);
+
       // Step 3: Process initial recipe matches (with spirit type filtering)
       // FIRST PASS: Try to find NEW recipes (skip already recommended)
-      let { formatted, craftableCount, nearMissCount, processedRecipes, spiritMismatchCount, previouslyRecommendedIncluded } =
-        this.processRecipesWithCraftability(ingredientRecipes, userBottles, alreadyRecommended, 10, requiredSpiritType, true);
+      // When user is flexible, include recipes with up to 4 missing ingredients
+      // Pass specificIngredientsList for relevance scoring (prioritize recipes with green chartreuse over generic gin matches)
+      let { formatted, craftableCount, nearMissCount, missingCount, processedRecipes, spiritMismatchCount, previouslyRecommendedIncluded } =
+        this.processRecipesWithCraftability(ingredientRecipes, userBottles, alreadyRecommended, 10, requiredSpiritType, true, userIsFlexible, 4, specificIngredientsList);
 
       logger.info('[AI-SEARCH] First pass results (new recipes only)', {
         recipesFound: ingredientRecipes.length,
         craftableCount,
         nearMissCount,
+        missingCount,
+        userIsFlexible,
         spiritMismatchCount,
         spiritConstraint: requiredSpiritType,
         concepts: matchedConcepts,
@@ -1354,7 +1507,10 @@ Return ONLY the JSON object. No markdown, no code blocks, no explanations.`;
           alreadyRecommended,
           MIN_GOOD_RECOMMENDATIONS - goodRecommendationsCount, // Only fill the gap
           requiredSpiritType,
-          false // Don't skip already recommended
+          false, // Don't skip already recommended
+          userIsFlexible,
+          4,
+          specificIngredientsList
         );
 
         // Only add recipes we haven't already processed
@@ -1456,7 +1612,10 @@ Return ONLY the JSON object. No markdown, no code blocks, no explanations.`;
             new Set([...alreadyRecommended, ...processedRecipes]),
             10 - processedRecipes.length, // Fill up to 10 total
             requiredSpiritType, // Apply same spirit constraint to broader search
-            true // Skip already recommended in first pass
+            true, // Skip already recommended in first pass
+            userIsFlexible,
+            4,
+            specificIngredientsList
           );
 
           // Append to results
@@ -1941,7 +2100,7 @@ ${hasRecipes ? `End with: RECOMMENDATIONS: Recipe Name 1, Recipe Name 2
         ],
         generationConfig: {
           temperature: 1.0,  // Gemini 3 works best at temperature 1.0
-          maxOutputTokens: 1024,
+          maxOutputTokens: 4096,  // Gemini 3 Pro uses "thinking tokens" that count against this limit
           topP: 0.95,
           topK: 40
         }
@@ -1971,23 +2130,41 @@ ${hasRecipes ? `End with: RECOMMENDATIONS: Recipe Name 1, Recipe Name 2
           content?: {
             parts?: Array<{ text?: string }>;
           };
+          finishReason?: string;
+          safetyRatings?: Array<{ category: string; probability: string; blocked?: boolean }>;
         }>;
         usageMetadata?: {
           promptTokenCount?: number;
           candidatesTokenCount?: number;
           totalTokenCount?: number;
         };
+        promptFeedback?: {
+          blockReason?: string;
+          safetyRatings?: Array<{ category: string; probability: string }>;
+        };
       };
       clearTimeout(timeoutId);
 
-      const aiMessage = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response from AI';
+      // Log full response for debugging empty responses
+      const candidate = data.candidates?.[0];
+      if (!candidate?.content?.parts?.[0]?.text) {
+        logger.error('Gemini returned empty response', {
+          hasCandidate: !!candidate,
+          finishReason: candidate?.finishReason,
+          safetyRatings: candidate?.safetyRatings,
+          promptFeedback: data.promptFeedback,
+          fullResponse: JSON.stringify(data).substring(0, 1000)
+        });
+      }
+
+      const aiMessage = candidate?.content?.parts?.[0]?.text || 'No response from AI';
       const usageMetadata = data.usageMetadata;
 
       // Log usage
+      const inputTokens = usageMetadata?.promptTokenCount || 0;
+      const outputTokens = usageMetadata?.candidatesTokenCount || 0;
+      
       if (usageMetadata) {
-        const inputTokens = usageMetadata.promptTokenCount || 0;
-        const outputTokens = usageMetadata.candidatesTokenCount || 0;
-
         logger.info('AI Cost', {
           userId,
           provider: 'gemini',
@@ -1996,6 +2173,16 @@ ${hasRecipes ? `End with: RECOMMENDATIONS: Recipe Name 1, Recipe Name 2
           totalTokens: usageMetadata.totalTokenCount || 0
         });
       }
+
+      // Log full diagnostic for debugging prompt/response quality
+      logAIDiagnostic({
+        userId,
+        userQuery: message,
+        systemPrompt: staticText + '\n\n' + dynamicText,
+        systemPromptTokens: inputTokens,
+        aiResponse: aiMessage,
+        outputTokens
+      });
 
       // Store conversation turn
       await memoryService.storeConversationTurn(userId, message, aiMessage);
@@ -2037,13 +2224,14 @@ ${hasRecipes ? `End with: RECOMMENDATIONS: Recipe Name 1, Recipe Name 2
           parts: [{ text: systemText }]
         },
         contents: [
-          { role: 'user', parts: [{ text: 'Generate the dashboard greeting and insight now.' }] }
+          { role: 'user', parts: [{ text: 'Generate the dashboard greeting and insight now. Return ONLY valid JSON.' }] }
         ],
         generationConfig: {
           temperature: 1.0,
-          maxOutputTokens: 500,
+          maxOutputTokens: 1024,
           topP: 0.95,
-          topK: 40
+          topK: 40,
+          responseMimeType: 'application/json'
         }
       };
 

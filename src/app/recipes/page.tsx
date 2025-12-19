@@ -49,6 +49,7 @@ function RecipesPageContent() {
           activeTab={state.activeTab}
           masteryFilter={state.masteryFilter}
           activeCollection={state.activeCollection}
+          favoritesCount={state.favoritesCount}
           onTabChange={state.handleTabChange}
           onCloseCollection={state.handleBackFromCollection}
         />
@@ -187,6 +188,46 @@ function RecipesPageContent() {
                 hasNext={state.pagination.hasNextPage}
                 onPrevious={() => state.loadRecipes(state.currentPage - 1)}
                 onNext={() => state.loadRecipes(state.currentPage + 1)}
+              />
+            )}
+          </>
+        )}
+
+        {/* Favorites View */}
+        {state.activeTab === 'favorites' && !state.masteryFilter && (
+          <>
+            <SearchControls
+              searchQuery={state.searchQuery}
+              filterSpirit={state.filterSpirit}
+              spiritTypes={state.spiritTypes}
+              placeholder="Search favorites..."
+              showCount
+              count={state.filteredFavoriteRecipes.length}
+              onSearchChange={state.setSearchQuery}
+              onSpiritChange={state.setFilterSpirit}
+            />
+
+            {state.filteredFavoriteRecipes.length === 0 ? (
+              <div className={styles.emptyState}>
+                <div className={styles.emptyIcon}>★</div>
+                <h3 className={styles.emptyTitle}>
+                  {state.favoriteRecipes.length === 0 ? 'No favorites yet' : 'No matching favorites'}
+                </h3>
+                <p className={styles.emptyText}>
+                  {state.favoriteRecipes.length === 0
+                    ? 'Star recipes to save them here for quick access'
+                    : 'Try adjusting your search or filters'}
+                </p>
+              </div>
+            ) : (
+              <RecipeGrid
+                recipes={state.filteredFavoriteRecipes}
+                selectedRecipes={state.selectedRecipes}
+                isFavorited={state.isFavorited}
+                isRecipeCraftable={state.isRecipeCraftable}
+                onSelectRecipe={state.setSelectedRecipe}
+                onToggleSelection={state.toggleRecipeSelection}
+                onToggleFavorite={state.handleToggleFavorite}
               />
             )}
           </>

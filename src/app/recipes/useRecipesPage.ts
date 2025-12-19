@@ -55,7 +55,7 @@ export function useRecipesPage() {
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
 
   // State
-  const [activeTab, setActiveTab] = useState<'collections' | 'all'>('collections');
+  const [activeTab, setActiveTab] = useState<'collections' | 'all' | 'favorites'>('collections');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const prevDebouncedSearchRef = useRef<string>('');
@@ -170,15 +170,20 @@ export function useRecipesPage() {
 
     const filter = searchParams.get('filter');
     const collectionId = searchParams.get('collection');
+    const tab = searchParams.get('tab');
 
     const paramsChanged = !lastLoadedParams ||
       lastLoadedParams.filter !== filter ||
       lastLoadedParams.collection !== collectionId;
 
-    if (!paramsChanged) return;
+    if (!paramsChanged && !(tab === 'favorites' && activeTab !== 'favorites')) return;
     setLastLoadedParams({ filter, collection: collectionId });
 
-    if (filter) {
+    if (tab === 'favorites') {
+      setActiveTab('favorites');
+      setActiveCollection(null);
+      setMasteryFilter(null);
+    } else if (filter) {
       setMasteryFilter(filter);
       setActiveCollection(null);
       setActiveTab('all');
@@ -197,7 +202,7 @@ export function useRecipesPage() {
       setActiveCollection(null);
       loadRecipes(1, false);
     }
-  }, [searchParams, collections, isAuthenticated, isValidating, lastLoadedParams, loadRecipes]);
+  }, [searchParams, collections, isAuthenticated, isValidating, lastLoadedParams, loadRecipes, activeTab]);
 
   // Fetch initial data
   useEffect(() => {
@@ -300,6 +305,39 @@ export function useRecipesPage() {
   const uncategorizedCount = recipesArray.filter((r) => !r.collection_id).length;
   const totalRecipeCount = pagination.total || recipesArray.length;
   const craftableCount = shoppingListStats?.craftable || 0;
+  const favoritesCount = favoritesArray.length;
+
+  // Get favorite recipes (full recipe data for each favorite)
+  const favoriteRecipes = useMemo(() => {
+    return favoritesArray
+      .map(fav => {
+        const recipe = fav.recipe_id
+          ? recipesArray.find(r => r.id === fav.recipe_id)
+          : recipesArray.find(r => r.name === fav.recipe_name);
+        return recipe || null;
+      })
+      .filter((r): r is Recipe => r !== null);
+  }, [favoritesArray, recipesArray]);
+
+  // Filter favorite recipes by search and spirit
+  const filteredFavoriteRecipes = useMemo(() => {
+    return favoriteRecipes.filter((recipe) => {
+      const ingredientsArray = parseIngredients(recipe.ingredients);
+      const ingredientsText = ingredientsArray.join(' ').toLowerCase();
+
+      const matchesSearch = searchQuery
+        ? recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          ingredientsText.includes(searchQuery.toLowerCase())
+        : true;
+
+      const recipeSpirits = getIngredientSpirits(ingredientsArray);
+      const matchesSpirit =
+        filterSpirit === 'all' ||
+        recipeSpirits.includes(filterSpirit);
+
+      return matchesSearch && matchesSpirit;
+    });
+  }, [favoriteRecipes, searchQuery, filterSpirit]);
 
   const isFavorited = useCallback((recipeId: number) => {
     return favoritesArray.some((fav) => fav.recipe_id === recipeId);
@@ -461,12 +499,14 @@ export function useRecipesPage() {
     }
   }, [masteryFilter, router]);
 
-  const handleTabChange = useCallback((tab: 'collections' | 'all') => {
+  const handleTabChange = useCallback((tab: 'collections' | 'all' | 'favorites') => {
     setActiveTab(tab);
     setActiveCollection(null);
     setMasteryFilter(null);
     if (tab === 'collections') {
       router.push('/recipes');
+    } else if (tab === 'favorites') {
+      router.push('/recipes?tab=favorites');
     } else {
       loadRecipes(1, true);
     }
@@ -494,6 +534,8 @@ export function useRecipesPage() {
     collectionsArray,
     filteredRecipes,
     displayedRecipes,
+    favoriteRecipes,
+    filteredFavoriteRecipes,
     spiritTypes,
 
     // UI state
@@ -526,6 +568,7 @@ export function useRecipesPage() {
     uncategorizedCount,
     totalRecipeCount,
     craftableCount,
+    favoritesCount,
     shoppingListStats,
 
     // Setters

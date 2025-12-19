@@ -9,11 +9,20 @@ import { Card } from '@/components/ui/Card';
 import { BottleCard } from '@/components/BottleCard';
 import { Wine, Upload, Plus, Martini, X, ChevronLeft, ChevronRight, Trash2, Grid3X3, List } from 'lucide-react';
 import { CSVUploadModal, AddBottleModal, ItemDetailModal } from '@/components/modals';
-import { PeriodicTable } from '@/components/PeriodicTableV2';
+// Periodic Table Version Toggle
+// V1: Traditional element grid with sections (original)
+// V2: 6x6 grid by function × origin (new design)
+import { PeriodicTable as PeriodicTableV2 } from '@/components/PeriodicTableV2';
+import { PeriodicTable as PeriodicTableV1 } from '@/components/PeriodicTable';
 import { inventoryApi } from '@/lib/api';
 import type { InventoryCategory, InventoryItem, InventoryItemInput } from '@/types';
 import { categorizeSpirit, matchesSpiritCategory, SpiritCategory } from '@/lib/spirits';
 import styles from './bar.module.css';
+
+// Feature flag: Set to 'v1' or 'v2' to switch periodic table versions
+// Can also be controlled via NEXT_PUBLIC_PERIODIC_TABLE_VERSION env var
+const PERIODIC_TABLE_VERSION = process.env.NEXT_PUBLIC_PERIODIC_TABLE_VERSION || 'v1';
+const PeriodicTable = PERIODIC_TABLE_VERSION === 'v2' ? PeriodicTableV2 : PeriodicTableV1;
 
 type CategoryTab = {
   id: InventoryCategory | 'all';
@@ -324,7 +333,7 @@ function BarPageContent() {
           </div>
         </div>
 
-        {/* Periodic Table View (V2 - 6x6 Grid by Function × Origin) */}
+        {/* Periodic Table View - Version controlled by PERIODIC_TABLE_VERSION constant above */}
         {viewMode === 'periodic' && (
           <PeriodicTable
             inventoryItems={itemsArray}

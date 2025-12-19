@@ -206,6 +206,27 @@
   border-bottom-color: var(--color-text-body);
 }
 
+.tabBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  padding: 2px 6px;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  background: var(--color-ui-bg-base);
+  color: var(--color-text-muted);
+  border-radius: 10px;
+  min-width: 18px;
+}
+
+.tab.active .tabBadge {
+  background: var(--color-text-body);
+  color: white;
+}
+
 .tabSpacer {
   flex: 1;
 }
@@ -937,6 +958,16 @@
 }
 
 :global([data-theme="dark"]) .bulkBar {
+  background: #F1F5F9;
+  color: #0F172A;
+}
+
+:global([data-theme="dark"]) .tabBadge {
+  background: #334155;
+  color: #94A3B8;
+}
+
+:global([data-theme="dark"]) .tab.active .tabBadge {
   background: #F1F5F9;
   color: #0F172A;
 }

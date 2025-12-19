@@ -76,9 +76,8 @@ export const TopNav: React.FC = () => {
     { href: '/dashboard', label: 'Dashboard' },
     { href: '/bar', label: 'My Bar' },
     { href: '/ai', label: 'AI Bartender', indicator: true },
-    { href: '/recipes', label: 'Recipes' },
+    { href: '/recipes', label: 'Recipes', badge: favoritesCount > 0 ? favoritesCount : undefined },
     { href: '/shopping-list', label: 'Shopping List', badge: shoppingListCount > 0 ? shoppingListCount : undefined },
-    { href: '/favorites', label: 'Favorites', badge: favoritesCount > 0 ? favoritesCount : undefined },
   ];
 
   // Don't show nav on login page or if not authenticated

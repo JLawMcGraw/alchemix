@@ -56,10 +56,11 @@ export function MasteryFilterBar({
 }
 
 interface TabBarProps {
-  activeTab: 'collections' | 'all';
+  activeTab: 'collections' | 'all' | 'favorites';
   masteryFilter: string | null;
   activeCollection: Collection | null;
-  onTabChange: (tab: 'collections' | 'all') => void;
+  favoritesCount?: number;
+  onTabChange: (tab: 'collections' | 'all' | 'favorites') => void;
   onCloseCollection: () => void;
 }
 
@@ -67,6 +68,7 @@ export function TabBar({
   activeTab,
   masteryFilter,
   activeCollection,
+  favoritesCount = 0,
   onTabChange,
   onCloseCollection,
 }: TabBarProps) {
@@ -83,6 +85,15 @@ export function TabBar({
         onClick={() => onTabChange('all')}
       >
         All Recipes
+      </button>
+      <button
+        className={`${styles.tab} ${activeTab === 'favorites' && !masteryFilter ? styles.active : ''}`}
+        onClick={() => onTabChange('favorites')}
+      >
+        Favorites
+        {favoritesCount > 0 && (
+          <span className={styles.tabBadge}>{favoritesCount}</span>
+        )}
       </button>
       {activeCollection && (
         <>

@@ -29,7 +29,51 @@ Last updated: 2025-12-19
 
 ---
 
-## Recent Session (2025-12-19): Switch AI Provider from Claude to Gemini 3
+## Recent Session (2025-12-19): Favorites Tab Migration & Periodic Table Version Toggle
+
+### Summary
+Moved Favorites from top navigation to a tab under the Recipes page (Collections, All Recipes, Favorites). Added version toggle for Periodic Table components allowing easy A/B testing between V1 (traditional element grid) and V2 (6x6 function × origin grid).
+
+### Work Completed
+
+#### 1. Favorites Tab Migration
+- Removed Favorites from top navigation (`TopNav.tsx`)
+- Added Favorites as third tab in Recipes page (order: Collections, All Recipes, Favorites)
+- Updated `TabBar` component with favorites tab and count badge
+- Added `.tabBadge` CSS class with dark mode support
+- Updated `useRecipesPage.ts` hook:
+  - Extended `activeTab` type to include `'favorites'`
+  - Added `favoritesCount`, `favoriteRecipes`, `filteredFavoriteRecipes` computed values
+  - Added URL parameter detection for `tab=favorites`
+  - Updated `handleTabChange` to support favorites tab
+- Added favorites view rendering in `page.tsx` with search/filter functionality
+- Updated old `/favorites` page to redirect to `/recipes?tab=favorites`
+
+#### 2. Periodic Table Version Toggle
+- Both V1 and V2 periodic table components preserved as swappable options
+- Added feature flag in `src/app/bar/page.tsx`:
+  - Default: V1 (traditional element grid with sections)
+  - Environment variable: `NEXT_PUBLIC_PERIODIC_TABLE_VERSION=v2` to switch
+  - Or change constant directly in code
+- V1: `src/components/PeriodicTable.tsx` + `src/lib/periodicTable.ts`
+- V2: `src/components/PeriodicTableV2/` + `src/lib/periodicTableV2.ts`
+
+### Files Changed
+- `src/app/recipes/recipes.module.css` - Added `.tabBadge` styles with dark mode
+- `src/app/recipes/useRecipesPage.ts` - Favorites tab state, handlers, computed values
+- `src/app/recipes/RecipeFilters.tsx` - TabBar favorites tab (already had the UI)
+- `src/app/recipes/page.tsx` - Favorites view rendering, favoritesCount prop
+- `src/app/favorites/page.tsx` - Simplified to redirect to `/recipes?tab=favorites`
+- `src/app/bar/page.tsx` - Periodic table version toggle with feature flag
+
+### Next Priorities
+- Beta test V1 vs V2 periodic table with users
+- Gather feedback on favorites tab placement
+- PostgreSQL deployment (Phase 6)
+
+---
+
+## Previous Session (2025-12-19): Switch AI Provider from Claude to Gemini 3
 
 ### Summary
 Replaced Claude Sonnet 4.5 with Google Gemini 3 Pro for the AI Bartender service to test response quality and prompt instruction following. Dashboard insights now use Gemini 3 Flash.
@@ -69,6 +113,26 @@ Replaced Claude Sonnet 4.5 with Google Gemini 3 Pro for the AI Bartender service
 - Test Gemini 3 Pro response quality with AI Bartender
 - Compare prompt instruction following vs Claude
 - PostgreSQL deployment (Phase 6)
+
+---
+
+## Previous Session (2025-12-19 Earlier): Gemini MAX_TOKENS, Recipe Name Truncation, AI Flexibility & Relevance
+
+### Summary
+Fixed Gemini API empty responses (MAX_TOKENS), recipe name truncation bug in MemMachine, added ingredient flexibility detection for AI recommendations, and implemented relevance scoring to prioritize specific-ingredient recipes.
+
+### Work Completed
+- **Gemini MAX_TOKENS Fix**: Increased `maxOutputTokens` from 1024 to 4096 (thinking tokens counted against limit)
+- **Recipe Name Truncation**: Fixed regex in MemoryService stopping at periods (e.g., "Millionaire Cocktail (No. 1)" → "Millionaire Cocktail (No")
+- **Ingredient Flexibility**: Added `detectIngredientFlexibility()` to recognize phrases like "doesn't matter if missing ingredients"
+- **Relevance Scoring**: Prioritize recipes with specific/rare ingredients over generic ones
+- **Cleaned Up Metrics**: Removed misleading cache metrics from AI Cost Metrics log
+
+### Files Changed
+- `api/src/services/AIService.ts` - Multiple changes
+- `api/src/services/MemoryService.ts` - Regex fix
+- `api/src/routes/messages.ts` - Cleaned up metrics
+- `api/src/utils/logger.ts` - Added AI diagnostic logging
 
 ---
 

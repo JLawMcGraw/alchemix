@@ -919,8 +919,9 @@ export class MemoryService {
       const validRecipes: Array<{ episode: typeof recipeEpisodes[0]; recipeName: string }> = [];
       if (checkDatabase) {
         for (const episode of recipeEpisodes) {
-          // Extract recipe name from "Recipe: NAME" format
-          const match = episode.content.match(/Recipe:\s*([^\n.]+)/);
+          // Extract recipe name from "Recipe: NAME. Category:" format
+          // Use lookahead to stop at ". Category" but allow periods within the name (e.g., "Cocktail (No. 1)")
+          const match = episode.content.match(/Recipe:\s*(.+?)(?=\.\s*Category|\n|$)/);
           if (match) {
             const recipeName = match[1].trim();
 
@@ -950,7 +951,9 @@ export class MemoryService {
       } else {
         // No database provided, filter only by alreadyRecommended
         for (const episode of recipeEpisodes) {
-          const match = episode.content.match(/Recipe:\s*([^\n.]+)/);
+          // Extract recipe name from "Recipe: NAME. Category:" format
+          // Use lookahead to stop at ". Category" but allow periods within the name (e.g., "Cocktail (No. 1)")
+          const match = episode.content.match(/Recipe:\s*(.+?)(?=\.\s*Category|\n|$)/);
           if (match) {
             const recipeName = match[1].trim();
             if (alreadyRecommended.has(recipeName)) {

@@ -220,5 +220,77 @@ export function logMetric(metric: string, value: number, context: Record<string,
   });
 }
 
+/**
+ * AI Diagnostic Logger
+ * Writes full prompt/response pairs to a separate file for easy debugging.
+ * Each entry includes timestamp, user query, full prompt, and AI response.
+ */
+const aiDiagnosticLogger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+    winston.format.printf(({ timestamp, message, ...meta }) => {
+      const separator = '='.repeat(80);
+      const divider = '-'.repeat(80);
+      
+      let output = `\n${separator}\n`;
+      output += `TIMESTAMP: ${timestamp}\n`;
+      output += `${divider}\n`;
+      
+      if (meta.userId) output += `USER ID: ${meta.userId}\n`;
+      if (meta.userQuery) output += `USER QUERY: ${meta.userQuery}\n`;
+      output += `${divider}\n`;
+      
+      if (meta.systemPrompt) {
+        output += `SYSTEM PROMPT (${meta.systemPromptTokens || '?'} tokens):\n`;
+        output += `${meta.systemPrompt}\n`;
+        output += `${divider}\n`;
+      }
+      
+      if (meta.matchedRecipes) {
+        output += `MATCHED RECIPES CONTEXT:\n`;
+        output += `${meta.matchedRecipes}\n`;
+        output += `${divider}\n`;
+      }
+      
+      if (meta.aiResponse) {
+        output += `AI RESPONSE (${meta.outputTokens || '?'} tokens):\n`;
+        output += `${meta.aiResponse}\n`;
+      }
+      
+      if (meta.error) {
+        output += `ERROR: ${meta.error}\n`;
+      }
+      
+      output += `${separator}\n`;
+      return output;
+    })
+  ),
+  transports: [
+    new winston.transports.File({
+      filename: path.join(logsDir, 'ai-diagnostic.log'),
+      maxsize: 10485760, // 10MB
+      maxFiles: 3,
+    }),
+  ],
+});
+
+/**
+ * Log AI prompt/response for diagnostic purposes
+ * Writes to a dedicated human-readable log file
+ */
+export function logAIDiagnostic(data: {
+  userId: number;
+  userQuery: string;
+  systemPrompt?: string;
+  systemPromptTokens?: number;
+  matchedRecipes?: string;
+  aiResponse?: string;
+  outputTokens?: number;
+  error?: string;
+}): void {
+  aiDiagnosticLogger.info('AI Diagnostic', data);
+}
+
 // Export logger as default for convenience
 export default logger;

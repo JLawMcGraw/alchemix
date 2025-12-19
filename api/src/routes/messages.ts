@@ -150,18 +150,14 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
 
     // Log usage metrics
     if (usage) {
-      const cacheCreation = usage.cache_creation_input_tokens || 0;
-      const cacheRead = usage.cache_read_input_tokens || 0;
-      const regularInput = usage.input_tokens || 0;
+      const inputTokens = usage.input_tokens || 0;
       const outputTokens = usage.output_tokens || 0;
 
       logger.info('AI Cost Metrics', {
         userId,
-        regularInput,
-        cacheCreation,
-        cacheRead,
+        inputTokens,
         outputTokens,
-        cacheHit: cacheRead > 0
+        totalTokens: inputTokens + outputTokens
       });
     }
 
