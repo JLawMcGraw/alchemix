@@ -355,9 +355,14 @@ export function getCellDisplayData(
   const allMatchedItems: InventoryItem[] = [];
   const ownedElementSymbols = new Set<string>();
 
+  // Helper to check if item is in stock
+  const isInStock = (item: InventoryItem) =>
+    item.stock_number !== null && item.stock_number !== undefined && item.stock_number > 0;
+
   elementMatchMap.forEach((items, symbol) => {
     allMatchedItems.push(...items);
-    if (items.length > 0) {
+    // Only mark as owned if at least one item is in stock
+    if (items.some(isInStock)) {
       ownedElementSymbols.add(symbol);
     }
   });

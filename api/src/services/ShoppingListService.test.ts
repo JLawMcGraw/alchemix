@@ -169,6 +169,32 @@ describe('ShoppingListService', () => {
       const ingredients = ['2 oz White Rum', '', '0.75 oz Simple Syrup'];
       expect(shoppingListService.isCraftable(ingredients, bottles)).toBe(true);
     });
+
+    it('should return false for Daiquiri when lime is not in bottles (BUG REPRO)', () => {
+      // This test reproduces the bug where recipes requiring lime are marked
+      // as craftable even when lime is not in the user's inventory
+      const bottlesWithoutLime: BottleData[] = [
+        { name: 'White Rum', liquorType: 'Rum', detailedClassification: 'White Rum' },
+        { name: 'Simple Syrup', liquorType: 'Syrup', detailedClassification: null },
+        { name: 'Orange Juice', liquorType: 'Juice', detailedClassification: null },
+        { name: 'Pineapple Juice', liquorType: 'Juice', detailedClassification: null },
+      ];
+
+      // Daiquiri requires: White rum, lime juice, simple syrup
+      const daiquiriIngredients = [
+        '2 oz white rum',
+        '¾ ounce fresh lime juice',
+        '½ ounce simple syrup'
+      ];
+
+      // Should be FALSE because lime juice is not available
+      expect(shoppingListService.isCraftable(daiquiriIngredients, bottlesWithoutLime, 'Daiquiri')).toBe(false);
+
+      // Also test hasIngredient directly
+      expect(shoppingListService['hasIngredient'](bottlesWithoutLime, 'lime juice')).toBe(false);
+      expect(shoppingListService['hasIngredient'](bottlesWithoutLime, 'fresh lime juice')).toBe(false);
+      expect(shoppingListService['hasIngredient'](bottlesWithoutLime, 'lime')).toBe(false);
+    });
   });
 
   describe('findMissingIngredients', () => {

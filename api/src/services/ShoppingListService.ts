@@ -233,7 +233,8 @@ const ALWAYS_AVAILABLE_INGREDIENTS = new Set([
  * Generic Tokens - too common for substring matching
  */
 const GENERIC_TOKENS = new Set([
-  'fruit', 'juice', 'liquor', 'liqueur', 'soda', 'syrup', 'bitters', 'cream', 'water', 'sugar', 'milk', 'wine', 'beer'
+  'fruit', 'juice', 'liquor', 'liqueur', 'soda', 'syrup', 'bitters', 'cream', 'water', 'sugar', 'milk', 'wine', 'beer',
+  'fresh' // Modifier that shouldn't trigger matches on its own (e.g., "fresh lime juice" shouldn't match "fresh sugar cane juice rum")
 ]);
 
 /**
@@ -420,7 +421,7 @@ class ShoppingListService {
     const normalizedIngredient = this.normalizeForMatching(ingredientName);
 
     // Debug logging for specific ingredients we're having trouble with
-    const debugIngredients = ['orgeat', 'passion fruit', 'passion', 'passionfruit', 'grapefruit'];
+    const debugIngredients = ['orgeat', 'passion fruit', 'passion', 'passionfruit', 'grapefruit', 'lime'];
     const isDebugIngredient = debugIngredients.some(d => normalizedIngredient.includes(d));
     if (isDebugIngredient) {
       logger.info('[CRAFTABILITY-DEBUG] Checking ingredient', {
@@ -523,8 +524,10 @@ class ShoppingListService {
         }
 
         // Complex ingredients (3+ tokens)
+        // Require 75% match to prevent false positives like "fresh lime juice" matching "fresh sugar cane juice rum"
+        // (where only generic tokens like "fresh" and "juice" match, missing the key ingredient "lime")
         const matchPercentage = matchingTokens.length / ingredientTokens.length;
-        if (matchPercentage > 0.5 && matchingTokens.length >= 2) {
+        if (matchPercentage >= 0.75 && matchingTokens.length >= 2) {
           logger.debug('[MATCH-TRACE] SUCCESS (Token-3+)', { candidate, bottleName: bottle.name });
           return true;
         }
@@ -554,7 +557,7 @@ class ShoppingListService {
     }
 
     // Debug: log all ingredients being checked for specific recipes
-    const debugRecipes = ['navy grog', 'hurricane', 'zombie'];
+    const debugRecipes = ['navy grog', 'hurricane', 'zombie', 'daiquiri'];
     const isDebugRecipe = recipeName && debugRecipes.some(r => recipeName.toLowerCase().includes(r));
 
     if (isDebugRecipe) {

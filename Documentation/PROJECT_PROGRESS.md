@@ -12,10 +12,10 @@ Last updated: 2025-12-18
 **Blockers**: None
 
 **Test Coverage**:
-- Backend: 876 tests (35 test files)
+- Backend: 877 tests (35 test files)
 - Frontend: 206 tests
 - Recipe-Molecule: 124 tests
-- **Total: 1,206 tests**
+- **Total: 1,207 tests**
 
 **Redesign Progress**:
 - Phase 1-4 (Batch A - Foundation): **Complete**
@@ -29,7 +29,37 @@ Last updated: 2025-12-18
 
 ---
 
-## Recent Session (2025-12-18 Afternoon): Code Review Fixes - Server-Side Search & Bulk Operations
+## Recent Session (2025-12-18 Evening): Craftability & Periodic Table Stock Bug Fixes
+
+### Summary
+Fixed critical bug where recipes requiring lime were showing as craftable when lime was out of stock. Root cause: "fresh lime juice" was matching "Neisson Eleve Sous Bois Rhum" (classification: "fresh sugar cane juice rum") due to 66% token match. Also fixed periodic table to respect stock levels.
+
+### Work Completed
+
+#### 1. Craftability False Positive Bug Fix
+- **Problem**: Daiquiri and other lime cocktails marked craftable despite lime having stock=0
+- **Root Cause**: 3+ token matching threshold was >50%, allowing "fresh lime juice" to match bottles with "fresh" and "juice" tokens (2/3 = 66%)
+- **Example**: "Neisson Eleve Sous Bois Rhum" has classification "fresh sugar cane juice rum" which matched on "fresh" + "juice"
+- **Solution**: Increased threshold from >50% to >=75% for complex (3+ token) ingredient matching
+- **Also**: Added "fresh" to GENERIC_TOKENS as extra safeguard
+
+#### 2. Periodic Table Stock Display Fix
+- **Problem**: Elements showed as "owned" (lit up) even when item had stock=0
+- **Root Cause**: `getCellDisplayData()` didn't check `stock_number` when determining ownership
+- **Solution**: Added `isInStock()` helper, only mark elements as owned if `items.some(isInStock)`
+
+### Files Changed
+- `api/src/services/ShoppingListService.ts` - Increased token match threshold, added "fresh" to GENERIC_TOKENS
+- `api/src/services/ShoppingListService.test.ts` - Added bug reproduction test case
+- `src/lib/periodicTable/engine.ts` - Added stock check for element ownership
+
+### Next Priorities
+- PostgreSQL deployment (Phase 6)
+- Production testing
+
+---
+
+## Previous Session (2025-12-18 Afternoon): Code Review Fixes - Server-Side Search & Bulk Operations
 
 ### Summary
 Addressed code review findings: removed unsafe legacy db wrapper, implemented server-side recipe search to fix broken UX, added bulk move endpoint to eliminate N+1 API calls. All 1,206 tests passing.
