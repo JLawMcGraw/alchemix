@@ -218,13 +218,13 @@ describe('validateEnv', () => {
   });
 
   describe('Optional AI Services', () => {
-    it('should accept ANTHROPIC_API_KEY', async () => {
-      process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
+    it('should accept GEMINI_API_KEY', async () => {
+      process.env.GEMINI_API_KEY = 'AIza-test-key';
 
       const { validateEnv } = await import('./validateEnv');
       const config = validateEnv();
 
-      expect(config.ANTHROPIC_API_KEY).toBe('sk-ant-test-key');
+      expect(config.GEMINI_API_KEY).toBe('AIza-test-key');
     });
 
     it('should accept OPENAI_API_KEY', async () => {

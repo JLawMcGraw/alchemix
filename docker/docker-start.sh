@@ -21,7 +21,7 @@ if [ ! -f .env ]; then
     echo ""
     echo "⚠️  IMPORTANT: Edit .env and add your API keys:"
     echo "   - OPENAI_API_KEY"
-    echo "   - ANTHROPIC_API_KEY"
+    echo "   - GEMINI_API_KEY"
     echo "   - JWT_SECRET"
     echo ""
     read -p "Press Enter after updating .env to continue..."

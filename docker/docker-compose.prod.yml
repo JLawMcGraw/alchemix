@@ -15,7 +15,7 @@
 #
 # Environment Variables Required:
 # - JWT_SECRET: 32+ character secret for JWT tokens
-# - ANTHROPIC_API_KEY: API key for AI bartender
+# - GEMINI_API_KEY: API key for AI bartender
 # - NEO4J_PASSWORD: Password for Neo4j database
 # - POSTGRES_PASSWORD: Password for PostgreSQL
 # =============================================================================
@@ -104,7 +104,7 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - JWT_SECRET=${JWT_SECRET}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
       - MEMMACHINE_API_URL=http://memmachine:8080
       - MEMMACHINE_ENABLED=true
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3001}

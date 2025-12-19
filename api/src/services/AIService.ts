@@ -1,7 +1,7 @@
 /**
  * AI Service
  *
- * Handles AI prompt building, context assembly, and Claude API interactions.
+ * Handles AI prompt building, context assembly, and Gemini API interactions.
  * Extracted from messages.ts for better separation of concerns.
  *
  * Responsibilities:
@@ -10,7 +10,8 @@
  * - Sanitize context and conversation history
  * - Detect prompt injection attempts
  * - Filter sensitive output
- * - Call Claude API with prompt caching
+ * - Call Gemini 3 Pro API for conversations
+ * - Call Gemini 3 Flash API for dashboard insights
  */
 
 import { queryOne, queryAll } from '../database/db';
@@ -1889,14 +1890,14 @@ ${hasRecipes ? `End with: RECOMMENDATIONS: Recipe Name 1, Recipe Name 2
   }
 
   /**
-   * Send message to Claude API
+   * Send message to Gemini 3 Pro API
    */
   async sendMessage(
     userId: number,
     message: string,
     history: { role: 'user' | 'assistant'; content: string }[] = []
   ): Promise<{ response: string; usage?: Record<string, number> }> {
-    const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
     if (!apiKey || apiKey === 'your-api-key-here') {
       throw new Error('AI service is not configured');
     }
@@ -1923,54 +1924,87 @@ ${hasRecipes ? `End with: RECOMMENDATIONS: Recipe Name 1, Recipe Name 2
         preview: dynamicText.substring(0, 1000)
       });
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-beta': 'prompt-caching-2024-07-31'
+      // Convert history to Gemini format (assistant -> model)
+      const geminiHistory = history.map(msg => ({
+        role: msg.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: msg.content }]
+      }));
+
+      // Build Gemini request
+      const geminiRequest = {
+        system_instruction: {
+          parts: [{ text: staticText + '\n\n' + dynamicText }]
         },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-5-20250929',
-          max_tokens: 1024,  // Reduced from 2048 to save cost
-          messages: [
-            ...history,
-            { role: 'user', content: message }
-          ],
-          system: systemPrompt
-        }),
-        signal: controller.signal,
-      });
+        contents: [
+          ...geminiHistory,
+          { role: 'user', parts: [{ text: message }] }
+        ],
+        generationConfig: {
+          temperature: 1.0,  // Gemini 3 works best at temperature 1.0
+          maxOutputTokens: 1024,
+          topP: 0.95,
+          topK: 40
+        }
+      };
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey
+          },
+          body: JSON.stringify(geminiRequest),
+          signal: controller.signal,
+        }
+      );
 
       if (!response.ok) {
-        throw new Error(`Claude API error: ${response.status} ${response.statusText}`);
+        const errorBody = await response.text();
+        logger.error('Gemini API error', { status: response.status, body: errorBody });
+        throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json() as {
-        content?: Array<{ text?: string }>;
-        usage?: Record<string, number>;
+        candidates?: Array<{
+          content?: {
+            parts?: Array<{ text?: string }>;
+          };
+        }>;
+        usageMetadata?: {
+          promptTokenCount?: number;
+          candidatesTokenCount?: number;
+          totalTokenCount?: number;
+        };
       };
       clearTimeout(timeoutId);
 
-      const aiMessage = data.content?.[0]?.text || 'No response from AI';
-      const usage = data.usage;
+      const aiMessage = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response from AI';
+      const usageMetadata = data.usageMetadata;
 
-      // Log cache performance
-      if (usage) {
-        const cacheCreation = usage.cache_creation_input_tokens || 0;
-        const cacheRead = usage.cache_read_input_tokens || 0;
-        const regularInput = usage.input_tokens || 0;
-        const outputTokens = usage.output_tokens || 0;
+      // Log usage
+      if (usageMetadata) {
+        const inputTokens = usageMetadata.promptTokenCount || 0;
+        const outputTokens = usageMetadata.candidatesTokenCount || 0;
 
-        logger.info('AI Cost', { userId, regularInput, cacheCreation, cacheRead, outputTokens });
-        if (cacheRead > 0) {
-          logger.debug('AI Cache hit');
-        }
+        logger.info('AI Cost', {
+          userId,
+          provider: 'gemini',
+          inputTokens,
+          outputTokens,
+          totalTokens: usageMetadata.totalTokenCount || 0
+        });
       }
 
       // Store conversation turn
       await memoryService.storeConversationTurn(userId, message, aiMessage);
+
+      // Convert Gemini usage to our format
+      const usage = usageMetadata ? {
+        input_tokens: usageMetadata.promptTokenCount || 0,
+        output_tokens: usageMetadata.candidatesTokenCount || 0
+      } : undefined;
 
       return { response: aiMessage, usage };
     } finally {
@@ -1979,10 +2013,10 @@ ${hasRecipes ? `End with: RECOMMENDATIONS: Recipe Name 1, Recipe Name 2
   }
 
   /**
-   * Get dashboard insight
+   * Get dashboard insight using Gemini 3 Flash (faster, cheaper for quick insights)
    */
   async getDashboardInsight(userId: number): Promise<{ greeting: string; insight: string }> {
-    const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
     if (!apiKey || apiKey === 'your-api-key-here') {
       throw new Error('AI service is not configured');
     }
@@ -1993,40 +2027,67 @@ ${hasRecipes ? `End with: RECOMMENDATIONS: Recipe Name 1, Recipe Name 2
     const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     let aiResponse = '{}';
-    let usage: Record<string, number> | undefined;
 
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-beta': 'prompt-caching-2024-07-31'
+      // Combine system prompt parts into single instruction
+      const systemText = systemPrompt.map(p => p.text).join('\n\n');
+
+      const geminiRequest = {
+        system_instruction: {
+          parts: [{ text: systemText }]
         },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 500,
-          messages: [{ role: 'user', content: 'Generate the dashboard greeting and insight now.' }],
-          system: systemPrompt
-        }),
-        signal: controller.signal,
-      });
+        contents: [
+          { role: 'user', parts: [{ text: 'Generate the dashboard greeting and insight now.' }] }
+        ],
+        generationConfig: {
+          temperature: 1.0,
+          maxOutputTokens: 500,
+          topP: 0.95,
+          topK: 40
+        }
+      };
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey
+          },
+          body: JSON.stringify(geminiRequest),
+          signal: controller.signal,
+        }
+      );
 
       if (!response.ok) {
-        throw new Error(`Claude API error: ${response.status} ${response.statusText}`);
+        const errorBody = await response.text();
+        logger.error('Gemini API error (dashboard)', { status: response.status, body: errorBody });
+        throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json() as {
-        content?: Array<{ text?: string }>;
-        usage?: Record<string, number>;
+        candidates?: Array<{
+          content?: {
+            parts?: Array<{ text?: string }>;
+          };
+        }>;
+        usageMetadata?: {
+          promptTokenCount?: number;
+          candidatesTokenCount?: number;
+          totalTokenCount?: number;
+        };
       };
-      aiResponse = data?.content?.[0]?.text || '{}';
-      usage = data?.usage;
+      aiResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
 
-      // Log cache performance
-      if (usage) {
-        logger.info('Dashboard AI Cost', { userId, regularInput: usage.input_tokens || 0, cacheRead: usage.cache_read_input_tokens || 0 });
+      // Log usage
+      if (data.usageMetadata) {
+        logger.info('Dashboard AI Cost', {
+          userId,
+          provider: 'gemini',
+          inputTokens: data.usageMetadata.promptTokenCount || 0,
+          outputTokens: data.usageMetadata.candidatesTokenCount || 0
+        });
       }
     } finally {
       clearTimeout(timeoutId);

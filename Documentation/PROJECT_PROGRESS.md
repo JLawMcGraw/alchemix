@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2025-12-18
+Last updated: 2025-12-19
 
 ---
 
@@ -29,7 +29,50 @@ Last updated: 2025-12-18
 
 ---
 
-## Recent Session (2025-12-18 Evening): Craftability & Periodic Table Stock Bug Fixes
+## Recent Session (2025-12-19): Switch AI Provider from Claude to Gemini 3
+
+### Summary
+Replaced Claude Sonnet 4.5 with Google Gemini 3 Pro for the AI Bartender service to test response quality and prompt instruction following. Dashboard insights now use Gemini 3 Flash.
+
+### Work Completed
+
+#### 1. AI Service Migration
+- **sendMessage()**: Now uses Gemini 3 Pro (`gemini-3-pro-preview`) for main conversations
+- **getDashboardInsight()**: Now uses Gemini 3 Flash (`gemini-3-flash-preview`) for quick insights
+- Converted API format from Anthropic to Google Generative AI:
+  - `assistant` role → `model` role
+  - `system` array → `system_instruction.parts`
+  - Response parsing: `candidates[0].content.parts[0].text`
+
+#### 2. Environment Variable Updates
+- `ANTHROPIC_API_KEY` → `GEMINI_API_KEY` across all config files
+- Updated: `validateEnv.ts`, `api/.env.example`, `docker/.env.example`, `docker-compose.prod.yml`, `docker-compose.yml`, `docker-start.sh`
+
+#### 3. Error Messages & Tests
+- Updated error messages in `messages.ts` routes
+- Updated `validateEnv.test.ts` - all 28 tests passing
+
+### Files Changed
+- `api/src/services/AIService.ts` - Gemini API integration
+- `api/src/config/validateEnv.ts` - GEMINI_API_KEY config
+- `api/src/routes/messages.ts` - Error message updates
+- `api/src/config/validateEnv.test.ts` - Test updates
+- `api/.env.example` - New env var
+- `api/.env` - Live config
+- `docker/.env.example` - Docker env template
+- `docker/.env` - Docker live config
+- `docker/docker-compose.prod.yml` - Production config
+- `docker/docker-compose.yml` - Dev config
+- `docker/docker-start.sh` - Startup script
+
+### Next Priorities
+- Test Gemini 3 Pro response quality with AI Bartender
+- Compare prompt instruction following vs Claude
+- PostgreSQL deployment (Phase 6)
+
+---
+
+## Previous Session (2025-12-18 Evening): Craftability & Periodic Table Stock Bug Fixes
 
 ### Summary
 Fixed critical bug where recipes requiring lime were showing as craftable when lime was out of stock. Root cause: "fresh lime juice" was matching "Neisson Eleve Sous Bois Rhum" (classification: "fresh sugar cane juice rum") due to 66% token match. Also fixed periodic table to respect stock levels.

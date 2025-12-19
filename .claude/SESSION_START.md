@@ -7,7 +7,7 @@
 | Version | v1.31.0 |
 | Branch | `postgresql-deployment` |
 | Tests | 1,207 total (877 backend, 206 frontend, 124 recipe-molecule) |
-| Last Updated | December 18, 2025 |
+| Last Updated | December 19, 2025 |
 
 ---
 
@@ -29,7 +29,7 @@ A full-stack cocktail inventory and recipe management app with AI-powered barten
 |-------|------------|
 | Frontend | Next.js 14, TypeScript, Zustand, CSS Modules |
 | Backend | Express.js, TypeScript, PostgreSQL (pg driver) |
-| AI | Claude Sonnet 4.5 with Prompt Caching |
+| AI | Gemini 3 Pro (conversations) + Gemini 3 Flash (dashboard) |
 | Memory | MemMachine (Neo4j vector store) + PostgreSQL hybrid search |
 | Auth | JWT + bcrypt, token blacklist, database-backed versioning |
 | Molecule Viz | `@alchemix/recipe-molecule` (custom d3-force SVG) |
