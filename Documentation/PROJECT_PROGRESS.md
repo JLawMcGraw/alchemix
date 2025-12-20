@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2025-12-19
+Last updated: 2025-12-20
 
 ---
 
@@ -23,13 +23,65 @@ Last updated: 2025-12-19
 - Phase 8-10 (Batch C - Polish): **Complete**
 - Page-specific redesigns: **Complete** (Shopping List, Favorites, AI Bartender)
 - Landing Page: **Complete**
-- Login Page Two-Panel Layout: **Complete**
+- Login Page Redesign: **Complete** (Hero + Modal pattern)
 
 **PostgreSQL Migration**: **Complete** (Phase 1-5 done, Phase 6 Deploy pending)
 
 ---
 
-## Recent Session (2025-12-19): Periodic Table V1 Overhaul, Element Filtering, AI Typing Animation & UX Polish
+## Recent Session (2025-12-20): Login Page Redesign - Hero Layout with Modal
+
+### Summary
+Complete redesign of the login page following the landing page example pattern. Implemented full-page hero section with periodic table preview using V1 ElementCard components, login/signup via modal overlay triggered by nav and hero buttons.
+
+### Work Completed
+
+#### 1. Login Page Structure Overhaul
+- **Removed**: Old two-panel layout (form left, story right)
+- **Added**: Full-page hero layout matching landing page example
+- **Navigation**: Fixed nav bar with AlcheMixLogo + "Get Started" button
+- **Hero Section**: Title, subtitle, "Start Building" CTA button, periodic table preview
+- **Modal Pattern**: Login/signup form appears in centered modal overlay on button click
+
+#### 2. Periodic Table Preview with V1 ElementCard
+- **4 Category Rows**: BASE SPIRITS, LIQUEURS, MODIFIERS, CITRUS
+- **16 Elements Total**: 4 elements per row using actual V1 ElementCard component
+- **Elements by Category**:
+  - BASE SPIRITS: Rum, Gin, Whiskey, Tequila
+  - LIQUEURS: Orange Liqueur, Chartreuse, Amaretto, Maraschino
+  - MODIFIERS: Campari, Sweet Vermouth, Dry Vermouth, Angostura
+  - CITRUS: Lime, Lemon, Orange, Grapefruit
+- **Styling**: Large cards (110px), 16px gap, category labels above each row
+
+#### 3. Modal Implementation
+- **Overlay**: Semi-transparent backdrop with blur effect
+- **Close Methods**: X button, click outside modal
+- **Form**: Email, password with visibility toggle, password requirements (signup)
+- **Toggle**: Switch between login/signup from modal footer
+- **Logo**: Uses AlcheMixLogo component in modal header
+
+#### 4. Button Styling Updates
+- **Primary Button**: Changed from teal (`--bond-agave`) to dark ink (`--fg-primary`)
+- **Matches**: Rest of product button styling
+
+#### 5. Responsive Design
+- **Desktop (900px+)**: Full hero layout with periodic table
+- **Mobile (<900px)**: Periodic table hidden, hero content only
+
+### Files Changed
+- `src/app/login/page.tsx` - Complete rewrite with hero + modal pattern, V1 ElementCard integration
+- `src/app/login/login.module.css` - Complete rewrite with hero, modal, element grid styles
+
+### Technical Details
+- Uses `ElementCard` component from `@/components/ui`
+- Uses `AlcheMixLogo` component for branding
+- Uses `PeriodicElement` type from `@/lib/periodicTable`
+- Modal state managed with `showModal` and `isSignup` useState hooks
+- Element data defined as `PREVIEW_ROWS` array with category titles and elements
+
+---
+
+## Previous Session (2025-12-19): Periodic Table V1 Overhaul, Element Filtering, AI Typing Animation & UX Polish
 
 ### Summary
 Major overhaul of Periodic Table V1 with 90+ elements (including hidden elements that appear when user has matching inventory), click-to-filter functionality, garnish group addition. Also moved Favorites to TopNav removal, added AI Bartender typing animation, and standardized 12px minimum font sizes across desktop CSS.

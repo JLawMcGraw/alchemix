@@ -1,73 +1,333 @@
-/* Login Page - Two Panel Layout with Original Components */
+/* AlcheMix Login Page - Matching Landing Page Design */
 
-/* === CONTAINER === */
-.container {
-  display: flex;
-  flex-direction: column;
+/* === BASE === */
+.landing {
   min-height: 100vh;
-  background: var(--color-ui-bg-base);
-  color: var(--color-text-body);
+  background: var(--bg-paper);
+  color: var(--fg-primary);
   font-family: var(--font-sans);
+  overflow-x: hidden;
+  position: relative;
 }
 
-/* === LEFT: LOGIN PANEL === */
-.loginPanel {
+/* === GRID BACKGROUND === */
+.gridBg {
+  position: fixed;
+  inset: 0;
+  background-image: 
+    linear-gradient(var(--border-hairline) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border-hairline) 1px, transparent 1px);
+  background-size: 48px 48px;
+  opacity: 0.4;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* === NAV === */
+.nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: rgba(248, 249, 250, 0.9);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border-hairline);
+  height: 64px;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 48px;
+}
+
+.navLogo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logoMark {
+  width: 32px;
+  height: 32px;
+  background: var(--bond-agave);
+  border-radius: var(--radius-card);
+  display: flex;
+  align-items: center;
   justify-content: center;
-  padding: 2rem;
-  background: var(--color-ui-bg-surface);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.loginInner {
-  width: 100%;
-  max-width: 360px;
-  margin: 0 auto;
-}
-
-/* Brand */
-.brand {
-  margin-bottom: 32px;
-}
-
-/* Mode Tabs */
-.modeTabs {
-  display: flex;
-  gap: 0;
-  margin-bottom: 28px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-
-.modeTab {
-  flex: 1;
-  padding: 10px 16px;
-  background: var(--color-ui-bg-base);
-  border: none;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: all 150ms;
-}
-
-.modeTab:first-child {
-  border-right: 1px solid var(--color-border);
-}
-
-.modeTab.active {
-  background: var(--color-text-body);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 12px;
   color: white;
 }
 
-.modeTab:not(.active):hover {
-  background: var(--color-ui-bg-subtle);
+.logoText {
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: -0.02em;
 }
 
-/* Form */
+.navActions {
+  display: flex;
+  gap: 12px;
+}
+
+/* === BUTTONS === */
+.btnPrimary {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 10px 18px;
+  border-radius: var(--radius-card);
+  cursor: pointer;
+  transition: all 150ms ease;
+  border: none;
+  background: var(--fg-primary);
+  color: white;
+}
+
+.btnPrimary:hover {
+  background: var(--color-primary-hover);
+}
+
+.btnPrimary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btnGhost {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 10px 18px;
+  border-radius: var(--radius-card);
+  cursor: pointer;
+  transition: all 150ms ease;
+  border: none;
+  background: transparent;
+  color: var(--fg-secondary);
+}
+
+.btnGhost:hover {
+  color: var(--fg-primary);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.btnSecondary {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 10px 18px;
+  border-radius: var(--radius-card);
+  cursor: pointer;
+  transition: all 150ms ease;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-hairline);
+  color: var(--fg-primary);
+}
+
+.btnSecondary:hover {
+  border-color: var(--fg-primary);
+}
+
+.btnFull {
+  width: 100%;
+}
+
+/* === HERO === */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  padding: 64px 48px 0;
+  position: relative;
+  z-index: 1;
+}
+
+.heroInner {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 48px;
+  align-items: center;
+  max-width: 1100px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.heroContent {
+  max-width: 520px;
+}
+
+.heroEyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--bond-agave);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.heroEyebrow::before {
+  content: '';
+  width: 24px;
+  height: 1px;
+  background: var(--bond-agave);
+}
+
+.heroTitle {
+  font-size: 52px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+  margin-bottom: 24px;
+}
+
+.heroSubtitle {
+  font-size: 17px;
+  line-height: 1.7;
+  color: var(--fg-secondary);
+  margin-bottom: 36px;
+  max-width: 420px;
+}
+
+.heroCtas {
+  display: flex;
+  gap: 12px;
+}
+
+/* === HERO VISUAL - PERIODIC TABLE PREVIEW === */
+.heroVisual {
+  position: relative;
+}
+
+.tablePreview {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.tableRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rowLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--fg-tertiary);
+}
+
+.rowElements {
+  display: flex;
+  gap: 16px;
+}
+
+/* Make element cards larger for the preview */
+.rowElements > button {
+  min-width: 100px !important;
+  max-width: 110px !important;
+  width: 110px !important;
+}
+
+.rowElements > button span:nth-child(3) {
+  /* Element name - make it larger and wrap if needed */
+  font-size: 0.6875rem !important;
+  white-space: normal !important;
+  line-height: 1.3 !important;
+}
+
+/* === MODAL === */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-card);
+  padding: 36px;
+  width: 100%;
+  max-width: 380px;
+  position: relative;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+.modalClose {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: var(--fg-tertiary);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+}
+
+.modalClose:hover {
+  color: var(--fg-primary);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.modalTitle {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+
+.modalSubtitle {
+  font-size: 13px;
+  color: var(--fg-secondary);
+  margin-bottom: 24px;
+}
+
+.modalFooter {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 13px;
+  color: var(--fg-secondary);
+}
+
+.modalFooter button {
+  background: none;
+  border: none;
+  color: var(--bond-agave);
+  cursor: pointer;
+  font-size: inherit;
+}
+
+.modalFooter button:hover {
+  text-decoration: underline;
+}
+
+/* === FORM === */
 .formGroup {
   margin-bottom: 18px;
 }
@@ -79,39 +339,37 @@
   font-weight: 500;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--color-text-muted);
-  margin-bottom: 6px;
+  color: var(--fg-secondary);
+  margin-bottom: 8px;
 }
 
-.inputWrapper {
+.formInputWrapper {
   position: relative;
 }
 
 .formInput {
   width: 100%;
   padding: 11px 14px;
-  background: var(--color-ui-bg-base);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  background: var(--bg-paper);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-card);
   font-family: var(--font-mono);
-  font-size: 14px;
-  color: var(--color-text-body);
-  transition: all 150ms;
+  font-size: 13px;
+  color: var(--fg-primary);
+  transition: border-color 150ms;
 }
 
 .formInput:focus {
   outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+  border-color: var(--bond-agave);
 }
 
 .formInput::placeholder {
-  color: var(--color-text-tertiary);
+  color: var(--fg-tertiary);
 }
 
-.formInput:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.formInputWrapper .formInput {
+  padding-right: 44px;
 }
 
 .passwordToggle {
@@ -121,27 +379,23 @@
   transform: translateY(-50%);
   background: none;
   border: none;
-  color: var(--color-text-tertiary);
+  color: var(--fg-tertiary);
   cursor: pointer;
   padding: 4px;
   display: flex;
 }
 
-.passwordToggle:hover:not(:disabled) {
-  color: var(--color-text-muted);
-}
-
-.passwordToggle:disabled {
-  cursor: not-allowed;
+.passwordToggle:hover {
+  color: var(--fg-secondary);
 }
 
 /* Password Requirements */
 .requirements {
-  margin-top: 8px;
+  margin-top: 12px;
   padding: 12px;
-  background: var(--color-ui-bg-base);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  background: var(--bg-paper);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-card);
 }
 
 .reqItem {
@@ -150,7 +404,7 @@
   gap: 8px;
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--color-text-tertiary);
+  color: var(--fg-tertiary);
   margin-bottom: 4px;
 }
 
@@ -159,7 +413,7 @@
 }
 
 .reqItem.met {
-  color: var(--color-success);
+  color: var(--status-optimal);
 }
 
 .reqIcon {
@@ -175,1029 +429,109 @@
 }
 
 .reqItem.met .reqIcon {
-  background: var(--color-success);
-  border-color: var(--color-success);
+  background: var(--status-optimal);
+  border-color: var(--status-optimal);
   color: white;
-}
-
-/* Button */
-.btnPrimary {
-  width: 100%;
-  padding: 12px 16px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  border: none;
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: all 150ms;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: var(--color-primary);
-  color: white;
-  margin-top: 8px;
-}
-
-.btnPrimary:hover:not(:disabled) {
-  filter: brightness(1.1);
-}
-
-.btnPrimary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.forgotLink {
-  display: block;
-  text-align: center;
-  margin-top: 16px;
-  font-size: 12px;
-  color: var(--color-text-tertiary);
-  text-decoration: none;
-}
-
-.forgotLink:hover {
-  color: var(--color-text-muted);
 }
 
 /* Messages */
 .errorMessage {
   padding: 10px 12px;
   background: rgba(239, 68, 68, 0.08);
-  border: 1px solid var(--color-error);
-  border-radius: var(--radius);
+  border: 1px solid var(--status-critical);
+  border-radius: var(--radius-card);
   font-size: 12px;
-  color: var(--color-error);
+  color: var(--status-critical);
   margin-bottom: 16px;
 }
 
 .successMessage {
   padding: 10px 12px;
   background: rgba(16, 185, 129, 0.08);
-  border: 1px solid var(--color-success);
-  border-radius: var(--radius);
+  border: 1px solid var(--status-optimal);
+  border-radius: var(--radius-card);
   font-size: 12px;
-  color: var(--color-success);
+  color: var(--status-optimal);
   margin-bottom: 16px;
 }
 
-/* === RIGHT: STORY PANEL === */
-.storyPanel {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 1.5rem 2rem;
-  position: relative;
-  overflow-y: auto;
-  min-height: 50vh;
-}
-
-/* Grid background */
-.gridBg {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(var(--color-border) 1px, transparent 1px),
-    linear-gradient(90deg, var(--color-border) 1px, transparent 1px);
-  background-size: 40px 40px;
-  opacity: 0.5;
-  pointer-events: none;
-}
-
-.storyContent {
-  position: relative;
-  z-index: 1;
-  text-align: center;
-  max-width: 520px;
-}
-
-.storyTitle {
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
-  margin: 0 0 8px 0;
-}
-
-.storySubtitle {
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--color-text-muted);
-  margin: 0 0 20px 0;
-}
-
-/* === PERIODIC TABLE PREVIEW (Original) === */
-.periodicPreview {
-  display: grid;
-  grid-template-columns: 50px repeat(5, 70px);
-  gap: 4px;
-  margin: 0 auto 20px;
-  width: fit-content;
-}
-
-/* Corner cell (empty) */
-.gridCorner {
-  /* Empty cell at top-left corner */
-}
-
-/* Group Headers (column headers) */
-.groupHeader {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 3px;
-  background: color-mix(in srgb, var(--group-color) 10%, transparent);
-  border-radius: var(--radius);
-  text-align: center;
-}
-
-.groupNum {
-  font-family: var(--font-mono);
-  font-size: 0.5625rem;
-  font-weight: 600;
-  color: var(--group-color);
-  letter-spacing: 0.05em;
-}
-
-.groupName {
-  font-family: var(--font-mono);
-  font-size: 0.5625rem;
-  font-weight: 500;
-  color: var(--group-color);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-/* Period Labels (row headers) */
-.periodLabel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 6px;
-  background: color-mix(in srgb, var(--period-color) 10%, transparent);
-  border-radius: var(--radius);
-}
-
-.periodNum {
-  font-family: var(--font-mono);
-  font-size: 0.625rem;
-  font-weight: 700;
-  color: var(--period-color);
-}
-
-.periodName {
-  font-family: var(--font-mono);
-  font-size: 0.5rem;
-  font-weight: 500;
-  color: var(--period-color);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-/* Element Cell - matches My Bar periodic table styling */
-.elementCell {
-  aspect-ratio: 1;
-  min-height: 70px;
-  background: var(--color-ui-bg-surface);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius);
-  padding: 6px;
-  cursor: default;
-  transition: all var(--transition-fast);
-  display: flex;
-  flex-direction: column;
-  position: relative;
-}
-
-.elementCell:hover {
-  transform: scale(1.02);
-  box-shadow: var(--shadow-hover);
-  border-color: var(--color-border-hover);
-}
-
-/* Empty/Rare Cell */
-.emptyCell {
-  opacity: 0.4;
-  background: var(--color-ui-bg-base);
-}
-
-.emptyCell:hover {
-  transform: none;
-  box-shadow: none;
-}
-
-.emptyCell .elementSymbol {
-  color: var(--color-text-muted);
-}
-
-/* Period Indicator Dot */
-.periodDot {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-}
-
-/* Element Symbol */
-.elementSymbol {
-  font-family: var(--font-mono);
-  font-size: 0.875rem;
-  font-weight: 700;
-  line-height: 1;
-  color: var(--group-color);
-}
-
-/* Element Name */
-.elementName {
-  font-size: 0.5rem;
-  font-weight: 500;
-  color: var(--color-text-body);
-  margin-top: 2px;
-  line-height: 1.2;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Element Spec (ABV, Brix, etc.) */
-.elementSpec {
-  font-family: var(--font-mono);
-  font-size: 0.4375rem;
-  color: var(--color-text-muted);
-  margin-top: auto;
-}
-
-/* === RECIPE DEMO CARD (Horizontal Layout) === */
-.recipeDemo {
-  background: var(--color-ui-bg-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card, 2px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-  max-width: 480px;
-  margin: 0 auto;
-  text-align: left;
-}
-
-/* Recipe Header */
-.recipeHeader {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--color-border);
-  gap: 12px;
-}
-
-.recipeTitleSection {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 0;
-}
-
-.recipeTitle {
-  font-family: var(--font-sans);
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  color: var(--color-text-body);
-  margin: 0 0 2px 0;
-  line-height: 1.2;
-}
-
-.recipeFormula {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 0.6875rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  color: var(--color-text-muted);
-}
-
-/* Spirit Badge */
-.spiritBadge {
-  display: inline-block;
-  padding: 3px 8px;
-  border-radius: var(--radius);
-  font-family: var(--font-mono);
-  font-size: 0.5rem;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  border: 1px solid;
-  flex-shrink: 0;
-}
-
-/* Recipe Content - Horizontal Layout */
-.recipeContent {
-  display: flex;
-  padding: 12px 16px;
-  gap: 12px;
-}
-
-/* Molecule Column - Left Side (50%) */
-.moleculeColumn {
-  flex: 1 1 50%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  min-width: 0;
-}
-
-/* Molecule Visualization Section */
-.moleculeSection {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  min-height: 150px;
-}
-
-.moleculeSection > div {
-  pointer-events: none; /* Disable hover interactions - just a preview */
-}
-
-/* Molecule Legend - matches recipe-molecule package style */
-.moleculeLegend {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-}
-
-.legendTitle {
-  font-family: var(--font-mono);
-  font-size: 0.5rem;
-  font-weight: 500;
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.legendItems {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.legendEntry {
-  font-family: var(--font-mono);
-  font-size: 0.5rem;
-  color: var(--color-text-tertiary);
-}
-
-/* Recipe Details - Right Side (50%) */
-.recipeDetails {
-  flex: 1 1 50%;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-/* Section (Ingredients, Balance) - Compact for narrow column */
-.section {
-  margin-bottom: 0;
-}
-
-.sectionTitle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-mono);
-  font-size: 7px;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-  margin: 0 0 6px 0;
-}
-
-.sectionTitle::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: var(--color-border);
-}
-
-/* Ingredients List - Compact for narrow column */
-.ingredientsList {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.ingredientItem {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 6px;
-  font-family: var(--font-mono);
-  font-size: 0.5625rem;
-  color: var(--color-text-body);
-  line-height: 1.3;
-  background: var(--color-ui-bg-base);
-  border-radius: var(--radius);
-}
-
-/* Ingredient Pip (colored dot with symbol) */
-.ingredientPip {
-  flex-shrink: 0;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-mono);
-  font-size: 0.4375rem;
-  font-weight: 600;
-  color: white;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
-.ingredientText {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Stoichiometric Balance - Compact for narrow column */
-.balanceSection {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.balanceRow {
-  display: grid;
-  grid-template-columns: 36px 1fr 24px;
-  align-items: center;
-  gap: 6px;
-}
-
-.balanceLabel {
-  font-family: var(--font-mono);
-  font-size: 0.5rem;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-}
-
-.balanceTrack {
-  height: 4px;
-  background: var(--color-ui-bg-base);
-  border: 1px solid var(--color-border);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.balanceFill {
-  height: 100%;
-  border-radius: 1px;
-  transition: width 0.4s ease;
-}
-
-.balanceValue {
-  font-family: var(--font-mono);
-  font-size: 0.5rem;
-  text-align: right;
-  color: var(--color-text-muted);
-}
-
-/* === DESKTOP === */
-@media (min-width: 900px) {
-  .container {
-    flex-direction: row;
-    height: 100vh;
-    overflow: hidden;
+/* === RESPONSIVE === */
+@media (max-width: 900px) {
+  .nav {
+    padding: 0 24px;
   }
 
-  .loginPanel {
-    flex: 0 0 420px;
-    border-bottom: none;
-    border-right: 1px solid var(--color-border);
-    padding: 3rem;
+  .hero {
+    padding: 80px 24px 48px;
   }
 
-  .storyPanel {
-    flex: 1;
+  .heroInner {
+    grid-template-columns: 1fr;
+    gap: 48px;
+  }
+
+  .heroTitle {
+    font-size: 36px;
+  }
+
+  .heroVisual {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .nav {
+    padding: 0 16px;
+    height: 56px;
+  }
+
+  .navActions {
+    gap: 8px;
+  }
+
+  .btnPrimary,
+  .btnGhost {
+    padding: 8px 12px;
+    font-size: 10px;
+  }
+
+  .hero {
+    padding: 72px 16px 32px;
     min-height: auto;
   }
 
-  .storyTitle {
-    font-size: 32px;
-  }
-}
-
-/* === TABLET === */
-@media (max-width: 899px) and (min-width: 600px) {
-  .loginPanel {
-    padding: 2.5rem;
-  }
-
-  .storyPanel {
-    padding: 3rem;
-  }
-
-  .periodicPreview {
-    grid-template-columns: 40px repeat(5, 60px);
-    gap: 3px;
-  }
-
-  .elementCell {
-    min-height: 60px;
-    padding: 5px;
-  }
-
-  .elementSymbol {
-    font-size: 0.75rem;
-  }
-
-  .elementName {
-    font-size: 0.5rem;
-  }
-
-  .elementSpec {
-    font-size: 0.4375rem;
-  }
-}
-
-/* === MOBILE === */
-@media (max-width: 599px) {
-  .loginPanel {
-    padding: 1.5rem;
-  }
-
-  .loginInner {
-    max-width: 100%;
-  }
-
-  .brand {
-    margin-bottom: 24px;
-  }
-
-  .modeTabs {
-    margin-bottom: 20px;
-  }
-
-  .storyPanel {
-    padding: 2rem 1rem;
-    min-height: 40vh;
-  }
-
-  .storyTitle {
-    font-size: 22px;
-  }
-
-  .storySubtitle {
-    font-size: 13px;
-    margin-bottom: 24px;
-  }
-
-  /* Smaller periodic table on mobile */
-  .periodicPreview {
-    grid-template-columns: 32px repeat(5, 52px);
-    gap: 2px;
-    margin-bottom: 24px;
-  }
-
-  .groupHeader {
-    padding: 4px 2px;
-  }
-
-  .groupNum {
-    font-size: 0.5rem;
-  }
-
-  .groupName {
-    font-size: 0.5rem;
-  }
-
-  .periodLabel {
-    padding: 4px;
-  }
-
-  .periodNum {
-    font-size: 0.625rem;
-  }
-
-  .periodName {
-    font-size: 0.4375rem;
-  }
-
-  .elementCell {
-    min-height: 52px;
-    padding: 4px;
-  }
-
-  .elementSymbol {
-    font-size: 0.625rem;
-  }
-
-  .elementName {
-    font-size: 0.4375rem;
-    margin-top: 2px;
-  }
-
-  .elementSpec {
-    font-size: 0.375rem;
-  }
-
-  .periodDot {
-    width: 3px;
-    height: 3px;
-    top: 3px;
-    right: 3px;
-  }
-
-  /* Smaller recipe card on mobile - Stack vertically */
-  .recipeDemo {
-    max-width: 100%;
-  }
-
-  .recipeHeader {
-    padding: 10px 12px;
-  }
-
-  .recipeTitle {
-    font-size: 0.9375rem;
-  }
-
-  .recipeFormula {
-    font-size: 0.625rem;
-  }
-
-  .recipeContent {
-    flex-direction: column;
-    padding: 12px;
-    gap: 12px;
-  }
-
-
-  .recipeDetails {
-    gap: 10px;
-  }
-
-  .ingredientItem {
-    padding: 5px 8px;
-    font-size: 0.625rem;
-  }
-
-  .ingredientPip {
-    width: 16px;
-    height: 16px;
-    font-size: 0.4375rem;
-  }
-}
-
-/* === LARGE DISPLAYS (tall screens, large monitors) === */
-@media (min-width: 900px) and (min-height: 900px) {
-  .storyContent {
-    max-width: 680px;
-  }
-
-  .storyTitle {
+  .heroTitle {
     font-size: 28px;
-    margin-bottom: 10px;
   }
 
-  .storySubtitle {
-    font-size: 14px;
-    margin-bottom: 24px;
+  .heroSubtitle {
+    font-size: 15px;
   }
 
-  /* Larger periodic table */
-  .periodicPreview {
-    grid-template-columns: 60px repeat(5, 90px);
-    gap: 6px;
-    margin-bottom: 28px;
+  .modal {
+    padding: 24px;
+    margin: 0 16px;
+    max-width: none;
   }
 
-  .groupHeader {
-    padding: 8px 4px;
-  }
-
-  .groupNum {
-    font-size: 0.6875rem;
-  }
-
-  .groupName {
-    font-size: 0.6875rem;
-  }
-
-  .periodLabel {
-    padding: 8px;
-  }
-
-  .periodNum {
-    font-size: 0.75rem;
-  }
-
-  .periodName {
-    font-size: 0.625rem;
-  }
-
-  .elementCell {
-    min-height: 90px;
-    padding: 8px;
-  }
-
-  .elementSymbol {
-    font-size: 1.125rem;
-  }
-
-  .elementName {
-    font-size: 0.625rem;
-    margin-top: 4px;
-  }
-
-  .elementSpec {
-    font-size: 0.5625rem;
-  }
-
-  .periodDot {
-    width: 6px;
-    height: 6px;
-    top: 6px;
-    right: 6px;
-  }
-
-  /* Larger recipe card */
-  .recipeDemo {
-    max-width: 620px;
-  }
-
-  .recipeHeader {
-    padding: 16px 20px;
-  }
-
-  .recipeTitle {
-    font-size: 1.25rem;
-  }
-
-  .recipeFormula {
-    font-size: 0.8125rem;
-  }
-
-  .spiritBadge {
-    font-size: 0.625rem;
-    padding: 4px 10px;
-  }
-
-  .recipeContent {
-    padding: 16px 20px;
-    gap: 16px;
-  }
-
-  .moleculeColumn {
-    gap: 6px;
-  }
-
-
-  .moleculeLegend {
-    gap: 4px;
-  }
-
-  .legendTitle {
-    font-size: 0.625rem;
-  }
-
-  .legendEntry {
-    font-size: 0.625rem;
-  }
-
-  .recipeDetails {
-    gap: 14px;
-  }
-
-  .sectionTitle {
-    font-size: 9px;
-    margin-bottom: 8px;
-  }
-
-  .ingredientsList {
-    gap: 4px;
-  }
-
-  .ingredientItem {
-    padding: 6px 8px;
-    font-size: 0.6875rem;
-    gap: 8px;
-  }
-
-  .ingredientPip {
-    width: 18px;
-    height: 18px;
-    font-size: 0.5625rem;
-  }
-
-  .balanceSection {
-    gap: 6px;
-  }
-
-  .balanceRow {
-    grid-template-columns: 44px 1fr 30px;
-    gap: 8px;
-  }
-
-  .balanceLabel {
-    font-size: 0.625rem;
-  }
-
-  .balanceTrack {
-    height: 6px;
-  }
-
-  .balanceValue {
-    font-size: 0.625rem;
+  .modalTitle {
+    font-size: 20px;
   }
 }
 
-/* === EXTRA LARGE DISPLAYS (very tall screens, 4K monitors) === */
-@media (min-width: 1200px) and (min-height: 1100px) {
-  .storyContent {
-    max-width: 800px;
-  }
+/* === DARK MODE === */
+[data-theme="dark"] .nav {
+  background: rgba(15, 23, 42, 0.9);
+}
 
-  .storyTitle {
-    font-size: 32px;
-    margin-bottom: 12px;
-  }
+[data-theme="dark"] .modal {
+  background: var(--bg-elevated);
+}
 
-  .storySubtitle {
-    font-size: 15px;
-    margin-bottom: 32px;
-  }
+[data-theme="dark"] .elementCard {
+  background: var(--bg-elevated);
+}
 
-  /* Even larger periodic table */
-  .periodicPreview {
-    grid-template-columns: 70px repeat(5, 110px);
-    gap: 8px;
-    margin-bottom: 36px;
-  }
-
-  .groupHeader {
-    padding: 10px 6px;
-  }
-
-  .groupNum {
-    font-size: 0.8125rem;
-  }
-
-  .groupName {
-    font-size: 0.8125rem;
-  }
-
-  .periodLabel {
-    padding: 10px;
-  }
-
-  .periodNum {
-    font-size: 0.875rem;
-  }
-
-  .periodName {
-    font-size: 0.75rem;
-  }
-
-  .elementCell {
-    min-height: 110px;
-    padding: 10px;
-  }
-
-  .elementSymbol {
-    font-size: 1.375rem;
-  }
-
-  .elementName {
-    font-size: 0.75rem;
-    margin-top: 6px;
-  }
-
-  .elementSpec {
-    font-size: 0.6875rem;
-  }
-
-  .periodDot {
-    width: 8px;
-    height: 8px;
-    top: 8px;
-    right: 8px;
-  }
-
-  /* Even larger recipe card */
-  .recipeDemo {
-    max-width: 740px;
-  }
-
-  .recipeHeader {
-    padding: 20px 24px;
-  }
-
-  .recipeTitle {
-    font-size: 1.5rem;
-  }
-
-  .recipeFormula {
-    font-size: 0.9375rem;
-  }
-
-  .spiritBadge {
-    font-size: 0.75rem;
-    padding: 5px 12px;
-  }
-
-  .recipeContent {
-    padding: 20px 24px;
-    gap: 20px;
-  }
-
-  .moleculeColumn {
-    gap: 8px;
-  }
-
-
-  .moleculeLegend {
-    gap: 6px;
-  }
-
-  .legendTitle {
-    font-size: 0.75rem;
-  }
-
-  .legendEntry {
-    font-size: 0.75rem;
-  }
-
-  .legendItems {
-    gap: 12px;
-  }
-
-  .recipeDetails {
-    gap: 18px;
-  }
-
-  .sectionTitle {
-    font-size: 10px;
-    margin-bottom: 10px;
-  }
-
-  .ingredientsList {
-    gap: 6px;
-  }
-
-  .ingredientItem {
-    padding: 8px 10px;
-    font-size: 0.8125rem;
-    gap: 10px;
-  }
-
-  .ingredientPip {
-    width: 22px;
-    height: 22px;
-    font-size: 0.6875rem;
-  }
-
-  .balanceSection {
-    gap: 8px;
-  }
-
-  .balanceRow {
-    grid-template-columns: 52px 1fr 36px;
-    gap: 10px;
-  }
-
-  .balanceLabel {
-    font-size: 0.75rem;
-  }
-
-  .balanceTrack {
-    height: 8px;
-  }
-
-  .balanceValue {
-    font-size: 0.75rem;
-  }
+[data-theme="dark"] .elementCard.empty {
+  background: var(--bg-paper);
 }
