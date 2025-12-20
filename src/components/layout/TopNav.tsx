@@ -16,12 +16,11 @@ export const TopNav: React.FC = () => {
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Use shallow comparison to prevent rerenders from unrelated state changes
-  const { user, isAuthenticated, logout, favorites, shoppingListItems } = useStore(
+  const { user, isAuthenticated, logout, shoppingListItems } = useStore(
     useShallow((state) => ({
       user: state.user,
       isAuthenticated: state.isAuthenticated,
       logout: state.logout,
-      favorites: state.favorites,
       shoppingListItems: state.shoppingListItems,
     }))
   );
@@ -65,9 +64,7 @@ export const TopNav: React.FC = () => {
     router.push('/login');
   };
 
-  // Badge counts
-  const favoritesCount = Array.isArray(favorites) ? favorites.length : 0;
-  // Count only unchecked items in shopping list
+  // Badge count for shopping list (only unchecked items)
   const shoppingListCount = Array.isArray(shoppingListItems)
     ? shoppingListItems.filter(item => !item.checked).length
     : 0;
@@ -76,7 +73,7 @@ export const TopNav: React.FC = () => {
     { href: '/dashboard', label: 'Dashboard' },
     { href: '/bar', label: 'My Bar' },
     { href: '/ai', label: 'AI Bartender', indicator: true },
-    { href: '/recipes', label: 'Recipes', badge: favoritesCount > 0 ? favoritesCount : undefined },
+    { href: '/recipes', label: 'Recipes' },
     { href: '/shopping-list', label: 'Shopping List', badge: shoppingListCount > 0 ? shoppingListCount : undefined },
   ];
 

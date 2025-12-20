@@ -12,6 +12,7 @@ interface ItemDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   item: InventoryItem | null;
+  onItemUpdated?: (updatedItem: InventoryItem) => void;
 }
 
 type FormState = {
@@ -48,7 +49,7 @@ const CATEGORIES: { value: InventoryCategory; label: string }[] = [
   { value: 'other', label: 'Other' },
 ];
 
-export function ItemDetailModal({ isOpen, onClose, item }: ItemDetailModalProps) {
+export function ItemDetailModal({ isOpen, onClose, item, onItemUpdated }: ItemDetailModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -170,7 +171,7 @@ export function ItemDetailModal({ isOpen, onClose, item }: ItemDetailModalProps)
 
     setIsSaving(true);
     try {
-      await updateItem(item.id, {
+      const updatedItem = await updateItem(item.id, {
         name: formData.name,
         category: formData.category,
         type: formData.type || undefined,
@@ -184,6 +185,10 @@ export function ItemDetailModal({ isOpen, onClose, item }: ItemDetailModalProps)
       await fetchItems();
       setOriginalData(formData);
       setIsEditMode(false);
+      // Notify parent to update the selected item reference
+      if (updatedItem && onItemUpdated) {
+        onItemUpdated(updatedItem);
+      }
       showToast('success', 'Item updated successfully');
     } catch (error) {
       showToast('error', 'Failed to update item');

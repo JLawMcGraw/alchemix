@@ -99,7 +99,7 @@
 .groupLabel,
 .periodLabel {
   font-family: var(--font-mono);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 500;
   padding: var(--space-1) var(--space-2);
   border-radius: 2px;
@@ -120,7 +120,7 @@
 .confidenceLabel {
   margin-top: var(--space-2);
   font-family: var(--font-mono);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -134,7 +134,7 @@
 
 .reasoning {
   margin-top: var(--space-1);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   color: var(--color-text-tertiary);
   font-style: italic;
 }
@@ -159,7 +159,7 @@
 
 .detailLabel {
   font-family: var(--font-mono);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -185,7 +185,7 @@
   border-radius: var(--radius);
   color: var(--color-text-muted);
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   cursor: pointer;
@@ -205,7 +205,7 @@
 
 .reclassifyTitle {
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--color-text-body);
   text-transform: uppercase;
@@ -220,7 +220,7 @@
 .selectLabel {
   display: block;
   font-family: var(--font-mono);
-  font-size: 0.5625rem;
+  font-size: 0.75rem;
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -259,13 +259,13 @@
 
 .optionNumeral {
   font-family: var(--font-mono);
-  font-size: 0.5rem;
+  font-size: 0.75rem;
   color: var(--color-text-tertiary);
 }
 
 .optionName {
   font-family: var(--font-mono);
-  font-size: 0.5625rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--option-color);
 }
@@ -287,7 +287,7 @@
   padding: var(--space-2);
   border-radius: var(--radius);
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;

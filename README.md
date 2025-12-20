@@ -6,17 +6,17 @@
 
 Modern cocktail inventory and recipe management system with AI-powered bartender recommendations. Features a "Molecular Mixology" design system that treats cocktails as chemical formulas and ingredients as periodic table elements.
 
-**Version:** v1.31.0 | **Last Updated:** December 18, 2025
+**Version:** v1.31.0 | **Last Updated:** December 19, 2025
 
 ## Features
 
 ### Core Features
 - **My Bar** - Category-organized inventory with 9 tabs, card grid layout, CSV import, periodic tags
-- **Periodic Table of Mixology** - 6x6 grid classifying ingredients by function (Group) and origin (Period)
-- **Recipe Management** - Full CRUD, collections/folders, bulk operations, CSV import, spirit detection
+- **Periodic Table of Mixology** - 90+ elements organized by function (Group) and origin, with hidden elements that appear when you add matching inventory. Click any element to filter your bar.
+- **Recipe Management** - Full CRUD, collections/folders, bulk operations, CSV import, spirit detection, Favorites tab
 - **Recipe Molecule Visualization** - Chemical bond-style molecular diagrams for cocktail recipes
 - **Smart Shopping List** - Near-miss algorithm, ingredient recommendations, 6 recipe buckets
-- **AI Bartender** - Claude-powered assistant with hybrid search (PostgreSQL + MemMachine) and concept expansion (spirit-forward, tiki, boozy, etc.)
+- **AI Bartender** - Gemini-powered assistant with hybrid search (PostgreSQL + MemMachine), concept expansion (spirit-forward, tiki, boozy, etc.), and typewriter-style thinking animation
 - **Dashboard** - Lab overview with My Bar composition, Recipe Mastery stats, Collections sidebar
 
 ### Design & UX
@@ -85,7 +85,7 @@ FRONTEND_URL=http://localhost:3001
 ```
 
 Optional settings for full functionality:
-- `ANTHROPIC_API_KEY` - Enable AI Bartender features
+- `GEMINI_API_KEY` - Enable AI Bartender features (Gemini 3 Pro/Flash)
 - `SMTP_*` - Enable email verification and password reset
 - `MEMMACHINE_API_URL` - Enable semantic recipe search
 
@@ -112,8 +112,8 @@ This starts both servers:
 |-------|------------|
 | Frontend | Next.js 14, TypeScript, Zustand, CSS Modules |
 | Backend | Express.js, TypeScript, PostgreSQL (pg driver), JWT |
-| AI | Claude Sonnet 4.5, PostgreSQL + MemMachine v2 hybrid search |
-| Infrastructure | Docker, Neo4j 5.23, PostgreSQL 16 (pgvector) |
+| AI | Gemini 3 Pro (conversations) + Gemini 3 Flash (dashboard insights) |
+| Infrastructure | Docker, Neo4j 5.23, PostgreSQL 16 (pgvector), MemMachine v2 |
 | Email | Nodemailer (Gmail, SendGrid, Mailgun, Amazon SES) |
 
 ## Project Structure
@@ -196,8 +196,8 @@ JWT_SECRET=your-secret-key-minimum-32-chars
 DATABASE_URL=postgresql://memmachine:memmachinepassword@localhost:5432/alchemix
 FRONTEND_URL=http://localhost:3001
 
-# Optional - AI
-ANTHROPIC_API_KEY=sk-ant-...
+# Optional - AI (Gemini)
+GEMINI_API_KEY=your-gemini-api-key
 
 # Optional - Email (for verification/reset)
 SMTP_HOST=smtp.gmail.com
@@ -229,9 +229,9 @@ The project has comprehensive test coverage using Vitest:
 | Suite | Tests | Description |
 |-------|-------|-------------|
 | Frontend | 206 | API client, store, UI components, page tests |
-| Backend | 866 | Auth, inventory, recipes, collections, favorites, messages, shopping list, middleware, services |
+| Backend | 877 | Auth, inventory, recipes, collections, favorites, messages, shopping list, middleware, services |
 | Recipe Molecule | 124 | Ingredient parser, classifier, layout engine |
-| **Total** | **1,196** | |
+| **Total** | **1,207** | |
 
 ```bash
 # Run all tests
@@ -302,6 +302,7 @@ AlcheMix uses the "Molecular Mixology" design system - a clinical, scientific ae
 | Botanical | Pink `#EC4899` | Amaro, Vermouth, Bitters |
 | Acid | Yellow `#F59E0B` | Citrus |
 | Sugar | Indigo `#6366F1` | Syrups, Liqueurs |
+| Garnish | Mint `#10B981` | Fresh herbs, garnishes |
 
 ## Documentation
 
@@ -430,8 +431,8 @@ FRONTEND_URL=http://localhost:3001  # No trailing slash
 ### AI Features Not Working
 
 **AI Bartender returns errors**
-1. Check `ANTHROPIC_API_KEY` is set in `api/.env`
-2. Verify your API key is valid at https://console.anthropic.com
+1. Check `GEMINI_API_KEY` is set in `api/.env`
+2. Verify your API key is valid at https://aistudio.google.com/apikey
 
 **MemMachine/semantic search not working**
 MemMachine requires Docker:

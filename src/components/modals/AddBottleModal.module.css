@@ -399,7 +399,7 @@
 /* Periodic Table Classification */
 .fieldHint {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   color: var(--color-text-muted, #94A3B8);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -420,7 +420,7 @@
 
 .periodicLabel {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--color-text-muted, #64748B);
   text-transform: uppercase;

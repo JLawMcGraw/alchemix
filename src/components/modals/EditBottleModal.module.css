@@ -70,7 +70,7 @@
 
 .changeCount {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   color: var(--bond-agave, #0D9488);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -140,7 +140,7 @@
 
 .quantityHint {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-text-muted, #64748B);
 }
 

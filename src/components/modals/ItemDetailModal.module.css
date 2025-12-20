@@ -75,7 +75,7 @@
   align-items: center;
   padding: 2px 8px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -88,7 +88,7 @@
   align-items: center;
   padding: 2px 8px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -110,7 +110,7 @@
 
 .editingLabel {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -218,7 +218,7 @@
 
 .quantityHint {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-text-muted, #64748B);
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -308,7 +308,7 @@
 
 .detailLabel {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--color-text-muted, #64748B);
   text-transform: uppercase;
@@ -338,7 +338,7 @@
 
 .notesLabel {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--color-text-muted, #64748B);
   text-transform: uppercase;
@@ -420,7 +420,7 @@
 
 .labelHint {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   color: var(--bond-agave, #0D9488);
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -543,7 +543,7 @@
 
 .periodicLabel {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--color-text-muted, #64748B);
   text-transform: uppercase;

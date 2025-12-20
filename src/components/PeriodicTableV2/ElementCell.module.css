@@ -1,11 +1,11 @@
 /* Element Cell - Periodic Table Card Style */
 
 .cell {
-  min-height: 64px;
+  aspect-ratio: 1;
   background: var(--color-ui-bg-surface);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius);
-  padding: 8px;
+  padding: 10px;
   cursor: pointer;
   transition: all var(--transition-fast);
   display: flex;
@@ -83,9 +83,9 @@
   bottom: 6px;
   right: 6px;
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  padding: 2px 5px;
+  padding: 2px 6px;
   border-radius: 3px;
   background: color-mix(in srgb, var(--group-color) 15%, transparent);
   color: var(--group-color);
@@ -127,7 +127,7 @@
 /* Element Spec (ABV, Brix, etc.) */
 .spec {
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   color: var(--color-text-muted);
   margin-top: auto;
 }
@@ -170,7 +170,7 @@
 
 .dropdownTitle {
   font-family: var(--font-mono);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--color-text-body);
   text-transform: uppercase;
@@ -194,7 +194,7 @@
 .groupBadge,
 .periodBadge {
   font-family: var(--font-mono);
-  font-size: 0.5625rem;
+  font-size: 0.75rem;
   font-weight: 500;
   padding: 2px 6px;
   border-radius: 2px;
@@ -272,14 +272,14 @@
 }
 
 .itemType {
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   color: var(--color-text-muted);
   margin-left: var(--space-2);
 }
 
 .itemSpec {
   font-family: var(--font-mono);
-  font-size: 0.5625rem;
+  font-size: 0.75rem;
   color: var(--color-text-tertiary);
   margin-top: 2px;
   margin-left: 0;
@@ -288,7 +288,7 @@
 /* Responsive */
 @media (max-width: 1024px) {
   .cell {
-    min-height: 56px;
+    min-height: 60px;
     padding: 6px;
   }
 
@@ -297,15 +297,15 @@
   }
 
   .name {
-    font-size: 0.625rem;
+    font-size: 0.6875rem;
   }
 
   .spec {
-    font-size: 0.5625rem;
+    font-size: 0.6875rem;
   }
 
   .countBadge {
-    font-size: 0.5625rem;
+    font-size: 0.6875rem;
     padding: 1px 4px;
   }
 
@@ -319,7 +319,7 @@
 
 @media (max-width: 768px) {
   .cell {
-    min-height: 48px;
+    min-height: 52px;
     padding: 5px;
   }
 
@@ -328,7 +328,7 @@
   }
 
   .name {
-    font-size: 0.5625rem;
+    font-size: 0.625rem;
   }
 
   .spec {
@@ -343,7 +343,7 @@
   }
 
   .countBadge {
-    font-size: 0.5rem;
+    font-size: 0.625rem;
     padding: 1px 3px;
     bottom: 4px;
     right: 4px;

@@ -13,8 +13,8 @@ import {
 import styles from './PeriodicTable.module.css';
 
 export interface PeriodicTableProps {
-  /** User's inventory items for highlighting */
-  inventoryItems?: Array<{ name: string; type?: string }>;
+  /** User's inventory items for highlighting (must include stock_number to respect stock levels) */
+  inventoryItems?: Array<{ name: string; type?: string; stock_number?: number }>;
   /** Currently selected element */
   selectedElement?: PeriodicElement | null;
   /** Callback when element is clicked */
@@ -42,6 +42,7 @@ const LEGEND_ITEMS: Array<{ group: ElementGroup; label: string }> = [
   { group: 'botanical', label: 'Botanical' },
   { group: 'carbonation', label: 'Mixers' },
   { group: 'dairy', label: 'Dairy' },
+  { group: 'garnish', label: 'Garnish' },
 ];
 
 export function PeriodicTable({
@@ -65,13 +66,16 @@ export function PeriodicTable({
     return counts;
   }, [inventoryItems]);
 
-  // Calculate total elements with inventory
-  const totalWithInventory = useMemo(() => {
-    let count = 0;
-    elementCounts.forEach((value) => {
-      if (value > 0) count++;
-    });
-    return count;
+  // Filter sections to only show sections with visible elements
+  const visibleSections = useMemo(() => {
+    return PERIODIC_SECTIONS.map((section) => {
+      // Filter elements: show if NOT hidden, OR if user has matching inventory
+      const visibleElements = section.elements.filter((element) => {
+        const count = elementCounts.get(element.symbol) || 0;
+        return !element.hidden || count > 0;
+      });
+      return { ...section, elements: visibleElements };
+    }).filter((section) => section.elements.length > 0);
   }, [elementCounts]);
 
   const containerClasses = [
@@ -89,9 +93,6 @@ export function PeriodicTable({
         <div className={styles.titleSection}>
           <FlaskConical size={16} />
           <h2 className={styles.title}>Periodic Table of Mixology</h2>
-          <span className={styles.elementCount}>
-            {totalWithInventory} categories in bar
-          </span>
         </div>
       </div>
 
@@ -113,7 +114,7 @@ export function PeriodicTable({
       )}
 
       {/* Element sections */}
-      {PERIODIC_SECTIONS.map((section) => (
+      {visibleSections.map((section) => (
         <div key={section.title} className={styles.section}>
           <div className={styles.sectionHeader}>
             <h3 className={styles.sectionTitle}>{section.title}</h3>

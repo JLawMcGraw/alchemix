@@ -3,13 +3,12 @@
 .elementCard {
   position: relative;
   aspect-ratio: 1;
-  min-width: 72px;
-  max-width: 88px;
+  width: 88px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: var(--space-1);
+  padding: var(--space-2);
   background: var(--color-ui-bg-surface);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-card);
@@ -74,7 +73,7 @@
   top: 6px;
   left: 6px;
   font-family: var(--font-mono);
-  font-size: 0.5625rem;
+  font-size: 0.75rem;
   font-weight: 400;
   color: var(--color-text-muted);
   line-height: 1;
@@ -94,9 +93,9 @@
 /* Element name */
 .name {
   font-family: var(--font-sans);
-  font-size: 0.5rem;
+  font-size: 0.75rem;
   font-weight: 500;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   color: var(--color-text-muted);
   text-align: center;
@@ -112,14 +111,14 @@
   position: absolute;
   top: 4px;
   right: 4px;
-  min-width: 16px;
-  height: 16px;
+  min-width: 18px;
+  height: 18px;
   padding: 0 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--font-mono);
-  font-size: 0.5625rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: white;
   background: var(--element-color, var(--color-primary));
@@ -129,21 +128,21 @@
 
 /* Size variants */
 .elementCard.sm {
-  min-width: 56px;
-  max-width: 64px;
-  padding: 2px;
+  min-width: 64px;
+  max-width: 76px;
+  padding: 4px;
 }
 
 .elementCard.sm .symbol {
-  font-size: 1rem;
+  font-size: 1.125rem;
 }
 
 .elementCard.sm .name {
-  font-size: 0.4375rem;
+  font-size: 0.75rem;
 }
 
 .elementCard.sm .atomicNumber {
-  font-size: 0.5rem;
+  font-size: 0.75rem;
   top: 4px;
   left: 4px;
 }
@@ -159,14 +158,14 @@
 }
 
 .elementCard.lg .name {
-  font-size: 0.5625rem;
+  font-size: 0.75rem;
 }
 
 /* Responsive */
 @media (max-width: 640px) {
   .elementCard {
-    min-width: 56px;
-    max-width: 72px;
+    min-width: 64px;
+    max-width: 80px;
   }
 
   .symbol {
@@ -174,11 +173,11 @@
   }
 
   .name {
-    font-size: 0.4375rem;
+    font-size: 0.625rem;
   }
 
   .atomicNumber {
-    font-size: 0.5rem;
+    font-size: 0.625rem;
   }
 }
 

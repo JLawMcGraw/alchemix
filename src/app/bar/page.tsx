@@ -14,6 +14,7 @@ import { CSVUploadModal, AddBottleModal, ItemDetailModal } from '@/components/mo
 // V2: 6x6 grid by function × origin (new design)
 import { PeriodicTable as PeriodicTableV2 } from '@/components/PeriodicTableV2';
 import { PeriodicTable as PeriodicTableV1 } from '@/components/PeriodicTable';
+import { type PeriodicElement } from '@/lib/periodicTable';
 import { inventoryApi } from '@/lib/api';
 import type { InventoryCategory, InventoryItem, InventoryItemInput } from '@/types';
 import { categorizeSpirit, matchesSpiritCategory, SpiritCategory } from '@/lib/spirits';
@@ -57,6 +58,9 @@ function BarPageContent() {
 
   // View mode: 'periodic' (periodic table) or 'list' (traditional list)
   const [viewMode, setViewMode] = useState<'periodic' | 'list'>('periodic');
+
+  // Periodic table element filter
+  const [selectedElement, setSelectedElement] = useState<PeriodicElement | null>(null);
 
   // Selection state for bulk operations
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -125,6 +129,23 @@ function BarPageContent() {
   const filteredItems = useMemo(() => {
     let items = itemsArray;
 
+    // Filter by periodic table element if selected
+    if (selectedElement) {
+      items = items.filter(item => {
+        // Only show items that are in stock
+        if (item.stock_number !== undefined && item.stock_number <= 0) {
+          return false;
+        }
+        const itemText = `${item.name} ${item.type || ''}`.toLowerCase();
+        // Check element name
+        if (itemText.includes(selectedElement.name.toLowerCase())) {
+          return true;
+        }
+        // Check keywords
+        return selectedElement.keywords?.some((keyword) => itemText.includes(keyword)) ?? false;
+      });
+    }
+
     // Filter by spirit type if set
     if (spiritTypeFilter) {
       items = items.filter(item =>
@@ -133,7 +154,7 @@ function BarPageContent() {
     }
 
     return items;
-  }, [itemsArray, spiritTypeFilter]);
+  }, [itemsArray, spiritTypeFilter, selectedElement]);
 
 
   // Early return after all hooks have been called
@@ -258,12 +279,24 @@ function BarPageContent() {
             <div className={styles.subtitleContainer}>
               <p className={styles.subtitle}>
                 {filteredItems.length} {filteredItems.length === 1 ? 'item' : 'items'}
-                {spiritTypeFilter
-                  ? ` - ${spiritTypeFilter}`
-                  : activeCategory !== 'all' && ` in ${CATEGORIES.find(c => c.id === activeCategory)?.label}`
+                {selectedElement
+                  ? ` - ${selectedElement.name}`
+                  : spiritTypeFilter
+                    ? ` - ${spiritTypeFilter}`
+                    : activeCategory !== 'all' && ` in ${CATEGORIES.find(c => c.id === activeCategory)?.label}`
                 }
               </p>
-              {spiritTypeFilter && (
+              {selectedElement && (
+                <button
+                  className={styles.clearFilterBtn}
+                  onClick={() => setSelectedElement(null)}
+                  title="Clear element filter"
+                >
+                  <X size={14} />
+                  Clear
+                </button>
+              )}
+              {spiritTypeFilter && !selectedElement && (
                 <button
                   className={styles.clearFilterBtn}
                   onClick={() => {
@@ -337,6 +370,9 @@ function BarPageContent() {
         {viewMode === 'periodic' && (
           <PeriodicTable
             inventoryItems={itemsArray}
+            selectedElement={selectedElement}
+            onElementClick={(element) => setSelectedElement(element)}
+            onClearSelection={() => setSelectedElement(null)}
           />
         )}
 
@@ -521,6 +557,7 @@ function BarPageContent() {
           isOpen={detailModalOpen}
           onClose={() => setDetailModalOpen(false)}
           item={selectedItem}
+          onItemUpdated={(updatedItem) => setSelectedItem(updatedItem)}
         />
       </div>
     </div>

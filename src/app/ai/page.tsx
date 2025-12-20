@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { RecipeDetailModal } from '@/components/modals';
@@ -9,6 +9,26 @@ import { RotateCcw } from 'lucide-react';
 import { AlcheMixLogo } from '@/components/ui';
 import type { ChatMessage, Recipe } from '@/types';
 import styles from './ai.module.css';
+
+// Lab-themed thinking phrases for the AI typing animation
+const THINKING_PHRASES = [
+  "Analyzing your bar inventory",
+  "Consulting the recipe archives",
+  "Running flavor experiments",
+  "Mixing up some ideas",
+  "Calculating molecular ratios",
+  "Searching the cocktail database",
+  "Distilling your options",
+  "Fermenting a response",
+  "Shaking up suggestions",
+  "Measuring ingredient synergies",
+  "Reviewing tasting notes",
+  "Cross-referencing flavor profiles",
+  "Checking spirit compatibility",
+  "Balancing the formula",
+  "Preparing lab results",
+  "Consulting the lab notes",
+];
 
 export default function AIPage() {
   const { isValidating, isAuthenticated } = useAuthGuard();
@@ -32,6 +52,11 @@ export default function AIPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Typing animation state
+  const [typingText, setTypingText] = useState('');
+  const currentPhraseRef = useRef<number>(-1);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Ensure arrays (must be before any conditional returns for hooks)
   const chatArray = Array.isArray(chatHistory) ? chatHistory : [];
@@ -51,6 +76,56 @@ export default function AIPage() {
       fetchShoppingList();
     }
   }, [isAuthenticated, isValidating, fetchRecipes, fetchFavorites, fetchItems, fetchShoppingList]);
+
+  // Get a random phrase different from the current one
+  const getRandomPhrase = useCallback(() => {
+    let newIndex: number;
+    do {
+      newIndex = Math.floor(Math.random() * THINKING_PHRASES.length);
+    } while (newIndex === currentPhraseRef.current && THINKING_PHRASES.length > 1);
+    currentPhraseRef.current = newIndex;
+    return THINKING_PHRASES[newIndex];
+  }, []);
+
+  // Start typing a new phrase with dots, then move to next phrase
+  const startTypingPhrase = useCallback(() => {
+    const phrase = getRandomPhrase();
+    const fullSequence = phrase + '...'; // phrase + 3 dots
+    let charIndex = 0;
+    setTypingText('');
+
+    const typeNextChar = () => {
+      if (charIndex < fullSequence.length) {
+        setTypingText(fullSequence.substring(0, charIndex + 1));
+        charIndex++;
+        typingTimeoutRef.current = setTimeout(typeNextChar, 50);
+      } else {
+        // Finished typing phrase + 3 dots, pause briefly for readability then start next
+        typingTimeoutRef.current = setTimeout(() => {
+          startTypingPhrase();
+        }, 800);
+      }
+    };
+
+    typeNextChar();
+  }, [getRandomPhrase]);
+
+  // Typing animation effect
+  useEffect(() => {
+    if (loading) {
+      // Start the first phrase
+      startTypingPhrase();
+
+      return () => {
+        // Cleanup timer
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      };
+    } else {
+      // Reset when not loading
+      setTypingText('');
+      currentPhraseRef.current = -1;
+    }
+  }, [loading, startTypingPhrase]);
 
   if (isValidating || !isAuthenticated) {
     return null;
@@ -567,10 +642,8 @@ export default function AIPage() {
 
                   {loading && (
                     <div className={styles.messageAi}>
-                      <div className={styles.typing}>
-                        <span></span>
-                        <span></span>
-                        <span></span>
+                      <div className={styles.typingText}>
+                        {typingText}
                       </div>
                     </div>
                   )}

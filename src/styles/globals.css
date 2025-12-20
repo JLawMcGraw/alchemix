@@ -418,7 +418,7 @@ a:hover {
 /* Section Labels - Scientific category headers */
 .label-section {
   font-family: var(--font-sans);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -426,7 +426,7 @@ a:hover {
 }
 
 .label-uppercase {
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -436,13 +436,13 @@ a:hover {
 /* Element Labels - Periodic table style */
 .label-element-number {
   font-family: var(--font-mono);
-  font-size: 0.5625rem;
+  font-size: 0.75rem;
   color: var(--color-text-muted);
 }
 
 .label-element-name {
   font-family: var(--font-sans);
-  font-size: 0.5rem;
+  font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -485,7 +485,7 @@ a:hover {
 }
 
 .data-formula sub {
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   vertical-align: baseline;
   position: relative;
   top: 0.2em;
@@ -624,7 +624,7 @@ a:hover {
 
 .card-terminal-title {
   font-family: var(--font-mono);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -694,7 +694,7 @@ a:hover {
   justify-content: center;
   padding: 2px 8px;
   font-family: var(--font-mono);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -815,7 +815,7 @@ a:hover {
   gap: 6px;
   padding: 4px 10px;
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -879,7 +879,7 @@ a:hover {
   justify-content: center;
   padding: 2px 10px;
   font-family: var(--font-mono);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -916,7 +916,7 @@ a:hover {
   justify-content: center;
   padding: 6px 12px;
   font-family: var(--font-mono);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.1em;
   text-transform: uppercase;

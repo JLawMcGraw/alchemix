@@ -29,7 +29,73 @@ Last updated: 2025-12-19
 
 ---
 
-## Recent Session (2025-12-19): Favorites Tab Migration & Periodic Table Version Toggle
+## Recent Session (2025-12-19): Periodic Table V1 Overhaul, Element Filtering, AI Typing Animation & UX Polish
+
+### Summary
+Major overhaul of Periodic Table V1 with 90+ elements (including hidden elements that appear when user has matching inventory), click-to-filter functionality, garnish group addition. Also moved Favorites to TopNav removal, added AI Bartender typing animation, and standardized 12px minimum font sizes across desktop CSS.
+
+### Work Completed
+
+#### 1. Periodic Table V1 Major Expansion
+- **Expanded from ~50 to 90+ elements** with comprehensive coverage:
+  - Base Spirits: Added Japanese Whisky, Armagnac, Calvados, Aquavit, Grappa, Soju, Baijiu, Genever (hidden)
+  - Liqueurs: Added Chartreuse, Bénédictine, Drambuie, Frangelico, Galliano, Chambord, Midori, Irish Cream, Falernum, Allspice Dram, Crème de Pêche, Crème de Mûre, Limoncello, Sloe Gin, Cherry Heering (hidden)
+  - Citrus: Added Cranberry, Pomegranate, Yuzu, Blood Orange, Tamarind, Tomato (hidden)
+  - Sweeteners: Added Ginger Syrup, Vanilla Syrup, Lavender Syrup, Rose Syrup, Hibiscus Syrup, Raspberry Syrup, Cane Syrup (hidden)
+  - Bitters/Botanicals: Added Chocolate/Celery/Mole Bitters, Cynar, Montenegro, Averna, Suze, Lillet, Cocchi Americano, Punt e Mes, Nonino (hidden)
+  - Mixers: Added Coconut Cream/Milk, Apple Juice, Carrot Juice, Beet Juice (hidden)
+  - Dairy: Added Aquafaba, Coconut Cream (hidden)
+  - **NEW Garnish Group**: Added Mint, Basil, Rosemary, Thyme, Sage, Dill, Cucumber, Jalapeño, Ginger, Cherry, Olive, Onion, Celery, Nutmeg (hidden)
+- **Added `hidden` property** to elements - hidden elements only render when user has matching inventory in stock
+- **Added `garnish` ElementGroup** with new color variable `--bond-garnish`
+- **Renumbered all atomicNumbers** to sequential order (1-100+)
+
+#### 2. Periodic Table Click-to-Filter Functionality
+- **New `onElementClick` callback** in PeriodicTable component
+- Clicking an element filters the bottle grid to show only matching items
+- Filter shows element name in subtitle with clear button
+- Only shows in-stock items when filtering by element
+- **Files**: `src/app/bar/page.tsx`, `src/components/PeriodicTable.tsx`
+
+#### 3. TopNav Favorites Removal
+- Removed Favorites from top navigation (moved to Recipes tab in previous session)
+- Removed `favorites` from store subscription
+- Removed badge from Recipes nav item
+- Updated tests for new navigation structure
+- **Files**: `src/components/layout/TopNav.tsx`, `src/components/layout/TopNav.test.tsx`
+
+#### 4. AI Bartender Typing Animation
+- Added 16 lab-themed phrases (e.g., "Analyzing your bar inventory", "Running flavor experiments", "Calculating molecular ratios")
+- Typewriter effect types each character at 50ms
+- After phrase completes, types 3 dots at same speed
+- Brief 800ms pause for readability, then starts next random phrase
+- Phrases never repeat consecutively
+- **Files**: `src/app/ai/page.tsx`, `src/app/ai/ai.module.css`
+
+#### 5. Font Size Standardization (12px Minimum)
+- Updated 25+ CSS module files to enforce 12px minimum font size on desktop
+- Kept smaller fonts acceptable in mobile media queries
+- **Files**: `globals.css`, all `*.module.css` files for components, modals, and pages
+
+### Files Changed (38 files)
+- `src/lib/periodicTable.ts` - Major expansion (+200 lines), hidden elements, garnish group
+- `src/components/PeriodicTable.tsx` - Added `onElementClick` prop
+- `src/components/PeriodicTable.module.css` - Garnish group color
+- `src/app/bar/page.tsx` - Element filter state and UI
+- `src/components/layout/TopNav.tsx` - Removed favorites
+- `src/components/layout/TopNav.test.tsx` - Updated tests
+- `src/app/ai/page.tsx` - Typing animation
+- `src/app/ai/ai.module.css` - Typing text styles
+- `src/styles/globals.css` - Added `--bond-garnish` variable, font size updates
+- 25+ CSS module files - Font size standardization
+
+### Next Priorities
+- PostgreSQL deployment (Phase 6)
+- Test hidden elements appearing when inventory matches
+
+---
+
+## Previous Session (2025-12-19): Favorites Tab Migration & Periodic Table Version Toggle
 
 ### Summary
 Moved Favorites from top navigation to a tab under the Recipes page (Collections, All Recipes, Favorites). Added version toggle for Periodic Table components allowing easy A/B testing between V1 (traditional element grid) and V2 (6x6 function × origin grid).

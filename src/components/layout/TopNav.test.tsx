@@ -71,7 +71,7 @@ describe('TopNav', () => {
       expect(screen.getByText('AI Bartender')).toBeInTheDocument();
       expect(screen.getByText('Recipes')).toBeInTheDocument();
       expect(screen.getByText('Shopping List')).toBeInTheDocument();
-      expect(screen.getByText('Favorites')).toBeInTheDocument();
+      // Note: Favorites was moved to Recipes page as a tab (Dec 19, 2025)
     });
 
     it('should render user avatar with initials', () => {

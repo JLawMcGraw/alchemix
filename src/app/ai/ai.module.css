@@ -42,7 +42,7 @@
 
 .contextLabel {
   font-family: var(--font-mono);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -90,7 +90,7 @@
   align-items: center;
   gap: var(--space-2);
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   color: var(--color-text-muted);
 }
 
@@ -112,7 +112,7 @@
 
 .promptsLabel {
   font-family: var(--font-mono);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -166,7 +166,7 @@
 
 .historyLabel {
   font-family: var(--font-mono);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -175,7 +175,7 @@
 
 .clearBtn {
   font-family: var(--font-mono);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -228,7 +228,7 @@
 
 .historyDate {
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   color: var(--color-text-muted);
   margin-top: 2px;
 }
@@ -277,7 +277,7 @@
   align-items: center;
   gap: var(--space-1);
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -342,7 +342,7 @@
 
 .messageTime {
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   color: var(--color-text-muted);
   margin-top: var(--space-2);
 }
@@ -361,36 +361,12 @@
   color: #0A7A7A;
 }
 
-/* Typing Indicator */
-.typing {
-  display: flex;
-  gap: 4px;
-  padding: var(--space-1) 0;
-}
-
-.typing span {
-  width: 6px;
-  height: 6px;
-  background-color: var(--bond-agave);
-  border-radius: 50%;
-  animation: bounce 1.4s infinite ease-in-out both;
-}
-
-.typing span:nth-child(1) {
-  animation-delay: -0.32s;
-}
-
-.typing span:nth-child(2) {
-  animation-delay: -0.16s;
-}
-
-@keyframes bounce {
-  0%, 80%, 100% {
-    transform: scale(0);
-  }
-  40% {
-    transform: scale(1);
-  }
+/* Typing Indicator - Typewriter Animation */
+.typingText {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  color: var(--bond-agave);
+  letter-spacing: 0.02em;
 }
 
 /* Empty State */
@@ -482,7 +458,7 @@
 .sendBtn {
   padding: var(--space-3) var(--space-4);
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.05em;
   text-transform: uppercase;
