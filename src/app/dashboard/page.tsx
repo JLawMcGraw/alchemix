@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+
 import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { InsightSkeleton } from '@/components/ui/Skeleton';
@@ -146,18 +147,13 @@ const CATEGORIES = [
   { key: 'other', label: 'Other', color: '#94A3B8' },
 ];
 
-// Mastery tiers configuration
-const MASTERY_TIERS = [
-  { key: 'craftable', label: 'Craftable', color: '#10B981' },
-  { key: 'nearMiss', label: 'Near Miss', color: '#0EA5E9' },
-  { key: 'need2to3', label: '2-3 Away', color: '#F59E0B' },
-  { key: 'majorGaps', label: 'Major Gaps', color: '#94A3B8' },
-];
+
 
 export default function DashboardPage() {
   const router = useRouter();
   const { isValidating, isAuthenticated } = useAuthGuard();
   const {
+    user,
     recipes,
     collections,
     dashboardInsight,
@@ -210,6 +206,15 @@ export default function DashboardPage() {
       throw error;
     }
   }, [csvModalType, showToast, fetchRecipes]);
+
+  // Redirect to onboarding for first-time users
+  useEffect(() => {
+    if (!isAuthenticated || isValidating || !user) return;
+
+    if (!user.has_seeded_classics) {
+      router.push('/onboarding');
+    }
+  }, [isAuthenticated, isValidating, user, router]);
 
   // Fetch data when authenticated
   useEffect(() => {
@@ -286,7 +291,7 @@ export default function DashboardPage() {
               </p>
             ) : (
               <p className={styles.emptyState}>
-                Add items and recipes to get personalized insights!
+                Welcome to your lab! Add some bottles to your bar and I&apos;ll help you discover what you can make.
               </p>
             )}
             <div className={styles.labNotesAction}>
@@ -339,40 +344,36 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Category Grid */}
-            {!categoryCounts || Object.keys(categoryCounts).length === 0 ? (
-              <p className={styles.emptyState}>No items yet. Add bottles to your bar!</p>
-            ) : (
-              <div className={styles.categoryGrid}>
-                {CATEGORIES.map((cat) => {
-                  const count = categoryCounts[cat.key] || 0;
-                  return (
+            {/* Category Grid - Always show categories with counts (including zeros) */}
+            <div className={styles.categoryGrid}>
+              {CATEGORIES.map((cat) => {
+                const count = categoryCounts?.[cat.key] || 0;
+                return (
+                  <div
+                    key={cat.key}
+                    className={styles.categoryCell}
+                    onClick={() => router.push(`/bar?category=${cat.key}`)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        router.push(`/bar?category=${cat.key}`);
+                      }
+                    }}
+                  >
                     <div
-                      key={cat.key}
-                      className={styles.categoryCell}
-                      onClick={() => router.push(`/bar?category=${cat.key}`)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          router.push(`/bar?category=${cat.key}`);
-                        }
-                      }}
-                    >
-                      <div
-                        className={styles.categoryDot}
-                        style={{ backgroundColor: cat.color }}
-                      />
-                      <div className={styles.categoryCount}>
-                        {String(count).padStart(2, '0')}
-                      </div>
-                      <div className={styles.categoryLabel}>{cat.label}</div>
+                      className={styles.categoryDot}
+                      style={{ backgroundColor: cat.color }}
+                    />
+                    <div className={styles.categoryCount}>
+                      {String(count).padStart(2, '0')}
                     </div>
-                  );
-                })}
-              </div>
-            )}
+                    <div className={styles.categoryLabel}>{cat.label}</div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* --- RIGHT SIDEBAR --- */}

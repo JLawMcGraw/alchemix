@@ -13,6 +13,7 @@ import {
   parseIngredients,
   getAvailableSpiritTypes,
   COLLECTION_PAGE_SIZE,
+  UNCATEGORIZED_PAGE_SIZE,
 } from './recipeUtils';
 
 export interface RecipesPagination {
@@ -55,7 +56,7 @@ export function useRecipesPage() {
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
 
   // State
-  const [activeTab, setActiveTab] = useState<'collections' | 'all' | 'favorites'>('collections');
+  const [activeTab, setActiveTab] = useState<'collections' | 'all' | 'favorites'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const prevDebouncedSearchRef = useRef<string>('');
@@ -75,6 +76,7 @@ export function useRecipesPage() {
   const [bulkMoveCollectionId, setBulkMoveCollectionId] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [collectionPage, setCollectionPage] = useState(1);
+  const [uncategorizedPage, setUncategorizedPage] = useState(1);
   const [pagination, setPagination] = useState<RecipesPagination>({
     page: 1,
     limit: 50,
@@ -301,8 +303,48 @@ export function useRecipesPage() {
     if (activeCollection) setCollectionPage(1);
   }, [searchQuery, filterSpirit, activeCollection]);
 
+  // Uncategorized recipes with filtering
+  const uncategorizedRecipes = useMemo(() => {
+    return recipesArray.filter((recipe) => {
+      // Must be uncategorized
+      if (recipe.collection_id) return false;
+
+      const ingredientsArray = parseIngredients(recipe.ingredients);
+      const ingredientsText = ingredientsArray.join(' ').toLowerCase();
+
+      const matchesSearch = searchQuery
+        ? recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          ingredientsText.includes(searchQuery.toLowerCase())
+        : true;
+
+      const recipeSpirits = getIngredientSpirits(ingredientsArray);
+      const matchesSpirit =
+        filterSpirit === 'all' ||
+        recipeSpirits.includes(filterSpirit);
+
+      return matchesSearch && matchesSpirit;
+    });
+  }, [recipesArray, searchQuery, filterSpirit]);
+
+  // Pagination for uncategorized recipes
+  const uncategorizedTotalPages = Math.max(1, Math.ceil(uncategorizedRecipes.length / UNCATEGORIZED_PAGE_SIZE));
+  const paginatedUncategorizedRecipes = uncategorizedRecipes.slice(
+    (uncategorizedPage - 1) * UNCATEGORIZED_PAGE_SIZE,
+    uncategorizedPage * UNCATEGORIZED_PAGE_SIZE
+  );
+
+  useEffect(() => {
+    if (uncategorizedPage > uncategorizedTotalPages) {
+      setUncategorizedPage(uncategorizedTotalPages);
+    }
+  }, [uncategorizedRecipes.length, uncategorizedPage, uncategorizedTotalPages]);
+
+  useEffect(() => {
+    setUncategorizedPage(1);
+  }, [searchQuery, filterSpirit]);
+
   // Counts
-  const uncategorizedCount = recipesArray.filter((r) => !r.collection_id).length;
+  const uncategorizedCount = uncategorizedRecipes.length;
   const totalRecipeCount = pagination.total || recipesArray.length;
   const craftableCount = shoppingListStats?.craftable || 0;
   const favoritesCount = favoritesArray.length;
@@ -561,8 +603,11 @@ export function useRecipesPage() {
     // Pagination
     currentPage,
     collectionPage,
+    uncategorizedPage,
     pagination,
     collectionTotalPages,
+    uncategorizedTotalPages,
+    paginatedUncategorizedRecipes,
 
     // Counts
     uncategorizedCount,
@@ -585,6 +630,7 @@ export function useRecipesPage() {
     setShowBulkMoveModal,
     setBulkMoveCollectionId,
     setCollectionPage,
+    setUncategorizedPage,
 
     // Handlers
     loadRecipes,

@@ -1,16 +1,18 @@
 'use client';
 
 import React, { useEffect, useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
-import { Spinner } from '@/components/ui';
-import { ChevronDown, ChevronLeft, ChevronRight, X, Check, RefreshCw, Plus, Award } from 'lucide-react';
+import { Spinner, Button } from '@/components/ui';
+import { ChevronDown, ChevronLeft, ChevronRight, X, Check, RefreshCw, Plus, Award, ShoppingCart } from 'lucide-react';
 import { RecipeDetailModal } from '@/components/modals/RecipeDetailModal';
 import { ItemDetailModal } from '@/components/modals/ItemDetailModal';
 import type { Recipe, InventoryItem } from '@/types';
 import styles from './shopping-list.module.css';
 
 export default function ShoppingListPage() {
+  const router = useRouter();
   const { isValidating, isAuthenticated } = useAuthGuard();
   const {
     shoppingListSuggestions,
@@ -407,8 +409,22 @@ export default function ShoppingListPage() {
                 </div>
               )}
 
-              {/* Empty State */}
-              {recommendations.length === 0 && shoppingListStats && shoppingListStats.totalRecipes > 0 && (
+              {/* Empty State - No inventory */}
+              {recommendations.length === 0 && shoppingListStats && shoppingListStats.inventoryItems === 0 && (
+                <div className={styles.quickStartCard}>
+                  <ShoppingCart size={32} className={styles.quickStartIcon} />
+                  <h3 className={styles.quickStartTitle}>Smart Shopping</h3>
+                  <p className={styles.quickStartText}>
+                    See which ingredients unlock the most recipes to craft. Add bottles to your bar to get personalized recommendations.
+                  </p>
+                  <Button variant="primary" onClick={() => router.push('/bar')}>
+                    Go to My Bar
+                  </Button>
+                </div>
+              )}
+
+              {/* Empty State - Has inventory but no recommendations */}
+              {recommendations.length === 0 && shoppingListStats && shoppingListStats.inventoryItems > 0 && shoppingListStats.totalRecipes > 0 && (
                 <div className={styles.emptyState}>
                   <p className={styles.emptyTitle}>No Recommendations Available</p>
                   <p className={styles.emptyText}>
@@ -418,7 +434,8 @@ export default function ShoppingListPage() {
                 </div>
               )}
 
-              {recommendations.length === 0 && shoppingListStats && shoppingListStats.totalRecipes === 0 && (
+              {/* Empty State - No recipes */}
+              {recommendations.length === 0 && shoppingListStats && shoppingListStats.inventoryItems > 0 && shoppingListStats.totalRecipes === 0 && (
                 <div className={styles.emptyState}>
                   <p className={styles.emptyTitle}>No Recipes Found</p>
                   <p className={styles.emptyText}>

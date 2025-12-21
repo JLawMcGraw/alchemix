@@ -520,6 +520,82 @@
   }
 }
 
+/* Onboarding Tip */
+.onboardingTip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.1) 0%, rgba(13, 148, 136, 0.05) 100%);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius);
+  margin-bottom: var(--space-2);
+  animation: tipPulse 2s ease-in-out infinite;
+}
+
+@keyframes tipPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(13, 148, 136, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.1);
+  }
+}
+
+.onboardingTipIcon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background-color: var(--color-primary);
+  border-radius: var(--radius);
+  color: white;
+}
+
+.onboardingTipContent {
+  flex: 1;
+}
+
+.onboardingTipTitle {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+  margin: 0 0 2px 0;
+}
+
+.onboardingTipText {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  color: var(--color-text-body);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.onboardingTipDismiss {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.onboardingTipDismiss:hover {
+  background-color: var(--hover-overlay);
+  color: var(--color-text-body);
+}
+
 /* ==========================================================================
    Dark Mode
    ========================================================================== */

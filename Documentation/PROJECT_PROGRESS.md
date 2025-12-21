@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2025-12-20
+Last updated: 2025-12-20 (Session 2)
 
 ---
 
@@ -24,12 +24,86 @@ Last updated: 2025-12-20
 - Page-specific redesigns: **Complete** (Shopping List, Favorites, AI Bartender)
 - Landing Page: **Complete**
 - Login Page Redesign: **Complete** (Hero + Modal pattern)
+- FTUX Onboarding Flow: **Complete** (3-step flow at /onboarding)
 
 **PostgreSQL Migration**: **Complete** (Phase 1-5 done, Phase 6 Deploy pending)
 
 ---
 
-## Recent Session (2025-12-20): Login Page Redesign - Hero Layout with Modal
+## Recent Session (2025-12-20): Complete FTUX Onboarding Flow & Backend Integration
+
+### Summary
+Implemented complete first-time user experience (FTUX) with a 3-step onboarding flow at `/onboarding`. Added backend support for tracking onboarding state via `has_seeded_classics` column, classic recipe seeding endpoint, and database-driven onboarding detection. Also refined recipes page (pagination, tab reorder, spacing), unified logo styling, and removed old welcome modal.
+
+### Work Completed
+
+#### 1. New Onboarding Flow (`/onboarding`)
+- **Step 1**: Welcome screen with feature overview
+- **Step 2**: Quick-add bottles using periodic table elements (16 items: base spirits, liqueurs, citrus, sweeteners)
+- **Step 3**: Preview makeable cocktails with recipe detail modal, then redirect to dashboard
+- **Features**: Replay via `?replay=true`, skip option, progress bar, animated transitions
+- **Design**: Swiss/laboratory aesthetic matching app theme
+
+#### 2. Backend: Onboarding State & Classic Recipes
+- **Database**: Added `has_seeded_classics` column to users table
+- **Migration**: Added DO block for existing databases
+- **Endpoint**: `POST /api/recipes/seed-classics` - Seeds 20 classic cocktails (idempotent)
+- **Service**: `RecipeService.seedClassics()` - Loads from JSON, inserts in transaction
+- **Data**: New `api/src/data/classicRecipes.json` with 20 classic recipes
+- **Types**: Updated `UserRow` and `User` types with `has_seeded_classics`
+
+#### 3. Auth Flow Updates
+- **Login page**: Added confirm password field for signup
+- **Redirect logic**: New users → `/onboarding`, returning users → `/dashboard`
+- **Dashboard**: Checks `user.has_seeded_classics`, redirects to onboarding if false
+
+#### 4. Recipes Page Improvements
+- **Pagination**: Added pagination for uncategorized recipes (was showing only 8)
+- **Tab reorder**: All Recipes → Collections → Favorites (was Collections first)
+- **Default tab**: Changed from 'collections' to 'all'
+- **Spacing**: Added margin between search bar and recipe grid
+
+#### 5. Logo Styling Unification
+- **Typography**: Both ALCHE and MIX use JetBrains Mono
+- **Weights**: ALCHE = 400 (regular), MIX = 700 (bold)
+- **Spacing**: Same letter-spacing (0.05em) for both
+- **Color**: Same color (--fg-primary) for both
+- **SVGs**: Updated `public/logo.svg` and `public/logo-text.svg`
+
+#### 6. UI Cleanup
+- **Removed**: WelcomeModal component (replaced by /onboarding)
+- **Removed**: Onboarding tip from My Bar page
+- **Changed**: Onboarding buttons use dark color (--fg-primary) not green
+
+### Files Created
+- `src/app/onboarding/page.tsx` - 3-step onboarding flow
+- `src/app/onboarding/page.module.css` - Onboarding styles
+- `api/src/data/classicRecipes.json` - 20 classic cocktail recipes
+- `api/scripts/migrate-add-seeded-classics.ts` - Migration script
+
+### Files Modified
+- `api/src/database/schema.sql` - Added has_seeded_classics column + migration
+- `api/src/routes/recipes.ts` - Added seed-classics endpoint
+- `api/src/services/RecipeService.ts` - Added seedClassics method
+- `api/src/routes/auth/*.ts` - Return has_seeded_classics in auth responses
+- `packages/types/src/database.ts` - Added has_seeded_classics to UserRow
+- `packages/types/src/domain.ts` - Added has_seeded_classics to User
+- `src/lib/api.ts` - Added recipeApi.seedClassics()
+- `src/app/dashboard/page.tsx` - Onboarding redirect, removed WelcomeModal
+- `src/app/login/page.tsx` - Confirm password, redirect to onboarding
+- `src/app/bar/page.tsx` - Removed onboarding tip
+- `src/app/recipes/page.tsx` - Pagination for uncategorized
+- `src/app/recipes/useRecipesPage.ts` - Pagination state, default tab
+- `src/app/recipes/RecipeFilters.tsx` - Tab reorder
+- `src/app/recipes/recipeUtils.ts` - Added UNCATEGORIZED_PAGE_SIZE
+- `src/app/recipes/recipes.module.css` - Grid margin
+- `src/components/ui/AlcheMixLogo.module.css` - Unified wordmark styling
+- `public/logo.svg`, `public/logo-text.svg` - Updated wordmark
+- `alchemix-design-system.md` - Updated wordmark typography docs
+
+---
+
+## Previous Session (2025-12-20): Login Page Redesign - Hero Layout with Modal
 
 ### Summary
 Complete redesign of the login page following the landing page example pattern. Implemented full-page hero section with periodic table preview using V1 ElementCard components, login/signup via modal overlay triggered by nav and hero buttons.

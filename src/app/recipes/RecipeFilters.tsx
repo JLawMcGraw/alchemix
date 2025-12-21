@@ -75,16 +75,16 @@ export function TabBar({
   return (
     <div className={styles.tabBar}>
       <button
-        className={`${styles.tab} ${activeTab === 'collections' && !masteryFilter ? styles.active : ''}`}
-        onClick={() => onTabChange('collections')}
-      >
-        Collections
-      </button>
-      <button
         className={`${styles.tab} ${activeTab === 'all' || masteryFilter ? styles.active : ''}`}
         onClick={() => onTabChange('all')}
       >
         All Recipes
+      </button>
+      <button
+        className={`${styles.tab} ${activeTab === 'collections' && !masteryFilter ? styles.active : ''}`}
+        onClick={() => onTabChange('collections')}
+      >
+        Collections
       </button>
       <button
         className={`${styles.tab} ${activeTab === 'favorites' && !masteryFilter ? styles.active : ''}`}

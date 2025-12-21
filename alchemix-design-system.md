@@ -1136,17 +1136,23 @@ The AlcheMix logo is a Y-shaped molecular structure representing the fusion of c
 ### Wordmark Typography
 
 ```
-ALCHE  MIX
-  ↑      ↑
-Inter  JetBrains Mono
-400    700
-Gray   Black
+ALCHEMIX
+   ↑
+JetBrains Mono
+ALCHE=400, MIX=700
+Same color throughout
 ```
 
-| Part | Font | Weight | Color (Light) | Color (Dark) |
-|------|------|--------|---------------|--------------|
-| "ALCHE" | Inter | 400 | #6B6B6B | #777777 |
-| "MIX" | JetBrains Mono | 700 | #1A1A1A | #F0F0F0 |
+| Part | Font | Weight | Color | Letter Spacing |
+|------|------|--------|-------|----------------|
+| "ALCHE" | JetBrains Mono | 400 | var(--fg-primary) | 0.05em |
+| "MIX" | JetBrains Mono | 700 | var(--fg-primary) | 0.05em |
+
+**Key Design Decisions**:
+- Same monospace font throughout for consistent character width
+- Same letter-spacing for uniform appearance
+- Only weight differs: ALCHE (regular) vs MIX (bold)
+- Same color ensures cohesive look
 
 **Tagline**: "MOLECULAR OS V1.0"
 - Font: JetBrains Mono

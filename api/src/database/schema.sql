@@ -40,7 +40,10 @@ CREATE TABLE IF NOT EXISTS users (
 
   -- Password reset
   reset_token TEXT,
-  reset_token_expires TIMESTAMP
+  reset_token_expires TIMESTAMP,
+
+  -- Onboarding flags
+  has_seeded_classics BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 -- ============================================================================
@@ -192,6 +195,23 @@ CREATE TABLE IF NOT EXISTS token_blacklist (
   token TEXT PRIMARY KEY,
   expires_at BIGINT NOT NULL  -- Unix timestamp (seconds)
 );
+
+-- ============================================================================
+-- MIGRATIONS (add new columns to existing tables)
+-- ============================================================================
+-- These run after table creation to add columns that may not exist in older databases.
+
+-- Add has_seeded_classics column to existing users table if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'users' AND column_name = 'has_seeded_classics'
+  ) THEN
+    ALTER TABLE users ADD COLUMN has_seeded_classics BOOLEAN NOT NULL DEFAULT FALSE;
+  END IF;
+END
+$$;
 
 -- ============================================================================
 -- INDEXES

@@ -169,18 +169,15 @@
 }
 
 .alche {
-  font-family: var(--font-sans, 'Inter', sans-serif);
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
   font-weight: 400;
-  color: #6B6B6B;
+  color: var(--fg-primary, #475569);
 }
 
 .mix {
   font-family: var(--font-mono, 'JetBrains Mono', monospace);
   font-weight: 700;
-  color: #1A1A1A;
-  letter-spacing: 0.1em;
-  /* Scale up to visually match Inter */
-  font-size: 1.15em;
+  color: var(--fg-primary, #475569);
 }
 
 .tagline {
@@ -242,11 +239,11 @@
 }
 
 :global([data-theme="dark"]) .alche {
-  color: #94A3B8;
+  color: var(--fg-primary, #94A3B8);
 }
 
 :global([data-theme="dark"]) .mix {
-  color: #F1F5F9;
+  color: var(--fg-primary, #94A3B8);
 }
 
 :global([data-theme="dark"]) .tagline {

@@ -350,8 +350,8 @@ describe('API Client', () => {
 
       await inventoryApi.delete(bottleId);
 
-      // request() calls apiClient.delete(url, config) - config is undefined here
-      expect(mockAxiosInstance.delete).toHaveBeenCalledWith(`/api/inventory-items/${bottleId}`, undefined);
+      // request() calls apiClient.delete(url, { data }) - data is undefined for simple deletes
+      expect(mockAxiosInstance.delete).toHaveBeenCalledWith(`/api/inventory-items/${bottleId}`, { data: undefined });
     });
 
     it('should import CSV file', async () => {

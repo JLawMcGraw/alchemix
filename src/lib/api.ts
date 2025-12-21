@@ -111,8 +111,11 @@ async function request<T>(
 ): Promise<T> {
   try {
     let response;
-    if (method === 'get' || method === 'delete') {
-      response = await apiClient[method](url, config);
+    if (method === 'get') {
+      response = await apiClient.get(url, config);
+    } else if (method === 'delete') {
+      // Axios delete requires body in config.data
+      response = await apiClient.delete(url, { ...config, data });
     } else {
       response = await apiClient[method](url, data, config);
     }
@@ -390,6 +393,20 @@ export const recipeApi = {
       }
     );
     return { imported: data.imported, failed: data.failed, errors: data.errors };
+  },
+
+  /**
+   * Seed classic cocktail recipes for first-time users
+   * Called once on first login to add 20 classic recipes
+   */
+  async seedClassics(): Promise<{ seeded: boolean; count: number; message: string }> {
+    const { data } = await apiClient.post<{ 
+      success: boolean; 
+      seeded: boolean; 
+      count: number; 
+      message: string 
+    }>('/api/recipes/seed-classics');
+    return { seeded: data.seeded, count: data.count, message: data.message };
   },
 };
 

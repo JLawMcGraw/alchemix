@@ -115,7 +115,7 @@ router.post('/signup', asyncHandler(async (req: Request, res: Response) => {
 
   // Step 9: Retrieve Created User
   const user = await queryOne<User>(
-    'SELECT id, email, created_at, is_verified FROM users WHERE id = $1',
+    'SELECT id, email, created_at, is_verified, has_seeded_classics FROM users WHERE id = $1',
     [userId]
   );
 
@@ -144,7 +144,8 @@ router.post('/signup', asyncHandler(async (req: Request, res: Response) => {
       csrfToken,
       user: {
         ...user!,
-        is_verified: Boolean(user!.is_verified)
+        is_verified: Boolean(user!.is_verified),
+        has_seeded_classics: Boolean(user!.has_seeded_classics)
       }
     }
   });

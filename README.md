@@ -6,11 +6,12 @@
 
 Modern cocktail inventory and recipe management system with AI-powered bartender recommendations. Features a "Molecular Mixology" design system that treats cocktails as chemical formulas and ingredients as periodic table elements.
 
-**Version:** v1.31.0 | **Last Updated:** December 19, 2025
+**Version:** v1.31.0 | **Last Updated:** December 20, 2025
 
 ## Features
 
 ### Core Features
+- **Onboarding Flow** - 3-step first-time user experience: welcome, quick-add bottles via periodic table elements, preview makeable cocktails with 20 seeded classics
 - **My Bar** - Category-organized inventory with 9 tabs, card grid layout, CSV import, periodic tags
 - **Periodic Table of Mixology** - 90+ elements organized by function (Group) and origin, with hidden elements that appear when you add matching inventory. Click any element to filter your bar.
 - **Recipe Management** - Full CRUD, collections/folders, bulk operations, CSV import, spirit detection, Favorites tab
@@ -104,7 +105,8 @@ This starts both servers:
 1. Open http://localhost:3001
 2. Click "Sign Up" and create an account
 3. If SMTP is not configured, check the terminal for the verification link
-4. Start adding inventory and recipes!
+4. Complete the onboarding flow: add your bottles and see what cocktails you can make
+5. Start exploring recipes and adding to your bar!
 
 ## Tech Stack
 
@@ -121,7 +123,7 @@ This starts both servers:
 ```
 alchemix/
 ├── src/                    # Next.js frontend
-│   ├── app/               # Pages (login, dashboard, bar, recipes, ai, settings, etc.)
+│   ├── app/               # Pages (login, onboarding, dashboard, bar, recipes, ai, account)
 │   ├── components/        # UI components and modals
 │   │   ├── BottleCard/    # Inventory bottle display component
 │   │   ├── RecipeCard/    # Recipe card with molecule visualization
@@ -141,7 +143,7 @@ alchemix/
 │   │   ├── config/        # Environment, rate limiters
 │   │   ├── utils/         # Logger, validators, token blacklist
 │   │   ├── database/      # PostgreSQL pool + schema
-│   │   └── data/          # Static data (cocktailIngredients.json)
+│   │   └── data/          # Static data (cocktailIngredients.json, classicRecipes.json)
 │   └── .env               # Environment configuration
 ├── packages/               # Shared packages
 │   ├── recipe-molecule/   # Chemical bond-style recipe visualization
@@ -181,6 +183,7 @@ alchemix/
 ### Resources
 - `GET/POST/PUT/DELETE /api/inventory` - Inventory management
 - `GET/POST/PUT/DELETE /api/recipes` - Recipe management
+- `POST /api/recipes/seed-classics` - Seed 20 classic cocktails (first-time users)
 - `DELETE /api/recipes/bulk` - Bulk delete (up to 500)
 - `GET/POST/PUT/DELETE /api/collections` - Recipe collections
 - `GET/POST/DELETE /api/favorites` - Favorites

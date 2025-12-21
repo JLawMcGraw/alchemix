@@ -17,6 +17,7 @@ export interface User {
   id: number;
   email: string;
   is_verified?: boolean;
+  has_seeded_classics?: boolean;
   created_at?: string;
 }
 

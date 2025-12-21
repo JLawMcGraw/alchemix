@@ -110,3 +110,8 @@ export const getMasteryCount = (
  * Pagination page size for collection view
  */
 export const COLLECTION_PAGE_SIZE = 24;
+
+/**
+ * Pagination page size for uncategorized recipes
+ */
+export const UNCATEGORIZED_PAGE_SIZE = 24;

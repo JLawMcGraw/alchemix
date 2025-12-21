@@ -1,7 +1,8 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { X, FlaskConical } from 'lucide-react';
 import { CSVUploadModal, RecipeDetailModal, DeleteConfirmModal, CollectionModal, AddRecipeModal } from '@/components/modals';
 import styles from './recipes.module.css';
 
@@ -22,6 +23,20 @@ import { PageHeader, BulkActionsBar, UncategorizedSectionHeader } from './Recipe
 function RecipesPageContent() {
   const router = useRouter();
   const state = useRecipesPage();
+  const [showTip, setShowTip] = useState(false);
+
+  // Check if tip should be shown (first time user)
+  useEffect(() => {
+    const tipSeen = localStorage.getItem('alchemix-recipes-tip-seen');
+    if (!tipSeen) {
+      setShowTip(true);
+    }
+  }, []);
+
+  const dismissTip = () => {
+    localStorage.setItem('alchemix-recipes-tip-seen', 'true');
+    setShowTip(false);
+  };
 
   if (state.isValidating || !state.isAuthenticated) return null;
 
@@ -53,6 +68,23 @@ function RecipesPageContent() {
           onTabChange={state.handleTabChange}
           onCloseCollection={state.handleBackFromCollection}
         />
+
+        {/* First-time user tip card */}
+        {showTip && (
+          <div className={styles.tipCard}>
+            <FlaskConical size={20} className={styles.tipIcon} />
+            <p className={styles.tipText}>
+              Each recipe shows its chemical composition as a molecular diagram. Click any recipe to see the full breakdown.
+            </p>
+            <button 
+              className={styles.tipClose} 
+              onClick={dismissTip}
+              aria-label="Dismiss tip"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
 
         {/* Collections View */}
         {state.activeTab === 'collections' && !state.activeCollection && !state.masteryFilter && (
@@ -87,13 +119,21 @@ function RecipesPageContent() {
                   onSpiritChange={state.setFilterSpirit}
                 />
                 <RecipeGrid
-                  recipes={state.filteredRecipes.slice(0, 8)}
+                  recipes={state.paginatedUncategorizedRecipes}
                   selectedRecipes={state.selectedRecipes}
                   isFavorited={state.isFavorited}
                   isRecipeCraftable={state.isRecipeCraftable}
                   onSelectRecipe={state.setSelectedRecipe}
                   onToggleSelection={state.toggleRecipeSelection}
                   onToggleFavorite={state.handleToggleFavorite}
+                />
+                <PaginationControls
+                  currentPage={state.uncategorizedPage}
+                  totalPages={state.uncategorizedTotalPages}
+                  hasPrevious={state.uncategorizedPage > 1}
+                  hasNext={state.uncategorizedPage < state.uncategorizedTotalPages}
+                  onPrevious={() => state.setUncategorizedPage(state.uncategorizedPage - 1)}
+                  onNext={() => state.setUncategorizedPage(state.uncategorizedPage + 1)}
                 />
               </div>
             )}

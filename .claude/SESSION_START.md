@@ -7,7 +7,7 @@
 | Version | v1.31.0 |
 | Branch | `postgresql-deployment` |
 | Tests | 1,207 total (877 backend, 206 frontend, 124 recipe-molecule) |
-| Last Updated | December 19, 2025 |
+| Last Updated | December 20, 2025 |
 
 ---
 
@@ -54,7 +54,7 @@ A full-stack cocktail inventory and recipe management app with AI-powered barten
 ```
 alchemix/
 ├── src/                        # Frontend (Next.js)
-│   ├── app/                    # Pages: login, dashboard, bar, ai, recipes, favorites, shopping-list, account
+│   ├── app/                    # Pages: login, onboarding, dashboard, bar, ai, recipes, shopping-list, account
 │   ├── components/             # ui/, layout/, modals/, PeriodicTableV2/, RecipeCard/, BottleCard/
 │   ├── hooks/                  # useAuthGuard.ts, useSettings.ts
 │   ├── lib/                    # api.ts, store/, periodicTable/, formatters.ts
@@ -122,12 +122,13 @@ npm run lint
 
 ## Key Features
 
-- **8 Pages**: Login, Dashboard, My Bar, AI Bartender, Recipes, Favorites, Shopping List, Account
+- **9 Pages**: Login, Onboarding, Dashboard, My Bar, AI Bartender, Recipes, Shopping List, Account
+- **Onboarding (FTUX)**: 3-step flow - welcome, quick-add bottles (periodic table elements), preview makeable cocktails
 - **My Bar**: 9 category tabs, BottleCard grid, ItemDetailModal (view/edit)
 - **Recipes**: Collections, bulk operations, CSV import, mastery filters, molecule visualization
 - **AI Bartender**: MemMachine semantic search + concept expansion (spirit-forward, tiki, boozy, etc.)
 - **Shopping List**: Persistent items, recipe buckets, near-miss algorithm
-- **Periodic Table**: 6×6 grid by function (group) and origin (period)
+- **Periodic Table**: V1 (traditional sections) or V2 (6×6 grid by function/origin)
 
 ---
 

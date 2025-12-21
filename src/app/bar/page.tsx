@@ -48,7 +48,7 @@ function BarPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isValidating, isAuthenticated } = useAuthGuard();
-  const { inventoryItems, inventoryPagination, fetchItems, addItem, deleteItem, isLoading } = useStore();
+  const { user, inventoryItems, inventoryPagination, fetchItems, addItem, deleteItem, isLoading } = useStore();
   const { showToast } = useToast();
   const [activeCategory, setActiveCategory] = useState<InventoryCategory | 'all'>('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -482,7 +482,7 @@ function BarPageContent() {
               </h3>
               <p className={styles.emptyText}>
                 {activeCategory === 'all'
-                  ? 'Start building your collection by adding items or importing from CSV'
+                  ? 'Add a bottle and your Periodic Table of Mixology will build — organizing your ingredients by function and origin.'
                   : `Add ${CATEGORIES.find(c => c.id === activeCategory)?.label.toLowerCase()} to your bar`
                 }
               </p>

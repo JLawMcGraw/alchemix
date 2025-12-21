@@ -263,6 +263,38 @@ router.post('/import', upload.single('file'), asyncHandler(async (req: Request, 
 }));
 
 /**
+ * POST /api/recipes/seed-classics - Seed Classic Cocktail Recipes
+ * 
+ * Seeds 20 classic cocktail recipes for first-time users.
+ * Can only be called once per user (idempotent).
+ * 
+ * Response:
+ * - seeded: boolean - Whether recipes were seeded (false if already done)
+ * - count: number - Number of recipes seeded
+ */
+router.post('/seed-classics', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      error: 'Authentication required'
+    });
+  }
+
+  const result = await recipeService.seedClassics(userId);
+
+  res.json({
+    success: true,
+    seeded: result.seeded,
+    count: result.count,
+    message: result.seeded 
+      ? `Added ${result.count} classic cocktail recipes to get you started!`
+      : 'Classic recipes already added'
+  });
+}));
+
+/**
  * PUT /api/recipes/:id - Update Recipe
  */
 router.put('/:id', asyncHandler(async (req: Request, res: Response) => {

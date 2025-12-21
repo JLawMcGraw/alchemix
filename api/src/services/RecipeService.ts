@@ -707,6 +707,115 @@ export class RecipeService {
     return this.memoryService.deleteAllRecipeMemories(userId);
   }
 
+  /**
+   * Seed classic cocktail recipes for new users
+   * 
+   * This is called once on first login to give users 20 classic recipes
+   * to explore the app before adding their own.
+   * 
+   * @param userId - The user ID to seed recipes for
+   * @returns Object with seeded status and count
+   */
+  async seedClassics(userId: number): Promise<{ seeded: boolean; count: number }> {
+    // Check if user has already seeded classics
+    const user = await queryOne<{ has_seeded_classics: boolean }>(
+      'SELECT has_seeded_classics FROM users WHERE id = $1',
+      [userId]
+    );
+
+    if (!user) {
+      logger.warn('User not found for seeding classics', { userId });
+      return { seeded: false, count: 0 };
+    }
+
+    if (user.has_seeded_classics) {
+      logger.debug('User has already seeded classics', { userId });
+      return { seeded: false, count: 0 };
+    }
+
+    // Load classic recipes from JSON file
+    let classicRecipes: Array<{
+      name: string;
+      ingredients: string[];
+      instructions: string;
+      glass: string;
+      spirit_type: string;
+    }>;
+
+    try {
+      // Dynamic import for JSON data
+      const recipesModule = await import('../data/classicRecipes.json');
+      classicRecipes = recipesModule.default || recipesModule;
+    } catch (err) {
+      logger.error('Failed to load classic recipes JSON', { 
+        error: err instanceof Error ? err.message : 'Unknown error' 
+      });
+      return { seeded: false, count: 0 };
+    }
+
+    // Insert recipes in a transaction
+    let insertedCount = 0;
+    const recipesForMemMachine: Array<{
+      id: number;
+      name: string;
+      ingredients: string[];
+      instructions: string | null;
+      glass: string | null;
+      category: string | null;
+    }> = [];
+
+    await transaction(async (client) => {
+      for (const recipe of classicRecipes) {
+        try {
+          const result = await client.query(`
+            INSERT INTO recipes (user_id, name, ingredients, instructions, glass, category)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id
+          `, [
+            userId,
+            recipe.name,
+            JSON.stringify(recipe.ingredients),
+            recipe.instructions,
+            recipe.glass,
+            recipe.spirit_type || null
+          ]);
+
+          const recipeId = result.rows[0].id as number;
+          insertedCount++;
+
+          recipesForMemMachine.push({
+            id: recipeId,
+            name: recipe.name,
+            ingredients: recipe.ingredients,
+            instructions: recipe.instructions,
+            glass: recipe.glass,
+            category: recipe.spirit_type || null
+          });
+        } catch (err) {
+          logger.error('Failed to insert classic recipe', { 
+            recipe: recipe.name,
+            error: err instanceof Error ? err.message : 'Unknown error' 
+          });
+        }
+      }
+
+      // Mark user as having seeded classics
+      await client.query(
+        'UPDATE users SET has_seeded_classics = TRUE WHERE id = $1',
+        [userId]
+      );
+    });
+
+    // Store in MemMachine (fire-and-forget)
+    if (recipesForMemMachine.length > 0) {
+      this.batchStoreInMemMachine(userId, recipesForMemMachine);
+    }
+
+    logger.info('Seeded classic recipes for user', { userId, count: insertedCount });
+
+    return { seeded: true, count: insertedCount };
+  }
+
   // ============ Private Helper Methods ============
 
   /**

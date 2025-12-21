@@ -45,9 +45,9 @@ router.get('/me', authMiddleware, asyncHandler(async (req: Request, res: Respons
     });
   }
 
-  // Fetch user from database
+  // Fetch user from database (include has_seeded_classics for onboarding state)
   const user = await queryOne<UserRow>(
-    'SELECT id, email, created_at, is_verified FROM users WHERE id = $1',
+    'SELECT id, email, created_at, is_verified, has_seeded_classics FROM users WHERE id = $1',
     [userId]
   );
 
@@ -62,7 +62,8 @@ router.get('/me', authMiddleware, asyncHandler(async (req: Request, res: Respons
     success: true,
     data: {
       ...user,
-      is_verified: Boolean(user.is_verified)
+      is_verified: Boolean(user.is_verified),
+      has_seeded_classics: Boolean(user.has_seeded_classics)
     }
   });
 }));

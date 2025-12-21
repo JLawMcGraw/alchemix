@@ -66,7 +66,9 @@ export default function LoginPage() {
   // Form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState('');
   const [signupSuccess, setSignupSuccess] = useState(false);
@@ -75,6 +77,9 @@ export default function LoginPage() {
   const passwordChecks = checkPasswordRequirements(password);
   const showPasswordRequirements = isSignup && password.length > 0;
 
+  // Get user from store for onboarding check
+  const { user } = useStore();
+
   // Validate existing session on mount
   useEffect(() => {
     const checkExistingAuth = async () => {
@@ -82,21 +87,22 @@ export default function LoginPage() {
       try {
         const isValid = await validateToken();
         if (isValid) {
-          router.push('/dashboard');
+          // validateToken updates user in store, redirect happens in next effect
         }
       } catch {
         // Stay on login page
       }
     };
     checkExistingAuth();
-  }, [_hasHydrated, validateToken, router]);
+  }, [_hasHydrated, validateToken]);
 
-  // Redirect after successful login
+  // Redirect after successful authentication
   useEffect(() => {
-    if (isAuthenticated) {
-      router.push('/dashboard');
+    if (isAuthenticated && user) {
+      // Check if user has completed onboarding (seeded classics)
+      router.push(user.has_seeded_classics ? '/dashboard' : '/onboarding');
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, user, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,6 +114,14 @@ export default function LoginPage() {
     }
 
     if (isSignup) {
+      if (!confirmPassword) {
+        setFormError('Please confirm your password');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setFormError('Passwords do not match');
+        return;
+      }
       const validation = validatePasswordPolicy(password);
       if (!validation.isValid) {
         setFormError(validation.errors[0]);
@@ -294,6 +308,40 @@ export default function LoginPage() {
             )}
           </div>
 
+          {/* Confirm Password (signup only) */}
+          {isSignup && (
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>Confirm Password</label>
+              <div className={styles.formInputWrapper}>
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  className={styles.formInput}
+                  placeholder="Confirm password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  className={styles.passwordToggle}
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  {showConfirmPassword ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
           <button type="submit" className={`${styles.btnPrimary} ${styles.btnFull}`} disabled={loading}>
             {loading ? 'Loading...' : isSignup ? 'Create Account' : 'Log In'}
           </button>
@@ -301,7 +349,7 @@ export default function LoginPage() {
 
             <div className={styles.modalFooter}>
               {isSignup ? (
-                <>Have an account? <button onClick={() => { setIsSignup(false); setFormError(''); }}>Log in</button></>
+                <>Have an account? <button onClick={() => { setIsSignup(false); setFormError(''); setConfirmPassword(''); }}>Log in</button></>
               ) : (
                 <>Need an account? <button onClick={() => { setIsSignup(true); setFormError(''); }}>Sign up</button></>
               )}

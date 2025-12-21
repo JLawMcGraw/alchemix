@@ -1,5 +1,5 @@
 <svg viewBox="0 0 280 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- AlcheMix Logo - Icon + Wordmark -->
+  <!-- AlcheMix Logo - Icon + Wordmark (vertically centered) -->
 
   <!-- Y-shaped molecular structure (icon) -->
   <g transform="translate(0, 0)">
@@ -24,25 +24,13 @@
     <circle cx="50" cy="45" r="7" fill="#EC4899" stroke="#3D3D3D" stroke-width="2" />
   </g>
 
-  <!-- Wordmark -->
-  <g transform="translate(95, 58)">
-    <!-- ALCHE - Regular weight, gray -->
-    <text
-      font-family="Inter, -apple-system, BlinkMacSystemFont, sans-serif"
-      font-size="32"
-      font-weight="400"
-      fill="#6B6B6B"
-      letter-spacing="0.05em"
-    >ALCHE</text>
-
-    <!-- MIX - Bold, monospace, dark -->
-    <text
-      x="115"
-      font-family="'JetBrains Mono', 'SF Mono', Consolas, monospace"
-      font-size="36"
-      font-weight="700"
-      fill="#1A1A1A"
-      letter-spacing="0.1em"
-    >MIX</text>
-  </g>
+  <!-- Wordmark - centered vertically with icon -->
+  <text
+    x="100"
+    y="58"
+    font-family="'JetBrains Mono', 'SF Mono', Consolas, monospace"
+    font-size="32"
+    fill="#475569"
+    letter-spacing="0.05em"
+  ><tspan font-weight="400">ALCHE</tspan><tspan font-weight="700">MIX</tspan></text>
 </svg>

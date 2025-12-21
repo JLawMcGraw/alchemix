@@ -25,6 +25,7 @@ export interface UserRow {
   reset_token: string | null;
   reset_token_expires: string | null;
   token_version: number;
+  has_seeded_classics: boolean; // Onboarding flag
   created_at: string;
 }
 

@@ -62,6 +62,9 @@ vi.mock('@/components/ui', () => ({
   Input: ({ placeholder, type, value, onChange, ...props }: any) => (
     <input placeholder={placeholder} type={type} value={value} onChange={onChange} {...props} />
   ),
+  ElementCard: ({ element }: any) => (
+    <div data-testid={`element-${element?.symbol}`}>{element?.name}</div>
+  ),
 }));
 
 describe('Login Page', () => {
@@ -72,48 +75,63 @@ describe('Login Page', () => {
     mockValidateToken.mockResolvedValue(false);
   });
 
+  // Helper function to open the login modal (signup mode first, then switch to login)
+  const openLoginModal = async () => {
+    render(<LoginPage />);
+    // Click the "Get Started" button to open modal (opens in signup mode)
+    const getStartedButton = screen.getByText('Get Started');
+    await userEvent.click(getStartedButton);
+    // Switch to login mode by clicking "Log in" link
+    const loginLink = screen.getByText('Log in');
+    await userEvent.click(loginLink);
+  };
+
+  // Helper function to open signup modal
+  const openSignupModal = async () => {
+    render(<LoginPage />);
+    // Click the "Get Started" button to open modal (opens in signup mode)
+    const getStartedButton = screen.getByText('Get Started');
+    await userEvent.click(getStartedButton);
+  };
+
   describe('Rendering', () => {
-    it('should render login form by default', () => {
+    it('should render hero page with logo', () => {
       render(<LoginPage />);
+      expect(screen.getByTestId('logo')).toBeInTheDocument();
+    });
 
-      // Check for essential elements using actual placeholders
+    it('should render Get Started button', () => {
+      render(<LoginPage />);
+      expect(screen.getByText('Get Started')).toBeInTheDocument();
+    });
+
+    it('should render periodic table preview elements', () => {
+      render(<LoginPage />);
+      // Check for sample elements from the preview
+      expect(screen.getByText('Rum')).toBeInTheDocument();
+      expect(screen.getByText('Gin')).toBeInTheDocument();
+    });
+
+    it('should open modal and render login form when Get Started is clicked', async () => {
+      await openLoginModal();
+      // Modal should now show form elements
       expect(screen.getByPlaceholderText('you@example.com')).toBeInTheDocument();
-      expect(screen.getByPlaceholderText('Enter password')).toBeInTheDocument();
-    });
-
-    it('should render submit button', () => {
-      render(<LoginPage />);
-      // There are two "Log In" buttons (tab + submit), find the submit one
-      const submitButtons = screen.getAllByRole('button', { name: /log in/i });
-      const actualSubmit = submitButtons.find(btn => btn.getAttribute('type') === 'submit');
-      expect(actualSubmit).toBeInTheDocument();
-    });
-
-    it('should render email input field', () => {
-      render(<LoginPage />);
-      const emailInput = screen.getByPlaceholderText('you@example.com');
-      expect(emailInput).toHaveAttribute('type', 'email');
-    });
-
-    it('should render password input field', () => {
-      render(<LoginPage />);
-      const passwordInput = screen.getByPlaceholderText('Enter password');
-      expect(passwordInput).toHaveAttribute('type', 'password');
     });
   });
 
   describe('Form Submission', () => {
     it('should call login with email and password', async () => {
-      render(<LoginPage />);
+      await openLoginModal();
 
       const emailInput = screen.getByPlaceholderText('you@example.com');
+      // In login mode, placeholder is "Enter password"
       const passwordInput = screen.getByPlaceholderText('Enter password');
 
       await userEvent.type(emailInput, 'test@example.com');
       await userEvent.type(passwordInput, 'Password123!');
 
-      const submitButtons = screen.getAllByRole('button', { name: /log in/i });
-      const submitButton = submitButtons.find(btn => btn.getAttribute('type') === 'submit')!;
+      // Submit button text is "Log In" in login mode
+      const submitButton = screen.getByText('Log In');
       await userEvent.click(submitButton);
 
       await waitFor(() => {
@@ -122,42 +140,42 @@ describe('Login Page', () => {
     });
 
     it('should show validation error for empty fields', async () => {
-      render(<LoginPage />);
+      await openLoginModal();
 
-      const submitButtons = screen.getAllByRole('button', { name: /log in/i });
-      const submitButton = submitButtons.find(btn => btn.getAttribute('type') === 'submit')!;
+      const submitButton = screen.getByText('Log In');
       await userEvent.click(submitButton);
 
       // Login should not be called for empty fields
       expect(mockLogin).not.toHaveBeenCalled();
+      // Should show error message
+      expect(screen.getByText('Please fill in all fields')).toBeInTheDocument();
     });
   });
 
   describe('Sign Up Mode', () => {
-    it('should have sign up link', () => {
-      render(<LoginPage />);
-      // Look for any element that mentions sign up
-      expect(screen.getByText(/sign up/i)).toBeInTheDocument();
+    it('should have sign up link in modal', async () => {
+      await openLoginModal();
+      // Look for sign up link in the modal
+      expect(screen.getByText(/Sign up/)).toBeInTheDocument();
     });
   });
 
   describe('Accessibility', () => {
-    it('should have accessible email input', () => {
-      render(<LoginPage />);
+    it('should have accessible email input', async () => {
+      await openLoginModal();
       const emailInput = screen.getByPlaceholderText('you@example.com');
       expect(emailInput).toBeInTheDocument();
     });
 
-    it('should have accessible password input', () => {
-      render(<LoginPage />);
+    it('should have accessible password input', async () => {
+      await openLoginModal();
       const passwordInput = screen.getByPlaceholderText('Enter password');
       expect(passwordInput).toBeInTheDocument();
     });
 
-    it('should have accessible submit button', () => {
-      render(<LoginPage />);
-      const submitButtons = screen.getAllByRole('button', { name: /log in/i });
-      const submitButton = submitButtons.find(btn => btn.getAttribute('type') === 'submit');
+    it('should have accessible submit button', async () => {
+      await openLoginModal();
+      const submitButton = screen.getByText('Log In');
       expect(submitButton).toBeInTheDocument();
     });
   });

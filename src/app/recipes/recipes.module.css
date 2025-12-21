@@ -227,6 +227,65 @@
   color: white;
 }
 
+/* ==========================================================================
+   Tip Card (First-time user guidance)
+   ========================================================================== */
+
+.tipCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background-color: var(--color-ui-bg-muted, #E5E7EB);
+  border-radius: var(--radius-md, 6px);
+  margin-bottom: 0;
+}
+
+.tipIcon {
+  flex-shrink: 0;
+  color: var(--color-primary);
+}
+
+.tipText {
+  flex: 1;
+  font-size: 0.875rem;
+  color: var(--fg-secondary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.tipClose {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: none;
+  border-radius: var(--radius, 4px);
+  color: var(--fg-tertiary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tipClose:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: var(--fg-secondary);
+}
+
+:global([data-theme="dark"]) .tipCard {
+  background-color: #1E293B;
+}
+
+:global([data-theme="dark"]) .tipClose:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ==========================================================================
+   Tab Spacer and Controls
+   ========================================================================== */
+
 .tabSpacer {
   flex: 1;
 }
@@ -515,6 +574,7 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
+  margin-top: var(--space-4);
 }
 
 /* ==========================================================================

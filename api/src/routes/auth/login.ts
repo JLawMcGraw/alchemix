@@ -61,7 +61,7 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
 
   // Step 2: Fetch User from Database
   const user = await queryOne<UserRow>(
-    'SELECT id, email, password_hash, created_at, is_verified FROM users WHERE email = $1',
+    'SELECT id, email, password_hash, created_at, is_verified, has_seeded_classics FROM users WHERE email = $1',
     [email]
   );
 
@@ -109,7 +109,8 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
       csrfToken,
       user: {
         ...userWithoutSensitiveData,
-        is_verified: Boolean(userWithoutSensitiveData.is_verified)
+        is_verified: Boolean(userWithoutSensitiveData.is_verified),
+        has_seeded_classics: Boolean(userWithoutSensitiveData.has_seeded_classics)
       }
     }
   });

@@ -8,7 +8,7 @@ import { useSettings, type Theme, type Units } from '@/hooks/useSettings';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { ChevronRight, Check, Eye, EyeOff, AlertTriangle, Download, Upload } from 'lucide-react';
+import { ChevronRight, Check, Eye, EyeOff, AlertTriangle, Download, Upload, PlayCircle } from 'lucide-react';
 import { authApi } from '@/lib/api';
 import styles from './account.module.css';
 
@@ -117,6 +117,8 @@ export default function AccountPage() {
     try {
       setDeleteLoading(true);
       await authApi.deleteAccount(deletePassword);
+      // Clear bar tip flag (onboarding is tracked in database via has_seeded_classics)
+      localStorage.removeItem('alchemix-bar-tip-seen');
       logout();
       router.push('/login?message=account_deleted');
     } catch (error) {
@@ -380,6 +382,14 @@ export default function AccountPage() {
                   <div className={styles.rowBtnSubtitle}>Restore from a backup file</div>
                 </div>
                 <Upload size={16} className={styles.rowBtnIcon} />
+              </button>
+
+              <button className={styles.rowBtn} onClick={() => router.push('/onboarding?replay=true')}>
+                <div className={styles.rowBtnContent}>
+                  <div className={styles.rowBtnTitle}>Replay onboarding</div>
+                  <div className={styles.rowBtnSubtitle}>Re-experience the welcome flow</div>
+                </div>
+                <PlayCircle size={16} className={styles.rowBtnIcon} />
               </button>
             </div>
           </section>
