@@ -216,10 +216,19 @@ export function useRecipesPage() {
     }
   }, [isAuthenticated, isValidating, fetchFavorites, fetchCollections, fetchShoppingList, fetchItems]);
 
-  // Ensure arrays
-  const recipesArray = Array.isArray(recipes) ? recipes : [];
-  const favoritesArray = Array.isArray(favorites) ? favorites : [];
-  const collectionsArray = Array.isArray(collections) ? collections : [];
+  // Ensure arrays - wrapped in useMemo to prevent dependency changes on every render
+  const recipesArray = useMemo(() => 
+    Array.isArray(recipes) ? recipes : [], 
+    [recipes]
+  );
+  const favoritesArray = useMemo(() => 
+    Array.isArray(favorites) ? favorites : [], 
+    [favorites]
+  );
+  const collectionsArray = useMemo(() => 
+    Array.isArray(collections) ? collections : [], 
+    [collections]
+  );
 
   // Spirit types for filter dropdown
   const spiritTypes = useMemo(() => getAvailableSpiritTypes(recipesArray), [recipesArray]);

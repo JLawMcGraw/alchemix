@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { X, ChevronDown, ChevronUp, AlertCircle, Plus, Minus, Trash2 } from 'lucide-react';
 import { SuccessCheckmark } from '@/components/ui';
 import type { InventoryItem, InventoryCategory } from '@/types';
@@ -52,6 +52,34 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate, onDelete }:
 
   const modalRef = useRef<HTMLDivElement>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
+
+  // Calculate changed fields
+  const changedFields = useMemo(() => {
+    if (!originalData) return [];
+    return Object.keys(formData).filter(
+      key => formData[key as keyof FormState] !== originalData[key as keyof FormState]
+    );
+  }, [formData, originalData]);
+
+  const hasChanges = changedFields.length > 0;
+
+  // Check if details section has changes
+  const detailsHaveChanges = changedFields.some(f => ['abv', 'origin', 'notes'].includes(f));
+
+  const handleClose = useCallback(() => {
+    if (hasChanges && !loading && !showSuccess) {
+      const confirmClose = window.confirm(
+        'You have unsaved changes. Are you sure you want to close?'
+      );
+      if (!confirmClose) return;
+    }
+
+    setError(null);
+    setLoading(false);
+    setShowSuccess(false);
+    setShowDetails(false);
+    onClose();
+  }, [hasChanges, loading, showSuccess, onClose]);
 
   // Populate form when bottle changes
   useEffect(() => {
@@ -110,20 +138,7 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate, onDelete }:
     } else {
       document.body.style.overflow = '';
     }
-  }, [isOpen]);
-
-  // Calculate changed fields
-  const changedFields = useMemo(() => {
-    if (!originalData) return [];
-    return Object.keys(formData).filter(
-      key => formData[key as keyof FormState] !== originalData[key as keyof FormState]
-    );
-  }, [formData, originalData]);
-
-  const hasChanges = changedFields.length > 0;
-
-  // Check if details section has changes
-  const detailsHaveChanges = changedFields.some(f => ['abv', 'origin', 'notes'].includes(f));
+  }, [isOpen, handleClose]);
 
   if (!isOpen || !bottle) return null;
 
@@ -198,21 +213,6 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate, onDelete }:
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleClose = () => {
-    if (hasChanges && !loading && !showSuccess) {
-      const confirmClose = window.confirm(
-        'You have unsaved changes. Are you sure you want to close?'
-      );
-      if (!confirmClose) return;
-    }
-
-    setError(null);
-    setLoading(false);
-    setShowSuccess(false);
-    setShowDetails(false);
-    onClose();
   };
 
   return (

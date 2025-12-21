@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
@@ -48,17 +48,26 @@ export default function ShoppingListPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 7;
 
-  const safeCraftableRecipes = Array.isArray(craftableRecipes) ? craftableRecipes : [];
-  const safeNearMissRecipes = Array.isArray(nearMissRecipes) ? nearMissRecipes : [];
-  const safeFavorites = Array.isArray(favorites) ? favorites : [];
+  const safeCraftableRecipes = useMemo(() => 
+    Array.isArray(craftableRecipes) ? craftableRecipes : [], 
+    [craftableRecipes]
+  );
+  const safeNearMissRecipes = useMemo(() => 
+    Array.isArray(nearMissRecipes) ? nearMissRecipes : [], 
+    [nearMissRecipes]
+  );
+  const safeFavorites = useMemo(() => 
+    Array.isArray(favorites) ? favorites : [], 
+    [favorites]
+  );
 
   // Merge partial recipe data from shopping-list API with full recipe details from the store
-  const enrichRecipe = (recipe: Partial<Recipe> & { id?: number; name?: string }): Recipe => {
+  const enrichRecipe = useCallback((recipe: Partial<Recipe> & { id?: number; name?: string }): Recipe => {
     const fromStore = Array.isArray(recipes)
       ? recipes.find((r) => r.id === recipe.id) || recipes.find((r) => r.name === recipe.name)
       : null;
     return fromStore ? { ...fromStore, ...recipe } : (recipe as Recipe);
-  };
+  }, [recipes]);
 
   // Build recommendations with their unlocked recipes
   const recommendations = useMemo(() => {
@@ -78,7 +87,7 @@ export default function ShoppingListPage() {
         recipes: recipesForIngredient,
       };
     });
-  }, [shoppingListSuggestions, safeNearMissRecipes, recipes]);
+  }, [shoppingListSuggestions, safeNearMissRecipes, enrichRecipe]);
 
   const topPick = recommendations[0];
 

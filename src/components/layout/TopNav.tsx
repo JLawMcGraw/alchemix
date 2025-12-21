@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '@/lib/store';
 import { Settings, LogOut } from 'lucide-react';
-import { AlcheMixLogo, VerificationBanner } from '@/components/ui';
+import { AlcheMixLogo } from '@/components/ui';
 import styles from './TopNav.module.css';
 
 export const TopNav: React.FC = () => {
@@ -83,80 +83,77 @@ export const TopNav: React.FC = () => {
   }
 
   return (
-    <>
-      <nav className={styles.topNav}>
-        <div className={styles.container}>
-          {/* Logo */}
-          <Link href="/dashboard" className={styles.logo}>
-            <AlcheMixLogo size="sm" showText={true} />
-          </Link>
+    <nav className={styles.topNav}>
+      <div className={styles.container}>
+        {/* Logo */}
+        <Link href="/dashboard" className={styles.logo}>
+          <AlcheMixLogo size="sm" showText={true} />
+        </Link>
 
-          {/* Navigation Links */}
-          <div className={styles.navLinks}>
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`${styles.navLink} ${
-                  pathname === item.href ? styles.active : ''
-                }`}
-              >
-                {item.indicator && <span className={styles.aiIndicator} />}
-                <span className={styles.navLabel}>{item.label}</span>
-                {item.badge !== undefined && (
-                  <span className={styles.badge}>{item.badge}</span>
-                )}
-              </Link>
-            ))}
-          </div>
-
-          {/* User Avatar */}
-          <div className={styles.menuContainer} ref={menuRef}>
-            <button
-              onClick={() => setUserMenuOpen(!userMenuOpen)}
-              className={`${styles.avatar} ${userMenuOpen ? styles.avatarOpen : ''}`}
-              aria-label="User menu"
-              aria-expanded={userMenuOpen}
+        {/* Navigation Links */}
+        <div className={styles.navLinks}>
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`${styles.navLink} ${
+                pathname === item.href ? styles.active : ''
+              }`}
             >
-              {getUserInitials()}
-            </button>
+              {item.indicator && <span className={styles.aiIndicator} />}
+              <span className={styles.navLabel}>{item.label}</span>
+              {item.badge !== undefined && (
+                <span className={styles.badge}>{item.badge}</span>
+              )}
+            </Link>
+          ))}
+        </div>
 
-            {/* Dropdown Menu */}
-            <div className={`${styles.dropdownMenu} ${userMenuOpen ? styles.dropdownOpen : ''}`}>
-              {/* User Info */}
-              <div className={styles.menuHeader}>
-                <div className={styles.menuName}>{user?.email?.split('@')[0] || 'User'}</div>
-                <div className={styles.menuEmail}>{user?.email}</div>
-              </div>
+        {/* User Avatar */}
+        <div className={styles.menuContainer} ref={menuRef}>
+          <button
+            onClick={() => setUserMenuOpen(!userMenuOpen)}
+            className={`${styles.avatar} ${userMenuOpen ? styles.avatarOpen : ''}`}
+            aria-label="User menu"
+            aria-expanded={userMenuOpen}
+          >
+            {getUserInitials()}
+          </button>
 
-              <div className={styles.menuDivider} />
+          {/* Dropdown Menu */}
+          <div className={`${styles.dropdownMenu} ${userMenuOpen ? styles.dropdownOpen : ''}`}>
+            {/* User Info */}
+            <div className={styles.menuHeader}>
+              <div className={styles.menuName}>{user?.email?.split('@')[0] || 'User'}</div>
+              <div className={styles.menuEmail}>{user?.email}</div>
+            </div>
 
-              {/* Menu Items */}
-              <div className={styles.menuSection}>
-                <Link
-                  href="/account"
-                  className={styles.menuItem}
-                  onClick={() => setUserMenuOpen(false)}
-                >
-                  <Settings size={16} className={styles.menuIcon} />
-                  <span>Settings</span>
-                </Link>
-              </div>
+            <div className={styles.menuDivider} />
 
-              <div className={styles.menuDivider} />
+            {/* Menu Items */}
+            <div className={styles.menuSection}>
+              <Link
+                href="/account"
+                className={styles.menuItem}
+                onClick={() => setUserMenuOpen(false)}
+              >
+                <Settings size={16} className={styles.menuIcon} />
+                <span>Settings</span>
+              </Link>
+            </div>
 
-              {/* Logout */}
-              <div className={styles.menuSection}>
-                <button onClick={handleLogout} className={`${styles.menuItem} ${styles.danger}`}>
-                  <LogOut size={16} className={styles.menuIcon} />
-                  <span>Log Out</span>
-                </button>
-              </div>
+            <div className={styles.menuDivider} />
+
+            {/* Logout */}
+            <div className={styles.menuSection}>
+              <button onClick={handleLogout} className={`${styles.menuItem} ${styles.danger}`}>
+                <LogOut size={16} className={styles.menuIcon} />
+                <span>Log Out</span>
+              </button>
             </div>
           </div>
         </div>
-      </nav>
-      <VerificationBanner />
-    </>
+      </div>
+    </nav>
   );
 };

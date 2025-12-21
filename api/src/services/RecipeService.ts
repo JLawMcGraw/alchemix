@@ -710,8 +710,8 @@ export class RecipeService {
   /**
    * Seed classic cocktail recipes for new users
    * 
-   * This is called once on first login to give users 20 classic recipes
-   * to explore the app before adding their own.
+   * This is called once on first login to give users 100+ classic recipes
+   * organized in a "Classic Cocktails" collection to explore the app.
    * 
    * @param userId - The user ID to seed recipes for
    * @returns Object with seeded status and count
@@ -740,6 +740,7 @@ export class RecipeService {
       instructions: string;
       glass: string;
       spirit_type: string;
+      requires: string[];
     }>;
 
     try {
@@ -765,11 +766,24 @@ export class RecipeService {
     }> = [];
 
     await transaction(async (client) => {
+      // Create "Classic Cocktails" collection first
+      const collectionResult = await client.query(`
+        INSERT INTO collections (user_id, name, description)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (user_id, name) DO UPDATE SET description = EXCLUDED.description
+        RETURNING id
+      `, [
+        userId,
+        'Classic Cocktails',
+        'The 100+ most popular cocktails to get you started'
+      ]);
+      const collectionId = collectionResult.rows[0].id as number;
+
       for (const recipe of classicRecipes) {
         try {
           const result = await client.query(`
-            INSERT INTO recipes (user_id, name, ingredients, instructions, glass, category)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO recipes (user_id, name, ingredients, instructions, glass, category, collection_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING id
           `, [
             userId,
@@ -777,7 +791,8 @@ export class RecipeService {
             JSON.stringify(recipe.ingredients),
             recipe.instructions,
             recipe.glass,
-            recipe.spirit_type || null
+            recipe.spirit_type || null,
+            collectionId
           ]);
 
           const recipeId = result.rows[0].id as number;

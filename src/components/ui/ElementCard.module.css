@@ -2,19 +2,22 @@
 
 .elementCard {
   position: relative;
-  aspect-ratio: 1;
-  width: 88px;
+  width: 96px;
+  height: 104px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: var(--space-2);
+  padding-top: 20px; /* Space for atomic number */
+  padding-bottom: 52px; /* Space for name (26px) + add button area (26px) */
   background: var(--color-ui-bg-surface);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-card);
   cursor: pointer;
   transition: all var(--transition-fast);
   user-select: none;
+  overflow: hidden; /* Prevent content from clipping outside */
 }
 
 /* Top accent border for group color */
@@ -47,7 +50,8 @@
   background: var(--color-ui-bg-surface);
 }
 
-.elementCard.hasInventory::after {
+/* Only show the dot indicator if there's no add button */
+.elementCard.hasInventory:not(.hasAddButton)::after {
   content: '';
   position: absolute;
   bottom: 4px;
@@ -56,6 +60,42 @@
   height: 6px;
   background: var(--element-color, var(--color-primary));
   border-radius: var(--radius-full);
+}
+
+/* Add button - bottom right, subtle but always visible */
+.addButton {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-ui-bg-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-full);
+  color: var(--color-text-muted);
+  opacity: 0.6;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.addButton:hover {
+  opacity: 1;
+  background: var(--element-color, var(--color-primary));
+  border-color: var(--element-color, var(--color-primary));
+  color: white;
+  transform: scale(1.1);
+}
+
+.elementCard:hover .addButton {
+  opacity: 1;
+}
+
+/* When element has inventory, make add button slightly more visible */
+.elementCard.hasInventory .addButton {
+  opacity: 0.7;
 }
 
 /* Empty state - user has no items */
@@ -90,20 +130,34 @@
   margin-bottom: 2px;
 }
 
-/* Element name */
+/* Element name wrapper - absolutely positioned at bottom, handles vertical centering */
+.nameWrapper {
+  position: absolute;
+  bottom: 24px; /* Above the add button area */
+  left: 4px;
+  right: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 26px; /* Fixed height for 2 lines at 11px with 1.15 line-height */
+  overflow: hidden;
+}
+
+/* Element name - supports up to 2 lines */
 .name {
   font-family: var(--font-sans);
-  font-size: 0.75rem;
+  font-size: 0.6875rem; /* 11px */
   font-weight: 500;
   letter-spacing: 0.02em;
   text-transform: uppercase;
   color: var(--color-text-muted);
   text-align: center;
-  line-height: 1.2;
+  line-height: 1.15;
   max-width: 100%;
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* Max 2 lines */
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* Inventory count badge */
@@ -128,56 +182,90 @@
 
 /* Size variants */
 .elementCard.sm {
-  min-width: 64px;
-  max-width: 76px;
+  width: 76px;
+  height: 84px;
   padding: 4px;
+  padding-top: 16px;
+  padding-bottom: 44px;
 }
 
 .elementCard.sm .symbol {
   font-size: 1.125rem;
 }
 
+.elementCard.sm .nameWrapper {
+  bottom: 20px;
+  height: 22px;
+}
+
 .elementCard.sm .name {
-  font-size: 0.75rem;
+  font-size: 0.5625rem; /* 9px */
 }
 
 .elementCard.sm .atomicNumber {
-  font-size: 0.75rem;
+  font-size: 0.625rem;
   top: 4px;
   left: 4px;
 }
 
 .elementCard.lg {
-  min-width: 88px;
-  max-width: 100px;
+  width: 108px;
+  height: 116px;
   padding: var(--space-2);
+  padding-top: 24px;
+  padding-bottom: 58px;
 }
 
 .elementCard.lg .symbol {
   font-size: 1.75rem;
 }
 
+.elementCard.lg .nameWrapper {
+  bottom: 28px;
+  height: 30px;
+}
+
 .elementCard.lg .name {
-  font-size: 0.75rem;
+  font-size: 0.75rem; /* 12px */
 }
 
 /* Responsive */
 @media (max-width: 640px) {
   .elementCard {
-    min-width: 64px;
-    max-width: 80px;
+    width: 72px;
+    height: 80px;
+    padding-top: 16px;
+    padding-bottom: 42px;
   }
 
   .symbol {
-    font-size: 1.25rem;
+    font-size: 1.125rem;
+  }
+
+  .nameWrapper {
+    bottom: 18px;
+    left: 3px;
+    right: 3px;
+    height: 20px;
   }
 
   .name {
-    font-size: 0.625rem;
+    font-size: 0.5625rem; /* 9px */
   }
 
   .atomicNumber {
+    font-size: 0.5625rem;
+  }
+
+  .count {
+    min-width: 14px;
+    height: 14px;
     font-size: 0.625rem;
+  }
+
+  .addButton {
+    width: 16px;
+    height: 16px;
   }
 }
 
@@ -204,4 +292,14 @@
 
 :global([data-theme="dark"]) .elementCard.empty:hover {
   opacity: 0.7;
+}
+
+:global([data-theme="dark"]) .addButton {
+  background: var(--color-ui-bg-elevated);
+  border-color: var(--color-border-default);
+}
+
+:global([data-theme="dark"]) .addButton:hover {
+  background: var(--element-color, var(--color-primary));
+  border-color: var(--element-color, var(--color-primary));
 }

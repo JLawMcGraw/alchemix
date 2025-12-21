@@ -172,6 +172,37 @@
   color: var(--color-semantic-warning, #F59E0B);
 }
 
+/* Row Value with Action */
+.rowValueWithAction {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.resendBtn {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--fg-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.resendBtn:hover:not(:disabled) {
+  border-color: var(--fg-primary);
+  color: var(--fg-primary);
+}
+
+.resendBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Row Button */
 .rowBtn {
   display: flex;

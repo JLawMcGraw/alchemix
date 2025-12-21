@@ -385,3 +385,83 @@ export function getInventoryForElement(
     return itemMatchesElement(item, element);
   });
 }
+
+/**
+ * Pre-fill data for AddBottleModal when clicking a periodic element
+ */
+export interface AddModalPreFill {
+  name: string;
+  category: 'spirit' | 'liqueur' | 'mixer' | 'syrup' | 'garnish' | 'wine' | 'beer' | 'other';
+  type: string;
+  periodic_group: 'Base' | 'Modifier' | 'Sweetener' | 'Reagent' | 'Bridge' | 'Catalyst';
+  periodic_period: 'Grain' | 'Agave' | 'Cane' | 'Grape' | 'Botanic' | 'Fruit';
+}
+
+/**
+ * Convert a periodic element to AddBottleModal pre-fill data
+ * Used when user clicks an element to add a new bottle of that type
+ */
+export function elementToAddModalPreFill(element: PeriodicElement): AddModalPreFill {
+  // Map element group to periodic function (group)
+  const groupMap: Record<ElementGroup, AddModalPreFill['periodic_group']> = {
+    agave: 'Base',
+    grain: 'Base',
+    cane: 'Base',
+    juniper: 'Base',
+    grape: 'Base',
+    neutral: 'Base',
+    botanical: 'Modifier',
+    acid: 'Reagent',
+    sugar: 'Sweetener',
+    dairy: 'Bridge',
+    carbonation: 'Catalyst',
+    garnish: 'Reagent',
+  };
+
+  // Map element group to periodic origin (period)
+  const periodMap: Record<ElementGroup, AddModalPreFill['periodic_period']> = {
+    agave: 'Agave',
+    grain: 'Grain',
+    cane: 'Cane',
+    juniper: 'Botanic',
+    grape: 'Grape',
+    neutral: 'Grain',
+    botanical: 'Botanic',
+    acid: 'Fruit',
+    sugar: 'Fruit',
+    dairy: 'Grape',
+    carbonation: 'Fruit',
+    garnish: 'Botanic',
+  };
+
+  // Determine category based on element group
+  const spiritGroups: ElementGroup[] = ['agave', 'grain', 'cane', 'juniper', 'grape', 'neutral'];
+  const isSpirit = spiritGroups.includes(element.group);
+  
+  let category: AddModalPreFill['category'];
+  if (isSpirit) {
+    category = 'spirit';
+  } else if (element.group === 'sugar') {
+    category = 'liqueur';
+  } else if (element.group === 'garnish') {
+    category = 'garnish';
+  } else if (element.group === 'carbonation' || element.group === 'dairy') {
+    category = 'mixer';
+  } else if (element.group === 'acid') {
+    // Citrus/acids go to mixer
+    category = 'mixer';
+  } else if (element.group === 'botanical') {
+    // Bitters, vermouths, etc. are typically liqueurs
+    category = 'liqueur';
+  } else {
+    category = 'other';
+  }
+
+  return {
+    name: element.name,
+    category,
+    type: element.name,
+    periodic_group: groupMap[element.group],
+    periodic_period: periodMap[element.group],
+  };
+}

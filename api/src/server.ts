@@ -467,15 +467,14 @@ app.use(healthRoutes);
  * - Clients can specify version in URL or via header
  *
  * Route Structure (Version 1 - Implicit):
- * - /auth/*          → Authentication (login, signup, logout)
- * - /api/inventory/* → Bottle inventory management (CRUD operations)
- * - /api/recipes/*   → Cocktail recipe library
- * - /api/favorites/* → User's saved favorites
- * - /api/messages/*  → AI bartender chat
- *
- * Future Route Structure (Version 2 - Explicit):
- * - /api/v2/inventory/* → New inventory features
- * - /api/inventory/*    → Still works (v1 backward compatibility)
+ * - /auth/*                → Authentication (login, signup, logout)
+ * - /api/inventory-items/* → Inventory management (CRUD operations)
+ * - /api/recipes/*         → Cocktail recipe library
+ * - /api/collections/*     → Recipe organization (folders)
+ * - /api/favorites/*       → User's saved favorites
+ * - /api/glasses/*         → Custom glassware types
+ * - /api/shopping-list/*   → Shopping list management
+ * - /api/messages/*        → AI bartender chat
  *
  * Security Layers (Defense in Depth):
  *
@@ -588,10 +587,11 @@ app.use(errorHandler);
  *
  * Tables created:
  * - users: Email, password hash, timestamps, token version
- * - bottles: User's inventory with 12 fields
+ * - inventory_items: User's bar inventory (spirits, liqueurs, mixers)
  * - recipes: Cocktail recipes with ingredients
  * - favorites: User's saved recipes
  * - collections: Recipe organization folders
+ * - inventory_classifications: User's periodic table overrides
  * - token_blacklist: Revoked JWT tokens (security)
  *
  * If initialization fails, the server exits immediately.

@@ -136,7 +136,7 @@ export function RecipeDetailModal({
   const { showToast } = useToast();
 
   // Helper function to parse ingredients
-  const parseIngredients = (ingredients: string | string[] | undefined): string[] => {
+  const parseIngredients = useCallback((ingredients: string | string[] | undefined): string[] => {
     if (!ingredients) return [];
     if (Array.isArray(ingredients)) return ingredients;
     try {
@@ -145,7 +145,7 @@ export function RecipeDetailModal({
     } catch {
       return ingredients.split(',').map(i => i.trim());
     }
-  };
+  }, []);
 
   // Initialize edit form when recipe changes
   useEffect(() => {
@@ -164,7 +164,7 @@ export function RecipeDetailModal({
       // Fetch collections when modal opens
       fetchCollections().catch(console.error);
     }
-  }, [recipe, isOpen, fetchCollections]);
+  }, [recipe, isOpen, fetchCollections, parseIngredients]);
 
   // Handle save
   const handleSave = async () => {
@@ -246,7 +246,7 @@ export function RecipeDetailModal({
   };
 
   // Handle cancel edit
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     if (recipe) {
       const parsedIngredients = parseIngredients(recipe.ingredients);
       setEditedRecipe({
@@ -258,7 +258,7 @@ export function RecipeDetailModal({
       });
     }
     setIsEditMode(false);
-  };
+  }, [recipe, parseIngredients]);
 
   // Ingredient management functions
   const handleIngredientChange = (index: number, value: string) => {
@@ -474,7 +474,7 @@ export function RecipeDetailModal({
     };
 
     img.src = svgUrl;
-  }, [recipe, showToast]);
+  }, [recipe, showToast, parseIngredients]);
 
   // Focus management and keyboard shortcuts
   useEffect(() => {
@@ -513,7 +513,7 @@ export function RecipeDetailModal({
       document.addEventListener('keydown', handleKeyDown);
       return () => document.removeEventListener('keydown', handleKeyDown);
     }
-  }, [isOpen, isEditMode, onClose]);
+  }, [isOpen, isEditMode, onClose, handleCancel]);
 
   if (!isOpen || !recipe) return null;
 

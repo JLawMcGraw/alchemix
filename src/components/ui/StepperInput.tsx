@@ -128,6 +128,7 @@ export const StepperInput = forwardRef<HTMLInputElement, StepperInputProps>(({
             id={inputId}
             type="text"
             inputMode="decimal"
+            role="spinbutton"
             className={styles.input}
             value={displayValue}
             onChange={handleInputChange}

@@ -17,8 +17,10 @@ export interface PeriodicTableProps {
   inventoryItems?: Array<{ name: string; type?: string; stock_number?: number }>;
   /** Currently selected element */
   selectedElement?: PeriodicElement | null;
-  /** Callback when element is clicked */
+  /** Callback when element is clicked (typically for filtering) */
   onElementClick?: (element: PeriodicElement) => void;
+  /** Callback when user wants to add a new item for this element */
+  onElementAdd?: (element: PeriodicElement) => void;
   /** Callback to clear selection */
   onClearSelection?: () => void;
   /** Show legend */
@@ -49,6 +51,7 @@ export function PeriodicTable({
   inventoryItems = [],
   selectedElement,
   onElementClick,
+  onElementAdd,
   onClearSelection,
   showLegend = true,
   compact = false,
@@ -132,6 +135,7 @@ export function PeriodicTable({
                   isActive={selectedElement?.symbol === element.symbol}
                   size={compact ? 'sm' : 'md'}
                   onClick={onElementClick}
+                  onAdd={onElementAdd}
                 />
               );
             })}

@@ -99,6 +99,8 @@ const CLASSIFICATION_RULES: Record<IngredientType, string[]> = {
     // Tonic & Mixers
     'tonic', 'tonic water', 'ginger beer', 'ginger ale',
     'cola', 'coke', 'sprite', 'lemonade', '7up', 'seven up',
+    // Sparkling wine (used to top drinks)
+    'champagne', 'prosecco', 'cava', 'sparkling wine', 'cremant',
     // Juices used as mixers (not primary acid)
     'tomato juice', 'clamato',
   ],

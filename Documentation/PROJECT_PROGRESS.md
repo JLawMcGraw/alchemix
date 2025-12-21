@@ -1,21 +1,21 @@
 # Project Development Progress
 
-Last updated: 2025-12-20 (Session 2)
+Last updated: 2025-12-21 (Session 2)
 
 ---
 
 ## Current Status
 
-**Version**: v1.31.0
+**Version**: v1.33.0
 **Phase**: Deployment Preparation - PostgreSQL Migration
 **Branch**: `postgresql-deployment`
 **Blockers**: None
 
 **Test Coverage**:
 - Backend: 884 tests (35 test files)
-- Frontend: 213 tests (12 test files)
-- Recipe-Molecule: 165 tests (3 test files)
-- **Total: 1,262 tests**
+- Frontend: 233 tests (12 test files)
+- Recipe-Molecule: 169 tests (3 test files)
+- **Total: 1,286 tests**
 
 **Redesign Progress**:
 - Phase 1-4 (Batch A - Foundation): **Complete**
@@ -30,7 +30,176 @@ Last updated: 2025-12-20 (Session 2)
 
 ---
 
-## Recent Session (2025-12-20): Complete FTUX Onboarding Flow & Backend Integration
+## Recent Session (2025-12-21): Onboarding Tests, VerificationBanner Cleanup & API Cleanup
+
+### Summary
+Added comprehensive onboarding test coverage (17 new tests), removed unused VerificationBanner component, and cleaned up deprecated API inventory code (~970 lines deleted).
+
+### Work Completed
+
+#### 1. Comprehensive Onboarding Tests (11 → 28 tests)
+- **File**: `src/app/onboarding/onboarding.test.tsx`
+- Added 17 new tests covering:
+  - Live counter updates when selecting elements
+  - Continue button disabled when no selection
+  - Deselecting elements works
+  - Empty state when no recipes match
+  - Pagination prev/next navigation
+  - Back button navigation (steps 2→1, 3→2)
+  - Recipe modal opens on click
+  - Complete flow saves inventory items
+  - Duplicate prevention logic
+  - Double-click prevention ("Setting up..." state)
+  - Error handling redirects to dashboard
+  - Replay mode behavior (3 tests)
+  - Auth redirect tests (2 tests)
+
+#### 2. Removed Unused VerificationBanner Component
+- **Deleted files**:
+  - `src/components/ui/VerificationBanner.tsx`
+  - `src/components/ui/VerificationBanner.module.css`
+- **Updated**: `src/components/ui/index.ts` - Removed export
+- Verification resend functionality now lives in Account page
+
+#### 3. Deleted Unused API Inventory Route
+- **Deleted**: `api/src/routes/inventory.ts` (~970 lines)
+- This file was never imported in server.ts
+- Used deprecated `bottles` table schema
+- Had no test coverage
+
+#### 4. Updated Server.ts Documentation
+- **File**: `api/src/server.ts`
+- Fixed route comments: `/api/inventory/*` → `/api/inventory-items/*`
+- Fixed table comments: `bottles` → `inventory_items`
+- Added missing routes to documentation (collections, glasses, shopping-list)
+
+### Files Changed (5 files)
+
+**Frontend (3 files)**:
+- `src/app/onboarding/onboarding.test.tsx` - 17 new tests
+- `src/components/ui/index.ts` - Removed VerificationBanner export
+- `src/components/ui/VerificationBanner.tsx` - **DELETED**
+- `src/components/ui/VerificationBanner.module.css` - **DELETED**
+
+**Backend (2 files)**:
+- `api/src/routes/inventory.ts` - **DELETED** (~970 lines)
+- `api/src/server.ts` - Updated documentation comments
+
+### Test Summary
+| Suite | Before | After | Change |
+|-------|--------|-------|--------|
+| Onboarding | 11 | 28 | +17 |
+| Frontend Total | 216 | 233 | +17 |
+| Backend Total | 884 | 884 | 0 |
+| **Grand Total** | 1,100 | 1,117 | +17 |
+
+---
+
+## Previous Session (2025-12-21): Onboarding Enhancements, Classic Recipes Expansion & Bug Fixes
+
+### Summary
+Expanded classic cocktails from 20 to 105 recipes with proper `requires` arrays for ingredient matching. Enhanced onboarding with pagination, citrus elements (lime, lemon, grapefruit), and duplicate prevention. Fixed database constraint issue for collection seeding and recipe molecule classification for sparkling wine.
+
+### Work Completed
+
+#### 1. Classic Cocktails Expansion (20 → 105 Recipes)
+- **File**: `api/src/data/classicRecipes.json`
+- Added 85 new classic cocktail recipes
+- Added `requires` field to all recipes (array of element symbols for ingredient matching)
+- New glass types: Collins, Hurricane, Tiki Mug, Nick & Nora, Irish Coffee Mug
+- Added `Li` (Lime) to 36 recipes, `Le` (Lemon) to 37 recipes, `Gf` (Grapefruit) to 8 recipes
+
+#### 2. Onboarding Quick-Add Elements Update (32 total)
+- **File**: `src/app/onboarding/page.tsx`
+- Removed: `El` (Elderflower), `Pf` (Passion Fruit), `An` (Angostura)
+- Added: `Li` (Lime), `Le` (Lemon), `Gf` (Grapefruit)
+- Updated `elementToInventoryItem()` with proper category mapping:
+  - Citrus (Li, Le, Gf, Or, Pi, Pf) → `mixer` category
+  - Mixers (Sp, Gb, Tn, Nc, Cr) → `mixer` category
+  - Garnishes (Mt, An) → `garnish` category
+  - Sweeteners (Og, Hn, Gr, Fa) → `syrup` category
+  - Spirits → `spirit` category
+  - Everything else → `liqueur` category
+
+#### 3. Onboarding Step 3 Pagination
+- **Files**: `src/app/onboarding/page.tsx`, `src/app/onboarding/page.module.css`
+- Added `resultsPage` state and `RESULTS_PER_PAGE = 6` constant
+- Added pagination controls with Prev/Next buttons
+- Shows page indicator (e.g., "1 / 5")
+- Resets to page 1 when makeable recipes change
+
+#### 4. Onboarding UX Improvements
+- Reduced top margin on steps 2 and 3 (8px instead of 24px)
+- Added duplicate prevention: fetches existing inventory before saving
+- Added double-click prevention with `if (isSaving) return`
+- Fixed stock_number being set to 0 (now correctly sets to 1)
+- Always redirects to dashboard even on error (best effort)
+
+#### 5. Database Constraint Fix
+- **File**: `api/src/database/schema.sql`
+- Added `UNIQUE (user_id, name)` constraint to collections table
+- Required for `ON CONFLICT` clause in `seedClassics()` method
+
+#### 6. Recipe Molecule Classification Fix
+- **File**: `packages/recipe-molecule/src/core/classifier.ts`
+- Added sparkling wine keywords to `dilution` category:
+  - champagne, prosecco, cava, sparkling wine, cremant
+- Previously fell through to `garnish` as default
+
+#### 7. Fallback Recipes Update
+- **File**: `src/app/onboarding/fallbackRecipes.ts`
+- Updated 8 recipes with citrus requirements:
+  - Margarita, Daiquiri, Moscow Mule, Mojito, Paloma, Cosmopolitan (+Li)
+  - Whiskey Sour, French 75 (+Le)
+  - Paloma (+Gf)
+
+#### 8. Account Page: Resend Verification Button
+- **Files**: `src/app/account/page.tsx`, `src/app/account/account.module.css`
+- Added "Resend" button for unverified users next to email status
+- Shows "Sending..." while in progress, "Sent!" for 5 seconds after success
+- Added `.rowValueWithAction` and `.resendBtn` CSS styles
+
+#### 9. TopNav: Removed Verification Banner
+- **File**: `src/components/layout/TopNav.tsx`
+- Removed `VerificationBanner` import and component
+- Simplified JSX from fragment to single `<nav>` element
+- Updated `TopNav.test.tsx` to remove verification banner tests
+
+### Files Changed (33 files total)
+**Backend (4 files)**:
+- `api/src/data/classicRecipes.json` - 105 recipes with requires arrays
+- `api/src/database/schema.sql` - Added unique constraint to collections
+- `api/src/routes/recipes.ts` - Updated seed-classics endpoint
+- `api/src/services/RecipeService.ts` - Updated seedClassics with collection creation
+
+**Frontend - Onboarding (3 files)**:
+- `src/app/onboarding/page.tsx` - Pagination, elements, duplicate prevention, category mapping
+- `src/app/onboarding/page.module.css` - Pagination styles, margin adjustments
+- `src/app/onboarding/fallbackRecipes.ts` - Updated requires arrays with citrus
+
+**Frontend - Account (2 files)**:
+- `src/app/account/page.tsx` - Resend verification button
+- `src/app/account/account.module.css` - Resend button styles
+
+**Frontend - Layout (2 files)**:
+- `src/components/layout/TopNav.tsx` - Removed VerificationBanner
+- `src/components/layout/TopNav.test.tsx` - Removed banner tests
+
+**Frontend - API (1 file)**:
+- `src/lib/api.ts` - Added getClassics() method
+
+**Recipe Molecule Package (1 file)**:
+- `packages/recipe-molecule/src/core/classifier.ts` - Sparkling wine → dilution
+
+### Database Migration Required
+Run this SQL to add the unique constraint to existing databases:
+```sql
+ALTER TABLE collections ADD CONSTRAINT collections_user_id_name_key UNIQUE (user_id, name);
+```
+
+---
+
+## Previous Session (2025-12-20): Complete FTUX Onboarding Flow & Backend Integration
 
 ### Summary
 Implemented complete first-time user experience (FTUX) with a 3-step onboarding flow at `/onboarding`. Added backend support for tracking onboarding state via `has_seeded_classics` column, classic recipe seeding endpoint, and database-driven onboarding detection. Also refined recipes page (pagination, tab reorder, spacing), unified logo styling, and removed old welcome modal.

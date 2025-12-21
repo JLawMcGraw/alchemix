@@ -48,7 +48,6 @@ vi.mock('@/components/ui', () => ({
       AlcheMix Logo
     </div>
   ),
-  VerificationBanner: () => <div data-testid="verification-banner">Verification Banner</div>,
 }));
 
 describe('TopNav', () => {
@@ -81,10 +80,6 @@ describe('TopNav', () => {
       expect(screen.getByText('TE')).toBeInTheDocument();
     });
 
-    it('should render verification banner', () => {
-      render(<TopNav />);
-      expect(screen.getByTestId('verification-banner')).toBeInTheDocument();
-    });
   });
 
   describe('User Menu', () => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
 import { SuccessCheckmark } from '@/components/ui';
 import { GlassSelector } from '@/components/GlassSelector';
@@ -54,6 +54,22 @@ export function AddRecipeModal({ isOpen, onClose, onAdd, collections = [] }: Add
   const modalRef = useRef<HTMLDivElement>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
 
+  const handleClose = useCallback(() => {
+    if (isDirty && !showSuccess && !loading) {
+      const confirmClose = window.confirm(
+        'You have unsaved changes. Are you sure you want to close?'
+      );
+      if (!confirmClose) return;
+    }
+
+    setFormData(createInitialFormState());
+    setError(null);
+    setIsDirty(false);
+    setShowSuccess(false);
+    setShowDetails(false);
+    onClose();
+  }, [isDirty, showSuccess, loading, onClose]);
+
   useEffect(() => {
     if (isOpen) {
       setShowSuccess(false);
@@ -87,7 +103,7 @@ export function AddRecipeModal({ isOpen, onClose, onAdd, collections = [] }: Add
       document.addEventListener('keydown', handleKeyDown);
       return () => document.removeEventListener('keydown', handleKeyDown);
     }
-  }, [isOpen]);
+  }, [isOpen, handleClose]);
 
   if (!isOpen) return null;
 
@@ -148,22 +164,6 @@ export function AddRecipeModal({ isOpen, onClose, onAdd, collections = [] }: Add
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleClose = () => {
-    if (isDirty && !showSuccess && !loading) {
-      const confirmClose = window.confirm(
-        'You have unsaved changes. Are you sure you want to close?'
-      );
-      if (!confirmClose) return;
-    }
-
-    setFormData(createInitialFormState());
-    setError(null);
-    setIsDirty(false);
-    setShowSuccess(false);
-    setShowDetails(false);
-    onClose();
   };
 
   const primarySpirit = SPIRITS.find(s => s.value === formData.spirits[0]);

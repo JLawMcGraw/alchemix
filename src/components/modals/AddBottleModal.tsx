@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, ChevronDown, ChevronUp, AlertCircle, Plus, Minus } from 'lucide-react';
 import { SuccessCheckmark } from '@/components/ui';
 import type { InventoryCategory, InventoryItemInput, PeriodicGroup, PeriodicPeriod } from '@/types';
@@ -11,6 +11,14 @@ interface AddBottleModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAdd: (item: InventoryItemInput) => Promise<void>;
+  /** Pre-fill form data when adding from periodic table element */
+  preFill?: {
+    name: string;
+    category: InventoryCategory;
+    type: string;
+    periodic_group: PeriodicGroup;
+    periodic_period: PeriodicPeriod;
+  } | null;
 }
 
 type FormState = {
@@ -62,7 +70,7 @@ const CATEGORIES: { value: InventoryCategory; label: string }[] = [
   { value: 'other', label: 'Other' },
 ];
 
-export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) {
+export function AddBottleModal({ isOpen, onClose, onAdd, preFill }: AddBottleModalProps) {
   const [formData, setFormData] = useState<FormState>(createInitialFormState());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,8 +82,45 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
   const modalRef = useRef<HTMLDivElement>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-detect periodic tags when name or category changes
+  // Handle close with dirty check - defined before effects that use it
+  const handleClose = useCallback(() => {
+    if (isDirty && !loading) {
+      const confirmClose = window.confirm(
+        'You have unsaved changes. Are you sure you want to close this form?'
+      );
+      if (!confirmClose) return;
+    }
+
+    setFormData(createInitialFormState());
+    setError(null);
+    setLoading(false);
+    setIsDirty(false);
+    setShowSuccess(false);
+    setShowDetails(false);
+    setAddAnother(false);
+    onClose();
+  }, [isDirty, loading, onClose]);
+
+  // Apply pre-fill data when modal opens with preFill prop
   useEffect(() => {
+    if (isOpen && preFill) {
+      setFormData(prev => ({
+        ...prev,
+        name: preFill.name,
+        category: preFill.category,
+        type: preFill.type,
+        periodic_group: preFill.periodic_group,
+        periodic_period: preFill.periodic_period,
+      }));
+    }
+  }, [isOpen, preFill]);
+
+  // Auto-detect periodic tags when name or category changes (but not if pre-filled)
+  useEffect(() => {
+    // Skip auto-detection if we just applied preFill (preFill already has correct tags)
+    if (preFill && formData.name === preFill.name) {
+      return;
+    }
     if (formData.name.trim()) {
       const tags = getPeriodicTags({
         name: formData.name,
@@ -88,7 +133,7 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
         periodic_period: tags.period,
       }));
     }
-  }, [formData.name, formData.category, formData.type]);
+  }, [formData.name, formData.category, formData.type, preFill]);
 
   useEffect(() => {
     if (isOpen) {
@@ -126,7 +171,7 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
       document.addEventListener('keydown', handleKeyDown);
       return () => document.removeEventListener('keydown', handleKeyDown);
     }
-  }, [isOpen]);
+  }, [isOpen, handleClose]);
 
   if (!isOpen) return null;
 
@@ -192,24 +237,6 @@ export function AddBottleModal({ isOpen, onClose, onAdd }: AddBottleModalProps) 
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleClose = () => {
-    if (isDirty && !loading) {
-      const confirmClose = window.confirm(
-        'You have unsaved changes. Are you sure you want to close this form?'
-      );
-      if (!confirmClose) return;
-    }
-
-    setFormData(createInitialFormState());
-    setError(null);
-    setLoading(false);
-    setIsDirty(false);
-    setShowSuccess(false);
-    setShowDetails(false);
-    setAddAnother(false);
-    onClose();
   };
 
   return (

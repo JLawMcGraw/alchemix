@@ -231,6 +231,26 @@ describe('Ingredient Classifier', () => {
         const result = classifyIngredient(createParsed('ice'));
         expect(result.type).toBe('dilution');
       });
+
+      it('should classify champagne as dilution', () => {
+        const result = classifyIngredient(createParsed('Champagne'));
+        expect(result.type).toBe('dilution');
+      });
+
+      it('should classify prosecco as dilution', () => {
+        const result = classifyIngredient(createParsed('Prosecco'));
+        expect(result.type).toBe('dilution');
+      });
+
+      it('should classify sparkling wine as dilution', () => {
+        const result = classifyIngredient(createParsed('sparkling wine'));
+        expect(result.type).toBe('dilution');
+      });
+
+      it('should classify cava as dilution', () => {
+        const result = classifyIngredient(createParsed('Cava'));
+        expect(result.type).toBe('dilution');
+      });
     });
 
     describe('Garnish', () => {

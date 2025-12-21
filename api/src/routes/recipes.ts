@@ -5,6 +5,7 @@
  * Business logic delegated to RecipeService.
  *
  * Features:
+ * - GET /api/recipes/classics - Get classic cocktail data (PUBLIC - no auth)
  * - GET /api/recipes - List user's recipes with pagination
  * - POST /api/recipes - Add new recipe
  * - POST /api/recipes/import - CSV import
@@ -17,7 +18,8 @@
  * - DELETE /api/recipes/memmachine/clear - Clear MemMachine
  *
  * Security:
- * - All routes require JWT authentication (authMiddleware)
+ * - Most routes require JWT authentication (authMiddleware)
+ * - /classics endpoint is public (used for onboarding preview)
  * - User isolation: Can only access their own recipes
  * - Input validation: Sanitized via RecipeService
  * - SQL injection prevention: Parameterized queries (in service)
@@ -53,7 +55,44 @@ const upload = multer({
   },
 });
 
-// All routes require authentication
+// ============ Public Routes (No Auth Required) ============
+
+/**
+ * GET /api/recipes/classics - Get Classic Cocktail Data (Public)
+ *
+ * Returns the classic cocktail data with pre-computed requires array.
+ * No authentication required - used for onboarding preview.
+ *
+ * Response: Array of classic recipes with:
+ * - name: string
+ * - ingredients: string[]
+ * - instructions: string
+ * - glass: string
+ * - spirit_type: string
+ * - requires: string[] (element symbols for ingredient matching)
+ */
+router.get('/classics', asyncHandler(async (req: Request, res: Response) => {
+  try {
+    // Dynamic import for JSON data
+    const recipesModule = await import('../data/classicRecipes.json');
+    const classicRecipes = recipesModule.default || recipesModule;
+
+    res.json({
+      success: true,
+      data: classicRecipes
+    });
+  } catch (err) {
+    logger.error('Failed to load classic recipes', {
+      error: err instanceof Error ? err.message : 'Unknown error'
+    });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to load classic recipes'
+    });
+  }
+}));
+
+// ============ Protected Routes (Auth Required) ============
 router.use(authMiddleware);
 
 /**

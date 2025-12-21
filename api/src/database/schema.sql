@@ -94,7 +94,8 @@ CREATE TABLE IF NOT EXISTS collections (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   description TEXT,
-  created_at TIMESTAMP DEFAULT NOW()
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE (user_id, name)
 );
 
 -- ============================================================================

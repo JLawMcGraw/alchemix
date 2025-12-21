@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { X, Pencil, Plus, Minus } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { useToast } from '@/components/ui';
@@ -119,6 +119,23 @@ export function ItemDetailModal({ isOpen, onClose, item, onItemUpdated }: ItemDe
     return JSON.stringify(formData) !== JSON.stringify(originalData);
   }, [formData, originalData]);
 
+  const handleCancel = useCallback(() => {
+    if (hasUnsavedChanges) {
+      if (!confirm('Discard unsaved changes?')) return;
+    }
+    if (originalData) {
+      setFormData(originalData);
+    }
+    setIsEditMode(false);
+  }, [hasUnsavedChanges, originalData]);
+
+  const handleClose = useCallback(() => {
+    if (hasUnsavedChanges) {
+      if (!confirm('Discard unsaved changes?')) return;
+    }
+    onClose();
+  }, [hasUnsavedChanges, onClose]);
+
   // Keyboard handling
   useEffect(() => {
     if (isOpen) {
@@ -153,7 +170,7 @@ export function ItemDetailModal({ isOpen, onClose, item, onItemUpdated }: ItemDe
       document.addEventListener('keydown', handleKeyDown);
       return () => document.removeEventListener('keydown', handleKeyDown);
     }
-  }, [isOpen, isEditMode]);
+  }, [isOpen, isEditMode, handleCancel, handleClose]);
 
   if (!isOpen || !item) return null;
 
@@ -196,23 +213,6 @@ export function ItemDetailModal({ isOpen, onClose, item, onItemUpdated }: ItemDe
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const handleCancel = () => {
-    if (hasUnsavedChanges) {
-      if (!confirm('Discard unsaved changes?')) return;
-    }
-    if (originalData) {
-      setFormData(originalData);
-    }
-    setIsEditMode(false);
-  };
-
-  const handleClose = () => {
-    if (hasUnsavedChanges) {
-      if (!confirm('Discard unsaved changes?')) return;
-    }
-    onClose();
   };
 
   const handleDelete = async () => {

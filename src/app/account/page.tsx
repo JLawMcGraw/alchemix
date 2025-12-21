@@ -35,6 +35,10 @@ export default function AccountPage() {
   const [deleteError, setDeleteError] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // Resend Verification State
+  const [resendingVerification, setResendingVerification] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
+
   // Export/Import State
   const [isExporting, setIsExporting] = useState(false);
   const [exportSuccess, setExportSuccess] = useState(false);
@@ -227,6 +231,20 @@ export default function AccountPage() {
     setDeleteError('');
   };
 
+  // Handle Resend Verification
+  const handleResendVerification = async () => {
+    try {
+      setResendingVerification(true);
+      await authApi.resendVerification();
+      setVerificationSent(true);
+      setTimeout(() => setVerificationSent(false), 5000);
+    } catch (error) {
+      console.error('Failed to resend verification:', error);
+    } finally {
+      setResendingVerification(false);
+    }
+  };
+
   // Handle Logout
   const handleLogout = () => {
     logout();
@@ -287,9 +305,20 @@ export default function AccountPage() {
               {/* Email Status */}
               <div className={styles.row}>
                 <span className={styles.rowLabel}>Email status</span>
-                <span className={`${styles.rowValue} ${user?.is_verified ? styles.verified : styles.unverified}`}>
-                  {user?.is_verified ? '✓ Verified' : 'Unverified'}
-                </span>
+                <div className={styles.rowValueWithAction}>
+                  <span className={`${styles.rowValue} ${user?.is_verified ? styles.verified : styles.unverified}`}>
+                    {user?.is_verified ? '✓ Verified' : 'Unverified'}
+                  </span>
+                  {!user?.is_verified && (
+                    <button
+                      className={styles.resendBtn}
+                      onClick={handleResendVerification}
+                      disabled={resendingVerification || verificationSent}
+                    >
+                      {verificationSent ? 'Sent!' : resendingVerification ? 'Sending...' : 'Resend'}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </section>

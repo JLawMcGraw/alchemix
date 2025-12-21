@@ -218,6 +218,17 @@ export function CSVUploadModal({ isOpen, onClose, type, onUpload }: CSVUploadMod
     }
   }, [isOpen, type, fetchCollections]);
 
+  const handleClose = useCallback(() => {
+    setFile(null);
+    setPreview(null);
+    setError(null);
+    setUploading(false);
+    setSelectedCollectionId(undefined);
+    setNewCollectionName('');
+    setIsDragging(false);
+    onClose();
+  }, [onClose]);
+
   // Focus management and keyboard shortcuts
   useEffect(() => {
     if (isOpen) {
@@ -231,18 +242,7 @@ export function CSVUploadModal({ isOpen, onClose, type, onUpload }: CSVUploadMod
       document.addEventListener('keydown', handleKeyDown);
       return () => document.removeEventListener('keydown', handleKeyDown);
     }
-  }, [isOpen]);
-
-  const handleClose = useCallback(() => {
-    setFile(null);
-    setPreview(null);
-    setError(null);
-    setUploading(false);
-    setSelectedCollectionId(undefined);
-    setNewCollectionName('');
-    setIsDragging(false);
-    onClose();
-  }, [onClose]);
+  }, [isOpen, handleClose]);
 
   const processFile = useCallback(async (selectedFile: File) => {
     if (!selectedFile.name.endsWith('.csv')) {

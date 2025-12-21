@@ -3,12 +3,13 @@
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/lib/store';
-import { inventoryApi, recipeApi } from '@/lib/api';
+import { inventoryApi, recipeApi, type ClassicRecipe } from '@/lib/api';
 import { PERIODIC_SECTIONS, GROUP_COLORS, type PeriodicElement } from '@/lib/periodicTable';
 import { RecipeDetailModal } from '@/components/modals';
 import { AlcheMixLogo } from '@/components/ui';
 import { generateFormula } from '@alchemix/recipe-molecule';
 import type { InventoryItemInput, InventoryCategory, PeriodicGroup, PeriodicPeriod, Recipe } from '@/types';
+import { fallbackRecipes } from './fallbackRecipes';
 import styles from './page.module.css';
 
 /**
@@ -56,188 +57,114 @@ function elementToInventoryItem(element: PeriodicElement): InventoryItemInput {
     garnish: 'Botanic',
   };
 
-  // Determine category based on element section
+  // Determine category based on element type
   const baseSpirits = ['Rm', 'Ra', 'Cc', 'Vd', 'Gn', 'Wh', 'Bb', 'Ry', 'Sc', 'Tq', 'Mz', 'Br', 'Cg', 'Ps'];
-  const isSpirit = baseSpirits.includes(element.symbol);
+  const citrus = ['Li', 'Le', 'Or', 'Gf', 'Pi', 'Pf']; // Lime, Lemon, Orange, Grapefruit, Pineapple, Passion Fruit
+  const mixers = ['Sp', 'Gb', 'Tn', 'Nc', 'Cr']; // Sparkling, Ginger Beer, Tonic, Coconut Cream, Cream
+  const garnishes = ['Mt', 'An']; // Mint, Angostura (often used as garnish)
+  const sweeteners = ['Og', 'Hn', 'Gr', 'Fa']; // Orgeat, Honey, Grenadine, Falernum
+
+  let category: InventoryCategory = 'liqueur';
+  if (baseSpirits.includes(element.symbol)) {
+    category = 'spirit';
+  } else if (citrus.includes(element.symbol)) {
+    category = 'mixer';
+  } else if (mixers.includes(element.symbol)) {
+    category = 'mixer';
+  } else if (garnishes.includes(element.symbol)) {
+    category = 'garnish';
+  } else if (sweeteners.includes(element.symbol)) {
+    category = 'syrup';
+  }
 
   return {
     name: element.name,
-    category: isSpirit ? ('spirit' as InventoryCategory) : ('liqueur' as InventoryCategory),
+    category,
     type: element.name,
     stock_number: 1,
-    periodic_group: groupMap[element.group] || ('Base' as PeriodicGroup),
-    periodic_period: periodMap[element.group] || ('Grain' as PeriodicPeriod),
   };
 }
 
-// Get curated elements for quick-add (non-hidden, useful for cocktails)
+/**
+ * Get curated elements for quick-add (optimized for unlocking the most cocktails)
+ * 
+ * Based on frequency analysis of 100+ classic cocktails:
+ * - Gn (27), Vd (21), Rm (14), Ol (12), Sv (10), Sp (8), Bb/Tq/Cp/Ms (6 each)
+ * - Ry/Ct/Sc/Cr/Fa (5 each), Cf/Cg (4 each), Mt/Dv/Ap/Ab/Gb/Pf (3 each)
+ * 
+ * Total: 32 elements for comprehensive coverage (nice even grid)
+ */
 function getQuickAddElements(): PeriodicElement[] {
   const elements: PeriodicElement[] = [];
 
   // Get base spirits (first section) - skip hidden ones and less common spirits
+  // Result: Rm, Vd, Gn, Bb, Ry, Sc, Tq, Mz, Br, Cg = 10 elements
   const baseSpirits = PERIODIC_SECTIONS.find(s => s.title === 'BASE SPIRITS');
   if (baseSpirits) {
-    const excludeSpirits = ['Wh', 'Ps', 'Cc']; // Whiskey covered by Bourbon/Rye, Pisco/Cachaça less common
+    // Include most impactful base spirits (by recipe frequency)
+    // Exclude: Wh (covered by Bb/Ry), Ps/Cc/Ra (less common)
+    const excludeSpirits = ['Wh', 'Ps', 'Cc', 'Ra'];
     elements.push(...baseSpirits.elements.filter(e => !e.hidden && !excludeSpirits.includes(e.symbol)));
   }
 
   // Get key liqueurs (commonly used, non-hidden)
+  // Result: Ol, Cf, Ms, Ct, Am, Co = 6 elements
   const liqueurs = PERIODIC_SECTIONS.find(s => s.title === 'LIQUEURS');
   if (liqueurs) {
-    // Only include the most essential liqueurs for quick-add
-    const essentialLiqueurs = ['Ol', 'Cf', 'Ms', 'Ct'];
+    // Top liqueurs: Ol (12), Ms (6), Ct (5), Cf (4), Am (2), Co (3)
+    const essentialLiqueurs = ['Ol', 'Cf', 'Ms', 'Ct', 'Am', 'Co'];
     elements.push(...liqueurs.elements.filter(e => !e.hidden && essentialLiqueurs.includes(e.symbol)));
   }
 
   // Get key bitters/botanicals
+  // Result: Cp, Ap, Sv, Dv, Ab = 5 elements
   const botanicals = PERIODIC_SECTIONS.find(s => s.title === 'BITTERS & BOTANICALS');
   if (botanicals) {
-    // Most essential for classic cocktails
-    const essentialBotanicals = ['An', 'Cp', 'Sv', 'Dv'];
+    // Top botanicals: Sv (10), Cp (6), Dv (3), Ap (3), Ab (3)
+    const essentialBotanicals = ['Cp', 'Ap', 'Sv', 'Dv', 'Ab'];
     elements.push(...botanicals.elements.filter(e => !e.hidden && essentialBotanicals.includes(e.symbol)));
   }
 
-  // Get essential citrus
+  // Get essential mixers (high impact for easy cocktails)
+  // Result: Sp, Gb, Cr, Nc = 4 elements
+  const mixers = PERIODIC_SECTIONS.find(s => s.title === 'MIXERS & OTHER');
+  if (mixers) {
+    // Sp (8), Cr (5), Nc (2), Gb (3) - unlock many tiki and cream drinks
+    const essentialMixers = ['Sp', 'Gb', 'Cr', 'Nc'];
+    elements.push(...mixers.elements.filter(e => !e.hidden && essentialMixers.includes(e.symbol)));
+  }
+
+  // Get essential garnishes
+  // Result: Mt = 1 element
+  const garnishes = PERIODIC_SECTIONS.find(s => s.title === 'GARNISHES');
+  if (garnishes) {
+    const essentialGarnishes = ['Mt']; // Fresh Mint (3 recipes)
+    elements.push(...garnishes.elements.filter(e => !e.hidden && essentialGarnishes.includes(e.symbol)));
+  }
+
+  // Get key sweeteners and citrus
+  // Result: Og, Hn, Gr = 3 elements
+  const sweeteners = PERIODIC_SECTIONS.find(s => s.title === 'SWEETENERS');
+  if (sweeteners) {
+    // Og (2) for Mai Tai, Hn (2) for Bee's Knees, Gr for Tequila Sunrise/Jack Rose
+    const essentialSweeteners = ['Og', 'Hn', 'Gr'];
+    elements.push(...sweeteners.elements.filter(e => !e.hidden && essentialSweeteners.includes(e.symbol)));
+  }
+
+  // Get essential citrus (lime, lemon, grapefruit are not assumed to be always available)
+  // Result: Li, Le, Gf = 3 elements
   const citrus = PERIODIC_SECTIONS.find(s => s.title === 'CITRUS & ACIDS');
   if (citrus) {
-    const essentialCitrus = ['Li', 'Le', 'Or'];
+    const essentialCitrus = ['Li', 'Le', 'Gf']; // Lime, Lemon, Grapefruit - essential for most cocktails
     elements.push(...citrus.elements.filter(e => !e.hidden && essentialCitrus.includes(e.symbol)));
   }
 
-  // Get essential sweeteners
-  const sweeteners = PERIODIC_SECTIONS.find(s => s.title === 'SWEETENERS');
-  if (sweeteners) {
-    const essentialSweeteners = ['Ss', 'Gr']; // Simple Syrup, Grenadine
-    elements.push(...sweeteners.elements.filter(e => !e.hidden && essentialSweeteners.includes(e.symbol)));
-  }
+  // Total: 10 + 6 + 5 + 4 + 1 + 3 + 3 = 32 elements
 
   return elements;
 }
 
-// Preview recipes with requirements (mapped to periodic table symbols)
-interface PreviewRecipe {
-  name: string;
-  requires: string[]; // Element symbols
-  ingredients: string[];
-  formula: string;
-  glass: string;
-  instructions?: string;
-}
 
-const previewRecipes: PreviewRecipe[] = [
-  {
-    name: 'Old Fashioned',
-    requires: ['Bb'],
-    ingredients: ['2 oz Bourbon', '1 tsp Simple Syrup', '2 dashes Angostura Bitters', 'Orange peel'],
-    formula: 'Bb₂ · Si · An₂',
-    glass: 'Rocks',
-    instructions: 'Stir with ice, strain into rocks glass over large ice cube. Express orange peel over drink.'
-  },
-  {
-    name: 'Negroni',
-    requires: ['Gn', 'Sv', 'Cp'],
-    ingredients: ['1 oz Gin', '1 oz Sweet Vermouth', '1 oz Campari', 'Orange peel'],
-    formula: 'Gn₁ · Sv₁ · Cp₁',
-    glass: 'Rocks',
-    instructions: 'Stir all ingredients with ice, strain into rocks glass over large ice cube. Garnish with orange peel.'
-  },
-  {
-    name: 'Margarita',
-    requires: ['Tq', 'Ol'],
-    ingredients: ['2 oz Tequila', '1 oz Orange Liqueur', '1 oz Lime juice', 'Salt rim'],
-    formula: 'Tq₂ · Ol₁ · Li₁',
-    glass: 'Coupe',
-    instructions: 'Shake all ingredients with ice, strain into salt-rimmed coupe.'
-  },
-  {
-    name: 'Daiquiri',
-    requires: ['Rm'],
-    ingredients: ['2 oz White Rum', '1 oz Lime juice', '¾ oz Simple Syrup'],
-    formula: 'Rm₂ · Li₁ · Si₀.₇₅',
-    glass: 'Coupe',
-    instructions: 'Shake all ingredients with ice, strain into chilled coupe.'
-  },
-  {
-    name: 'Manhattan',
-    requires: ['Ry', 'Sv', 'An'],
-    ingredients: ['2 oz Rye Whiskey', '1 oz Sweet Vermouth', '2 dashes Angostura Bitters', 'Brandied cherry'],
-    formula: 'Ry₂ · Sv₁ · An₂',
-    glass: 'Coupe',
-    instructions: 'Stir all ingredients with ice, strain into chilled coupe. Garnish with brandied cherry.'
-  },
-  {
-    name: 'Martini',
-    requires: ['Gn', 'Dv'],
-    ingredients: ['2.5 oz Gin', '0.5 oz Dry Vermouth', 'Lemon twist or olive'],
-    formula: 'Gn₂.₅ · Dv₀.₅',
-    glass: 'Martini',
-    instructions: 'Stir with ice until well-chilled, strain into chilled martini glass.'
-  },
-  {
-    name: 'Whiskey Sour',
-    requires: ['Bb'],
-    ingredients: ['2 oz Bourbon', '1 oz Lemon juice', '¾ oz Simple Syrup', 'Optional: egg white'],
-    formula: 'Bb₂ · Le₁ · Si₀.₇₅',
-    glass: 'Rocks',
-    instructions: 'Shake all ingredients with ice, strain into rocks glass over ice.'
-  },
-  {
-    name: 'Moscow Mule',
-    requires: ['Vd'],
-    ingredients: ['2 oz Vodka', '0.5 oz Lime juice', '4 oz Ginger Beer'],
-    formula: 'Vd₂ · Li₀.₅ · Gb₄',
-    glass: 'Mug',
-    instructions: 'Build in copper mug over ice, stir gently.'
-  },
-  {
-    name: 'Paloma',
-    requires: ['Tq'],
-    ingredients: ['2 oz Tequila', '0.5 oz Lime juice', '4 oz Grapefruit soda', 'Salt rim'],
-    formula: 'Tq₂ · Li₀.₅ · Gf₄',
-    glass: 'Highball',
-    instructions: 'Build in highball glass over ice with salt rim.'
-  },
-  {
-    name: 'Espresso Martini',
-    requires: ['Vd', 'Cf'],
-    ingredients: ['2 oz Vodka', '1 oz Coffee Liqueur', '1 oz Fresh espresso', '0.5 oz Simple Syrup'],
-    formula: 'Vd₂ · Cf₁ · Es₁',
-    glass: 'Martini',
-    instructions: 'Shake all ingredients vigorously with ice, strain into chilled martini glass.'
-  },
-  {
-    name: 'Amaretto Sour',
-    requires: ['Am', 'Bb'],
-    ingredients: ['1.5 oz Amaretto', '0.75 oz Bourbon', '1 oz Lemon juice', '0.5 oz Simple Syrup'],
-    formula: 'Am₁.₅ · Bb₀.₇₅ · Le₁',
-    glass: 'Rocks',
-    instructions: 'Shake all ingredients with ice, strain into rocks glass over ice.'
-  },
-  {
-    name: 'Boulevardier',
-    requires: ['Bb', 'Sv', 'Cp'],
-    ingredients: ['1.5 oz Bourbon', '1 oz Sweet Vermouth', '1 oz Campari', 'Orange peel'],
-    formula: 'Bb₁.₅ · Sv₁ · Cp₁',
-    glass: 'Rocks',
-    instructions: 'Stir all ingredients with ice, strain into rocks glass over large ice cube.'
-  },
-  {
-    name: 'Mezcal Negroni',
-    requires: ['Mz', 'Sv', 'Cp'],
-    ingredients: ['1 oz Mezcal', '1 oz Sweet Vermouth', '1 oz Campari', 'Orange peel'],
-    formula: 'Mz₁ · Sv₁ · Cp₁',
-    glass: 'Rocks',
-    instructions: 'Stir all ingredients with ice, strain into rocks glass over large ice cube.'
-  },
-  {
-    name: 'Aviation',
-    requires: ['Gn', 'Ms'],
-    ingredients: ['2 oz Gin', '0.5 oz Maraschino', '0.5 oz Lemon juice', '0.25 oz Crème de Violette'],
-    formula: 'Gn₂ · Ms₀.₅ · Le₀.₅',
-    glass: 'Coupe',
-    instructions: 'Shake all ingredients with ice, strain into chilled coupe.'
-  },
-];
 
 function OnboardingContent() {
   const router = useRouter();
@@ -253,9 +180,22 @@ function OnboardingContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [isValidating, setIsValidating] = useState(true);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [classicRecipes, setClassicRecipes] = useState<ClassicRecipe[]>(fallbackRecipes);
+  const [resultsPage, setResultsPage] = useState(1);
+  const RESULTS_PER_PAGE = 6;
 
   // Get curated elements for bottle selection
   const quickAddElements = useMemo(() => getQuickAddElements(), []);
+
+  // Fetch classic recipes from API (with fallback)
+  useEffect(() => {
+    recipeApi.getClassics()
+      .then((recipes) => setClassicRecipes(recipes))
+      .catch((err) => {
+        console.warn('Failed to fetch classic recipes, using fallback:', err);
+        // Keep using fallbackRecipes (already set as default)
+      });
+  }, []);
 
   // Check authentication on mount
   useEffect(() => {
@@ -285,10 +225,22 @@ function OnboardingContent() {
 
   // Calculate makeable recipes based on selection
   const makeableRecipes = useMemo(() => {
-    return previewRecipes.filter((recipe) =>
+    return classicRecipes.filter((recipe) =>
       recipe.requires.every((req) => selectedElements.has(req))
     );
-  }, [selectedElements]);
+  }, [selectedElements, classicRecipes]);
+
+  // Calculate pagination for results
+  const totalResultsPages = Math.ceil(makeableRecipes.length / RESULTS_PER_PAGE);
+  const paginatedRecipes = makeableRecipes.slice(
+    (resultsPage - 1) * RESULTS_PER_PAGE,
+    resultsPage * RESULTS_PER_PAGE
+  );
+
+  // Reset results page when makeable recipes change
+  useEffect(() => {
+    setResultsPage(1);
+  }, [makeableRecipes.length]);
 
   const toggleElement = (symbol: string) => {
     const newSet = new Set(selectedElements);
@@ -341,29 +293,36 @@ function OnboardingContent() {
       return;
     }
 
+    if (isSaving) return; // Prevent double-clicks
     setIsSaving(true);
 
     try {
-      // 1. Save all selected elements to inventory
+      // 1. Get existing inventory to avoid duplicates
+      const { items: existingItems } = await inventoryApi.getAll({ limit: 100 });
+      const existingNames = new Set(existingItems.map(item => item.name.toLowerCase()));
+
+      // 2. Save only NEW selected elements to inventory
       const elementsToAdd = quickAddElements
         .filter((e) => selectedElements.has(e.symbol))
+        .filter((e) => !existingNames.has(e.name.toLowerCase())) // Skip if already exists
         .map((e) => elementToInventoryItem(e));
 
       for (const item of elementsToAdd) {
         await inventoryApi.add(item);
       }
 
-      // 2. Seed classic recipes (this also sets has_seeded_classics = true in DB)
+      // 3. Seed classic recipes (this also sets has_seeded_classics = true in DB)
       await recipeApi.seedClassics();
 
-      // 3. Refresh user data to get updated has_seeded_classics flag
+      // 4. Refresh user data to get updated has_seeded_classics flag
       await validateToken();
 
-      // 4. Redirect to dashboard
+      // 5. Redirect to dashboard
       router.push('/dashboard');
     } catch (err) {
       console.error('Failed to complete onboarding:', err);
-      setIsSaving(false);
+      // Still redirect to dashboard even on error - items may have been partially saved
+      router.push('/dashboard');
     }
   };
 
@@ -372,18 +331,18 @@ function OnboardingContent() {
     return GROUP_COLORS[element.group] || 'var(--fg-tertiary)';
   };
 
-  // Convert preview recipe to Recipe type for the modal
-  const previewToRecipe = (preview: PreviewRecipe): Recipe => ({
+  // Convert classic recipe to Recipe type for the modal
+  const classicToRecipe = (classic: ClassicRecipe): Recipe => ({
     id: 0, // Temporary ID for preview
-    name: preview.name,
-    ingredients: preview.ingredients,
-    instructions: preview.instructions || '',
-    glass: preview.glass,
-    category: undefined,
+    name: classic.name,
+    ingredients: classic.ingredients,
+    instructions: classic.instructions || '',
+    glass: classic.glass,
+    category: classic.spirit_type,
   });
 
-  const handleRecipeClick = (preview: PreviewRecipe) => {
-    setSelectedRecipe(previewToRecipe(preview));
+  const handleRecipeClick = (classic: ClassicRecipe) => {
+    setSelectedRecipe(classicToRecipe(classic));
   };
 
   // Show loading state while validating
@@ -463,6 +422,9 @@ function OnboardingContent() {
               <p className={styles.stockSubtitle}>
                 Tap to select the bottles you have. We&apos;ll show you what you can make.
               </p>
+              <p className={styles.stockHint}>
+                You can add specific brands from your bar later.
+              </p>
             </div>
 
             {/* Live counter */}
@@ -527,22 +489,45 @@ function OnboardingContent() {
             </div>
 
             {makeableRecipes.length > 0 ? (
-              <div className={styles.recipeGrid}>
-                {makeableRecipes.slice(0, 6).map((recipe, i) => (
-                  <div
-                    key={i}
-                    className={styles.recipeCard}
-                    onClick={() => handleRecipeClick(recipe)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <div className={styles.recipeName}>{recipe.name}</div>
-                    <div className={styles.recipeFormula}>{generateFormula(recipe.ingredients)}</div>
-                    <div className={styles.recipeMeta}>
-                      <span className={styles.recipeGlass}>{recipe.glass}</span>
+              <>
+                <div className={styles.recipeGrid}>
+                  {paginatedRecipes.map((recipe, i) => (
+                    <div
+                      key={i}
+                      className={styles.recipeCard}
+                      onClick={() => handleRecipeClick(recipe)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div className={styles.recipeName}>{recipe.name}</div>
+                      <div className={styles.recipeFormula}>{generateFormula(recipe.ingredients)}</div>
+                      <div className={styles.recipeMeta}>
+                        <span className={styles.recipeGlass}>{recipe.glass}</span>
+                      </div>
                     </div>
+                  ))}
+                </div>
+                {totalResultsPages > 1 && (
+                  <div className={styles.pagination}>
+                    <button
+                      className={styles.paginationBtn}
+                      onClick={() => setResultsPage((p) => Math.max(1, p - 1))}
+                      disabled={resultsPage === 1}
+                    >
+                      ← Prev
+                    </button>
+                    <span className={styles.paginationInfo}>
+                      {resultsPage} / {totalResultsPages}
+                    </span>
+                    <button
+                      className={styles.paginationBtn}
+                      onClick={() => setResultsPage((p) => Math.min(totalResultsPages, p + 1))}
+                      disabled={resultsPage === totalResultsPages}
+                    >
+                      Next →
+                    </button>
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             ) : (
               <div className={styles.emptyState}>Add more bottles to see what you can make</div>
             )}

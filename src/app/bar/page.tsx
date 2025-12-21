@@ -14,7 +14,7 @@ import { CSVUploadModal, AddBottleModal, ItemDetailModal } from '@/components/mo
 // V2: 6x6 grid by function × origin (new design)
 import { PeriodicTable as PeriodicTableV2 } from '@/components/PeriodicTableV2';
 import { PeriodicTable as PeriodicTableV1 } from '@/components/PeriodicTable';
-import { type PeriodicElement } from '@/lib/periodicTable';
+import { type PeriodicElement, elementToAddModalPreFill, type AddModalPreFill } from '@/lib/periodicTable';
 import { inventoryApi } from '@/lib/api';
 import type { InventoryCategory, InventoryItem, InventoryItemInput } from '@/types';
 import { categorizeSpirit, matchesSpiritCategory, SpiritCategory } from '@/lib/spirits';
@@ -71,6 +71,9 @@ function BarPageContent() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  
+  // Pre-fill data for AddBottleModal when adding from periodic table element
+  const [addModalPreFill, setAddModalPreFill] = useState<AddModalPreFill | null>(null);
 
   // Handle URL parameters
   useEffect(() => {
@@ -119,10 +122,14 @@ function BarPageContent() {
       // Clear selections when page/category changes
       setSelectedIds(new Set());
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchItems is stable, hasInitiallyLoaded intentionally excluded to run only once
   }, [isAuthenticated, isValidating, currentPage, activeCategory]);
 
   // Ensure inventoryItems is always an array - must be before useMemo hooks
-  const itemsArray = Array.isArray(inventoryItems) ? inventoryItems : [];
+  const itemsArray = useMemo(() => 
+    Array.isArray(inventoryItems) ? inventoryItems : [],
+    [inventoryItems]
+  );
 
   // Apply client-side filters (category filtering is server-side)
   // useMemo must be called before any conditional returns
@@ -215,6 +222,13 @@ function BarPageContent() {
   const handleCardClick = (item: InventoryItem) => {
     setSelectedItem(item);
     setDetailModalOpen(true);
+  };
+
+  // Handle adding a new item from periodic table element click
+  const handleElementAdd = (element: PeriodicElement) => {
+    const preFill = elementToAddModalPreFill(element);
+    setAddModalPreFill(preFill);
+    setAddModalOpen(true);
   };
 
   // Selection handlers
@@ -372,6 +386,7 @@ function BarPageContent() {
             inventoryItems={itemsArray}
             selectedElement={selectedElement}
             onElementClick={(element) => setSelectedElement(element)}
+            onElementAdd={handleElementAdd}
             onClearSelection={() => setSelectedElement(null)}
           />
         )}
@@ -549,8 +564,12 @@ function BarPageContent() {
 
         <AddBottleModal
           isOpen={addModalOpen}
-          onClose={() => setAddModalOpen(false)}
+          onClose={() => {
+            setAddModalOpen(false);
+            setAddModalPreFill(null);
+          }}
           onAdd={handleAddItem}
+          preFill={addModalPreFill}
         />
 
         <ItemDetailModal

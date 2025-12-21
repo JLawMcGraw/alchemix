@@ -397,7 +397,7 @@ export const recipeApi = {
 
   /**
    * Seed classic cocktail recipes for first-time users
-   * Called once on first login to add 20 classic recipes
+   * Called once on first login to add 100+ classic recipes
    */
   async seedClassics(): Promise<{ seeded: boolean; count: number; message: string }> {
     const { data } = await apiClient.post<{ 
@@ -408,7 +408,32 @@ export const recipeApi = {
     }>('/api/recipes/seed-classics');
     return { seeded: data.seeded, count: data.count, message: data.message };
   },
+
+  /**
+   * Get classic cocktail data for onboarding preview (PUBLIC - no auth required)
+   * Returns recipes with pre-computed 'requires' array for ingredient matching
+   */
+  async getClassics(): Promise<ClassicRecipe[]> {
+    const { data } = await apiClient.get<{ 
+      success: boolean; 
+      data: ClassicRecipe[] 
+    }>('/api/recipes/classics');
+    return data.data;
+  },
 };
+
+/**
+ * Classic recipe type for onboarding
+ * Includes 'requires' array for matching against user's element selection
+ */
+export interface ClassicRecipe {
+  name: string;
+  ingredients: string[];
+  instructions: string;
+  glass: string;
+  spirit_type: string;
+  requires: string[]; // Element symbols (e.g., ['Gn', 'Sv', 'Cp'] for Negroni)
+}
 
 // Custom Glasses API
 export interface CustomGlass {
