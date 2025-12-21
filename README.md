@@ -231,10 +231,10 @@ The project has comprehensive test coverage using Vitest:
 
 | Suite | Tests | Description |
 |-------|-------|-------------|
-| Frontend | 206 | API client, store, UI components, page tests |
-| Backend | 877 | Auth, inventory, recipes, collections, favorites, messages, shopping list, middleware, services |
-| Recipe Molecule | 124 | Ingredient parser, classifier, layout engine |
-| **Total** | **1,207** | |
+| Frontend | 213 | API client, store, UI components, page tests, onboarding |
+| Backend | 884 | Auth, inventory, recipes, collections, favorites, messages, shopping list, middleware, services |
+| Recipe Molecule | 165 | Ingredient parser, classifier, layout engine, formula generator |
+| **Total** | **1,262** | |
 
 ```bash
 # Run all tests

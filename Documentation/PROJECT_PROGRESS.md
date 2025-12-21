@@ -12,10 +12,10 @@ Last updated: 2025-12-20 (Session 2)
 **Blockers**: None
 
 **Test Coverage**:
-- Backend: 877 tests (35 test files)
-- Frontend: 206 tests
-- Recipe-Molecule: 124 tests
-- **Total: 1,207 tests**
+- Backend: 884 tests (35 test files)
+- Frontend: 213 tests (12 test files)
+- Recipe-Molecule: 165 tests (3 test files)
+- **Total: 1,262 tests**
 
 **Redesign Progress**:
 - Phase 1-4 (Batch A - Foundation): **Complete**

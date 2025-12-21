@@ -23,6 +23,7 @@ vi.mock('../services/RecipeService', () => ({
     importFromCSV: vi.fn(),
     syncMemMachine: vi.fn(),
     clearMemMachine: vi.fn(),
+    seedClassics: vi.fn(),
   },
 }));
 
@@ -559,6 +560,50 @@ describe('Recipes Routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.data[0].memmachine_uid).toBeNull();
+    });
+  });
+
+  describe('POST /api/recipes/seed-classics', () => {
+    it('should seed classic recipes for first-time user', async () => {
+      (recipeService.seedClassics as ReturnType<typeof vi.fn>).mockResolvedValue({
+        seeded: true,
+        count: 20,
+      });
+
+      const res = await request(app).post('/api/recipes/seed-classics');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.seeded).toBe(true);
+      expect(res.body.count).toBe(20);
+      expect(res.body.message).toContain('20 classic cocktail recipes');
+      expect(recipeService.seedClassics).toHaveBeenCalledWith(testUserId);
+    });
+
+    it('should return seeded: false if already seeded', async () => {
+      (recipeService.seedClassics as ReturnType<typeof vi.fn>).mockResolvedValue({
+        seeded: false,
+        count: 0,
+      });
+
+      const res = await request(app).post('/api/recipes/seed-classics');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.seeded).toBe(false);
+      expect(res.body.count).toBe(0);
+      expect(res.body.message).toBe('Classic recipes already added');
+    });
+
+    it('should handle service errors gracefully', async () => {
+      (recipeService.seedClassics as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error('Database error')
+      );
+
+      const res = await request(app).post('/api/recipes/seed-classics');
+
+      expect(res.status).toBe(500);
+      expect(res.body.success).toBe(false);
     });
   });
 });

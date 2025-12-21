@@ -819,4 +819,83 @@ describe('RecipeService', () => {
       expect(result.imported).toBe(1);
     });
   });
+
+  describe('seedClassics', () => {
+    it('should seed classic recipes for first-time user', async () => {
+      // User exists and has not seeded
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({
+        has_seeded_classics: false,
+      });
+
+      // Mock transaction to insert recipes
+      (transaction as ReturnType<typeof vi.fn>).mockImplementation(async (callback) => {
+        const mockClient = {
+          query: vi.fn()
+            .mockResolvedValueOnce({ rows: [{ id: 1 }] }) // First recipe insert
+            .mockResolvedValueOnce({ rows: [{ id: 2 }] }) // Second recipe insert
+            .mockResolvedValue({ rows: [] }), // Update user flag
+        };
+        return callback(mockClient as any);
+      });
+
+      const result = await recipeService.seedClassics(userId);
+
+      expect(result.seeded).toBe(true);
+      expect(result.count).toBeGreaterThan(0);
+      expect(queryOne).toHaveBeenCalledWith(
+        'SELECT has_seeded_classics FROM users WHERE id = $1',
+        [userId]
+      );
+    });
+
+    it('should return seeded: false if already seeded', async () => {
+      // User exists and has already seeded
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({
+        has_seeded_classics: true,
+      });
+
+      const result = await recipeService.seedClassics(userId);
+
+      expect(result.seeded).toBe(false);
+      expect(result.count).toBe(0);
+      expect(transaction).not.toHaveBeenCalled();
+    });
+
+    it('should return seeded: false if user not found', async () => {
+      // User doesn't exist
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      const result = await recipeService.seedClassics(userId);
+
+      expect(result.seeded).toBe(false);
+      expect(result.count).toBe(0);
+    });
+
+    it('should handle partial failures gracefully', async () => {
+      // User exists and has not seeded
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({
+        has_seeded_classics: false,
+      });
+
+      // Mock transaction with some insert failures
+      let insertCount = 0;
+      (transaction as ReturnType<typeof vi.fn>).mockImplementation(async (callback) => {
+        const mockClient = {
+          query: vi.fn().mockImplementation(() => {
+            insertCount++;
+            if (insertCount <= 5) {
+              return Promise.resolve({ rows: [{ id: insertCount }] });
+            }
+            return Promise.resolve({ rows: [] }); // For UPDATE query
+          }),
+        };
+        return callback(mockClient as any);
+      });
+
+      const result = await recipeService.seedClassics(userId);
+
+      // Should still succeed even if some fail
+      expect(result.seeded).toBe(true);
+    });
+  });
 });
