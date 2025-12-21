@@ -1,8 +1,16 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
-import type { InventoryItem, PeriodicGroup, PeriodicPeriod } from '@/types';
+import { useMemo } from 'react';
+import type { InventoryItem } from '@/types';
 import { getPeriodicTags } from '@/lib/periodicTableV2';
+import {
+  CATEGORY_COLORS,
+  GROUP_COLORS,
+  GROUP_COLORS_DARK,
+  PERIOD_COLORS,
+  PERIOD_COLORS_DARK,
+} from '@/lib/colors';
+import { useTheme } from '@/hooks/useTheme';
 import styles from './BottleCard.module.css';
 
 interface BottleCardProps {
@@ -12,86 +20,12 @@ interface BottleCardProps {
   onClick?: (item: InventoryItem) => void;
 }
 
-const CATEGORY_COLORS: Record<string, string> = {
-  spirit: '#D97706',
-  liqueur: '#8B5CF6',
-  mixer: '#0EA5E9',
-  syrup: '#6366F1',
-  garnish: '#10B981',
-  wine: '#BE185D',
-  beer: '#CA8A04',
-  other: '#94A3B8',
-};
-
-/**
- * Color mapping for periodic groups (function/role) - Light mode
- */
-const GROUP_COLORS: Record<PeriodicGroup, string> = {
-  Base: '#1E293B',      // dark slate
-  Bridge: '#7C3AED',    // violet
-  Modifier: '#EC4899',  // pink
-  Sweetener: '#6366F1', // indigo
-  Reagent: '#F59E0B',   // yellow
-  Catalyst: '#EF4444',  // red
-};
-
-/**
- * Color mapping for periodic groups - Dark mode (lighter variants)
- */
-const GROUP_COLORS_DARK: Record<PeriodicGroup, string> = {
-  Base: '#94A3B8',      // lightened slate for visibility
-  Bridge: '#A78BFA',    // lighter violet
-  Modifier: '#F472B6',  // lighter pink
-  Sweetener: '#818CF8', // lighter indigo
-  Reagent: '#FBBF24',   // lighter yellow
-  Catalyst: '#F87171',  // lighter red
-};
-
-/**
- * Color mapping for periodic periods (origin/source)
- */
-const PERIOD_COLORS: Record<PeriodicPeriod, string> = {
-  Agave: '#0D9488',   // teal
-  Cane: '#65A30D',    // green
-  Grain: '#D97706',   // amber
-  Grape: '#8B5CF6',   // violet
-  Fruit: '#F43F5E',   // rose
-  Botanic: '#0EA5E9', // sky
-};
-
-/**
- * Color mapping for periodic periods - Dark mode
- */
-const PERIOD_COLORS_DARK: Record<PeriodicPeriod, string> = {
-  Agave: '#14B8A6',   // lighter teal
-  Cane: '#84CC16',    // lighter green
-  Grain: '#FBBF24',   // lighter amber
-  Grape: '#A78BFA',   // lighter violet
-  Fruit: '#FB7185',   // lighter rose
-  Botanic: '#38BDF8', // lighter sky
-};
-
 export function BottleCard({ item, isSelected = false, onSelect, onClick }: BottleCardProps) {
   const color = CATEGORY_COLORS[item.category] || '#94A3B8';
   const isOutOfStock = (item.stock_number ?? 0) === 0;
   const stockCount = item.stock_number ?? 0;
 
-  // Track dark mode state
-  const [isDarkMode, setIsDarkMode] = useState(false);
-
-  useEffect(() => {
-    // Check initial theme
-    const checkTheme = () => {
-      const theme = document.documentElement.getAttribute('data-theme');
-      setIsDarkMode(theme === 'dark');
-    };
-    checkTheme();
-
-    // Watch for theme changes
-    const observer = new MutationObserver(checkTheme);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    return () => observer.disconnect();
-  }, []);
+  const { isDarkMode } = useTheme();
 
   // Select color palette based on theme
   const groupColors = isDarkMode ? GROUP_COLORS_DARK : GROUP_COLORS;

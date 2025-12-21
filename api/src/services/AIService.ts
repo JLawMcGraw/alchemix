@@ -1150,10 +1150,9 @@ Generate a **Seasonal Suggestions** insight for the dashboard. Provide TWO thing
    - Use **bold** markdown for emphasis on numbers (e.g., "**${inventoryCount} items**")
    - Example: "Your laboratory holds **${inventoryCount} items** and **${recipeCount} recipes**—quite the arsenal for ${season.toLowerCase()} experimentation."
 
-2. **Seasonal Suggestion** (2-4 sentences):
-   - **CONTEXT-AWARE:** Reference the current season (${season})
-   - **SUGGEST CATEGORIES:** Recommend 2-3 cocktail categories/styles perfect for ${season}
-   - **BE SPECIFIC:** Reference recipe names or spirit types from the sample shown above
+2. **Seasonal Suggestion** (2-3 sentences):
+   - Reference the current season (${season})
+   - Pick 1-2 recipes from USER'S RECIPES list above (never suggest recipes not in their list)
 
 ## CRITICAL FORMAT REQUIREMENT
 You MUST return ONLY a valid JSON object. No other text before or after.

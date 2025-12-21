@@ -8,44 +8,15 @@ import { RecipeMolecule } from '@/components/RecipeMolecule';
 import { GlassSelector } from '@/components/GlassSelector';
 import { classifyIngredient, parseIngredient, generateFormula, toOunces, TYPE_COLORS, type IngredientType } from '@alchemix/recipe-molecule';
 import type { Recipe, Collection } from '@/types';
+import { SPIRIT_COLORS, getSpiritColorFromIngredients } from '@/lib/colors';
+import { parseIngredients } from '@/lib/utils';
 import styles from './RecipeDetailModal.module.css';
-
-// Spirit colors for top border (matching ItemDetailModal category colors)
-const SPIRIT_COLORS: Record<string, string> = {
-  rum: '#65A30D',
-  tequila: '#0D9488',
-  mezcal: '#0D9488',
-  whiskey: '#D97706',
-  bourbon: '#D97706',
-  rye: '#D97706',
-  scotch: '#D97706',
-  gin: '#0EA5E9',
-  vodka: '#94A3B8',
-  brandy: '#8B5CF6',
-  cognac: '#8B5CF6',
-  liqueur: '#8B5CF6',
-  vermouth: '#10B981',
-  amaro: '#10B981',
-  default: '#64748B',
-};
 
 // Get spirit color from recipe ingredients or category
 function getSpiritColor(recipe: Recipe): string {
-  // Try to detect spirit from ingredients
-  const ingredients = Array.isArray(recipe.ingredients)
-    ? recipe.ingredients
-    : typeof recipe.ingredients === 'string'
-      ? (() => { try { return JSON.parse(recipe.ingredients); } catch { return [recipe.ingredients]; } })()
-      : [];
-
-  for (const ing of ingredients) {
-    const ingLower = (typeof ing === 'string' ? ing : '').toLowerCase();
-    for (const [spirit, color] of Object.entries(SPIRIT_COLORS)) {
-      if (spirit !== 'default' && ingLower.includes(spirit)) {
-        return color;
-      }
-    }
-  }
+  const ingredients = parseIngredients(recipe.ingredients);
+  const color = getSpiritColorFromIngredients(ingredients);
+  if (color !== SPIRIT_COLORS.default) return color;
 
   // Fallback to category
   const category = (recipe.category || '').toLowerCase();

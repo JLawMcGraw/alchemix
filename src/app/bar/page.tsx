@@ -14,7 +14,7 @@ import { CSVUploadModal, AddBottleModal, ItemDetailModal } from '@/components/mo
 // V2: 6x6 grid by function × origin (new design)
 import { PeriodicTable as PeriodicTableV2 } from '@/components/PeriodicTableV2';
 import { PeriodicTable as PeriodicTableV1 } from '@/components/PeriodicTable';
-import { type PeriodicElement, elementToAddModalPreFill, type AddModalPreFill } from '@/lib/periodicTable';
+import { type PeriodicElement, elementToAddModalPreFill, type AddModalPreFill, itemMatchesElement } from '@/lib/periodicTable';
 import { inventoryApi } from '@/lib/api';
 import type { InventoryCategory, InventoryItem, InventoryItemInput } from '@/types';
 import { categorizeSpirit, matchesSpiritCategory, SpiritCategory } from '@/lib/spirits';
@@ -88,11 +88,10 @@ function BarPageContent() {
     if (isAuthenticated && !isValidating) {
       inventoryApi.getCategoryCounts()
         .then(counts => {
-          console.log('📊 Category counts received:', counts);
           setCategoryCounts(counts);
         })
-        .catch(err => {
-          console.error('❌ Failed to fetch category counts:', err);
+        .catch(() => {
+          // Silently fail - category counts are non-critical
         });
     }
   }, [isAuthenticated, isValidating]);
@@ -107,13 +106,12 @@ function BarPageContent() {
           if (!hasInitiallyLoaded) {
             const result = await inventoryApi.backfillPeriodicTags();
             if (result.updated > 0) {
-              console.log(`📊 Backfilled periodic tags for ${result.updated} items`);
               // Refetch to get updated tags
               await fetchItems(currentPage, 50, activeCategory);
             }
           }
-        } catch (err) {
-          console.error('Failed to load items:', err);
+        } catch {
+          // Error handled by store
         } finally {
           setHasInitiallyLoaded(true);
         }
@@ -137,19 +135,14 @@ function BarPageContent() {
     let items = itemsArray;
 
     // Filter by periodic table element if selected
+    // Uses whole-word matching to prevent false positives (e.g., "ginger beer" matching "gin")
     if (selectedElement) {
       items = items.filter(item => {
         // Only show items that are in stock
         if (item.stock_number !== undefined && item.stock_number <= 0) {
           return false;
         }
-        const itemText = `${item.name} ${item.type || ''}`.toLowerCase();
-        // Check element name
-        if (itemText.includes(selectedElement.name.toLowerCase())) {
-          return true;
-        }
-        // Check keywords
-        return selectedElement.keywords?.some((keyword) => itemText.includes(keyword)) ?? false;
+        return itemMatchesElement(item, selectedElement);
       });
     }
 
@@ -177,32 +170,22 @@ function BarPageContent() {
   // Modal handlers
   const handleCSVUpload = async (file: File) => {
     try {
-      console.log('🔄 Starting CSV import...');
       const result = await inventoryApi.importCSV(file);
-      console.log('✅ CSV import result:', result);
 
       // Backfill periodic tags for any items that need them
-      console.log('🔄 Backfilling periodic tags...');
-      const backfillResult = await inventoryApi.backfillPeriodicTags();
-      if (backfillResult.updated > 0) {
-        console.log(`📊 Backfilled periodic tags for ${backfillResult.updated} items`);
-      }
+      await inventoryApi.backfillPeriodicTags();
 
-      console.log('🔄 Fetching items after import...');
       await fetchItems();
       // Refresh category counts
       const counts = await inventoryApi.getCategoryCounts();
       setCategoryCounts(counts);
-      console.log('✅ Items fetched successfully');
       if (result.imported > 0) {
         showToast('success', `Successfully imported ${result.imported} items from CSV`);
       } else {
-        showToast('error', 'CSV import failed. Check console for details.');
+        showToast('error', 'CSV import failed');
       }
-    } catch (error) {
-      console.error('❌ CSV import error:', error);
+    } catch {
       showToast('error', 'Failed to import CSV');
-      throw error;
     }
   };
 
@@ -275,8 +258,7 @@ function BarPageContent() {
 
       showToast('success', `Successfully deleted ${selectedIds.size} item${selectedIds.size === 1 ? '' : 's'}`);
       setSelectedIds(new Set());
-    } catch (error) {
-      console.error('Bulk delete error:', error);
+    } catch {
       showToast('error', 'Failed to delete items');
     } finally {
       setIsDeleting(false);

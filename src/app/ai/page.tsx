@@ -306,10 +306,7 @@ export default function AIPage() {
     }
 
     if (recipe) {
-      console.log('[RecipeClick] Clicked:', recipeName, '-> Found:', recipe.name);
       setSelectedRecipe(recipe);
-    } else {
-      console.log('[RecipeClick] Clicked:', recipeName, '-> NOT FOUND');
     }
   };
 

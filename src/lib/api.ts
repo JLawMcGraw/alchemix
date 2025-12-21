@@ -567,10 +567,7 @@ export const aiApi = {
     message: string,
     conversationHistory: { role: string; content: string }[]
   ): Promise<string> {
-    console.log('🔌 [API] Sending to /api/messages:', { message: message.substring(0, 50) + '...' });
-
-    // Backend expects simple { message: "..." } format
-    const { data} = await apiClient.post<{ success: boolean; data: { message: string } }>('/api/messages', {
+    const { data } = await apiClient.post<{ success: boolean; data: { message: string } }>('/api/messages', {
       message,
       history: Array.isArray(conversationHistory)
         ? conversationHistory.map((entry) => ({
@@ -580,19 +577,13 @@ export const aiApi = {
         : [],
     });
 
-    console.log('🔌 [API] Response received:', { success: data.success, hasMessage: !!data.data?.message });
-
     return data.data.message;
   },
 
   async getDashboardInsight(): Promise<{ greeting: string; insight: string }> {
-    console.log('🔌 [API] Fetching dashboard insight from /api/messages/dashboard-insight');
-
     const { data } = await apiClient.get<{ success: boolean; data: { greeting: string; insight: string } }>(
       '/api/messages/dashboard-insight'
     );
-
-    console.log('🔌 [API] Dashboard insight received:', { success: data.success });
 
     return data.data;
   },

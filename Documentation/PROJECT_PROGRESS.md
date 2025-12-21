@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2025-12-21 (Session 2)
+Last updated: 2025-12-21 (Session 3)
 
 ---
 
@@ -30,7 +30,141 @@ Last updated: 2025-12-21 (Session 2)
 
 ---
 
-## Recent Session (2025-12-21): Onboarding Tests, VerificationBanner Cleanup & API Cleanup
+## Recent Session (2025-12-21): Classification Bug Fixes, Code Review Cleanup & AI Improvements
+
+### Summary
+Fixed multiple periodic table classification bugs (gin filter false positives, Hamilton 151, flavored rums, orange bitters, mint), fixed item modal not saving periodic classification, fixed dashboard markdown rendering, improved AI to only recommend user's recipes, and performed comprehensive code review cleanup (removed 19 console.logs, created shared utilities, fixed N+1 query).
+
+### Work Completed
+
+#### 1. Classification Bug Fixes
+
+**Gin Filter False Positives**:
+- **Problem**: "Ginger beer" and "Alambique Serrano" showing in gin filter
+- **Fix**: `src/app/bar/page.tsx` - Changed from `.includes()` to whole-word matching via `itemMatchesElement()`
+- **Fix**: `src/lib/periodicTable.ts` - Exported `itemMatchesElement()` function
+
+**ELEMENT_EXCLUSIONS Pattern**:
+- **File**: `src/lib/periodicTable.ts`
+- Added exclusions to prevent false matches:
+  - `Bx` (Bitter): excludes "ginger beer", "root beer"
+  - `Gn` (Gin): excludes "sloe gin"
+  - `Or` (Orange): excludes "orange bitters", "orange liqueur", "triple sec", etc.
+  - `An` (Angostura): excludes "orange bitters"
+  - `Dm` (Demerara): excludes "demerara rum", "overproof rum"
+
+**Hamilton 151 & Overproof Rums**:
+- **Problem**: Classified as Sweetener instead of Base/Cane
+- **Fix**: `api/src/services/InventoryService.ts` - Added `151|overproof` to Base/Cane keywords
+- **Fix**: `src/lib/periodicTable/classificationMap.ts` - Added overproof entries:
+  - `overproof`, `151`, `demerara overproof`, `demerara overproof rum` → Base/Cane
+
+**Flavored Rums**:
+- **Problem**: Cruzan Mango Rum classified as Reagent/Fruit instead of Modifier/Cane
+- **Fix**: `api/src/services/InventoryService.ts` - Added flavored rum pattern check before base rum
+
+**Mint Classification**:
+- **Problem**: Inconsistent between onboarding (Reagent/Agave) and upload (Sweetener/Botanic)
+- **Fix**: `src/lib/periodicTable/classificationMap.ts` - Added mint entries → Catalyst/Botanic
+
+#### 2. Onboarding Fixes
+- **File**: `src/app/onboarding/page.tsx`
+- **Fix**: Type field was being set to element name incorrectly → Changed to `type: undefined`
+- **Fix**: Garnish category was mapping to Reagent → Changed to Catalyst
+
+#### 3. Item Modal Periodic Classification Fix
+- **File**: `src/components/modals/ItemDetailModal.tsx`
+- **Problem**: Changing periodic classification and saving didn't persist
+- **Fix**: Changed from always auto-detecting to using saved values first:
+  - `periodic_group: item.periodic_group || tags.group`
+  - `periodic_period: item.periodic_period || tags.period`
+
+#### 4. Dashboard Markdown Rendering Fix
+- **File**: `src/app/dashboard/page.tsx`
+- **Problem**: AI responses showed `**text**` instead of bold
+- **Fix**: Added markdown-to-HTML conversion in `renderHTMLContent()`:
+  - Converts `**text**` to `<strong>text</strong>`
+  - Converts `*text*` to `<em>text</em>`
+
+#### 5. AI Recipe Recommendations Fix
+- **File**: `api/src/services/AIService.ts`
+- **Problem**: AI suggested random cocktails not in user's collection
+- **Fix**: Added constraint to prompt: "Pick 1-2 recipes from USER'S RECIPES list above (never suggest recipes not in their list)"
+
+#### 6. Code Review Cleanup
+
+**Console.log Removal (19 statements)**:
+- `src/lib/api.ts` - 4 debug logs removed
+- `src/app/ai/page.tsx` - 2 debug logs removed
+- `src/app/bar/page.tsx` - 13 debug/error logs removed
+
+**Shared Utilities Created**:
+- **New**: `src/lib/colors.ts` - SPIRIT_COLORS, CATEGORY_COLORS, GROUP_COLORS, PERIOD_COLORS, detectSpiritTypes(), getSpiritColorFromIngredients()
+- **New**: `src/lib/utils.ts` - parseIngredients() function
+- **New**: `src/hooks/useTheme.ts` - Reusable dark mode detection hook
+
+**Component Refactoring**:
+- `BottleCard.tsx` - Uses colors.ts, useTheme hook (removed 50+ lines)
+- `RecipeCard.tsx` - Uses colors.ts, utils.ts, added useMemo for performance
+- `ItemDetailModal.tsx` - Uses colors.ts
+- `RecipeDetailModal.tsx` - Uses colors.ts, utils.ts
+- `PeriodicTable.tsx` - Uses useTheme hook
+
+**Backend Performance & Error Handling**:
+- `InventoryService.ts` - N+1 query fix: `backfillPeriodicTags()` now uses bulk UPDATE with CASE statements
+- `tokenBlacklist.ts` - Added logger.warn for cleanup errors (was silent catch)
+- `CollectionService.ts` - Changed console.error to logger.warn
+
+**Cleanup**:
+- **Deleted**: `api/package-lock-Jacob.json` (197KB backup file)
+- **Deleted**: `api/remove-duplicates.js` (dev utility script)
+- **Deleted**: `api/logs/*.log` (~13MB log files)
+- **Removed**: `isomorphic-dompurify` dependency (unused)
+
+### Files Changed (21 files + 3 new)
+
+**Frontend - New (3)**:
+- `src/lib/colors.ts`
+- `src/lib/utils.ts`
+- `src/hooks/useTheme.ts`
+
+**Frontend - Modified (12)**:
+- `src/app/ai/page.tsx` - Console.log cleanup
+- `src/app/bar/page.tsx` - Console.log cleanup, itemMatchesElement usage
+- `src/app/dashboard/page.tsx` - Markdown rendering fix
+- `src/app/onboarding/page.tsx` - Type field fix, garnish classification
+- `src/components/BottleCard/BottleCard.tsx` - Uses shared utilities
+- `src/components/PeriodicTableV2/PeriodicTable.tsx` - Uses useTheme
+- `src/components/RecipeCard/RecipeCard.tsx` - Uses shared utilities, memoization
+- `src/components/modals/ItemDetailModal.tsx` - Uses colors, saves periodic tags
+- `src/components/modals/RecipeDetailModal.tsx` - Uses shared utilities
+- `src/lib/api.ts` - Console.log cleanup
+- `src/lib/periodicTable.ts` - ELEMENT_EXCLUSIONS, exported itemMatchesElement
+- `src/lib/periodicTable/classificationMap.ts` - Overproof, mint, demerara entries
+
+**Backend - Modified (4)**:
+- `api/src/services/AIService.ts` - User-only recipe recommendations
+- `api/src/services/InventoryService.ts` - Flavored rum, overproof, bulk UPDATE fix
+- `api/src/services/CollectionService.ts` - Logger usage
+- `api/src/utils/tokenBlacklist.ts` - Error logging
+
+**Config (1)**:
+- `package.json` - Removed isomorphic-dompurify
+
+**Deleted (3)**:
+- `api/package-lock-Jacob.json`
+- `api/remove-duplicates.js`
+- `api/logs/*.log`
+
+### Test Summary
+All tests pass (no changes to test counts):
+- Frontend: 233 tests ✓
+- Backend: 884 tests ✓
+- Type check: Clean ✓
+
+---
+
+## Previous Session (2025-12-21): Onboarding Tests, VerificationBanner Cleanup & API Cleanup
 
 ### Summary
 Added comprehensive onboarding test coverage (17 new tests), removed unused VerificationBanner component, and cleaned up deprecated API inventory code (~970 lines deleted).

@@ -308,13 +308,16 @@ function matchesWholeWord(text: string, keyword: string): boolean {
 const ELEMENT_EXCLUSIONS: Record<string, string[]> = {
   'Bx': ['ginger beer', 'root beer'],  // Beer should not match ginger beer or root beer
   'Gn': ['sloe gin'],  // Gin should not match sloe gin (it has its own element)
+  'Or': ['orange bitters', 'orange liqueur', 'triple sec', 'cointreau', 'grand marnier', 'curacao', 'dry curacao'],  // Orange (citrus) should not match orange bitters or orange liqueur
+  'An': ['orange bitters'],  // Angostura should not match "angostura orange bitters" (matches Orange Bitters instead)
+  'Dm': ['demerara rum', 'demerara overproof', 'overproof rum'],  // Demerara (syrup) should not match demerara rum
 };
 
 /**
  * Check if an item matches an element (by name or keywords)
  * Uses whole-word matching to prevent false positives like "ginger" matching "gin"
  */
-function itemMatchesElement(
+export function itemMatchesElement(
   item: { name: string; type?: string },
   element: PeriodicElement
 ): boolean {

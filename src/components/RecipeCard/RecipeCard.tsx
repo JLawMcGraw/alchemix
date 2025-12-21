@@ -1,63 +1,12 @@
 'use client';
 
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { Star, Check } from 'lucide-react';
 import type { Recipe } from '@/types';
 import { RecipeMolecule } from '@/components/RecipeMolecule';
+import { SPIRIT_COLORS, detectSpiritTypes } from '@/lib/colors';
+import { parseIngredients } from '@/lib/utils';
 import styles from './RecipeCard.module.css';
-
-// Spirit colors
-const SPIRIT_COLORS: Record<string, string> = {
-  'rum': '#65A30D',
-  'tequila': '#0D9488',
-  'gin': '#0EA5E9',
-  'whiskey': '#D97706',
-  'vodka': '#94A3B8',
-  'brandy': '#8B5CF6',
-  'liqueur': '#EC4899',
-};
-
-// Spirit detection keywords (base spirits only, no liqueurs)
-const SPIRIT_KEYWORDS: Record<string, string[]> = {
-  'gin': ['gin', 'london dry', 'plymouth', 'navy strength'],
-  'whiskey': ['whiskey', 'whisky', 'bourbon', 'rye', 'scotch'],
-  'tequila': ['tequila', 'mezcal', 'blanco', 'reposado', 'anejo'],
-  'rum': ['rum', 'rhum', 'cachaca', 'agricole'],
-  'vodka': ['vodka'],
-  'brandy': ['brandy', 'cognac', 'armagnac', 'pisco', 'calvados'],
-};
-
-// Parse ingredients from recipe
-const parseIngredients = (ingredients: string | string[] | undefined): string[] => {
-  if (!ingredients) return [];
-  if (Array.isArray(ingredients)) return ingredients;
-  try {
-    const parsed = JSON.parse(ingredients);
-    return Array.isArray(parsed) ? parsed : [ingredients];
-  } catch {
-    return ingredients.split(',').map(i => i.trim());
-  }
-};
-
-// Detect all spirit types from ingredients using word boundary matching
-const detectSpiritTypes = (ingredients: string[]): string[] => {
-  const foundSpirits = new Set<string>();
-
-  for (const ingredient of ingredients) {
-    const lower = ingredient.toLowerCase();
-    for (const [spirit, keywords] of Object.entries(SPIRIT_KEYWORDS)) {
-      // Use word boundary regex to avoid false positives like "gin" in "ginger"
-      if (keywords.some(k => {
-        const regex = new RegExp(`\\b${k}\\b`, 'i');
-        return regex.test(lower);
-      })) {
-        foundSpirits.add(spirit);
-      }
-    }
-  }
-
-  return Array.from(foundSpirits);
-};
 
 interface RecipeCardProps {
   recipe: Recipe;
@@ -80,10 +29,14 @@ function RecipeCardComponent({
   onToggleSelection,
   onToggleFavorite,
 }: RecipeCardProps) {
-  const ingredients = parseIngredients(recipe.ingredients);
-  const spiritTypes = recipe.spirit_type
-    ? [recipe.spirit_type.toLowerCase()]
-    : detectSpiritTypes(ingredients);
+  // Memoize expensive parsing/detection operations
+  const ingredients = useMemo(() => parseIngredients(recipe.ingredients), [recipe.ingredients]);
+  const spiritTypes = useMemo(() =>
+    recipe.spirit_type
+      ? [recipe.spirit_type.toLowerCase()]
+      : detectSpiritTypes(ingredients),
+    [recipe.spirit_type, ingredients]
+  );
   const primarySpirit = spiritTypes[0] || 'spirit';
 
   return (

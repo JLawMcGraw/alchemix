@@ -127,7 +127,9 @@ class TokenBlacklist {
       if (cachedExpiry < now) {
         this.blacklist.delete(token);
         // Async cleanup - don't await
-        execute('DELETE FROM token_blacklist WHERE token = $1', [token]).catch(() => {});
+        execute('DELETE FROM token_blacklist WHERE token = $1', [token]).catch((err) => {
+          logger.warn('Failed to cleanup expired token from blacklist', { error: err.message });
+        });
         return false;
       }
       return true;

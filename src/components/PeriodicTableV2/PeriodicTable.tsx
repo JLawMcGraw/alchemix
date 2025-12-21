@@ -11,7 +11,7 @@
  * with the user's inventory items counted against these types.
  */
 
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import type { InventoryItem } from '@/types';
 import {
   GROUPS,
@@ -23,6 +23,7 @@ import {
   type ElementType,
 } from '@/lib/periodicTableV2';
 import ElementCell from './ElementCell';
+import { useTheme } from '@/hooks/useTheme';
 import styles from './PeriodicTable.module.css';
 
 // ============================================================================
@@ -53,19 +54,7 @@ export default function PeriodicTable({
   // State for expanded cell
   const [expandedCell, setExpandedCell] = useState<CellPosition | null>(null);
 
-  // Track dark mode state
-  const [isDarkMode, setIsDarkMode] = useState(false);
-
-  useEffect(() => {
-    const checkTheme = () => {
-      const theme = document.documentElement.getAttribute('data-theme');
-      setIsDarkMode(theme === 'dark');
-    };
-    checkTheme();
-    const observer = new MutationObserver(checkTheme);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    return () => observer.disconnect();
-  }, []);
+  const { isDarkMode } = useTheme();
 
   // Build cell display data from inventory items
   const cellDisplayData = useMemo(() => {

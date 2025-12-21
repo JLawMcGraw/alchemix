@@ -14,13 +14,21 @@ import styles from './dashboard.module.css';
 /**
  * Safely render HTML content as React elements
  * Only allows: strong, em, b, i, br tags - all other HTML is stripped
+ * Also converts markdown bold (**text**) and italic (*text*) to HTML
  */
 const renderHTMLContent = (html: string, keyPrefix: string, fallback?: string): React.ReactNode => {
   if (!html) return fallback || null;
 
+  // Convert markdown to HTML before processing
+  // **text** -> <strong>text</strong>
+  // *text* -> <em>text</em> (but not inside **)
+  let processed = html
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
+
   // Split on allowed tags, capturing them
   const tagPattern = /(<\/?(?:strong|em|b|i)>|<br\s*\/?>)/gi;
-  const tokens = html.split(tagPattern);
+  const tokens = processed.split(tagPattern);
 
   const nodes: React.ReactNode[] = [];
   const tagStack: string[] = [];

@@ -40,9 +40,13 @@ export const CLASSIFICATION_MAP: Record<string, CellPosition> = {
   'black rum': { group: 1, period: 2 },
   'spiced rum': { group: 1, period: 2 },
   'overproof rum': { group: 1, period: 2 },
+  'overproof': { group: 1, period: 2 },  // Often refers to rum (Hamilton 151, Wray & Nephew, etc.)
+  '151': { group: 1, period: 2 },  // 151 proof typically means rum (Bacardi 151, Hamilton 151)
   'navy rum': { group: 1, period: 2 },
   'jamaican rum': { group: 1, period: 2 },
   'demerara rum': { group: 1, period: 2 },
+  'demerara overproof': { group: 1, period: 2 },  // Demerara overproof rum
+  'demerara overproof rum': { group: 1, period: 2 },
   'rhum agricole': { group: 1, period: 2 },
   'agricole': { group: 1, period: 2 },
   'cachaça': { group: 1, period: 2 },
@@ -449,6 +453,10 @@ export const CLASSIFICATION_MAP: Record<string, CellPosition> = {
   'cinnamon bitters': { group: 6, period: 6 },
   'ginger bitters': { group: 6, period: 6 },
   'mint bitters': { group: 6, period: 6 },
+  'mint': { group: 6, period: 6 },  // Fresh mint herb (garnish/catalyst)
+  'fresh mint': { group: 6, period: 6 },
+  'spearmint': { group: 6, period: 6 },
+  'peppermint': { group: 6, period: 6 },
   'fee brothers': { group: 6, period: 6 },
   'bittermens': { group: 6, period: 6 },
   'scrappy\'s': { group: 6, period: 6 },

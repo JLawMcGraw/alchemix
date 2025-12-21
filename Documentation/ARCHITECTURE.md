@@ -1,7 +1,7 @@
 # AlcheMix Architecture
 
-**Version**: v1.32.0
-**Last Updated**: December 18, 2025
+**Version**: v1.33.0
+**Last Updated**: December 21, 2025
 
 This document provides a comprehensive map of the AlcheMix system architecture, including high-level diagrams, component relationships, and data flows.
 
@@ -49,7 +49,7 @@ graph TB
     end
 
     subgraph External["External Services"]
-        Claude[Claude AI API]
+        Gemini[Gemini AI API]
         MemMachine[MemMachine<br/>Semantic Memory]
         Neo4j[(Neo4j<br/>Vector Store)]
     end
@@ -62,7 +62,7 @@ graph TB
     Routes --> Middleware
     Middleware --> Services
     Services --> DB
-    Services -->|AI Requests| Claude
+    Services -->|AI Requests| Gemini
     Services -->|Memory Ops| MemMachine
     MemMachine --> Neo4j
 ```
@@ -81,7 +81,7 @@ graph TB
 | | TypeScript | Type safety |
 | | pg (node-postgres) | PostgreSQL database driver |
 | **Database** | PostgreSQL 16 | Relational database |
-| **AI** | Claude Sonnet 4.5 | AI bartender recommendations |
+| **AI** | Gemini 3 Pro/Flash | AI bartender recommendations |
 | **Memory** | PostgreSQL + MemMachine v2 | Hybrid search (exact + semantic) |
 | | Neo4j 5.23 | Vector embeddings storage |
 | **Auth** | JWT | Token-based authentication |
@@ -196,13 +196,16 @@ alchemix/
 │   │   │   ├── createRecipesSlice.ts
 │   │   │   └── createChatSlice.ts
 │   │   ├── periodicTableV2.ts   # Element classification
+│   │   ├── colors.ts            # Shared color constants
+│   │   ├── utils.ts             # Shared utilities (parseIngredients)
 │   │   ├── formatters.ts        # Data formatters
 │   │   └── passwordPolicy.ts    # Password validation
 │   │
 │   ├── hooks/                    # Custom React Hooks
 │   │   ├── useAuthGuard.ts
 │   │   ├── useVerificationGuard.ts
-│   │   └── useSettings.ts        # Theme & user preferences
+│   │   ├── useSettings.ts        # Theme & user preferences
+│   │   └── useTheme.ts           # Dark mode detection hook
 │   │
 │   ├── styles/                   # Global Styles
 │   │   └── globals.css          # Design system tokens
@@ -224,7 +227,7 @@ alchemix/
 │       │   ├── glasses.ts
 │       │   └── classifications.ts
 │       ├── services/            # Business Logic
-│       │   ├── AIService.ts           # Claude AI integration
+│       │   ├── AIService.ts           # Gemini AI integration
 │       │   ├── InventoryService.ts
 │       │   ├── RecipeService.ts
 │       │   ├── CollectionService.ts
@@ -464,7 +467,7 @@ graph TB
     end
 
     subgraph External
-        Claude[Claude API]
+        Gemini[Gemini API]
         MM[MemMachine]
     end
 
@@ -481,7 +484,7 @@ graph TB
     S5 --> DB
     S8 --> DB
 
-    S7 --> Claude
+    S7 --> Gemini
     S7 --> S3
     S7 --> S8
     S3 --> MM
@@ -706,7 +709,7 @@ sequenceDiagram
     participant AISvc as AIService
     participant DB as PostgreSQL
     participant MM as MemMachine
-    participant Claude as Claude API
+    participant Gemini as Gemini API
 
     UI->>Store: sendMessage(text)
     Store->>API: aiApi.sendMessage(message, history)
@@ -722,8 +725,8 @@ sequenceDiagram
     AISvc->>AISvc: Merge & deduplicate results
     AISvc->>AISvc: Compute craftability markers
     AISvc->>AISvc: Build context prompt
-    AISvc->>Claude: Send to Claude Sonnet 4.5
-    Claude-->>AISvc: AI response
+    AISvc->>Gemini: Send to Gemini 3 Pro
+    Gemini-->>AISvc: AI response
 
     AISvc-->>Route: Response + recommendations
     Route-->>API: JSON response
@@ -735,7 +738,7 @@ sequenceDiagram
 
 ## External Integrations
 
-### Claude AI Integration
+### Gemini AI Integration
 
 ```mermaid
 graph LR
@@ -745,8 +748,8 @@ graph LR
         CocktailData[cocktailIngredients.json]
     end
 
-    subgraph Claude["Claude API"]
-        Sonnet[Claude Sonnet 4.5]
+    subgraph GeminiAPI["Gemini API"]
+        Models[Gemini 3 Pro/Flash]
     end
 
     subgraph Context["Context Building"]
@@ -759,8 +762,8 @@ graph LR
     CocktailData -->|Query Expansion| AIService
     Context --> AIService
     Persona --> AIService
-    AIService -->|Messages API| Sonnet
-    Sonnet -->|Response| AIService
+    AIService -->|Generate Content| Models
+    Models -->|Response| AIService
 ```
 
 ### Hybrid Search Architecture
@@ -834,20 +837,16 @@ AlcheMix supports light, dark, and system (browser preference) themes:
 | `useSettings` | Hook for reading/setting theme preference (stored in `alchemix-settings`) |
 | `data-theme` | HTML attribute set to `light` or `dark`, used by CSS selectors |
 
-**Theme Detection Pattern** (used in components needing theme-aware colors):
+**Theme Detection** (via `useTheme` hook in `hooks/useTheme.ts`):
 ```typescript
-const [isDarkMode, setIsDarkMode] = useState(false);
-useEffect(() => {
-  const checkTheme = () => {
-    const theme = document.documentElement.getAttribute('data-theme');
-    setIsDarkMode(theme === 'dark');
-  };
-  checkTheme();
-  const observer = new MutationObserver(checkTheme);
-  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-  return () => observer.disconnect();
-}, []);
+import { useTheme } from '@/hooks/useTheme';
+
+// In component:
+const { isDarkMode } = useTheme();
+const groupColors = isDarkMode ? GROUP_COLORS_DARK : GROUP_COLORS;
 ```
+
+The hook uses a MutationObserver to watch for `data-theme` attribute changes on the document element.
 
 ### Color Palette
 
@@ -892,9 +891,9 @@ npm run dev:all          # Start frontend + backend
 npm run type-check       # TypeScript checks (all packages)
 
 # Testing
-cd api && npm test       # Backend tests (876)
-npm test                 # Frontend tests (206)
-cd packages/recipe-molecule && npm test  # Molecule tests (124)
+cd api && npm test       # Backend tests (884)
+npm test                 # Frontend tests (233)
+cd packages/recipe-molecule && npm test  # Molecule tests (169)
 
 # Docker (for MemMachine)
 docker compose -f docker/docker-compose.yml up -d
@@ -944,7 +943,7 @@ docker compose -f docker/docker-compose.yml up -d
                             │ AppError.ts     │         │ GlassService    │
                             │ index.ts        │         │ ClassificationS │
                             └─────────────────┘         │ ShoppingListSvc │
-                                                        │ AIService ──────│──► @anthropic-ai/sdk
+                                                        │ AIService ──────│──► Gemini API (fetch)
                                                         │ MemoryService ──│──► MemMachine API
                                                         │ EmailService ───│──► nodemailer
                                                         └─────────────────┘
@@ -977,7 +976,7 @@ docker compose -f docker/docker-compose.yml up -d
 | `routes/messages.ts` | services/AIService, MemoryService | (pure) |
 | `services/InventoryService.ts` | database/db | (pure) |
 | `services/RecipeService.ts` | database/db, MemoryService | (pure) - server-side search, bulkMove |
-| `services/AIService.ts` | ShoppingListService, data/cocktailIngredients.json | @anthropic-ai/sdk |
+| `services/AIService.ts` | ShoppingListService, data/cocktailIngredients.json | fetch (Gemini API) |
 | `services/ShoppingListService.ts` | database/db | (pure) |
 | `services/MemoryService.ts` | utils/logger | fetch (built-in) |
 | `services/EmailService.ts` | config/validateEnv | nodemailer |
@@ -1036,7 +1035,10 @@ docker compose -f docker/docker-compose.yml up -d
 |--------|-----------|-------------------|
 | `lib/store.ts` | lib/api.ts | zustand, zustand/middleware |
 | `lib/api.ts` | - | fetch (built-in) |
+| `lib/colors.ts` | types | (pure) - shared color constants |
+| `lib/utils.ts` | - | (pure) - shared utilities |
 | `lib/periodicTable/*` | - | (pure) |
+| `hooks/useTheme.ts` | - | react - dark mode detection |
 | `app/bar/page.tsx` | lib/store, PeriodicTableV2, modals | react |
 | `app/recipes/page.tsx` | lib/store, RecipeCard, modals | react |
 | `components/RecipeMolecule.tsx` | @alchemix/recipe-molecule | react |
@@ -1069,13 +1071,13 @@ packages/types/
                 │                    │                    │
                 ▼                    ▼                    ▼
         ┌───────────────┐   ┌───────────────┐   ┌───────────────┐
-        │  PostgreSQL   │   │  MemMachine   │   │  Claude API   │
-        │   (Docker)    │   │  (Docker)     │   │  (Anthropic)  │
+        │  PostgreSQL   │   │  MemMachine   │   │  Gemini API   │
+        │   (Docker)    │   │  (Docker)     │   │   (Google)    │
         ├───────────────┤   ├───────────────┤   ├───────────────┤
-        │ Users         │   │ POST /store   │   │ Messages API  │
-        │ Inventory     │   │ POST /query   │   │ sonnet-4.5    │
+        │ Users         │   │ POST /store   │   │ Pro (chat)    │
+        │ Inventory     │   │ POST /query   │   │ Flash (dash)  │
         │ Recipes       │   │ DELETE /mem   │   │ max_tokens:   │
-        │ Collections   │   │               │   │ 1024          │
+        │ Collections   │   │               │   │ 4096/1024     │
         │ Favorites     │   └───────┬───────┘   └───────────────┘
         │ Classifications│          │
         └───────────────┘          ▼
@@ -1155,4 +1157,4 @@ Request Flow:
 
 ---
 
-*Last updated: December 18, 2025*
+*Last updated: December 21, 2025*

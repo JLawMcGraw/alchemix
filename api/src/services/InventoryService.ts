@@ -686,13 +686,19 @@ export class InventoryService {
    * Uses the same logic as periodicTableV2.ts CLASSIFICATION_MAP
    */
   private getClassificationFromKeywords(text: string): { group: PeriodicGroup; period: PeriodicPeriod } | null {
+    // Check flavored spirits FIRST (before base spirits) - these are Modifiers
+    // Flavored rums go to Modifier/Cane (sweetened, flavored)
+    if (/\b(mango rum|banana rum|coconut rum|pineapple rum|passion fruit rum|spiced rum|flavored rum)\b/.test(text)) {
+      return { group: 'Modifier', period: 'Cane' };
+    }
+
     // Group 1: Base spirits (high-proof backbone)
     // Period 1: Agave
     if (/\b(tequila|mezcal|raicilla|sotol|bacanora)\b/.test(text)) {
       return { group: 'Base', period: 'Agave' };
     }
-    // Period 2: Cane
-    if (/\b(rum|cachaca|cachaça|rhum agricole|agricole|clairin)\b/.test(text)) {
+    // Period 2: Cane (including overproof indicators like "151")
+    if (/\b(rum|cachaca|cachaça|rhum agricole|agricole|clairin|151|overproof)\b/.test(text)) {
       return { group: 'Base', period: 'Cane' };
     }
     // Period 3: Grain
@@ -727,7 +733,7 @@ export class InventoryService {
     if (/\b(agavero|damiana)\b/.test(text)) {
       return { group: 'Modifier', period: 'Agave' };
     }
-    if (/\b(falernum|coconut rum|malibu|pimento dram|allspice dram)\b/.test(text)) {
+    if (/\b(falernum|malibu|pimento dram|allspice dram)\b/.test(text)) {
       return { group: 'Modifier', period: 'Cane' };
     }
     if (/\b(kahlua|kahlúa|coffee liqueur|mr black|tia maria|amaretto|frangelico)\b/.test(text)) {
@@ -846,6 +852,7 @@ export class InventoryService {
   /**
    * Backfill periodic tags for all items missing them
    * Returns count of items updated
+   * Uses bulk UPDATE with CASE statements to avoid N+1 queries
    */
   async backfillPeriodicTags(userId: number): Promise<{ updated: number; total: number }> {
     // Get all items without periodic tags for this user
@@ -856,24 +863,40 @@ export class InventoryService {
     `, [userId]);
 
     const total = items.length;
-    let updated = 0;
+    if (total === 0) {
+      return { updated: 0, total: 0 };
+    }
 
-    // Classify and update each item in a transaction
-    await transaction(async (client) => {
-      for (const item of items) {
-        const tags = this.autoClassifyPeriodicTags(item);
+    // Build bulk update with CASE statements
+    const updates: { id: number; group: string; period: string }[] = [];
+    for (const item of items) {
+      const tags = this.autoClassifyPeriodicTags(item);
+      updates.push({ id: item.id, group: tags.group, period: tags.period });
+    }
 
-        await client.query(`
-          UPDATE inventory_items
-          SET periodic_group = $1, periodic_period = $2
-          WHERE id = $3 AND user_id = $4
-        `, [tags.group, tags.period, item.id, userId]);
+    // Build parameterized bulk UPDATE query
+    const ids = updates.map(u => u.id);
+    const groupCases = updates.map((u, i) => `WHEN $${i * 3 + 2} THEN $${i * 3 + 3}`).join(' ');
+    const periodCases = updates.map((u, i) => `WHEN $${i * 3 + 2} THEN $${i * 3 + 4}`).join(' ');
 
-        updated++;
-      }
-    });
+    // Flatten params: [userId, id1, group1, period1, id2, group2, period2, ...]
+    const params: (number | string)[] = [userId];
+    for (const u of updates) {
+      params.push(u.id, u.group, u.period);
+    }
 
-    return { updated, total };
+    // Create placeholders for IN clause
+    const idPlaceholders = updates.map((_, i) => `$${i * 3 + 2}`).join(', ');
+
+    await execute(`
+      UPDATE inventory_items
+      SET
+        periodic_group = CASE id ${groupCases} END,
+        periodic_period = CASE id ${periodCases} END
+      WHERE user_id = $1 AND id IN (${idPlaceholders})
+    `, params);
+
+    return { updated: total, total };
   }
 }
 

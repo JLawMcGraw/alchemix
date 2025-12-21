@@ -6,7 +6,7 @@
 
 Modern cocktail inventory and recipe management system with AI-powered bartender recommendations. Features a "Molecular Mixology" design system that treats cocktails as chemical formulas and ingredients as periodic table elements.
 
-**Version:** v1.31.0 | **Last Updated:** December 20, 2025
+**Version:** v1.33.0 | **Last Updated:** December 21, 2025
 
 ## Features
 
@@ -132,8 +132,8 @@ alchemix/
 │   │   ├── layout/        # TopNav, navigation components
 │   │   ├── modals/        # AddBottle, AddRecipe, EditBottle, CSVUpload, etc.
 │   │   └── ThemeProvider.tsx # Global theme management
-│   ├── hooks/             # Custom hooks (useAuthGuard, useSettings)
-│   ├── lib/               # API client, store/, periodicTable/, utilities
+│   ├── hooks/             # Custom hooks (useAuthGuard, useSettings, useTheme)
+│   ├── lib/               # API client, store/, periodicTable/, colors, utilities
 │   └── styles/            # globals.css (design system tokens)
 ├── api/                    # Express backend
 │   ├── src/
@@ -231,10 +231,10 @@ The project has comprehensive test coverage using Vitest:
 
 | Suite | Tests | Description |
 |-------|-------|-------------|
-| Frontend | 213 | API client, store, UI components, page tests, onboarding |
+| Frontend | 233 | API client, store, UI components, page tests, onboarding |
 | Backend | 884 | Auth, inventory, recipes, collections, favorites, messages, shopping list, middleware, services |
-| Recipe Molecule | 165 | Ingredient parser, classifier, layout engine, formula generator |
-| **Total** | **1,262** | |
+| Recipe Molecule | 169 | Ingredient parser, classifier, layout engine, formula generator |
+| **Total** | **1,286** | |
 
 ```bash
 # Run all tests

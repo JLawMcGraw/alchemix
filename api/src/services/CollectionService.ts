@@ -11,6 +11,7 @@
 import { queryOne, queryAll, execute } from '../database/db';
 import { sanitizeString } from '../utils/inputValidator';
 import { memoryService } from './MemoryService';
+import { logger } from '../utils/logger';
 
 /**
  * Collection entity as stored in database
@@ -186,7 +187,7 @@ export class CollectionService {
       name: sanitizedName,
       description: sanitizedDescription || undefined,
     }).catch(err => {
-      console.error('Failed to store collection in MemMachine (non-critical):', err);
+      logger.warn('Failed to store collection in MemMachine (non-critical)', { error: err.message });
     });
 
     return collection;

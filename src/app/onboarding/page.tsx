@@ -39,7 +39,7 @@ function elementToInventoryItem(element: PeriodicElement): InventoryItemInput {
     sugar: 'Sweetener',
     dairy: 'Bridge',
     carbonation: 'Catalyst',
-    garnish: 'Reagent',
+    garnish: 'Catalyst',  // Herbs like mint are flavor catalysts, not reagents
   };
 
   const periodMap: Record<string, PeriodicPeriod> = {
@@ -80,8 +80,10 @@ function elementToInventoryItem(element: PeriodicElement): InventoryItemInput {
   return {
     name: element.name,
     category,
-    type: element.name,
+    type: undefined,  // Don't set type to element name - user can specify when editing
     stock_number: 1,
+    periodic_group: groupMap[element.group] || 'Modifier',
+    periodic_period: periodMap[element.group] || 'Botanic',
   };
 }
 

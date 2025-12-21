@@ -6,6 +6,7 @@ import { useStore } from '@/lib/store';
 import { useToast } from '@/components/ui';
 import type { InventoryCategory, InventoryItem, PeriodicGroup, PeriodicPeriod } from '@/types';
 import { getPeriodicTags, PERIODIC_GROUPS, PERIODIC_PERIODS, GROUP_COLORS, PERIOD_COLORS } from '@/lib/periodicTableV2';
+import { CATEGORY_COLORS } from '@/lib/colors';
 import styles from './ItemDetailModal.module.css';
 
 interface ItemDetailModalProps {
@@ -25,17 +26,6 @@ type FormState = {
   tasting_notes: string; // Combined nose/palate/finish for AI recommendations
   periodic_group: PeriodicGroup;
   periodic_period: PeriodicPeriod;
-};
-
-const CATEGORY_COLORS: Record<string, string> = {
-  spirit: '#D97706',
-  liqueur: '#8B5CF6',
-  mixer: '#0EA5E9',
-  syrup: '#6366F1',
-  garnish: '#10B981',
-  wine: '#BE185D',
-  beer: '#CA8A04',
-  other: '#94A3B8',
 };
 
 const CATEGORIES: { value: InventoryCategory; label: string }[] = [
@@ -88,7 +78,7 @@ export function ItemDetailModal({ isOpen, onClose, item, onItemUpdated }: ItemDe
         combinedNotes = parts.join('\n');
       }
 
-      // Always auto-detect periodic tags based on current classification logic
+      // Use saved periodic tags if available, otherwise auto-detect
       const tags = getPeriodicTags(item);
 
       const data: FormState = {
@@ -99,8 +89,8 @@ export function ItemDetailModal({ isOpen, onClose, item, onItemUpdated }: ItemDe
         abv: item.abv?.toString() || '',
         origin: item.distillery_location || '',
         tasting_notes: combinedNotes,
-        periodic_group: tags.group,
-        periodic_period: tags.period,
+        periodic_group: item.periodic_group || tags.group,
+        periodic_period: item.periodic_period || tags.period,
       };
       setFormData(data);
       setOriginalData(data);
