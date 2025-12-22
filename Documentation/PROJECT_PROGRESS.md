@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2025-12-21 (Session 3)
+Last updated: 2025-12-21 (Session 4)
 
 ---
 
@@ -13,9 +13,9 @@ Last updated: 2025-12-21 (Session 3)
 
 **Test Coverage**:
 - Backend: 884 tests (35 test files)
-- Frontend: 233 tests (12 test files)
+- Frontend: 234 tests (12 test files)
 - Recipe-Molecule: 169 tests (3 test files)
-- **Total: 1,286 tests**
+- **Total: 1,287 tests**
 
 **Redesign Progress**:
 - Phase 1-4 (Batch A - Foundation): **Complete**
@@ -30,7 +30,67 @@ Last updated: 2025-12-21 (Session 3)
 
 ---
 
-## Recent Session (2025-12-21): Classification Bug Fixes, Code Review Cleanup & AI Improvements
+## Recent Session (2025-12-21): Gemini 3 Fixes, MemMachine Resilience & Onboarding Polish
+
+### Summary
+Fixed AI bartender and dashboard insight failures caused by Gemini 3's thinking tokens exhausting the output limit, added safety settings for cocktail names, improved MemMachine batch upload resilience with retry logic, added login-time sync for failed recipe uploads, and polished onboarding flow (hidden nav, centered step indicator).
+
+### Work Completed
+
+#### 1. Gemini 3 Token Limit Fixes
+- **Problem**: AI returning "No response from AI" or truncated JSON
+- **Root Cause**: Gemini 3 uses ~4000 "thinking tokens" that count against `maxOutputTokens`
+- **Fix**: `api/src/services/AIService.ts`
+  - AI Bartender: Increased `maxOutputTokens` from 4096 → 16384
+  - Dashboard Insight: Increased `maxOutputTokens` from 1024 → 4096
+- **Added**: Graceful fallback messages for MAX_TOKENS, SAFETY, and other failures
+
+#### 2. Gemini Safety Settings
+- **Problem**: Cocktail names like "Porn Star Martini" and "Sex on the Beach" triggering safety filters
+- **Fix**: Added `safetySettings: BLOCK_NONE` to both Gemini API calls
+- **File**: `api/src/services/AIService.ts`
+
+#### 3. Off-Topic Request Handling
+- **Problem**: AI tried to interpret random text (like pasted logs) as cocktail questions
+- **Fix**: Enhanced system prompt with explicit off-topic redirect instructions
+- **Response**: "I'm your cocktail specialist, so I can't help with that—but I'd love to mix something up for you!"
+
+#### 4. MemMachine Batch Upload Resilience
+- **Problem**: 12 of 105 classic recipes failed with "operation aborted" timeout
+- **Fix**: `api/src/services/MemoryService.ts`
+  - Reduced batch size: 10 → 5 concurrent requests
+  - Increased delay: 500ms → 1500ms between batches
+  - Added retry logic with exponential backoff (2 retries for timeout/abort)
+
+#### 5. Login-Time MemMachine Sync
+- **Problem**: Failed batch uploads left recipes in DB without `memmachine_uid`
+- **Fix**: Added `syncMissingToMemMachine()` method to RecipeService
+- **Integration**: Called on login (non-blocking background task)
+- **Files**:
+  - `api/src/services/RecipeService.ts` - New sync method
+  - `api/src/routes/auth/login.ts` - Background sync call
+
+#### 6. Onboarding Flow Polish
+- **Hidden Top Nav**: `src/components/layout/TopNav.tsx` - Nav hidden on `/onboarding`
+- **Centered Step Indicator**: `src/app/onboarding/page.module.css` - Absolute positioning
+
+### Files Changed
+- `api/src/services/AIService.ts` - Token limits, safety settings, fallbacks, off-topic handling
+- `api/src/services/MemoryService.ts` - Batch upload resilience
+- `api/src/services/RecipeService.ts` - syncMissingToMemMachine method
+- `api/src/routes/auth/login.ts` - Background MemMachine sync
+- `src/components/layout/TopNav.tsx` - Hide on onboarding
+- `src/components/layout/TopNav.test.tsx` - Added onboarding test
+- `src/app/onboarding/page.module.css` - Centered step indicator
+
+### Next Priorities
+- Test full onboarding flow with fresh account
+- Monitor MemMachine sync success rates
+- Deploy to production
+
+---
+
+## Previous Session (2025-12-21): Classification Bug Fixes, Code Review Cleanup & AI Improvements
 
 ### Summary
 Fixed multiple periodic table classification bugs (gin filter false positives, Hamilton 151, flavored rums, orange bitters, mint), fixed item modal not saving periodic classification, fixed dashboard markdown rendering, improved AI to only recommend user's recipes, and performed comprehensive code review cleanup (removed 19 console.logs, created shared utilities, fixed N+1 query).

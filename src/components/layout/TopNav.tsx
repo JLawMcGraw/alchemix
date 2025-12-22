@@ -77,8 +77,8 @@ export const TopNav: React.FC = () => {
     { href: '/shopping-list', label: 'Shopping List', badge: shoppingListCount > 0 ? shoppingListCount : undefined },
   ];
 
-  // Don't show nav on login page or if not authenticated
-  if (pathname === '/login' || !isAuthenticated) {
+  // Don't show nav on login, onboarding, or if not authenticated
+  if (pathname === '/login' || pathname === '/onboarding' || !isAuthenticated) {
     return null;
   }
 

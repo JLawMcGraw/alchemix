@@ -708,6 +708,73 @@ export class RecipeService {
   }
 
   /**
+   * Sync recipes missing from MemMachine (resilience check)
+   *
+   * Called on login to catch any recipes that failed to upload.
+   * Only uploads recipes that don't have a memmachine_uid.
+   *
+   * @param userId - The user ID to sync
+   * @returns Object with sync stats
+   */
+  async syncMissingToMemMachine(userId: number): Promise<{ synced: number; failed: number; total: number }> {
+    // Find recipes without memmachine_uid
+    const missingRecipes = await queryAll<{
+      id: number;
+      name: string;
+      ingredients: string;
+      instructions: string | null;
+      glass: string | null;
+      category: string | null
+    }>(`
+      SELECT id, name, ingredients, instructions, glass, category
+      FROM recipes
+      WHERE user_id = $1 AND memmachine_uid IS NULL
+      ORDER BY created_at DESC
+    `, [userId]);
+
+    if (missingRecipes.length === 0) {
+      return { synced: 0, failed: 0, total: 0 };
+    }
+
+    logger.info('Syncing missing recipes to MemMachine', { userId, count: missingRecipes.length });
+
+    // Prepare recipes for upload
+    const recipesForUpload = missingRecipes.map(recipe => ({
+      name: recipe.name,
+      ingredients: this.safeParseJSON(recipe.ingredients),
+      instructions: recipe.instructions || undefined,
+      glass: recipe.glass || undefined,
+      category: recipe.category || undefined,
+    }));
+
+    // Upload to MemMachine
+    const uploadResult = await this.memoryService.storeUserRecipesBatch(userId, recipesForUpload);
+
+    // Update database with UIDs
+    if (uploadResult.uidMap.size > 0) {
+      try {
+        await transaction(async (client) => {
+          for (const recipe of missingRecipes) {
+            const uid = uploadResult.uidMap.get(recipe.name);
+            if (uid) {
+              await client.query('UPDATE recipes SET memmachine_uid = $1 WHERE id = $2', [uid, recipe.id]);
+            }
+          }
+        });
+        logger.info('Updated MemMachine UIDs after sync', { userId, count: uploadResult.uidMap.size });
+      } catch (err) {
+        logger.error('Failed to update MemMachine UIDs after sync', { error: err instanceof Error ? err.message : 'Unknown error' });
+      }
+    }
+
+    return {
+      synced: uploadResult.success,
+      failed: uploadResult.failed,
+      total: missingRecipes.length
+    };
+  }
+
+  /**
    * Seed classic cocktail recipes for new users
    * 
    * This is called once on first login to give users 100+ classic recipes

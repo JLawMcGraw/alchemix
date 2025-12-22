@@ -126,6 +126,9 @@
 }
 
 .stepIndicator {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--fg-tertiary);

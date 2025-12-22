@@ -15,6 +15,7 @@ import { UserRow } from '../../types';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { generateCSRFToken, getAuthCookieOptions, getCSRFCookieOptions, getClearCookieOptions } from './utils';
 import { logger } from '../../utils/logger';
+import { recipeService } from '../../services/RecipeService';
 
 const router = Router();
 
@@ -102,6 +103,23 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
 
   // Set CSRF token in a separate non-httpOnly cookie
   res.cookie('csrf_token', csrfToken, getCSRFCookieOptions());
+
+  // Background: Sync any recipes missing from MemMachine (resilience check)
+  recipeService.syncMissingToMemMachine(user.id).then(result => {
+    if (result.total > 0) {
+      logger.info('Login sync: uploaded missing recipes to MemMachine', {
+        userId: user.id,
+        synced: result.synced,
+        failed: result.failed,
+        total: result.total
+      });
+    }
+  }).catch(err => {
+    logger.error('Login sync: failed to sync recipes to MemMachine', {
+      userId: user.id,
+      error: err instanceof Error ? err.message : 'Unknown error'
+    });
+  });
 
   res.json({
     success: true,

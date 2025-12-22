@@ -134,9 +134,15 @@ describe('TopNav', () => {
     });
   });
 
-  describe('Login Page', () => {
+  describe('Hidden Pages', () => {
     it('should not render on login page', () => {
       mockUsePathname.mockReturnValue('/login');
+      const { container } = render(<TopNav />);
+      expect(container.firstChild).toBeNull();
+    });
+
+    it('should not render on onboarding page', () => {
+      mockUsePathname.mockReturnValue('/onboarding');
       const { container } = render(<TopNav />);
       expect(container.firstChild).toBeNull();
     });

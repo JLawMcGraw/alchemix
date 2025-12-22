@@ -6,7 +6,7 @@
 |-------|-------|
 | Version | v1.33.0 |
 | Branch | `postgresql-deployment` |
-| Tests | 1,286 total (884 backend, 233 frontend, 169 recipe-molecule) |
+| Tests | 1,287 total (884 backend, 234 frontend, 169 recipe-molecule) |
 | Last Updated | December 21, 2025 |
 
 ---
@@ -85,7 +85,7 @@ alchemix/
 npm run dev:all                 # Frontend (3001) + Backend (3000)
 
 # Testing
-cd api && npm test              # All 866 backend tests
+cd api && npm test              # All 884 backend tests
 cd api && npm run test:unit     # Unit tests only
 cd api && npm run test:routes   # Route tests only
 
