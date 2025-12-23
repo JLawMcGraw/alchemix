@@ -2,8 +2,8 @@
 
 .card {
   background: white;
-  border: 1px solid #E2E8F0;
-  border-radius: 2px;
+  border: 1px solid var(--color-border-default, #E0E8F3);
+  border-radius: var(--radius-card, 8px);
   overflow: hidden;
   cursor: pointer;
   transition: transform 0.1s ease, border-color 0.1s ease;
@@ -12,7 +12,7 @@
 
 .card:hover {
   transform: scale(1.02);
-  border-color: #CBD5E1;
+  border-color: var(--color-border-hover, #CBD5E1);
 }
 
 .cardSelected {
@@ -25,7 +25,7 @@
   align-items: center;
   justify-content: center;
   background: white;
-  border-bottom: 1px solid #F1F5F9;
+  border-bottom: 1px solid var(--color-border-default, #E0E8F3);
   height: 160px;
   overflow: hidden;
 }
@@ -92,10 +92,10 @@
 }
 
 .name {
-  font-family: 'Inter', var(--font-sans), sans-serif;
+  font-family: var(--font-sans), sans-serif;
   font-size: 14px;
   font-weight: 600;
-  color: #1E293B;
+  color: var(--fg-primary, #1E293B);
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -103,9 +103,9 @@
 }
 
 .formula {
-  font-family: 'JetBrains Mono', var(--font-mono), monospace;
+  font-family: var(--font-mono), monospace;
   font-size: 12px;
-  color: #94A3B8;
+  color: var(--fg-secondary, #94A3B8);
   margin: 2px 0 0 0;
 }
 
@@ -144,19 +144,19 @@
 .spiritBadge {
   display: inline-block;
   padding: 2px 6px;
-  font-family: 'JetBrains Mono', var(--font-mono), monospace;
+  font-family: var(--font-mono), monospace;
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border-radius: 2px;
+  border-radius: var(--radius-sm, 4px);
 }
 
 /* Ingredients Preview */
 .ingredients {
-  font-family: 'JetBrains Mono', var(--font-mono), monospace;
+  font-family: var(--font-mono), monospace;
   font-size: 12px;
-  color: #64748B;
+  color: var(--fg-secondary, #64748B);
   margin: 8px 0 0 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -169,13 +169,13 @@
 .missingSection {
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid #F1F5F9;
+  border-top: 1px solid var(--color-border-default, #E0E8F3);
 }
 
 .missingText {
-  font-family: 'JetBrains Mono', var(--font-mono), monospace;
+  font-family: var(--font-mono), monospace;
   font-size: 12px;
-  color: #EF4444;
+  color: var(--status-critical, #EF4444);
 }
 
 /* Dark Mode */

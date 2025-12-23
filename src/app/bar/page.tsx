@@ -349,9 +349,8 @@ function BarPageContent() {
             )}
             {selectedIds.size === 0 && (
               <>
-                <Button variant="outline" size="md" onClick={() => setCsvModalOpen(true)}>
+                <Button variant="outline" size="md" onClick={() => setCsvModalOpen(true)} aria-label="Import CSV">
                   <Upload size={16} />
-                  Import
                 </Button>
                 <Button variant="primary" size="md" onClick={() => setAddModalOpen(true)}>
                   <Plus size={16} />

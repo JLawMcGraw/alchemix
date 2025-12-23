@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { Upload } from 'lucide-react';
 import styles from './recipes.module.css';
 
 interface PageHeaderProps {
@@ -28,8 +29,9 @@ export function PageHeader({
         <button
           className={`${styles.actionBtn} ${styles.actionBtnOutline}`}
           onClick={onImportCSV}
+          aria-label="Import CSV"
         >
-          Import CSV
+          <Upload size={16} />
         </button>
         <button
           className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}

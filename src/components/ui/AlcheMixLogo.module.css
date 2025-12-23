@@ -53,10 +53,10 @@
    Size Variants
    ========================================================================== */
 
-/* Small - 40px icon, 20px text */
+/* Small - 28px icon */
 .sm .iconWrapper {
-  width: 40px;
-  height: 40px;
+  width: 28px;
+  height: 28px;
 }
 
 .sm {
@@ -64,8 +64,8 @@
 }
 
 .sm .wordmark {
-  font-size: 1.25rem;
-  line-height: 1;
+  font-size: 19px;
+  line-height: 20px;
 }
 
 .sm .tagline {
@@ -85,7 +85,7 @@
 }
 
 .md .wordmark {
-  font-size: 1.75rem;
+  font-size: 10px;
   line-height: 1;
 }
 
@@ -135,21 +135,16 @@
   fill: var(--bond-cane, #65A30D);  /* Craftable - Green */
 }
 
-.nodeBlue {
-  fill: var(--bond-juniper, #0EA5E9);  /* Almost There - Sky Blue */
+.nodeOrange {
+  fill: #F5A623;  /* Orange node */
 }
 
-.nodeAmber {
-  fill: var(--bond-grain, #D97706);  /* Need Few - Amber */
+.nodeBlue {
+  fill: #4A90D9;  /* Blue node */
 }
 
 .nodePink {
-  fill: var(--bond-botanical, #EC4899);  /* Major Gaps - Pink */
-}
-
-/* Center junction node - uses agave teal */
-.nodeCenter {
-  fill: var(--bond-agave, #0D9488);
+  fill: #EC4899;  /* Pink center node */
 }
 
 /* ==========================================================================
@@ -160,28 +155,20 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
+  margin-top: 6px;
 }
 
 .wordmark {
-  display: flex;
-  align-items: baseline;
-  letter-spacing: 0.05em;
-}
-
-.alche {
-  font-family: var(--font-mono, 'JetBrains Mono', monospace);
-  font-weight: 400;
-  color: var(--fg-primary, #475569);
-}
-
-.mix {
-  font-family: var(--font-mono, 'JetBrains Mono', monospace);
-  font-weight: 700;
-  color: var(--fg-primary, #475569);
+  font-family: var(--font-logo, 'Inria Sans', sans-serif);
+  font-weight: 300;
+  color: var(--fg-primary, #1E293B);
+  letter-spacing: 0.08em;
+  transform: scaleY(1.05);
+  transform-origin: bottom;
 }
 
 .tagline {
-  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-family: var(--font-sans, 'Inter', sans-serif);
   font-size: 0.875rem;
   color: #6B6B6B;
   text-transform: uppercase;
@@ -197,11 +184,11 @@
   animation: drift1 8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
-.logoContainer:hover .nodeBlue {
+.logoContainer:hover .nodeOrange {
   animation: drift2 9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
-.logoContainer:hover .nodeAmber {
+.logoContainer:hover .nodeBlue {
   animation: drift3 7s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
@@ -219,31 +206,23 @@
 
 /* Use brighter variants in dark mode */
 :global([data-theme="dark"]) .nodeGreen {
-  fill: var(--bond-cane, #84CC16);
+  fill: #84CC16;
+}
+
+:global([data-theme="dark"]) .nodeOrange {
+  fill: #FBBF24;
 }
 
 :global([data-theme="dark"]) .nodeBlue {
-  fill: var(--bond-juniper, #38BDF8);
-}
-
-:global([data-theme="dark"]) .nodeAmber {
-  fill: var(--bond-grain, #F59E0B);
+  fill: #60A5FA;
 }
 
 :global([data-theme="dark"]) .nodePink {
-  fill: var(--bond-botanical, #F472B6);
+  fill: #F472B6;
 }
 
-:global([data-theme="dark"]) .nodeCenter {
-  fill: var(--bond-agave, #14B8A6);
-}
-
-:global([data-theme="dark"]) .alche {
-  color: var(--fg-primary, #94A3B8);
-}
-
-:global([data-theme="dark"]) .mix {
-  color: var(--fg-primary, #94A3B8);
+:global([data-theme="dark"]) .wordmark {
+  color: var(--fg-primary, #F1F5F9);
 }
 
 :global([data-theme="dark"]) .tagline {
@@ -256,8 +235,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .logoContainer:hover .nodeGreen,
-  .logoContainer:hover .nodeBlue,
-  .logoContainer:hover .nodeAmber {
+  .logoContainer:hover .nodeOrange,
+  .logoContainer:hover .nodeBlue {
     animation: none;
   }
 

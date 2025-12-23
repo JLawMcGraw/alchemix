@@ -81,7 +81,7 @@
 .topPickCard {
   background: white;
   border: 1px solid var(--bond-agave);
-  border-radius: var(--radius);
+  border-radius: var(--radius-card, 8px);
   overflow: hidden;
 }
 
@@ -178,8 +178,8 @@
   font-size: 0.75rem;
   color: var(--color-text-body);
   background: #F1F5F9;
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius);
+  border: 1px solid var(--color-border-default, #E0E8F3);
+  border-radius: var(--radius-sm, 4px);
   cursor: pointer;
   transition: all 0.1s ease;
 }
@@ -192,8 +192,8 @@
 /* Other Recommendations Card */
 .otherRecsCard {
   background: white;
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius);
+  border: 1px solid var(--color-border-default, #E0E8F3);
+  border-radius: var(--radius-card, 8px);
   overflow: hidden;
 }
 
@@ -220,8 +220,8 @@
   width: 28px;
   height: 28px;
   background: none;
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius);
+  border: 1px solid var(--color-border-default, #E0E8F3);
+  border-radius: var(--radius-sm, 4px);
   color: var(--color-text-muted);
   cursor: pointer;
   transition: all 0.1s ease;
@@ -349,8 +349,8 @@
 /* Shopping List Card */
 .shoppingListCard {
   background: white;
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius);
+  border: 1px solid var(--color-border-default, #E0E8F3);
+  border-radius: var(--radius-card, 8px);
   overflow: hidden;
 }
 
@@ -420,8 +420,8 @@
 .checkbox {
   width: 18px;
   height: 18px;
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius);
+  border: 1px solid var(--color-border-default, #E0E8F3);
+  border-radius: 2px;
   background: white;
   display: flex;
   align-items: center;
@@ -497,8 +497,8 @@
 /* Impact Card */
 .impactCard {
   background: white;
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius);
+  border: 1px solid var(--color-border-default, #E0E8F3);
+  border-radius: var(--radius-card, 8px);
   padding: var(--space-4);
 }
 
@@ -548,8 +548,8 @@
 /* Custom Item Card */
 .customItemCard {
   background: white;
-  border: 1px dashed var(--color-border-default);
-  border-radius: var(--radius);
+  border: 1px dashed var(--color-border-default, #E0E8F3);
+  border-radius: var(--radius-card, 8px);
   padding: var(--space-3) var(--space-4);
   display: flex;
   align-items: center;
@@ -578,7 +578,7 @@
   height: 28px;
   background: var(--bond-agave);
   border: none;
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm, 4px);
   color: white;
   cursor: pointer;
   flex-shrink: 0;
@@ -617,7 +617,7 @@
   border: none;
   cursor: pointer;
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm, 4px);
   transition: all 0.1s ease;
 }
 
@@ -641,8 +641,8 @@
 /* Empty State */
 .emptyState {
   background: white;
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius);
+  border: 1px solid var(--color-border-default, #E0E8F3);
+  border-radius: var(--radius-card, 8px);
   padding: var(--space-8);
   text-align: center;
 }
@@ -673,8 +673,8 @@
   text-align: center;
   padding: var(--space-6);
   background: white;
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius);
+  border: 1px solid var(--color-border-default, #E0E8F3);
+  border-radius: var(--radius-card, 8px);
 }
 
 .quickStartIcon {

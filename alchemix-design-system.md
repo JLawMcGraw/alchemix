@@ -1,7 +1,7 @@
 # Molecular Mixology (AlcheMix) — Design System
 
-**Version**: v1.31.0
-**Last Updated**: December 17, 2025
+**Version**: v1.34.0
+**Last Updated**: December 22, 2025
 
 ---
 
@@ -75,12 +75,13 @@ Colors are desaturated and matte—like diagrams printed on high-quality paper o
   /* === BASE THEMES === */
   
   /* Light Mode (Paper) - DEFAULT */
-  --bg-paper:          #F8F9FA;  /* Clinical off-white, like quality paper stock */
+  --bg-paper:          #FAFBFD;  /* Clinical off-white, like quality paper stock */
   --bg-elevated:       #FFFFFF;  /* Pure white for cards/elevated surfaces */
+  --bg-card-header:    #F8FAFC;  /* Slightly gray for card headers */
   --fg-primary:        #1E293B;  /* Ink black, high contrast */
-  --fg-secondary:      #64748B;  /* Graphite, for secondary text */
+  --fg-secondary:      #737891;  /* Gray, for secondary text in cards */
   --fg-tertiary:       #94A3B8;  /* Light graphite, for hints/placeholders */
-  --border-hairline:   #E2E8F0;  /* Structural lines, like graph paper */
+  --border-hairline:   #E0E8F3;  /* Structural lines, like graph paper */
   --border-emphasis:   #CBD5E1;  /* Slightly darker for emphasis */
   
   /* Dark Mode (Slate Lab Countertop) */
@@ -144,6 +145,12 @@ Colors are desaturated and matte—like diagrams printed on high-quality paper o
   --status-warning:    #F59E0B;  /* Amber — Low stock, attention */
   --status-critical:   #EF4444;  /* Red — Out of stock, error */
   --status-info:       #0EA5E9;  /* Blue — Informational */
+
+  /* === RECIPE MASTERY COLORS === */
+  --mastery-craftable: #0EBB84;  /* Green — Have all ingredients */
+  --mastery-near-miss: #CEC400;  /* Yellow — Missing 1 ingredient */
+  --mastery-2-3-away:  #EDA600;  /* Orange — Missing 2-3 ingredients */
+  --mastery-major-gaps:#7F99BC;  /* Blue-gray — Missing 4+ ingredients */
   
   /* === INTERACTION STATES === */
   --focus-ring:        #0D9488;  /* Teal focus ring (matches agave, feels "primary") */
@@ -160,8 +167,9 @@ Colors are desaturated and matte—like diagrams printed on high-quality paper o
 | Usage | Font | Rationale |
 |-------|------|-----------|
 | Headings & UI | `"Inter", "Helvetica Neue", -apple-system, sans-serif` | Objective, neutral, Swiss-inspired, highly legible |
-| Data & Formulas | `"JetBrains Mono", "SF Mono", "Consolas", monospace` | For measurements, inventory counts, chemical symbols—aligns decimals |
-| Element Symbols | `"JetBrains Mono", monospace` at `font-weight: 600` | Bold monospace for the 2-letter element abbreviations |
+| Logo Wordmark | `"Inria Sans", "Inter", sans-serif` | Distinctive serif-inspired sans for brand identity |
+| Data & Formulas | `"Inter", sans-serif` | Clean, consistent with UI for measurements |
+| Element Symbols | `"Inter", sans-serif` at `font-weight: 600` | Bold for the 2-letter element abbreviations |
 
 **Type Scale & Styling**:
 
@@ -254,12 +262,13 @@ Colors are desaturated and matte—like diagrams printed on high-quality paper o
 
 ```css
 :root {
-  --radius-none:    0px;      /* Sharp corners - DEFAULT for most elements */
+  --radius-none:    0px;      /* Sharp corners */
   --radius-atom:    9999px;   /* Perfect circles for molecular nodes */
-  --radius-card:    2px;      /* Almost sharp, like lab slides/glass edges */
-  --radius-input:   2px;      /* Minimal softening on inputs */
-  --radius-button:  2px;      /* Buttons match inputs */
+  --radius-card:    8px;      /* Rounded corners for cards */
+  --radius-input:   6px;      /* Softened inputs */
+  --radius-button:  6px;      /* Buttons match inputs */
   --radius-pill:    9999px;   /* Full round for tags/badges */
+  --radius-sm:      4px;      /* Small elements */
 }
 ```
 
@@ -328,7 +337,7 @@ The atomic building block of the Periodic Table view. MUST be a perfect square.
 | Background | `--bg-elevated` (white in light mode) |
 | Border | `1px solid --border-hairline` |
 | Top Border | `3px solid [group-color]` (overrides top border) |
-| Border Radius | `--radius-card` (2px) |
+| Border Radius | `--radius-card` (8px) |
 | Padding | `--space-2` (8px) |
 
 **States**:
@@ -529,6 +538,73 @@ Horizontal tab navigation for filtering inventory by category.
 
 **Categories**: All, Spirits, Liqueur, Wine/Vermouth, Mixers, Bitters, Syrups, Fresh, Tools
 
+### BottleCard (Inventory Item Card)
+
+Card component for displaying inventory items in the My Bar grid view.
+
+**Component**: `src/components/BottleCard/BottleCard.tsx`
+
+```
+┌─────────────────────────────────────┐  ← 8px border radius
+│ □  Angostura Orange Bitters (2)     │  ← Gray header (#F8FAFC)
+├─────────────────────────────────────┤  ← 1px border divider
+│  GRAIN      BOTANIC                 │  ← Periodic badges (no border)
+│                                     │
+│  Type:     Orange Bitters           │  ← Details section
+│  ABV:      28%                      │
+│  Location: Port of Spain, Trinidad  │
+└─────────────────────────────────────┘
+```
+
+**Specifications**:
+
+| Property | Value |
+|----------|-------|
+| Background | `--bg-elevated` (white) |
+| Border | `1px solid #E0E8F3` |
+| Border Radius | `8px` (var(--radius-card)) |
+| Header Background | `#F8FAFC` (var(--color-card-header)) |
+| Header Padding | `12px 16px` |
+| Header Border | `1px solid #E0E8F3` bottom |
+| Details Padding | `12px 16px 16px` |
+| Cursor | `pointer` (entire card clickable) |
+
+**Header Layout**:
+- Checkbox (16×16) on left for bulk selection
+- Item name with stock count in parentheses (e.g., "Angostura (2)")
+- Font: var(--font-sans), 16px, weight 600
+
+**Periodic Badges**:
+
+```css
+.periodicBadge {
+  padding: 3px 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 4px;
+  /* NO border - just background tint and colored text */
+  background: {color}15;  /* 15% opacity of badge color */
+  color: {color};
+}
+```
+
+**States**:
+
+| State | Behavior |
+|-------|----------|
+| Default | As specified above |
+| Hover | `transform: scale(1.02)`, border darkens |
+| Selected | `border-color: var(--bond-agave)` |
+| Out of Stock | `opacity: 0.6` |
+
+**Dark Mode**:
+- Card background: `var(--bg-elevated, #1E293B)`
+- Header background: `var(--bg-paper, #0F172A)`
+- Borders: `var(--border-hairline, #334155)`
+
 ---
 
 ## 4. Layout Strategy
@@ -567,7 +643,9 @@ Horizontal tab navigation for filtering inventory by category.
 └─────────────────────────────────────────────────────┘
 ```
 
-**TopNav Navigation**: Dashboard, My Bar, Recipes, AI Bartender, Favorites, Shopping List
+**TopNav Navigation**: Dashboard, My Bar, Ask the Bartender (with green indicator dot), Recipes, Shop List
+
+**Active Nav Indicator**: 2px underline, positioned 6px from bottom of text (close to the word)
 
 ### Section Spacing
 
@@ -870,11 +948,42 @@ Respect `prefers-reduced-motion`:
 
 **Focus**: Overview of bar composition and recipe mastery
 
+**Layout**: Two-column grid layout
+- **Left Column**: Bartender's Notes + My Bar (stacked)
+- **Right Column**: Recipes + Collections (stacked)
+
 **Components**:
-- Bar composition stats (spirit categories)
-- Recipe mastery progress
-- Collections sidebar
-- Quick actions
+
+**Header**:
+- Greeting: "Good evening {username},"
+- Headline: "What will you make?"
+- Craftable count link (green, navigates to craftable recipes)
+- Stats line: "{n} ingredients in-stock | {n} saved recipes"
+
+**Bartender's Notes Card**:
+- Header: Gray background (#F8FAFC) with arrow button
+- Content: Italic text with AI-generated insight
+- Links rendered as underlined text
+
+**My Bar Card**:
+- Header: Gray background with count and + button
+- Composition bar: Horizontal colored segments by category
+- Category grid: 3×2 grid with dashed dividers
+- Category counts: Thin weight (400), colored by category
+- Vertical dashed lines between columns
+- Horizontal dashed line between rows (inset)
+- Bottom margin: 16px (matches top spacing)
+
+**Recipes Card**:
+- List items with colored status dots
+- Craftable (#0EBB84), Near Miss (#CEC400), 2-3 Away (#EDA600), Major Gaps (#7F99BC)
+- Dashed dividers between items (inset from edges)
+- Text color: #737891
+
+**Collections Card**:
+- Folder icon (Lucide) with collection name
+- Recipe count on right
+- Dashed dividers between items
 
 ### My Bar (Inventory)
 
@@ -1089,47 +1198,45 @@ packages/
 
 ### AlcheMix Logo
 
-The AlcheMix logo is a Y-shaped molecular structure representing the fusion of chemistry and mixology.
+The AlcheMix logo is an inverted Y-shaped molecular structure representing the fusion of chemistry and mixology.
 
 **Component**: `src/components/ui/AlcheMixLogo.tsx`
 
-### Logo Geometry
+### Logo Geometry (Inverted Y)
 
 ```
-       [Green]         [Blue]
-        (25,18)        (75,18)
-           \            /
-            \          /
-             \        /
-              \      /
-               [Pink]      ← Center Junction (50, 45)
-              (50,45)
+              [Blue]         ← Top node (50, 15)
+              (50,15)
                  |
                  |
-                 |
-              [Amber]
-              (50,78)
+               [Pink]        ← Center Junction (50, 50)
+              (50,50)
+              /      \
+             /        \
+            /          \
+       [Green]       [Orange]
+       (22,80)        (78,80)
 ```
 
 **SVG ViewBox**: `0 0 100 100`
 
 **Node Positions**:
-| Node | Position | Radius (md) | Color Variable |
-|------|----------|-------------|----------------|
-| Top-Left | (25, 18) | 10px | `--bond-cane` (Green #65A30D) |
-| Top-Right | (75, 18) | 10px | `--bond-juniper` (Sky Blue #0EA5E9) |
-| Bottom | (50, 78) | 10px | `--bond-grain` (Amber #D97706) |
-| Center | (50, 45) | 7px | `--bond-botanical` (Pink #EC4899) |
+| Node | Position | Radius | Color |
+|------|----------|--------|-------|
+| Top | (50, 15) | 10px | Blue #4A90D9 |
+| Bottom-Left | (22, 80) | 10px | Green #65A30D |
+| Bottom-Right | (78, 80) | 10px | Orange #F5A623 |
+| Center | (50, 50) | 7px | Pink #EC4899 |
 
 **Bonds**: 3 lines connecting center to each terminal node
-- Stroke: `#3D3D3D` (light mode), `#888888` (dark mode)
+- Stroke: `#3D3D3D` (light mode), `#94A3B8` (dark mode)
 - Stroke width: 4px (md size)
 
 ### Logo Size Variants
 
 | Size | Icon | Gap | Wordmark | Use Case |
 |------|------|-----|----------|----------|
-| `sm` | 40×40 | 8px | 1.25rem | Compact navigation |
+| `sm` | 28×28 | 8px | 19px | TopNav (default) |
 | `md` | 48×48 | 10px | 1.75rem | Default navigation |
 | `lg` | 80×80 | 12px | 2.25rem | Login page, hero |
 
@@ -1138,26 +1245,27 @@ The AlcheMix logo is a Y-shaped molecular structure representing the fusion of c
 ```
 ALCHEMIX
    ↑
-JetBrains Mono
-ALCHE=400, MIX=700
-Same color throughout
+Inria Sans Light
+19px, 8% letter-spacing
+5% vertical stretch
 ```
 
-| Part | Font | Weight | Color | Letter Spacing |
-|------|------|--------|-------|----------------|
-| "ALCHE" | JetBrains Mono | 400 | var(--fg-primary) | 0.05em |
-| "MIX" | JetBrains Mono | 700 | var(--fg-primary) | 0.05em |
-
-**Key Design Decisions**:
-- Same monospace font throughout for consistent character width
-- Same letter-spacing for uniform appearance
-- Only weight differs: ALCHE (regular) vs MIX (bold)
-- Same color ensures cohesive look
+| Property | Value |
+|----------|-------|
+| Font | Inria Sans |
+| Weight | 300 (Light) |
+| Size | 19px |
+| Line Height | 20px |
+| Letter Spacing | 0.08em (8%) |
+| Vertical Stretch | scaleY(1.05) |
+| Transform Origin | bottom |
+| Color | var(--fg-primary) |
+| Vertical Alignment | 6px margin-top (aligns with icon nodes) |
 
 **Tagline**: "MOLECULAR OS V1.0"
-- Font: JetBrains Mono
+- Font: Inter
 - Size: 0.875rem (lg), 0.6875rem (md), 0.5625rem (sm)
-- Color: #6B6B6B (matches "ALCHE")
+- Color: #6B6B6B
 - Letter spacing: 0.2em
 - Text transform: uppercase
 
@@ -1175,8 +1283,8 @@ On hover, terminal nodes exhibit subtle Brownian motion:
 ```
 
 - **Green node**: `drift1` at 8s
-- **Blue node**: `drift2` at 9s
-- **Amber node**: `drift3` at 7s
+- **Orange node**: `drift2` at 9s
+- **Blue node**: `drift3` at 7s
 - **Easing**: `cubic-bezier(0.4, 0, 0.2, 1)`
 
 Disabled when `prefers-reduced-motion: reduce`.
@@ -1198,19 +1306,17 @@ interface AlcheMixLogoProps {
 
 | File | Content | Use Case |
 |------|---------|----------|
-| `icon.svg` | Y-molecule only (no text) | Favicon, app icon |
+| `icon.svg` | Inverted Y-molecule only (no text) | Favicon, app icon |
 | `logo.svg` | Full logo with wordmark | Headers, about pages |
 | `logo-text.svg` | Wordmark only (no icon) | Footer, text-only contexts |
 
 ### Color Meaning in Logo
 
-The logo nodes use recipe mastery indicator colors (matching dashboard):
+The logo nodes represent the molecular/chemistry theme:
 
-| Node | Color | Mastery Level |
-|------|-------|---------------|
-| Green | `--bond-cane` | Craftable (have all ingredients) |
-| Blue | `--bond-juniper` | Almost There (missing 1-2) |
-| Amber | `--bond-grain` | Need Few (missing 3-5) |
-| Pink | `--bond-botanical` | Major Gaps (missing 6+) |
-
-This creates a visual connection between the logo and the app's core functionality.
+| Node | Color | Position |
+|------|-------|----------|
+| Blue | #4A90D9 | Top (stem) |
+| Green | #65A30D | Bottom-left |
+| Orange | #F5A623 | Bottom-right |
+| Pink | #EC4899 | Center junction |

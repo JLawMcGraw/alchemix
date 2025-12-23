@@ -29,10 +29,10 @@ export const SPIRIT_KEYWORDS: Record<string, string[]> = {
  * Mastery filter configuration
  */
 export const MASTERY_FILTERS = [
-  { key: 'craftable', label: 'Craftable', color: '#10B981', filter: 'craftable' },
-  { key: 'near-miss', label: 'Near Miss', color: '#0EA5E9', filter: 'almost' },
-  { key: '2-3-away', label: '2-3 Away', color: '#F59E0B', filter: 'need-few' },
-  { key: 'major-gaps', label: 'Major Gaps', color: '#94A3B8', filter: 'major-gaps' },
+  { key: 'craftable', label: 'Craftable', color: '#0EBB84', filter: 'craftable' },
+  { key: 'near-miss', label: 'Near Miss', color: '#CEC400', filter: 'almost' },
+  { key: '2-3-away', label: '2-3 Away', color: '#EDA600', filter: 'need-few' },
+  { key: 'major-gaps', label: 'Major Gaps', color: '#7F99BC', filter: 'major-gaps' },
 ] as const;
 
 export type MasteryFilterKey = typeof MASTERY_FILTERS[number]['filter'];

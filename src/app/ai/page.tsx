@@ -552,7 +552,7 @@ export default function AIPage() {
               </div>
               <div className={styles.contextStatus}>
                 <div className={styles.statusDot} />
-                AI has access to your data
+                The bartender has access to your data
               </div>
             </div>
 
@@ -603,7 +603,7 @@ export default function AIPage() {
             <div className={styles.chatHeader}>
               <div className={styles.chatHeaderLeft}>
                 <div className={styles.statusDotLarge} />
-                <span className={styles.chatTitle}>Lab Assistant</span>
+                <span className={styles.chatTitle}>Bartender</span>
               </div>
               <button className={styles.newChatBtn} onClick={handleClearChat}>
                 <RotateCcw size={14} />
@@ -618,7 +618,7 @@ export default function AIPage() {
                   <div className={styles.emptyLogo}>
                     <AlcheMixLogo size="lg" showText={false} />
                   </div>
-                  <h3 className={styles.emptyTitle}>Ask the Lab Assistant</h3>
+                  <h3 className={styles.emptyTitle}>Ask the Bartender</h3>
                   <p className={styles.emptyText}>
                     I know your bar inventory and recipe collection. Ask me what you can make, get recommendations, or explore new cocktails.
                   </p>

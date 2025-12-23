@@ -1,7 +1,7 @@
 /* AlcheMix Design System - Molecular Mixology Theme */
 
-/* Import Google Fonts - Matches molecular-mixology.html reference */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inria+Sans:wght@300;400;700&display=swap');
 
 /* CSS Reset */
 *,
@@ -16,14 +16,14 @@
 :root {
   /* =========================
      BASE THEME - LIGHT MODE (Paper)
-     Clinical off-white, like quality paper stock
+     Clean, modern off-white
      ========================= */
-  --bg-paper: #F8F9FA;               /* Clinical off-white background */
+  --bg-paper: #FAFBFD;               /* Clean off-white background */
   --bg-elevated: #FFFFFF;            /* Pure white for cards/elevated surfaces */
   --fg-primary: #1E293B;             /* Ink black, high contrast */
   --fg-secondary: #64748B;           /* Graphite, for secondary text */
   --fg-tertiary: #94A3B8;            /* Light graphite, for hints/placeholders */
-  --border-hairline: #E2E8F0;        /* Structural lines, like graph paper */
+  --border-hairline: #E0E8F3;        /* Subtle border color */
   --border-emphasis: #CBD5E1;        /* Slightly darker for emphasis */
 
   /* Dark Mode Variables (for future dark theme) */
@@ -125,7 +125,8 @@
      TYPOGRAPHY
      ========================= */
   --font-sans: "Inter", -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono", "SF Mono", "Consolas", monospace;
+  --font-mono: "Inter", -apple-system, sans-serif;  /* Use Inter for data/numbers too */
+  --font-logo: "Inria Sans", "Inter", sans-serif;   /* Logo wordmark font */
   --font-display: var(--font-sans);  /* Alias for backwards compat */
   --font-body: var(--font-sans);
 
@@ -155,15 +156,15 @@
 
   /* =========================
      BORDER RADIUS
-     Sharp corners for scientific aesthetic
+     Rounded corners for modern aesthetic
      ========================= */
   --radius-none: 0px;           /* Sharp corners */
-  --radius: 2px;                /* Default - almost sharp */
-  --radius-sm: 2px;             /* Small - matches default */
-  --radius-lg: 4px;             /* Large - still minimal */
-  --radius-card: 2px;           /* Cards */
-  --radius-button: 2px;         /* Buttons */
-  --radius-input: 2px;          /* Inputs */
+  --radius: 8px;                /* Default - rounded */
+  --radius-sm: 6px;             /* Small - subtle rounding */
+  --radius-lg: 12px;            /* Large - more pronounced */
+  --radius-card: 8px;           /* Cards */
+  --radius-button: 6px;         /* Buttons */
+  --radius-input: 6px;          /* Inputs */
   --radius-atom: 9999px;        /* Perfect circles for atoms/nodes */
   --radius-full: 9999px;        /* Pills, badges */
 

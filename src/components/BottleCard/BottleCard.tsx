@@ -59,6 +59,7 @@ export function BottleCard({ item, isSelected = false, onSelect, onClick }: Bott
   return (
     <div
       className={`${styles.card} ${isOutOfStock ? styles.outOfStock : ''} ${isSelected ? styles.selected : ''}`}
+      onClick={handleCardClick}
     >
       {/* Header */}
       <div className={styles.header}>
@@ -77,8 +78,8 @@ export function BottleCard({ item, isSelected = false, onSelect, onClick }: Bott
               </svg>
             )}
           </div>
-          <h3 className={styles.name} onClick={handleCardClick}>
-            {item.name}
+          <h3 className={styles.name}>
+            {item.name}{stockCount > 0 && ` (${stockCount})`}
           </h3>
         </div>
       </div>
@@ -91,7 +92,6 @@ export function BottleCard({ item, isSelected = false, onSelect, onClick }: Bott
               className={styles.periodicBadge}
               style={{
                 color: groupColors[periodicTags.group],
-                borderColor: groupColors[periodicTags.group],
                 backgroundColor: `${groupColors[periodicTags.group]}15`,
               }}
             >
@@ -103,7 +103,6 @@ export function BottleCard({ item, isSelected = false, onSelect, onClick }: Bott
               className={styles.periodicBadge}
               style={{
                 color: periodColors[periodicTags.period],
-                borderColor: periodColors[periodicTags.period],
                 backgroundColor: `${periodColors[periodicTags.period]}15`,
               }}
             >
@@ -139,16 +138,6 @@ export function BottleCard({ item, isSelected = false, onSelect, onClick }: Bott
             </span>
           </div>
         )}
-      </div>
-
-      {/* Footer */}
-      <div className={styles.footer}>
-        <span className={styles.viewLink} onClick={handleCardClick}>
-          Click to view details
-        </span>
-        <span className={`${styles.stockLabel} ${isOutOfStock ? styles.stockEmpty : ''}`}>
-          Stock: <strong>{stockCount}</strong>
-        </span>
       </div>
     </div>
   );

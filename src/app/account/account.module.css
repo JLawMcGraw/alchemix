@@ -76,15 +76,15 @@
 
 .sectionCard {
   background: var(--color-ui-bg-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 2px;
+  border: 1px solid var(--color-border, #E0E8F3);
+  border-radius: var(--radius-card, 8px);
   overflow: hidden;
 }
 
 .sectionCardDanger {
   background: var(--color-ui-bg-surface);
   border: 1px solid var(--color-semantic-error-light, #FECACA);
-  border-radius: 2px;
+  border-radius: var(--radius-card, 8px);
   overflow: hidden;
 }
 
@@ -185,8 +185,8 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 4px 8px;
-  border: 1px solid var(--color-border);
-  border-radius: 2px;
+  border: 1px solid var(--color-border, #E0E8F3);
+  border-radius: var(--radius-sm, 4px);
   background: transparent;
   color: var(--fg-secondary);
   cursor: pointer;
@@ -285,8 +285,8 @@
   font-family: var(--font-sans);
   font-size: 0.75rem;
   padding: 6px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: 2px;
+  border: 1px solid var(--color-border, #E0E8F3);
+  border-radius: var(--radius-sm, 4px);
   background: none;
   color: var(--fg-secondary);
   cursor: pointer;
@@ -308,8 +308,8 @@
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   padding: 6px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: 2px;
+  border: 1px solid var(--color-border, #E0E8F3);
+  border-radius: var(--radius-sm, 4px);
   background: var(--color-ui-bg-surface);
   color: var(--fg-primary);
   cursor: pointer;
@@ -406,7 +406,7 @@
   border: 1px solid var(--color-semantic-error-light, #FECACA);
   color: var(--color-semantic-error);
   padding: var(--space-3);
-  border-radius: 2px;
+  border-radius: var(--radius-sm, 4px);
   font-family: var(--font-sans);
   font-size: var(--text-sm);
 }
@@ -415,7 +415,7 @@
   background-color: var(--color-semantic-error-bg, #FEF2F2);
   border: 1px solid var(--color-semantic-error-light, #FECACA);
   padding: var(--space-3);
-  border-radius: 2px;
+  border-radius: var(--radius-sm, 4px);
 }
 
 .dangerWarning p {
@@ -471,7 +471,7 @@
   background-color: var(--color-semantic-error-bg, #FEF2F2);
   color: var(--color-semantic-error);
   padding: var(--space-3);
-  border-radius: 2px;
+  border-radius: var(--radius-sm, 4px);
   font-family: var(--font-sans);
   font-size: var(--text-sm);
   align-items: flex-start;
@@ -492,7 +492,7 @@
   background-color: var(--color-semantic-success-bg, #ECFDF5);
   color: var(--color-semantic-success, #10B981);
   padding: var(--space-3);
-  border-radius: 2px;
+  border-radius: var(--radius-sm, 4px);
   font-family: var(--font-sans);
   font-size: var(--text-sm);
   align-items: center;
@@ -512,7 +512,7 @@
   gap: var(--space-1);
   padding: var(--space-3);
   background-color: var(--color-ui-bg);
-  border-radius: 2px;
+  border-radius: var(--radius-sm, 4px);
 }
 
 .importResultItem {

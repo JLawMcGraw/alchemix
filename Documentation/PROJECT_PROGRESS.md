@@ -1,12 +1,12 @@
 # Project Development Progress
 
-Last updated: 2025-12-21 (Session 4)
+Last updated: 2025-12-22 (Session 5)
 
 ---
 
 ## Current Status
 
-**Version**: v1.33.0
+**Version**: v1.34.0
 **Phase**: Deployment Preparation - PostgreSQL Migration
 **Branch**: `postgresql-deployment`
 **Blockers**: None
@@ -25,12 +25,94 @@ Last updated: 2025-12-21 (Session 4)
 - Landing Page: **Complete**
 - Login Page Redesign: **Complete** (Hero + Modal pattern)
 - FTUX Onboarding Flow: **Complete** (3-step flow at /onboarding)
+- Design System Consistency Pass: **Complete** (All pages audited for rounded corners)
 
 **PostgreSQL Migration**: **Complete** (Phase 1-5 done, Phase 6 Deploy pending)
 
 ---
 
-## Recent Session (2025-12-21): Gemini 3 Fixes, MemMachine Resilience & Onboarding Polish
+## Recent Session (2025-12-22): Design System Consistency Pass, BottleCard Redesign & Bartender Rebranding
+
+### Summary
+Major design polish session: redesigned BottleCard component with gray header and stock count in header, comprehensive border-radius audit across all pages (8px cards, 6px buttons, 4px small elements), fixed AI page scroll with sticky chat area, rebranded "Lab Assistant" to "Bartender" throughout, and simplified import buttons to icon-only.
+
+### Work Completed
+
+#### 1. BottleCard Component Redesign
+- **Border Radius**: Changed from 2px to 8px to match card standard
+- **Header Redesign**: Added gray background (#F8FAFC) matching other card headers
+- **Stock Count**: Moved from footer into header next to item name (e.g., "Angostura Orange Bitters (2)")
+- **Footer Removal**: Removed entire footer section with "Click to view details" text
+- **Click Behavior**: Made entire card clickable instead of just footer link
+- **Badge Styling**: Removed hard borders from category/periodic badges (tint + colored text only)
+- **Files**: `src/components/BottleCard/BottleCard.tsx`, `src/components/BottleCard/BottleCard.module.css`
+
+#### 2. Border-Radius Consistency Audit (All Pages)
+Applied consistent border-radius tokens across entire application:
+- `--radius-card: 8px` for all cards
+- `--radius-button: 6px` for all buttons
+- `--radius-input: 6px` for inputs and selects
+- `--radius-sm: 4px` for small elements (pill counts, action buttons)
+
+**Pages Updated**:
+| Page | Elements Updated |
+|------|-----------------|
+| Login | Already compliant |
+| My Bar | BottleCard, import button |
+| Recipes | actionBtn (6px), masteryPill (6px), pillCount (4px), searchInput (6px), filterSelect (6px), collectionCard (8px), collectionActionBtn (4px), RecipeCard (8px) |
+| AI/Bartender | All cards (8px), input (6px), sendBtn (6px) |
+| Shopping List | All cards (8px), buttons (4px) |
+| Account | Section cards (8px), form elements (6px) |
+| Onboarding | `--radius-card` variable (2px → 8px) |
+
+#### 3. AI/Bartender Page Overhaul
+- **Scroll Fix**: Changed from fixed viewport height to `min-height` for natural page scroll
+- **Sticky Chat**: Made chat area sticky (`position: sticky; top: 72px`) so it stays visible while sidebar scrolls
+- **Height Correction**: Fixed nav height calc (was 72px, actually 56px)
+- **Chat Header**: Added gray background (#F8FAFC) to match other card headers
+- **Terminology Rebrand**:
+  - "AI has access to your data" → "The bartender has access to your data"
+  - "Lab Assistant" → "Bartender"
+  - "Ask the Lab Assistant" → "Ask the Bartender"
+- **Files**: `src/app/ai/page.tsx`, `src/app/ai/ai.module.css`
+
+#### 4. Import Button Simplification
+- **My Bar**: Removed "Import" text, kept only Upload icon with `aria-label="Import CSV"`
+- **Recipes**: Removed "Import CSV" text, kept only Upload icon with `aria-label="Import CSV"`
+- **Files**: `src/app/bar/page.tsx`, `src/app/recipes/RecipeActions.tsx`
+
+#### 5. Design System Documentation
+- Updated `alchemix-design-system.md` to v1.34.0
+- Added BottleCard component specification with wire diagram
+- Documented border-radius token standards
+
+### Files Changed
+**Components**:
+- `src/components/BottleCard/BottleCard.tsx` - Header stock count, removed footer, full card click
+- `src/components/BottleCard/BottleCard.module.css` - 8px radius, gray header, removed footer styles
+- `src/components/RecipeCard/RecipeCard.module.css` - 8px radius
+
+**Pages**:
+- `src/app/ai/page.tsx` - Bartender terminology throughout
+- `src/app/ai/ai.module.css` - Sticky chat, scroll fix, header styling, border-radius
+- `src/app/bar/page.tsx` - Icon-only import button
+- `src/app/recipes/RecipeActions.tsx` - Icon-only import button
+- `src/app/recipes/recipes.module.css` - Border-radius for all elements (actionBtn, masteryPill, pillCount, searchInput, filterSelect, collectionCard, collectionActionBtn)
+- `src/app/shopping-list/shopping-list.module.css` - Border-radius consistency
+- `src/app/account/account.module.css` - Border-radius consistency
+- `src/app/onboarding/page.module.css` - --radius-card variable update
+
+**Documentation**:
+- `alchemix-design-system.md` - v1.34.0 with BottleCard specs
+
+### Next Priorities
+- Deploy to production
+- Test full user flow with updated design
+- Monitor AI/Bartender chat functionality
+
+---
+
+## Previous Session (2025-12-21): Gemini 3 Fixes, MemMachine Resilience & Onboarding Polish
 
 ### Summary
 Fixed AI bartender and dashboard insight failures caused by Gemini 3's thinking tokens exhausting the output limit, added safety settings for cocktail names, improved MemMachine batch upload resilience with retry logic, added login-time sync for failed recipe uploads, and polished onboarding flow (hidden nav, centered step indicator).

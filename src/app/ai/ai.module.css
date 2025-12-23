@@ -1,17 +1,15 @@
 /* AI Bartender Page - Molecular Mixology Redesign */
 
 .page {
-  height: calc(100vh - 72px);
+  min-height: calc(100vh - 56px);
   background: var(--color-ui-bg-base);
   padding: var(--space-4) 0;
-  overflow: hidden;
 }
 
 .container {
   max-width: 1400px;
   margin: 0 auto;
   padding: 0 var(--space-4);
-  height: 100%;
 }
 
 /* Main Grid Layout */
@@ -19,7 +17,7 @@
   display: grid;
   grid-template-columns: 260px 1fr;
   gap: var(--space-4);
-  height: 100%;
+  align-items: start;
 }
 
 /* Sidebar */
@@ -27,15 +25,13 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  min-height: 0;
-  overflow: hidden;
 }
 
 /* Context Card */
 .contextCard {
   background: white;
-  border: 1px solid var(--color-border-default);
-  border-radius: 2px;
+  border: 1px solid var(--color-border-default, #E0E8F3);
+  border-radius: var(--radius-card, 8px);
   padding: var(--space-3);
   flex-shrink: 0;
 }
@@ -104,10 +100,9 @@
 /* Quick Prompts Card */
 .promptsCard {
   background: white;
-  border: 1px solid var(--color-border-default);
-  border-radius: 2px;
+  border: 1px solid var(--color-border-default, #E0E8F3);
+  border-radius: var(--radius-card, 8px);
   padding: var(--space-3);
-  flex-shrink: 0;
 }
 
 .promptsLabel {
@@ -133,8 +128,8 @@
   font-size: 0.8125rem;
   color: var(--color-text-body);
   background: var(--color-ui-bg-base);
-  border: 1px solid var(--color-border-default);
-  border-radius: 2px;
+  border: 1px solid var(--color-border-default, #E0E8F3);
+  border-radius: var(--radius-sm, 4px);
   cursor: pointer;
   text-align: left;
   transition: all 0.1s ease;
@@ -147,14 +142,9 @@
 /* History Card */
 .historyCard {
   background: white;
-  border: 1px solid var(--color-border-default);
-  border-radius: 2px;
+  border: 1px solid var(--color-border-default, #E0E8F3);
+  border-radius: var(--radius-card, 8px);
   padding: var(--space-3);
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
 }
 
 .historyHeader {
@@ -201,14 +191,12 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  overflow-y: auto;
-  flex: 1;
 }
 
 .historyItem {
   padding: var(--space-2);
   background: var(--color-ui-bg-base);
-  border-radius: 2px;
+  border-radius: var(--radius-sm, 4px);
   cursor: pointer;
   transition: background 0.1s ease;
 }
@@ -236,11 +224,13 @@
 /* Chat Area */
 .chatArea {
   background: white;
-  border: 1px solid var(--color-border-default);
-  border-radius: 2px;
+  border: 1px solid var(--color-border-default, #E0E8F3);
+  border-radius: var(--radius-card, 8px);
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  height: calc(100vh - 56px - 32px); /* viewport - nav - padding */
+  position: sticky;
+  top: 72px; /* nav height + padding */
 }
 
 /* Chat Header */
@@ -249,7 +239,8 @@
   justify-content: space-between;
   align-items: center;
   padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--color-border-default);
+  background: var(--color-card-header, #F8FAFC);
+  border-bottom: 1px solid var(--color-border-default, #E0E8F3);
 }
 
 .chatHeaderLeft {
@@ -296,11 +287,11 @@
 /* Messages */
 .messages {
   flex: 1;
-  overflow-y: auto;
   padding: var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  overflow-y: auto;
 }
 
 /* Message Styles */
@@ -310,7 +301,7 @@
   background: var(--color-text-body);
   color: white;
   padding: var(--space-3) var(--space-4);
-  border-radius: 2px;
+  border-radius: var(--radius-card, 8px);
 }
 
 .messageUser .messageText {
@@ -325,10 +316,10 @@
   align-self: flex-start;
   max-width: 75%;
   background: white;
-  border: 1px solid var(--color-border-default);
+  border: 1px solid var(--color-border-default, #E0E8F3);
   border-left: 3px solid var(--bond-agave);
   padding: var(--space-3) var(--space-4);
-  border-radius: 2px;
+  border-radius: var(--radius-card, 8px);
 }
 
 .messageText {
@@ -411,7 +402,7 @@
   padding: var(--space-2) var(--space-3);
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid var(--color-error);
-  border-radius: 2px;
+  border-radius: var(--radius-sm, 4px);
   font-family: var(--font-sans);
   font-size: 0.8125rem;
   color: var(--color-error);
@@ -432,8 +423,8 @@
   font-size: 0.9375rem;
   color: var(--color-text-body);
   background: var(--color-ui-bg-base);
-  border: 1px solid var(--color-border-default);
-  border-radius: 2px;
+  border: 1px solid var(--color-border-default, #E0E8F3);
+  border-radius: var(--radius-input, 6px);
   transition: border-color 0.1s ease;
 }
 
@@ -465,7 +456,7 @@
   color: white;
   background: var(--color-text-body);
   border: none;
-  border-radius: 2px;
+  border-radius: var(--radius-button, 6px);
   cursor: pointer;
   transition: background-color 0.1s ease;
 }
@@ -490,7 +481,6 @@
 @media (max-width: 768px) {
   .page {
     padding: var(--space-3) 0;
-    height: calc(100vh - 72px);
   }
 
   .container {
@@ -503,10 +493,6 @@
 
   .sidebar {
     display: none;
-  }
-
-  .chatArea {
-    height: 100%;
   }
 
   .messageUser,
@@ -543,6 +529,7 @@
 }
 
 :global([data-theme="dark"]) .chatHeader {
+  background: var(--bg-paper, #0F172A);
   border-bottom-color: var(--border-hairline);
 }
 

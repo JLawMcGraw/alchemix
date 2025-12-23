@@ -72,7 +72,7 @@
 .navLink.active::after {
   content: '';
   position: absolute;
-  bottom: -1px;
+  bottom: 6px;
   left: 12px;
   right: 12px;
   height: 2px;
@@ -147,8 +147,8 @@
   right: 0;
   width: 200px;
   background: white;
-  border: 1px solid var(--color-border-default, #E2E8F0);
-  border-radius: 2px;
+  border: 1px solid var(--color-border-default, #E0E8F3);
+  border-radius: var(--radius-card, 8px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   overflow: hidden;
   z-index: 200;

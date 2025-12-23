@@ -61,41 +61,41 @@ export const AlcheMixLogo: React.FC<AlcheMixLogoProps> = ({
           aria-hidden="true"
         >
           {/*
-            Geometry:
-            - Center junction: (50, 45)
-            - Top-left node: (25, 18)
-            - Top-right node: (75, 18)
-            - Bottom node: (50, 78)
+            Geometry (inverted Y):
+            - Center junction: (50, 50)
+            - Top node: (50, 15)
+            - Bottom-left node: (22, 80)
+            - Bottom-right node: (78, 80)
           */}
 
           {/* Bonds */}
           <g className={styles.bonds} strokeWidth={sw.bond} strokeLinecap="round">
-            <line x1="50" y1="45" x2="25" y2="18" />
-            <line x1="50" y1="45" x2="75" y2="18" />
-            <line x1="50" y1="45" x2="50" y2="78" />
+            <line x1="50" y1="50" x2="50" y2="15" />
+            <line x1="50" y1="50" x2="22" y2="80" />
+            <line x1="50" y1="50" x2="78" y2="80" />
           </g>
 
-          {/* Terminal Nodes - using design system colors */}
-          <circle
-            className={`${styles.node} ${styles.nodeGreen}`}
-            cx="25" cy="18" r={nr.outer}
-            strokeWidth={sw.node}
-          />
+          {/* Terminal Nodes */}
           <circle
             className={`${styles.node} ${styles.nodeBlue}`}
-            cx="75" cy="18" r={nr.outer}
+            cx="50" cy="15" r={nr.outer}
             strokeWidth={sw.node}
           />
           <circle
-            className={`${styles.node} ${styles.nodeAmber}`}
-            cx="50" cy="78" r={nr.outer}
+            className={`${styles.node} ${styles.nodeGreen}`}
+            cx="22" cy="80" r={nr.outer}
+            strokeWidth={sw.node}
+          />
+          <circle
+            className={`${styles.node} ${styles.nodeOrange}`}
+            cx="78" cy="80" r={nr.outer}
             strokeWidth={sw.node}
           />
 
-          {/* Central Junction Node (smaller, pink) */}
+          {/* Center Junction Node */}
           <circle
             className={`${styles.node} ${styles.nodePink}`}
-            cx="50" cy="45" r={nr.center}
+            cx="50" cy="50" r={nr.center}
             strokeWidth={sw.center}
           />
         </svg>
@@ -104,10 +104,7 @@ export const AlcheMixLogo: React.FC<AlcheMixLogoProps> = ({
       {/* Typography */}
       {showText && (
         <div className={styles.textWrapper}>
-          <div className={styles.wordmark}>
-            <span className={styles.alche}>ALCHE</span>
-            <span className={styles.mix}>MIX</span>
-          </div>
+          <div className={styles.wordmark}>ALCHEMIX</div>
           {showTagline && (
             <span className={styles.tagline}>MOLECULAR OS V1.0</span>
           )}

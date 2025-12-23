@@ -2,13 +2,14 @@
 
 .card {
   background: white;
-  border: 1px solid var(--color-border-default, #E2E8F0);
-  border-radius: 2px;
+  border: 1px solid var(--color-border-default, #E0E8F3);
+  border-radius: var(--radius-card, 8px);
   overflow: hidden;
   transition: transform 0.1s ease, border-color 0.1s ease;
   display: flex;
   flex-direction: column;
   height: 100%;
+  cursor: pointer;
 }
 
 .card:hover {
@@ -30,8 +31,9 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: 16px;
-  padding-bottom: 0;
+  padding: 12px 16px;
+  background: var(--color-card-header, #F8FAFC);
+  border-bottom: 1px solid var(--color-border-default, #E0E8F3);
 }
 
 .headerLeft {
@@ -82,12 +84,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  cursor: pointer;
-  transition: color 0.1s ease;
-}
-
-.name:hover {
-  color: var(--bond-agave, #0D9488);
 }
 
 /* Badges Container */
@@ -107,8 +103,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border: 1px solid;
-  border-radius: 2px;
+  border-radius: var(--radius, 4px);
   flex-shrink: 0;
 }
 
@@ -128,8 +123,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border: 1px solid;
-  border-radius: 2px;
+  border-radius: var(--radius, 4px);
   flex-shrink: 0;
 }
 
@@ -165,37 +159,6 @@
   text-overflow: ellipsis;
 }
 
-/* Footer */
-.footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 16px;
-  border-top: 1px solid var(--color-border-default, #E2E8F0);
-  background: var(--color-ui-bg-base, #FAFBFC);
-}
-
-.viewLink {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  color: var(--color-text-muted, #64748B);
-  cursor: pointer;
-  transition: color 0.1s ease;
-}
-
-.viewLink:hover {
-  color: var(--bond-agave, #0D9488);
-}
-
-.stockLabel {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--fg-primary, #1E293B);
-}
-
-.stockEmpty {
-  color: #EF4444;
-}
 
 /* Dark Mode */
 :global([data-theme="dark"]) .card {
@@ -205,6 +168,11 @@
 
 :global([data-theme="dark"]) .card:hover {
   border-color: var(--fg-secondary, #64748B);
+}
+
+:global([data-theme="dark"]) .header {
+  background: var(--bg-paper, #0F172A);
+  border-bottom-color: var(--border-hairline, #334155);
 }
 
 :global([data-theme="dark"]) .card.selected {
@@ -229,36 +197,11 @@
   color: var(--fg-primary, #F1F5F9);
 }
 
-:global([data-theme="dark"]) .name:hover {
-  color: var(--bond-agave, #14B8A6);
-}
-
 :global([data-theme="dark"]) .detailLabel {
   color: var(--fg-secondary, #64748B);
 }
 
 :global([data-theme="dark"]) .detailValue {
   color: var(--fg-primary, #F1F5F9);
-}
-
-:global([data-theme="dark"]) .footer {
-  background: var(--bg-paper, #0F172A);
-  border-top-color: var(--border-hairline, #334155);
-}
-
-:global([data-theme="dark"]) .viewLink {
-  color: var(--fg-secondary, #94A3B8);
-}
-
-:global([data-theme="dark"]) .viewLink:hover {
-  color: var(--bond-agave, #14B8A6);
-}
-
-:global([data-theme="dark"]) .stockLabel {
-  color: var(--fg-primary, #F1F5F9);
-}
-
-:global([data-theme="dark"]) .stockEmpty {
-  color: #F87171;
 }
 

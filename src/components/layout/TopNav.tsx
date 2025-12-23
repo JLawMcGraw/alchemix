@@ -72,7 +72,7 @@ export const TopNav: React.FC = () => {
   const navItems = [
     { href: '/dashboard', label: 'Dashboard' },
     { href: '/bar', label: 'My Bar' },
-    { href: '/ai', label: 'AI Bartender', indicator: true },
+    { href: '/ai', label: 'Ask the Bartender', indicator: true },
     { href: '/recipes', label: 'Recipes' },
     { href: '/shopping-list', label: 'Shopping List', badge: shoppingListCount > 0 ? shoppingListCount : undefined },
   ];
