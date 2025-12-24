@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2025-12-22 (Session 5)
+Last updated: 2025-12-24 (Session 6)
 
 ---
 
@@ -26,12 +26,94 @@ Last updated: 2025-12-22 (Session 5)
 - Login Page Redesign: **Complete** (Hero + Modal pattern)
 - FTUX Onboarding Flow: **Complete** (3-step flow at /onboarding)
 - Design System Consistency Pass: **Complete** (All pages audited for rounded corners)
+- Code Review Polish: **Complete** (Accessibility, dark mode, CSS variables)
 
 **PostgreSQL Migration**: **Complete** (Phase 1-5 done, Phase 6 Deploy pending)
 
 ---
 
-## Recent Session (2025-12-22): Design System Consistency Pass, BottleCard Redesign & Bartender Rebranding
+## Recent Session (2025-12-24): Code Review Polish & Accessibility Fixes
+
+### Summary
+Addressed code review feedback from v1.34.0: added keyboard accessibility to BottleCard, improved out-of-stock visibility, extracted hardcoded colors to CSS variables, added `--nav-height` variable, restored seasonal greetings, updated favicon to match new logo geometry, and fixed TopNav test mismatch.
+
+### Work Completed
+
+#### 1. BottleCard Accessibility
+- Added `role="button"`, `tabIndex={0}`, and `onKeyDown` handler for keyboard navigation
+- Now fully keyboard-accessible (Enter/Space to open detail modal)
+- **File**: `src/components/BottleCard/BottleCard.tsx`
+
+#### 2. Out-of-Stock Visibility
+- Stock count now always shown: `Item Name (0)` instead of hiding count for empty items
+- Makes out-of-stock items immediately identifiable in the grid
+- **File**: `src/components/BottleCard/BottleCard.tsx`
+
+#### 3. CSS Variables Cleanup
+- Added `--nav-height: 56px` to globals.css (removes magic numbers)
+- Added `--card-header-bg: #F8FAFC` with dark mode override
+- Added `--color-label-muted: #737891` with dark mode override (`#94A3B8`)
+- Updated dashboard and AI page to use these variables
+- **Files**: `src/styles/globals.css`, `src/app/dashboard/dashboard.module.css`, `src/app/ai/ai.module.css`
+
+#### 4. Dark Mode Completeness
+- All hardcoded colors now have dark mode support via CSS variables
+- `.craftableLink` uses `var(--color-success)` (auto-adjusts in dark mode)
+- Category labels and list items use `var(--color-label-muted)`
+- Card headers use `var(--card-header-bg)`
+
+#### 5. Uppercase Labels Fix
+- Changed CATEGORIES array to sentence case ("Spirits" not "SPIRITS")
+- CSS `text-transform: uppercase` handles visual uppercase
+- Better for screen readers (won't spell out letters)
+- **File**: `src/app/dashboard/page.tsx`
+
+#### 6. Seasonal Greetings Restored
+- Evening greetings now vary: "Good evening", "Evening", "It's cocktail hour"
+- Winter/Summer sometimes adds ", mixologist"
+- Adds personality without being over-the-top
+- **File**: `src/app/dashboard/page.tsx`
+
+#### 7. Favicon Updated
+- Updated `public/icon.svg` to match new inverted-Y logo geometry
+- Blue node at top, Green bottom-left, Orange bottom-right, Pink center
+- **File**: `public/icon.svg`
+
+#### 8. TopNav Test Fix
+- Fixed pre-existing test bug: "AI Bartender" → "Ask the Bartender"
+- Tests now match actual nav link text from bartender rebrand
+- **File**: `src/components/layout/TopNav.test.tsx`
+
+### Files Changed
+**Components**:
+- `src/components/BottleCard/BottleCard.tsx` - Keyboard accessibility, stock count always shown
+- `src/components/layout/TopNav.test.tsx` - Fixed "Ask the Bartender" text
+
+**Pages**:
+- `src/app/dashboard/page.tsx` - Sentence case labels, seasonal greetings
+- `src/app/dashboard/dashboard.module.css` - CSS variable usage, nav-height
+- `src/app/ai/ai.module.css` - CSS variable usage, nav-height
+
+**Styles**:
+- `src/styles/globals.css` - New variables: `--nav-height`, `--card-header-bg`, `--color-label-muted`
+
+**Assets**:
+- `public/icon.svg` - Updated favicon geometry
+
+### Test Summary
+All tests pass:
+- Frontend: 234 tests ✓
+- Backend: 884 tests ✓
+- Type check: Clean ✓
+
+### Next Priorities
+- Deploy to production
+- Test full user flow with updated design
+- Monitor AI/Bartender chat functionality
+
+---
+
+## Previous Session (2025-12-22): Design System Consistency Pass, BottleCard Redesign & Bartender Rebranding
 
 ### Summary
 Major design polish session: redesigned BottleCard component with gray header and stock count in header, comprehensive border-radius audit across all pages (8px cards, 6px buttons, 4px small elements), fixed AI page scroll with sticky chat area, rebranded "Lab Assistant" to "Bartender" throughout, and simplified import buttons to icon-only.

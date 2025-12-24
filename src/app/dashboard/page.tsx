@@ -98,23 +98,54 @@ const renderHTMLContent = (html: string, keyPrefix: string, fallback?: string): 
 };
 
 /**
- * Get time-based greeting
+ * Get time and season-aware greeting with bartender personality
  */
 const getTimeGreeting = (): string => {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  return 'Good evening';
+  const now = new Date();
+  const hour = now.getHours();
+  const month = now.getMonth();
+
+  // Time of day base
+  const timeBase = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
+  // Evening gets special treatment - it's cocktail hour
+  if (hour >= 17) {
+    const eveningGreetings = [
+      'Good evening',
+      'Evening',
+      "It's cocktail hour",
+    ];
+    return eveningGreetings[Math.floor(Math.random() * eveningGreetings.length)];
+  }
+
+  // Seasonal variations for morning/afternoon
+  if (month === 11 || month === 0 || month === 1) {
+    // Winter (Dec, Jan, Feb)
+    const winterGreetings = [
+      timeBase,
+      `${timeBase}, mixologist`,
+    ];
+    return winterGreetings[Math.floor(Math.random() * winterGreetings.length)];
+  } else if (month >= 5 && month <= 7) {
+    // Summer (Jun, Jul, Aug)
+    const summerGreetings = [
+      timeBase,
+      `${timeBase}, mixologist`,
+    ];
+    return summerGreetings[Math.floor(Math.random() * summerGreetings.length)];
+  }
+
+  return timeBase;
 };
 
-// Category configuration with colors
+// Category configuration with colors (labels are sentence case - CSS handles uppercase)
 const CATEGORIES = [
-  { key: 'spirit', label: 'SPIRITS', color: '#D97706' },    // Amber
-  { key: 'liqueur', label: 'LIQUEURS', color: '#EC4899' },  // Pink
-  { key: 'mixer', label: 'MIXERS', color: '#0EA5E9' },      // Sky blue
-  { key: 'syrup', label: 'SYRUPS', color: '#6366F1' },      // Indigo
-  { key: 'garnish', label: 'GARNISHES', color: '#65A30D' }, // Green
-  { key: 'other', label: 'OTHER', color: '#94A3B8' },       // Gray
+  { key: 'spirit', label: 'Spirits', color: '#D97706' },    // Amber
+  { key: 'liqueur', label: 'Liqueurs', color: '#EC4899' },  // Pink
+  { key: 'mixer', label: 'Mixers', color: '#0EA5E9' },      // Sky blue
+  { key: 'syrup', label: 'Syrups', color: '#6366F1' },      // Indigo
+  { key: 'garnish', label: 'Garnishes', color: '#65A30D' }, // Green
+  { key: 'other', label: 'Other', color: '#94A3B8' },       // Gray
 ];
 
 

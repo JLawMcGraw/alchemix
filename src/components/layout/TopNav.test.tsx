@@ -67,7 +67,7 @@ describe('TopNav', () => {
 
       expect(screen.getByText('Dashboard')).toBeInTheDocument();
       expect(screen.getByText('My Bar')).toBeInTheDocument();
-      expect(screen.getByText('AI Bartender')).toBeInTheDocument();
+      expect(screen.getByText('Ask the Bartender')).toBeInTheDocument();
       expect(screen.getByText('Recipes')).toBeInTheDocument();
       expect(screen.getByText('Shopping List')).toBeInTheDocument();
       // Note: Favorites was moved to Recipes page as a tab (Dec 19, 2025)
@@ -149,10 +149,10 @@ describe('TopNav', () => {
   });
 
   describe('AI Indicator', () => {
-    it('should show AI indicator on AI Bartender link', () => {
+    it('should show AI indicator on Ask the Bartender link', () => {
       render(<TopNav />);
 
-      const aiLink = screen.getByText('AI Bartender').closest('a');
+      const aiLink = screen.getByText('Ask the Bartender').closest('a');
       const indicator = aiLink?.querySelector('[class*="aiIndicator"]');
       expect(indicator).toBeInTheDocument();
     });

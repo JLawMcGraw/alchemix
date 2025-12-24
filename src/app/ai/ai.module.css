@@ -1,7 +1,7 @@
 /* AI Bartender Page - Molecular Mixology Redesign */
 
 .page {
-  min-height: calc(100vh - 56px);
+  min-height: calc(100vh - var(--nav-height));
   background: var(--color-ui-bg-base);
   padding: var(--space-4) 0;
 }
@@ -228,9 +228,9 @@
   border-radius: var(--radius-card, 8px);
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 56px - 32px); /* viewport - nav - padding */
+  height: calc(100vh - var(--nav-height) - var(--space-4));
   position: sticky;
-  top: 72px; /* nav height + padding */
+  top: calc(var(--nav-height) + var(--space-2));
 }
 
 /* Chat Header */
@@ -239,7 +239,7 @@
   justify-content: space-between;
   align-items: center;
   padding: var(--space-3) var(--space-4);
-  background: var(--color-card-header, #F8FAFC);
+  background: var(--card-header-bg);
   border-bottom: 1px solid var(--color-border-default, #E0E8F3);
 }
 

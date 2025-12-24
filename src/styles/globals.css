@@ -122,12 +122,19 @@
   --ring-focus: 0 0 0 2px var(--color-ui-bg-base), 0 0 0 4px var(--focus-ring);
 
   /* =========================
+     LAYOUT
+     ========================= */
+  --nav-height: 56px;              /* Main navigation bar height */
+  --card-header-bg: #F8FAFC;       /* Gray background for card headers */
+  --color-label-muted: #737891;    /* Muted label text (category labels, list items) */
+
+  /* =========================
      TYPOGRAPHY
      ========================= */
   --font-sans: "Inter", -apple-system, sans-serif;
-  --font-mono: "Inter", -apple-system, sans-serif;  /* Use Inter for data/numbers too */
+  --font-mono: "Inter", -apple-system, sans-serif;  /* Inter for all text - use tabular-nums for alignment */
   --font-logo: "Inria Sans", "Inter", sans-serif;   /* Logo wordmark font */
-  --font-display: var(--font-sans);  /* Alias for backwards compat */
+  --font-display: var(--font-sans);
   --font-body: var(--font-sans);
 
   /* Font Sizes */
@@ -189,6 +196,10 @@
    Deep blue-black like a polished lab bench
    ========================= */
 [data-theme="dark"] {
+  /* Layout - Dark mode overrides */
+  --card-header-bg: #0F172A;         /* Dark card header background */
+  --color-label-muted: #94A3B8;      /* Brighter muted labels for dark mode */
+
   /* Background Colors - Lab bench aesthetic */
   --bg-paper: #0F172A;               /* Deep blue-black slate */
   --bg-elevated: #1E293B;            /* Elevated surfaces (cards, modals) */

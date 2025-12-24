@@ -56,10 +56,20 @@ export function BottleCard({ item, isSelected = false, onSelect, onClick }: Bott
     }
   };
 
+  const handleCardKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleCardClick();
+    }
+  };
+
   return (
     <div
       className={`${styles.card} ${isOutOfStock ? styles.outOfStock : ''} ${isSelected ? styles.selected : ''}`}
       onClick={handleCardClick}
+      onKeyDown={handleCardKeyDown}
+      role="button"
+      tabIndex={0}
     >
       {/* Header */}
       <div className={styles.header}>
@@ -79,7 +89,7 @@ export function BottleCard({ item, isSelected = false, onSelect, onClick }: Bott
             )}
           </div>
           <h3 className={styles.name}>
-            {item.name}{stockCount > 0 && ` (${stockCount})`}
+            {item.name} ({stockCount})
           </h3>
         </div>
       </div>
