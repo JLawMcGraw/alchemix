@@ -1070,7 +1070,8 @@
       "Ch",
       "Be",
       "Ol",
-      "Li"
+      "Li",
+      "Gr"
     ]
   },
   {
@@ -1093,7 +1094,8 @@
       "Rm",
       "Fa",
       "Li",
-      "Gf"
+      "Gf",
+      "Gr"
     ]
   },
   {
@@ -1113,7 +1115,8 @@
     "requires": [
       "Rm",
       "Pf",
-      "Li"
+      "Li",
+      "Gr"
     ]
   },
   {
@@ -1289,7 +1292,8 @@
     "spirit_type": "rum",
     "requires": [
       "Rm",
-      "Ms"
+      "Ms",
+      "Gr"
     ]
   },
   {
@@ -1304,7 +1308,8 @@
     "spirit_type": "brandy",
     "requires": [
       "Cd",
-      "Le"
+      "Le",
+      "Gr"
     ]
   },
   {
@@ -1353,7 +1358,8 @@
     "spirit_type": "whiskey",
     "requires": [
       "Ry",
-      "Le"
+      "Le",
+      "Gr"
     ]
   },
   {
