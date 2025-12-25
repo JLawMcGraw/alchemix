@@ -505,6 +505,13 @@ export function useRecipesPage() {
 
   const clearSelection = useCallback(() => setSelectedRecipes(new Set()), []);
 
+  const selectAllUncategorized = useCallback(() => {
+    const uncategorizedIds = recipesArray
+      .filter((recipe) => !recipe.collection_id && recipe.id)
+      .map((recipe) => recipe.id!);
+    setSelectedRecipes(new Set(uncategorizedIds));
+  }, [recipesArray]);
+
   const handleBulkDelete = useCallback(async () => {
     if (selectedRecipes.size === 0) return;
     if (!confirm(`Delete ${selectedRecipes.size} recipe(s)? This cannot be undone.`)) return;
@@ -540,6 +547,31 @@ export function useRecipesPage() {
       showToast('error', errorMsg);
     }
   }, [selectedRecipes, bulkMoveCollectionId, loadRecipes, fetchCollections, showToast]);
+
+  const handleCreateAndMove = useCallback(async (collectionName: string) => {
+    if (selectedRecipes.size === 0) return;
+    try {
+      // Create the new collection
+      const newCollection = await addCollection({ name: collectionName });
+      if (!newCollection?.id) {
+        throw new Error('Failed to create collection');
+      }
+
+      // Move recipes to the new collection
+      const ids = Array.from(selectedRecipes);
+      const result = await recipeApi.bulkMove(ids, newCollection.id);
+
+      await loadRecipes(1);
+      await fetchCollections();
+      setSelectedRecipes(new Set());
+      setShowBulkMoveModal(false);
+      showToast('success', `Created "${collectionName}" and moved ${ids.length} recipe(s)`);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to create collection and move recipes';
+      console.error('Create and move failed:', error);
+      showToast('error', errorMsg);
+    }
+  }, [selectedRecipes, addCollection, loadRecipes, fetchCollections, showToast]);
 
   const handleMasteryFilterClick = useCallback((filterKey: string) => {
     if (masteryFilter === filterKey) {
@@ -651,12 +683,14 @@ export function useRecipesPage() {
     handleDeleteCollection,
     handleBulkDelete,
     handleBulkMove,
+    handleCreateAndMove,
     handleMasteryFilterClick,
     handleTabChange,
     handleCollectionSelect,
     handleBackFromCollection,
     toggleRecipeSelection,
     clearSelection,
+    selectAllUncategorized,
     isFavorited,
     isRecipeCraftable,
   };

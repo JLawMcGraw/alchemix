@@ -78,13 +78,21 @@ export function BulkActionsBar({
 
 interface UncategorizedSectionHeaderProps {
   count: number;
+  onSelectAll?: () => void;
 }
 
-export function UncategorizedSectionHeader({ count }: UncategorizedSectionHeaderProps) {
+export function UncategorizedSectionHeader({ count, onSelectAll }: UncategorizedSectionHeaderProps) {
   return (
     <div className={styles.sectionHeader}>
-      <h2 className={styles.sectionTitle}>Uncategorized</h2>
-      <span className={styles.sectionCount}>{count} recipes</span>
+      <div className={styles.sectionHeaderLeft}>
+        <h2 className={styles.sectionTitle}>Uncategorized</h2>
+        <span className={styles.sectionCount}>{count} recipes</span>
+      </div>
+      {onSelectAll && count > 0 && (
+        <button className={styles.selectAllBtn} onClick={onSelectAll}>
+          Select All
+        </button>
+      )}
     </div>
   );
 }

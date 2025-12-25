@@ -566,6 +566,183 @@
   color: var(--color-text-muted);
 }
 
+.sectionHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.selectAllBtn {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--bond-agave, #0D9488);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.selectAllBtn:hover {
+  background: rgba(13, 148, 136, 0.1);
+}
+
+:global([data-theme="dark"]) .selectAllBtn {
+  color: #14B8A6;
+}
+
+:global([data-theme="dark"]) .selectAllBtn:hover {
+  background: rgba(20, 184, 166, 0.15);
+}
+
+/* ==========================================================================
+   Bulk Move Modal
+   ========================================================================== */
+
+.bulkMoveOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(15, 23, 42, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.bulkMoveModal {
+  background: white;
+  border-radius: 2px;
+  padding: 24px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.bulkMoveTitle {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--fg-primary, #1E293B);
+  margin: 0 0 16px 0;
+}
+
+.bulkMoveSelect {
+  width: 100%;
+  padding: 10px 12px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--fg-primary, #1E293B);
+  background: white;
+  border: 1px solid var(--color-border-default, #E2E8F0);
+  border-radius: 2px;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748B' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 20px;
+  padding-right: 36px;
+}
+
+.bulkMoveSelect:focus {
+  outline: none;
+  border-color: var(--fg-primary, #1E293B);
+}
+
+.bulkMoveInput {
+  width: 100%;
+  padding: 10px 12px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--fg-primary, #1E293B);
+  background: white;
+  border: 1px solid var(--color-border-default, #E2E8F0);
+  border-radius: 2px;
+}
+
+.bulkMoveInput:focus {
+  outline: none;
+  border-color: var(--fg-primary, #1E293B);
+}
+
+.bulkMoveInput::placeholder {
+  color: var(--color-text-muted, #94A3B8);
+}
+
+.createCollectionBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--bond-agave, #0D9488);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.createCollectionBtn:hover {
+  opacity: 0.8;
+}
+
+.bulkMoveActions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+:global([data-theme="dark"]) .bulkMoveModal {
+  background: var(--bg-elevated, #1E293B);
+}
+
+:global([data-theme="dark"]) .bulkMoveTitle {
+  color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .bulkMoveSelect {
+  background: var(--bg-paper, #0F172A);
+  border-color: var(--border-hairline, #334155);
+  color: var(--fg-primary, #F1F5F9);
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394A3B8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+}
+
+:global([data-theme="dark"]) .bulkMoveSelect:focus {
+  border-color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .bulkMoveInput {
+  background: var(--bg-paper, #0F172A);
+  border-color: var(--border-hairline, #334155);
+  color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .bulkMoveInput:focus {
+  border-color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .bulkMoveInput::placeholder {
+  color: var(--fg-secondary, #64748B);
+}
+
+:global([data-theme="dark"]) .createCollectionBtn {
+  color: #14B8A6;
+}
+
 /* ==========================================================================
    Recipes Grid
    ========================================================================== */

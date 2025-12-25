@@ -109,7 +109,10 @@ function RecipesPageContent() {
             {/* Uncategorized Section */}
             {state.uncategorizedCount > 0 && (
               <div className={styles.sectionDivider}>
-                <UncategorizedSectionHeader count={state.uncategorizedCount} />
+                <UncategorizedSectionHeader
+                  count={state.uncategorizedCount}
+                  onSelectAll={state.selectAllUncategorized}
+                />
                 <SearchControls
                   searchQuery={state.searchQuery}
                   filterSpirit={state.filterSpirit}
@@ -344,6 +347,7 @@ function RecipesPageContent() {
           onCollectionChange={state.setBulkMoveCollectionId}
           onClose={() => { state.setShowBulkMoveModal(false); state.setBulkMoveCollectionId(null); }}
           onConfirm={state.handleBulkMove}
+          onCreateAndMove={state.handleCreateAndMove}
         />
       </div>
     </div>
