@@ -147,22 +147,22 @@
   padding: 6px 12px;
   font-family: var(--font-sans);
   font-size: 12px;
-  font-weight: 400;
-  color: var(--fg-primary, #1E293B);
-  background: white;
-  border: 1px solid var(--color-border-default, #E2E8F0);
-  border-radius: 2px;
+  font-weight: 500;
+  color: var(--fg-secondary, #64748B);
+  background: var(--color-ui-bg-base, #F1F5F9);
+  border: none;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.1s ease;
+  transition: all 0.15s ease;
 }
 
 .categoryBtn:hover {
-  border-color: var(--fg-primary, #1E293B);
+  background: var(--color-ui-bg-hover, #E2E8F0);
+  color: var(--fg-primary, #1E293B);
 }
 
 .categoryBtnActive {
   background: var(--fg-primary, #1E293B);
-  border-color: var(--fg-primary, #1E293B);
   color: white;
 }
 
@@ -468,18 +468,17 @@
 }
 
 :global([data-theme="dark"]) .categoryBtn {
-  background: var(--bg-paper, #0F172A);
-  border-color: var(--border-hairline, #334155);
-  color: var(--fg-primary, #F1F5F9);
+  background: var(--bg-elevated, #334155);
+  color: var(--fg-secondary, #94A3B8);
 }
 
 :global([data-theme="dark"]) .categoryBtn:hover {
-  border-color: var(--fg-primary, #F1F5F9);
+  background: var(--hover-overlay, rgba(255, 255, 255, 0.1));
+  color: var(--fg-primary, #F1F5F9);
 }
 
 :global([data-theme="dark"]) .categoryBtnActive {
   background: var(--fg-primary, #F1F5F9);
-  border-color: var(--fg-primary, #F1F5F9);
   color: var(--bg-paper, #0F172A);
 }
 

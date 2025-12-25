@@ -75,11 +75,11 @@
   align-items: center;
   padding: 2px 8px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border-radius: 2px;
+  border-radius: 8px;
   width: fit-content;
 }
 
@@ -88,12 +88,11 @@
   align-items: center;
   padding: 2px 8px;
   font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border-radius: 2px;
-  border: 1px solid;
+  border-radius: 8px;
 }
 
 .periodicGroup {
@@ -436,22 +435,22 @@
   padding: 6px 12px;
   font-family: var(--font-sans);
   font-size: 12px;
-  font-weight: 400;
-  color: var(--fg-primary, #1E293B);
-  background: white;
-  border: 1px solid var(--color-border-default, #E2E8F0);
-  border-radius: 2px;
+  font-weight: 500;
+  color: var(--fg-secondary, #64748B);
+  background: var(--color-ui-bg-base, #F1F5F9);
+  border: none;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.1s ease;
+  transition: all 0.15s ease;
 }
 
 .categoryBtn:hover {
-  border-color: var(--fg-primary, #1E293B);
+  background: var(--color-ui-bg-hover, #E2E8F0);
+  color: var(--fg-primary, #1E293B);
 }
 
 .categoryBtnActive {
   background: var(--fg-primary, #1E293B);
-  border-color: var(--fg-primary, #1E293B);
   color: white;
 }
 
