@@ -218,6 +218,14 @@ const SYNONYMS: Record<string, string[]> = {
 
 /**
  * Common Pantry Items - always assumed available
+ *
+ * These items are assumed available in most home bars:
+ * - Basic pantry: water, ice, sugar, salt
+ * - Common mixers: coffee, milk, cream
+ * - Eggs (for sours, flips)
+ * - Common herbs/spices
+ * - Simple syrup (sugar + water)
+ * - Standard bitters (most bartenders have these basics)
  */
 const ALWAYS_AVAILABLE_INGREDIENTS = new Set([
   'water', 'ice', 'sugar', 'salt',
@@ -226,7 +234,14 @@ const ALWAYS_AVAILABLE_INGREDIENTS = new Set([
   'egg white', 'egg whites', 'egg', 'eggs',
   'mint', 'mint leaves', 'fresh mint',
   'cinnamon', 'cinnamon stick', 'cinnamon sticks',
-  'nutmeg', 'ground nutmeg', 'freshly ground nutmeg', 'fresh nutmeg'
+  'nutmeg', 'ground nutmeg', 'freshly ground nutmeg', 'fresh nutmeg',
+  // Simple syrup is just sugar + water
+  'simple syrup', 'simple', 'sugar syrup', 'syrup',
+  // Standard bitters every home bartender should have
+  'angostura bitters', 'angostura', 'aromatic bitters',
+  'orange bitters',
+  // Common bar basics
+  'soda water', 'soda', 'club soda', 'sparkling water', 'tonic water', 'tonic'
 ]);
 
 /**

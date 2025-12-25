@@ -209,7 +209,7 @@ vi.mock('@/lib/periodicTable', () => ({
         { symbol: 'Ap', name: 'Aperol', group: 'botanical', hidden: false },
         { symbol: 'Sv', name: 'Sweet Vermouth', group: 'botanical', hidden: false },
         { symbol: 'Dv', name: 'Dry Vermouth', group: 'botanical', hidden: false },
-        { symbol: 'Ab', name: 'Absinthe', group: 'botanical', hidden: false },
+        { symbol: 'An', name: 'Angostura', group: 'botanical', hidden: false },
       ],
     },
     {
@@ -269,6 +269,8 @@ vi.mock('@alchemix/recipe-molecule', () => ({
 vi.mock('@/components/modals', () => ({
   RecipeDetailModal: ({ isOpen, onClose }: any) =>
     isOpen ? <div data-testid="recipe-modal"><button onClick={onClose}>Close</button></div> : null,
+  AddBottleModal: ({ isOpen, onClose, onAdd }: any) =>
+    isOpen ? <div data-testid="add-bottle-modal"><button onClick={onClose}>Close</button><button onClick={() => onAdd({ name: 'Test', category: 'spirit' })}>Add</button></div> : null,
 }));
 
 // Mock UI components

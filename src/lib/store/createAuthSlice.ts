@@ -45,8 +45,15 @@ export interface AuthSlice {
   validateToken: () => Promise<boolean>;
 }
 
+// Import full store type for cross-slice state updates (logout clears all slices)
+import type { ChatSlice } from './createChatSlice';
+import type { InventorySlice } from './createInventorySlice';
+import type { RecipesSlice } from './createRecipesSlice';
+
+type FullStore = AuthSlice & ChatSlice & InventorySlice & RecipesSlice;
+
 export const createAuthSlice: StateCreator<
-  AuthSlice,
+  FullStore,
   [],
   [],
   AuthSlice
@@ -92,10 +99,28 @@ export const createAuthSlice: StateCreator<
   },
 
   logout: () => {
-    // Reset authentication state
+    // Reset authentication state AND clear all user data
     set({
       user: null,
       isAuthenticated: false,
+      // Clear chat history to prevent leaking to next user
+      chatHistory: [],
+      streamingMessage: null,
+      // Clear inventory and recipes
+      inventoryItems: [],
+      recipes: [],
+      collections: [],
+      favorites: [],
+      // Clear shopping list data
+      shoppingListSuggestions: [],
+      shoppingListStats: null,
+      shoppingListItems: [],
+      craftableRecipes: [],
+      nearMissRecipes: [],
+      needFewRecipes: [],
+      majorGapsRecipes: [],
+      dashboardGreeting: 'Ready for your next experiment?',
+      dashboardInsight: '',
     });
 
     // Call logout API (clears httpOnly cookie on server)

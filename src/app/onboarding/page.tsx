@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { inventoryApi, recipeApi, type ClassicRecipe } from '@/lib/api';
 import { PERIODIC_SECTIONS, GROUP_COLORS, type PeriodicElement } from '@/lib/periodicTable';
-import { RecipeDetailModal } from '@/components/modals';
+import { RecipeDetailModal, AddBottleModal } from '@/components/modals';
 import { AlcheMixLogo } from '@/components/ui';
 import { generateFormula } from '@alchemix/recipe-molecule';
 import type { InventoryItemInput, InventoryCategory, PeriodicGroup, PeriodicPeriod, Recipe } from '@/types';
@@ -119,11 +119,11 @@ function getQuickAddElements(): PeriodicElement[] {
   }
 
   // Get key bitters/botanicals
-  // Result: Cp, Ap, Sv, Dv, Ab = 5 elements
+  // Result: Cp, Ap, Sv, Dv, An = 5 elements
   const botanicals = PERIODIC_SECTIONS.find(s => s.title === 'BITTERS & BOTANICALS');
   if (botanicals) {
-    // Top botanicals: Sv (10), Cp (6), Dv (3), Ap (3), Ab (3)
-    const essentialBotanicals = ['Cp', 'Ap', 'Sv', 'Dv', 'Ab'];
+    // Top botanicals: Sv (10), Cp (6), Dv (3), Ap (3), An (Angostura - used in many classics)
+    const essentialBotanicals = ['Cp', 'Ap', 'Sv', 'Dv', 'An'];
     elements.push(...botanicals.elements.filter(e => !e.hidden && essentialBotanicals.includes(e.symbol)));
   }
 
@@ -185,6 +185,17 @@ function OnboardingContent() {
   const [classicRecipes, setClassicRecipes] = useState<ClassicRecipe[]>(fallbackRecipes);
   const [resultsPage, setResultsPage] = useState(1);
   const RESULTS_PER_PAGE = 6;
+
+  // AddBottleModal state
+  const [showAddBottleModal, setShowAddBottleModal] = useState(false);
+  const [addBottlePreFill, setAddBottlePreFill] = useState<{
+    name: string;
+    category: InventoryCategory;
+    type: string;
+    periodic_group: PeriodicGroup;
+    periodic_period: PeriodicPeriod;
+  } | null>(null);
+  const [customBottles, setCustomBottles] = useState<InventoryItemInput[]>([]);
 
   // Get curated elements for bottle selection
   const quickAddElements = useMemo(() => getQuickAddElements(), []);
@@ -254,6 +265,33 @@ function OnboardingContent() {
     setSelectedElements(newSet);
   };
 
+  // Open AddBottleModal with element prefill for customization
+  const openAddBottleModal = (element: PeriodicElement) => {
+    const item = elementToInventoryItem(element);
+    setAddBottlePreFill({
+      name: item.name,
+      category: item.category,
+      type: item.type || '',
+      periodic_group: item.periodic_group || 'Base',
+      periodic_period: item.periodic_period || 'Grain',
+    });
+    setShowAddBottleModal(true);
+  };
+
+  // Open AddBottleModal for custom bottle (not in top 32)
+  const openCustomBottleModal = () => {
+    setAddBottlePreFill(null);
+    setShowAddBottleModal(true);
+  };
+
+  // Handle adding bottle from modal
+  const handleAddBottle = async (item: InventoryItemInput) => {
+    // Store custom bottle for later saving
+    setCustomBottles(prev => [...prev, item]);
+    setShowAddBottleModal(false);
+    setAddBottlePreFill(null);
+  };
+
   const nextStep = () => {
     setAnimatingOut(true);
     setTimeout(() => {
@@ -313,13 +351,20 @@ function OnboardingContent() {
         await inventoryApi.add(item);
       }
 
-      // 3. Seed classic recipes (this also sets has_seeded_classics = true in DB)
+      // 3. Save custom bottles (added via modal)
+      for (const item of customBottles) {
+        if (!existingNames.has(item.name.toLowerCase())) {
+          await inventoryApi.add(item);
+        }
+      }
+
+      // 4. Seed classic recipes (this also sets has_seeded_classics = true in DB)
       await recipeApi.seedClassics();
 
-      // 4. Refresh user data to get updated has_seeded_classics flag
+      // 5. Refresh user data to get updated has_seeded_classics flag
       await validateToken();
 
-      // 5. Redirect to dashboard
+      // 6. Redirect to dashboard
       router.push('/dashboard');
     } catch (err) {
       console.error('Failed to complete onboarding:', err);
@@ -425,7 +470,11 @@ function OnboardingContent() {
                 Tap to select the bottles you have. We&apos;ll show you what you can make.
               </p>
               <p className={styles.stockHint}>
-                You can add specific brands from your bar later.
+                You can add specific brands and more bottles from your bar later.
+                <br />
+                <span style={{ opacity: 0.7, fontSize: '0.85em' }}>
+                  Common items (simple syrup, bitters, soda) are assumed available.
+                </span>
               </p>
             </div>
 
@@ -453,9 +502,41 @@ function OnboardingContent() {
                     {element.symbol}
                   </span>
                   <span className={styles.bottleName}>{element.name}</span>
+                  {selectedElements.has(element.symbol) && (
+                    <button
+                      className={styles.editButton}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openAddBottleModal(element);
+                      }}
+                      title="Add details"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
               ))}
+              {/* Add Custom Bottle button */}
+              <div
+                className={`${styles.bottleCard} ${styles.addCustomCard}`}
+                onClick={openCustomBottleModal}
+              >
+                <span className={styles.bottleSymbol} style={{ color: 'var(--fg-tertiary)' }}>
+                  +
+                </span>
+                <span className={styles.bottleName}>Add Other</span>
+              </div>
             </div>
+
+            {/* Show custom bottles count */}
+            {customBottles.length > 0 && (
+              <div className={styles.customBottlesNote}>
+                + {customBottles.length} custom bottle{customBottles.length > 1 ? 's' : ''} added
+              </div>
+            )}
 
             <div className={styles.stepFooter}>
               <button className={`${styles.btn} ${styles.btnGhost}`} onClick={prevStep}>
@@ -563,6 +644,17 @@ function OnboardingContent() {
         recipe={selectedRecipe}
         isFavorited={false}
         onToggleFavorite={() => {}} // No-op during onboarding
+      />
+
+      {/* Add Bottle Modal */}
+      <AddBottleModal
+        isOpen={showAddBottleModal}
+        onClose={() => {
+          setShowAddBottleModal(false);
+          setAddBottlePreFill(null);
+        }}
+        onAdd={handleAddBottle}
+        preFill={addBottlePreFill}
       />
     </div>
   );
