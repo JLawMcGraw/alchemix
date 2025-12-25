@@ -4,7 +4,10 @@
       "Bash(netstat:*)",
       "Bash(findstr:*)",
       "Bash(taskkill:*)",
-      "WebFetch(domain:docs.memmachine.ai)"
+      "WebFetch(domain:docs.memmachine.ai)",
+      "Bash(npm test)",
+      "Bash(ls:*)",
+      "Bash(npm test:*)"
     ],
     "deny": [],
     "ask": []

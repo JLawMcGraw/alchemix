@@ -121,7 +121,7 @@ export interface AppState {
   bulkDeleteRecipes: (ids: number[]) => Promise<number>;
 
   fetchCollections: () => Promise<void>;
-  addCollection: (collection: Collection) => Promise<void>;
+  addCollection: (collection: Partial<Collection>) => Promise<Collection>;
   updateCollection: (id: number, collection: Partial<Collection>) => Promise<void>;
   deleteCollection: (id: number) => Promise<void>;
 
