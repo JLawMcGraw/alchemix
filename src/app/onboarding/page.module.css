@@ -442,14 +442,15 @@
   background: var(--bg-elevated);
 }
 
-/* Custom bottle styling */
+/* Custom bottle styling - uses dynamic color from inline style */
 .customBottle {
-  border-color: var(--bond-citrus) !important;
-  background: rgba(245, 158, 11, 0.04);
+  /* Border color set via inline style */
+  background: var(--bg-elevated);
 }
 
+/* Checkmark uses the custom color variable passed from inline style */
 .customBottle::after {
-  background: var(--bond-citrus) !important;
+  background: var(--custom-color, var(--bond-agave));
 }
 
 /* Live counter */

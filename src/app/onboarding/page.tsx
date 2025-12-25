@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { inventoryApi, recipeApi, type ClassicRecipe } from '@/lib/api';
-import { PERIODIC_SECTIONS, GROUP_COLORS, type PeriodicElement } from '@/lib/periodicTable';
+import { PERIODIC_SECTIONS, GROUP_COLORS, findMatchingElements, type PeriodicElement, type ElementGroup } from '@/lib/periodicTable';
 import { RecipeDetailModal, AddBottleModal } from '@/components/modals';
 import { AlcheMixLogo } from '@/components/ui';
 import { generateFormula } from '@alchemix/recipe-molecule';
@@ -186,6 +186,13 @@ function OnboardingContent() {
   const [resultsPage, setResultsPage] = useState(1);
   const RESULTS_PER_PAGE = 6;
 
+  // Custom bottle with element display info
+  interface CustomBottleDisplay extends InventoryItemInput {
+    symbol: string;
+    group: ElementGroup;
+    atomicNumber: number;
+  }
+
   // AddBottleModal state
   const [showAddBottleModal, setShowAddBottleModal] = useState(false);
   const [addBottlePreFill, setAddBottlePreFill] = useState<{
@@ -195,7 +202,7 @@ function OnboardingContent() {
     periodic_group: PeriodicGroup;
     periodic_period: PeriodicPeriod;
   } | null>(null);
-  const [customBottles, setCustomBottles] = useState<InventoryItemInput[]>([]);
+  const [customBottles, setCustomBottles] = useState<CustomBottleDisplay[]>([]);
   // Track which element is being edited (for updating vs adding)
   const [editingElement, setEditingElement] = useState<string | null>(null);
 
@@ -257,7 +264,7 @@ function OnboardingContent() {
     setResultsPage(1);
   }, [makeableRecipes.length]);
 
-  // Generate a 2-letter symbol for custom bottles
+  // Generate a 2-letter symbol for custom bottles (fallback if no matching element)
   const generateCustomSymbol = (name: string, existingSymbols: Set<string>): string => {
     // Try first two letters capitalized
     const base = name.replace(/[^a-zA-Z]/g, '');
@@ -278,15 +285,40 @@ function OnboardingContent() {
     return 'XX';
   };
 
+  // Map inventory category to element group for color coding
+  const categoryToGroup = (category: InventoryCategory): ElementGroup => {
+    const groupMap: Record<InventoryCategory, ElementGroup> = {
+      spirit: 'grain',
+      liqueur: 'sugar',
+      mixer: 'carbonation',
+      syrup: 'sugar',
+      garnish: 'garnish',
+      wine: 'grape',
+      beer: 'grain',
+      other: 'botanical',
+    };
+    return groupMap[category] || 'botanical';
+  };
+
   // Get all existing symbols (from elements + custom bottles)
   const allSymbols = useMemo(() => {
     const symbols = new Set(quickAddElements.map(e => e.symbol));
     customBottles.forEach(b => {
-      if ((b as InventoryItemInput & { symbol?: string }).symbol) {
-        symbols.add((b as InventoryItemInput & { symbol?: string }).symbol!);
+      if (b.symbol) {
+        symbols.add(b.symbol);
       }
     });
     return symbols;
+  }, [quickAddElements, customBottles]);
+
+  // Next available atomic number for custom bottles
+  const nextAtomicNumber = useMemo(() => {
+    const maxExisting = Math.max(
+      ...quickAddElements.map(e => e.atomicNumber || 0),
+      ...customBottles.map(b => b.atomicNumber || 0),
+      123 // Start after the last defined element
+    );
+    return maxExisting + 1;
   }, [quickAddElements, customBottles]);
 
   // Handle clicking on an element - opens modal with prefill
@@ -304,7 +336,7 @@ function OnboardingContent() {
   };
 
   // Handle clicking on a custom bottle - opens modal to edit
-  const handleCustomBottleClick = (bottle: InventoryItemInput & { symbol: string }, index: number) => {
+  const handleCustomBottleClick = (bottle: CustomBottleDisplay, index: number) => {
     setEditingElement(`custom-${index}`);
     setAddBottlePreFill({
       name: bottle.name,
@@ -326,12 +358,30 @@ function OnboardingContent() {
   // Handle adding/updating bottle from modal
   const handleAddBottle = async (item: InventoryItemInput) => {
     if (editingElement?.startsWith('custom-')) {
-      // Editing an existing custom bottle
+      // Editing an existing custom bottle - update but keep display info
       const index = parseInt(editingElement.replace('custom-', ''));
       setCustomBottles(prev => {
         const updated = [...prev];
-        const existingSymbol = (updated[index] as InventoryItemInput & { symbol?: string }).symbol;
-        updated[index] = { ...item, symbol: existingSymbol } as InventoryItemInput & { symbol: string };
+        // Try to find a matching element for the new name
+        const matchingElements = findMatchingElements(item.name);
+        const matchedElement = matchingElements[0];
+
+        if (matchedElement) {
+          updated[index] = {
+            ...item,
+            symbol: matchedElement.symbol,
+            group: matchedElement.group,
+            atomicNumber: matchedElement.atomicNumber,
+          };
+        } else {
+          // Keep existing display info if no match
+          updated[index] = {
+            ...item,
+            symbol: prev[index].symbol,
+            group: categoryToGroup(item.category),
+            atomicNumber: prev[index].atomicNumber,
+          };
+        }
         return updated;
       });
     } else if (editingElement) {
@@ -339,8 +389,28 @@ function OnboardingContent() {
       setSelectedElements(prev => new Set([...prev, editingElement]));
     } else {
       // Adding a completely custom bottle
-      const symbol = generateCustomSymbol(item.name, allSymbols);
-      setCustomBottles(prev => [...prev, { ...item, symbol } as InventoryItemInput & { symbol: string }]);
+      // Try to find a matching element in the periodic table
+      const matchingElements = findMatchingElements(item.name);
+      const matchedElement = matchingElements[0];
+
+      if (matchedElement) {
+        // Use the matched element's display info
+        setCustomBottles(prev => [...prev, {
+          ...item,
+          symbol: matchedElement.symbol,
+          group: matchedElement.group,
+          atomicNumber: matchedElement.atomicNumber,
+        }]);
+      } else {
+        // Generate custom symbol and use category-based coloring
+        const symbol = generateCustomSymbol(item.name, allSymbols);
+        setCustomBottles(prev => [...prev, {
+          ...item,
+          symbol,
+          group: categoryToGroup(item.category),
+          atomicNumber: nextAtomicNumber,
+        }]);
+      }
     }
     setShowAddBottleModal(false);
     setAddBottlePreFill(null);
@@ -586,29 +656,35 @@ function OnboardingContent() {
                 </div>
               ))}
               {/* Custom bottles in the grid */}
-              {(customBottles as (InventoryItemInput & { symbol: string })[]).map((bottle, index) => (
-                <div
-                  key={`custom-${index}`}
-                  className={`${styles.bottleCard} ${styles.selected} ${styles.customBottle}`}
-                  style={{ borderTop: '3px solid var(--bond-citrus)' }}
-                  onClick={() => handleCustomBottleClick(bottle, index)}
-                >
-                  <span className={styles.bottleSymbol} style={{ color: 'var(--bond-citrus)' }}>
-                    {bottle.symbol}
-                  </span>
-                  <span className={styles.bottleName}>{bottle.name}</span>
-                  <button
-                    className={styles.removeButton}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeCustomBottle(index);
-                    }}
-                    title="Remove"
+              {customBottles.map((bottle, index) => {
+                const bottleColor = GROUP_COLORS[bottle.group];
+                return (
+                  <div
+                    key={`custom-${index}`}
+                    className={`${styles.bottleCard} ${styles.selected} ${styles.customBottle}`}
+                    style={{
+                      borderTop: `3px solid ${bottleColor}`,
+                      '--custom-color': bottleColor,
+                    } as React.CSSProperties}
+                    onClick={() => handleCustomBottleClick(bottle, index)}
                   >
-                    ×
-                  </button>
-                </div>
-              ))}
+                    <span className={styles.bottleSymbol} style={{ color: bottleColor }}>
+                      {bottle.symbol}
+                    </span>
+                    <span className={styles.bottleName}>{bottle.name}</span>
+                    <button
+                      className={styles.removeButton}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeCustomBottle(index);
+                      }}
+                      title="Remove"
+                    >
+                      ×
+                    </button>
+                  </div>
+                );
+              })}
               {/* Add Custom Bottle button */}
               <div
                 className={`${styles.bottleCard} ${styles.addCustomCard}`}
