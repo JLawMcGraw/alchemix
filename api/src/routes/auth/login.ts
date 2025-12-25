@@ -104,14 +104,13 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
   // Set CSRF token in a separate non-httpOnly cookie
   res.cookie('csrf_token', csrfToken, getCSRFCookieOptions());
 
-  // Background: Sync any recipes missing from MemMachine (resilience check)
-  recipeService.syncMissingToMemMachine(user.id).then(result => {
-    if (result.total > 0) {
-      logger.info('Login sync: uploaded missing recipes to MemMachine', {
+  // Background: Full MemMachine sync (clear + upload) to prevent duplicates
+  recipeService.syncMemMachine(user.id).then(stats => {
+    if (stats.uploaded > 0) {
+      logger.info('Login sync: synced recipes to MemMachine', {
         userId: user.id,
-        synced: result.synced,
-        failed: result.failed,
-        total: result.total
+        uploaded: stats.uploaded,
+        failed: stats.failed
       });
     }
   }).catch(err => {

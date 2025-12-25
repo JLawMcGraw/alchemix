@@ -202,7 +202,8 @@ export function useRecipesPage() {
     } else {
       setMasteryFilter(null);
       setActiveCollection(null);
-      loadRecipes(1, false);
+      // Load ALL recipes for collections tab to get accurate uncategorized count
+      loadRecipes(1, true);
     }
   }, [searchParams, collections, isAuthenticated, isValidating, lastLoadedParams, loadRecipes, activeTab]);
 
@@ -398,7 +399,7 @@ export function useRecipesPage() {
   const handleAddRecipe = useCallback(async (recipe: Omit<Recipe, 'id' | 'user_id' | 'created_at'>) => {
     try {
       await addRecipe(recipe);
-      await loadRecipes(1);
+      await loadRecipes(1, true);
       if (recipe.collection_id) await fetchCollections();
       await fetchShoppingList();
       showToast('success', 'Recipe added successfully');
@@ -411,7 +412,7 @@ export function useRecipesPage() {
   const handleCSVUpload = useCallback(async (file: File, collectionId?: number) => {
     try {
       const result = await recipeApi.importCSV(file, collectionId);
-      await loadRecipes(1);
+      await loadRecipes(1, true);
       if (collectionId) await fetchCollections();
       await fetchShoppingList();
       if (result.imported > 0) {
@@ -446,7 +447,7 @@ export function useRecipesPage() {
   const handleDeleteAll = useCallback(async () => {
     try {
       const result = await recipeApi.deleteAll();
-      await loadRecipes(1);
+      await loadRecipes(1, true);
       await fetchCollections();
       await fetchShoppingList();
       setSelectedRecipes(new Set());
@@ -487,7 +488,8 @@ export function useRecipesPage() {
       setShowCollectionDeleteConfirm(false);
       setDeletingCollection(null);
       await fetchCollections();
-      await loadRecipes(1);
+      // Load all recipes to get accurate uncategorized count
+      await loadRecipes(1, true);
     } catch (error) {
       showToast('error', 'Failed to delete collection');
     }
@@ -534,7 +536,7 @@ export function useRecipesPage() {
       const ids = Array.from(selectedRecipes);
       const result = await recipeApi.bulkMove(ids, bulkMoveCollectionId);
 
-      await loadRecipes(1);
+      await loadRecipes(1, true);
       await fetchCollections();
       setSelectedRecipes(new Set());
       setShowBulkMoveModal(false);
@@ -551,24 +553,25 @@ export function useRecipesPage() {
   const handleCreateAndMove = useCallback(async (collectionName: string) => {
     if (selectedRecipes.size === 0) return;
     try {
-      // Create the new collection
+      // Create the new collection - addCollection returns the created collection with its ID
       const newCollection = await addCollection({ name: collectionName });
+
       if (!newCollection?.id) {
-        throw new Error('Failed to create collection');
+        throw new Error('Failed to create collection - no ID returned');
       }
 
       // Move recipes to the new collection
       const ids = Array.from(selectedRecipes);
-      const result = await recipeApi.bulkMove(ids, newCollection.id);
+      await recipeApi.bulkMove(ids, newCollection.id);
 
-      await loadRecipes(1);
+      // Refresh data
+      await loadRecipes(1, true);
       await fetchCollections();
       setSelectedRecipes(new Set());
       setShowBulkMoveModal(false);
       showToast('success', `Created "${collectionName}" and moved ${ids.length} recipe(s)`);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Failed to create collection and move recipes';
-      console.error('Create and move failed:', error);
       showToast('error', errorMsg);
     }
   }, [selectedRecipes, addCollection, loadRecipes, fetchCollections, showToast]);
@@ -588,6 +591,8 @@ export function useRecipesPage() {
     setMasteryFilter(null);
     if (tab === 'collections') {
       router.push('/recipes');
+      // Load all recipes for accurate uncategorized count
+      loadRecipes(1, true);
     } else if (tab === 'favorites') {
       router.push('/recipes?tab=favorites');
     } else {

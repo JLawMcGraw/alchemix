@@ -277,6 +277,18 @@ export class RecipeService {
    * Validate collection belongs to user
    */
   async validateCollection(collectionId: number, userId: number): Promise<boolean> {
+    // First check if collection exists at all (for debugging)
+    const anyCollection = await queryOne<{ id: number; user_id: number }>(
+      'SELECT id, user_id FROM collections WHERE id = $1',
+      [collectionId]
+    );
+    logger.info('[validateCollection] Collection lookup', {
+      collectionId,
+      requestedUserId: userId,
+      found: !!anyCollection,
+      actualUserId: anyCollection?.user_id
+    });
+
     const collection = await queryOne<{ id: number }>(
       'SELECT id FROM collections WHERE id = $1 AND user_id = $2',
       [collectionId, userId]
@@ -540,13 +552,15 @@ export class RecipeService {
       return { success: false, error: 'No recipe IDs provided' };
     }
 
-    if (recipeIds.length > 100) {
-      return { success: false, error: 'Maximum 100 recipes per bulk operation' };
+    if (recipeIds.length > 500) {
+      return { success: false, error: 'Maximum 500 recipes per bulk operation' };
     }
 
     // Validate collection belongs to user (if not null)
     if (collectionId !== null) {
+      logger.info('[bulkMove] Validating collection', { collectionId, userId });
       const collectionExists = await this.validateCollection(collectionId, userId);
+      logger.info('[bulkMove] Collection validation result', { collectionExists, collectionId, userId });
       if (!collectionExists) {
         return { success: false, error: 'Collection not found or access denied' };
       }

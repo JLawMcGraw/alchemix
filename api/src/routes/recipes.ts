@@ -515,6 +515,9 @@ router.delete('/bulk', asyncHandler(async (req: Request, res: Response) => {
  * - collectionId: number | null - Target collection (null = uncategorized)
  */
 router.post('/bulk-move', asyncHandler(async (req: Request, res: Response) => {
+  // Log immediately to see what's being received
+  logger.info('[bulk-move] Request received', { body: req.body, userId: req.user?.userId });
+
   const userId = req.user?.userId;
 
   if (!userId) {
@@ -528,6 +531,7 @@ router.post('/bulk-move', asyncHandler(async (req: Request, res: Response) => {
 
   // Validate recipeIds
   if (!Array.isArray(recipeIds)) {
+    logger.warn('[bulk-move] Invalid: recipeIds not an array', { recipeIds });
     return res.status(400).json({
       success: false,
       error: 'recipeIds must be an array'
@@ -540,16 +544,18 @@ router.post('/bulk-move', asyncHandler(async (req: Request, res: Response) => {
     .filter((id) => Number.isInteger(id) && id > 0);
 
   if (sanitizedIds.length === 0) {
+    logger.warn('[bulk-move] Invalid: no valid recipe IDs', { recipeIds });
     return res.status(400).json({
       success: false,
       error: 'No valid recipe IDs provided'
     });
   }
 
-  if (sanitizedIds.length > 100) {
+  if (sanitizedIds.length > 500) {
+    logger.warn('[bulk-move] Invalid: too many IDs', { count: sanitizedIds.length });
     return res.status(400).json({
       success: false,
-      error: 'Maximum 100 recipes per bulk operation'
+      error: 'Maximum 500 recipes per bulk operation'
     });
   }
 
@@ -558,6 +564,7 @@ router.post('/bulk-move', asyncHandler(async (req: Request, res: Response) => {
   if (collectionId !== null && collectionId !== undefined) {
     const parsedCollectionId = Number(collectionId);
     if (!Number.isInteger(parsedCollectionId) || parsedCollectionId <= 0) {
+      logger.warn('[bulk-move] Invalid: bad collection ID', { collectionId, parsed: parsedCollectionId });
       return res.status(400).json({
         success: false,
         error: 'Invalid collection ID'
@@ -566,7 +573,9 @@ router.post('/bulk-move', asyncHandler(async (req: Request, res: Response) => {
     targetCollectionId = parsedCollectionId;
   }
 
+  logger.info('[bulk-move] Starting bulk move', { userId, collectionId: targetCollectionId, recipeCount: sanitizedIds.length });
   const result = await recipeService.bulkMove(sanitizedIds, userId, targetCollectionId);
+  logger.info('[bulk-move] Result', { success: result.success, error: result.error, moved: result.moved });
 
   if (!result.success) {
     return res.status(400).json({

@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2025-12-25 (Session 7)
+Last updated: 2025-12-25 (Session 8)
 
 ---
 
@@ -32,7 +32,108 @@ Last updated: 2025-12-25 (Session 7)
 
 ---
 
-## Recent Session (2025-12-25): AI Streaming, MemMachine Performance & CSV Import Fix
+## Recent Session (2025-12-25): Recipe Collections UX & MemMachine Fixes
+
+### Summary
+Major UX improvements for recipe collection management: added Select All for uncategorized recipes, Create & Move to new collection in bulk move modal, fixed pill tag styling, and eliminated MemMachine duplicate entries.
+
+### Work Completed
+
+#### 1. Pill Tag Styling Fix
+**Problem**: Pill tags in AddBottleModal (Base, Cane, Botanic, etc.) and ItemDetailModal had incorrect styling - too rounded and with strokes.
+
+**Solution**: Changed `border-radius` from `9999px` to `8px` to match design system, removed borders.
+
+**Files**:
+- `src/components/modals/AddBottleModal.module.css`
+- `src/components/modals/ItemDetailModal.module.css`
+
+#### 2. Select All Uncategorized Recipes
+**Feature**: Added "Select All" button to the Uncategorized section header so users can quickly select all uncategorized recipes for bulk operations.
+
+**Implementation**:
+- Added `selectAllUncategorized` function to `useRecipesPage.ts`
+- Updated `UncategorizedSectionHeader` component with Select All button
+- Added CSS styles for the button
+
+**Files**:
+- `src/app/recipes/useRecipesPage.ts`
+- `src/app/recipes/RecipeActions.tsx`
+- `src/app/recipes/recipes.module.css`
+
+#### 3. Create Collection in Bulk Move Modal
+**Feature**: Added ability to create a new collection directly from the bulk move modal instead of requiring users to create the collection first.
+
+**Implementation**:
+- Added "Create New Collection" button and input field to `BulkMoveModal`
+- Added `handleCreateAndMove` function that creates collection and moves recipes in one flow
+- Simplified to use returned collection directly from `addCollection` (not find-by-name)
+
+**Files**:
+- `src/app/recipes/BulkMoveModal.tsx`
+- `src/app/recipes/useRecipesPage.ts`
+- `src/app/recipes/recipes.module.css`
+
+#### 4. Type Fix for addCollection
+**Problem**: `addCollection` was typed as `Promise<void>` but implementation returned `Promise<Collection>`.
+
+**Solution**: Fixed type in `types/index.ts` to match implementation.
+
+**File**: `src/types/index.ts`
+
+#### 5. Uncategorized Count Fix
+**Problem**: After reloading or deleting a collection, uncategorized showed only 23 recipes instead of actual count.
+
+**Root Cause**: `loadRecipes(1)` was called without `loadAll: true` parameter, only fetching first page.
+
+**Solution**: Changed all `loadRecipes(1)` calls to `loadRecipes(1, true)` to always fetch complete recipe list.
+
+**File**: `src/app/recipes/useRecipesPage.ts`
+
+#### 6. Bulk Move Limit Increase (100 → 500)
+**Problem**: "Create & Move" returned 400 error when moving 130 uncategorized recipes.
+
+**Root Cause**: Backend bulk-move endpoint had a 100 recipe limit.
+
+**Solution**: Increased limit to 500 in both route and service layers.
+
+**Files**:
+- `api/src/routes/recipes.ts`
+- `api/src/services/RecipeService.ts`
+
+#### 7. MemMachine Duplicate Prevention
+**Problem**: User had 600+ entries in MemMachine for only ~130 recipes.
+
+**Root Cause**: Login sync (`syncMissingToMemMachine`) uploaded recipes with NULL UIDs, but if the UID database save failed, same recipes would be re-uploaded on next login.
+
+**Solution**: Changed login sync to use `syncMemMachine` (full clear+upload) instead of partial sync. Each login now gives a clean MemMachine state - no duplicates possible.
+
+**File**: `api/src/routes/auth/login.ts`
+
+#### 8. Bulk Move Debug Logging
+Added detailed `logger.info` and `logger.warn` statements to bulk-move endpoint for easier debugging of validation failures.
+
+**File**: `api/src/routes/recipes.ts`
+
+### Files Changed
+- `src/components/modals/AddBottleModal.module.css` - Pill styling
+- `src/components/modals/ItemDetailModal.module.css` - Pill styling
+- `src/app/recipes/RecipeActions.tsx` - Select All button
+- `src/app/recipes/BulkMoveModal.tsx` - Create collection feature
+- `src/app/recipes/useRecipesPage.ts` - Multiple fixes
+- `src/app/recipes/recipes.module.css` - New styles
+- `src/types/index.ts` - Type fix
+- `api/src/routes/recipes.ts` - Bulk move limit, logging
+- `api/src/services/RecipeService.ts` - Bulk move limit, logging
+- `api/src/routes/auth/login.ts` - Full MemMachine sync
+
+### Next Priorities
+- Test Create & Move with large recipe counts
+- Verify MemMachine duplicate prevention after multiple logins
+
+---
+
+## Previous Session (2025-12-25): AI Streaming, MemMachine Performance & CSV Import Fix
 
 ### Summary
 Major performance improvements: implemented AI response streaming for faster perceived response times, dramatically improved MemMachine batch upload performance (~20x faster), fixed CSV import to properly skip empty rows, and improved login page UX.
