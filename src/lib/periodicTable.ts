@@ -217,13 +217,17 @@ export const PERIODIC_SECTIONS: ElementSection[] = [
   {
     title: 'GARNISHES',
     elements: [
-      // Always visible (most common garnish)
+      // Always visible (common garnishes)
       { symbol: 'Mt', name: 'Fresh Mint', group: 'garnish', atomicNumber: 112, keywords: ['mint', 'fresh mint', 'spearmint', 'peppermint'] },
+      { symbol: 'Bs', name: 'Fresh Basil', group: 'garnish', atomicNumber: 113, keywords: ['basil', 'fresh basil', 'thai basil'] },
+      { symbol: 'Ro', name: 'Rosemary', group: 'garnish', atomicNumber: 114, keywords: ['rosemary', 'fresh rosemary'] },
+      { symbol: 'Th', name: 'Thyme', group: 'garnish', atomicNumber: 115, keywords: ['thyme', 'fresh thyme'] },
+      { symbol: 'Cu', name: 'Cucumber', group: 'garnish', atomicNumber: 116, keywords: ['cucumber'] },
+      { symbol: 'Rh', name: 'Rhubarb', group: 'garnish', atomicNumber: 124, keywords: ['rhubarb', 'rhubarb syrup', 'rhubarb bitters'] },
+      { symbol: 'Sg', name: 'Sage', group: 'garnish', atomicNumber: 125, keywords: ['sage', 'fresh sage'] },
+      { symbol: 'Lv', name: 'Lavender', group: 'garnish', atomicNumber: 126, keywords: ['lavender', 'dried lavender', 'lavender sprig'] },
+      { symbol: 'Dl', name: 'Dill', group: 'garnish', atomicNumber: 127, keywords: ['dill', 'fresh dill'] },
       // Hidden (appear when user adds matching inventory)
-      { symbol: 'Bs', name: 'Fresh Basil', group: 'garnish', atomicNumber: 113, keywords: ['basil', 'fresh basil', 'thai basil'], hidden: true },
-      { symbol: 'Ro', name: 'Rosemary', group: 'garnish', atomicNumber: 114, keywords: ['rosemary', 'fresh rosemary'], hidden: true },
-      { symbol: 'Th', name: 'Thyme', group: 'garnish', atomicNumber: 115, keywords: ['thyme', 'fresh thyme'], hidden: true },
-      { symbol: 'Cu', name: 'Cucumber', group: 'garnish', atomicNumber: 116, keywords: ['cucumber'], hidden: true },
       { symbol: 'Jp', name: 'Jalapeño', group: 'garnish', atomicNumber: 117, keywords: ['jalapeno', 'jalapeño', 'chili', 'chile', 'habanero'], hidden: true },
       { symbol: 'Ov', name: 'Olives', group: 'garnish', atomicNumber: 118, keywords: ['olive', 'olives', 'cocktail olive'], hidden: true },
       { symbol: 'Mc', name: 'Maraschino Cherry', group: 'garnish', atomicNumber: 119, keywords: ['maraschino cherry', 'luxardo cherry', 'brandied cherry', 'cocktail cherry'], hidden: true },
