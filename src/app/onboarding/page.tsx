@@ -166,7 +166,48 @@ function getQuickAddElements(): PeriodicElement[] {
   return elements;
 }
 
+// Custom bottle with element display info (must be outside component to avoid React issues)
+interface CustomBottleDisplay extends InventoryItemInput {
+  symbol: string;
+  group: ElementGroup;
+  atomicNumber: number;
+}
 
+// Map inventory category to element group for color coding
+function categoryToGroup(category: InventoryCategory): ElementGroup {
+  const groupMap: Record<InventoryCategory, ElementGroup> = {
+    spirit: 'grain',
+    liqueur: 'sugar',
+    mixer: 'carbonation',
+    syrup: 'sugar',
+    garnish: 'garnish',
+    wine: 'grape',
+    beer: 'grain',
+    other: 'botanical',
+  };
+  return groupMap[category] || 'botanical';
+}
+
+// Generate a 2-letter symbol for custom bottles (fallback if no matching element)
+function generateCustomSymbol(name: string, existingSymbols: Set<string>): string {
+  // Try first two letters capitalized
+  const base = name.replace(/[^a-zA-Z]/g, '');
+  if (base.length >= 2) {
+    const symbol = base.charAt(0).toUpperCase() + base.charAt(1).toLowerCase();
+    if (!existingSymbols.has(symbol)) return symbol;
+  }
+  // Try first letter + number
+  for (let i = 1; i <= 9; i++) {
+    const symbol = base.charAt(0).toUpperCase() + i;
+    if (!existingSymbols.has(symbol)) return symbol;
+  }
+  // Fallback: X + number
+  for (let i = 1; i <= 99; i++) {
+    const symbol = 'X' + i;
+    if (!existingSymbols.has(symbol)) return symbol;
+  }
+  return 'XX';
+}
 
 function OnboardingContent() {
   const router = useRouter();
@@ -185,13 +226,6 @@ function OnboardingContent() {
   const [classicRecipes, setClassicRecipes] = useState<ClassicRecipe[]>(fallbackRecipes);
   const [resultsPage, setResultsPage] = useState(1);
   const RESULTS_PER_PAGE = 6;
-
-  // Custom bottle with element display info
-  interface CustomBottleDisplay extends InventoryItemInput {
-    symbol: string;
-    group: ElementGroup;
-    atomicNumber: number;
-  }
 
   // AddBottleModal state
   const [showAddBottleModal, setShowAddBottleModal] = useState(false);
@@ -263,42 +297,6 @@ function OnboardingContent() {
   useEffect(() => {
     setResultsPage(1);
   }, [makeableRecipes.length]);
-
-  // Generate a 2-letter symbol for custom bottles (fallback if no matching element)
-  const generateCustomSymbol = (name: string, existingSymbols: Set<string>): string => {
-    // Try first two letters capitalized
-    const base = name.replace(/[^a-zA-Z]/g, '');
-    if (base.length >= 2) {
-      const symbol = base.charAt(0).toUpperCase() + base.charAt(1).toLowerCase();
-      if (!existingSymbols.has(symbol)) return symbol;
-    }
-    // Try first letter + number
-    for (let i = 1; i <= 9; i++) {
-      const symbol = base.charAt(0).toUpperCase() + i;
-      if (!existingSymbols.has(symbol)) return symbol;
-    }
-    // Fallback: X + number
-    for (let i = 1; i <= 99; i++) {
-      const symbol = 'X' + i;
-      if (!existingSymbols.has(symbol)) return symbol;
-    }
-    return 'XX';
-  };
-
-  // Map inventory category to element group for color coding
-  const categoryToGroup = (category: InventoryCategory): ElementGroup => {
-    const groupMap: Record<InventoryCategory, ElementGroup> = {
-      spirit: 'grain',
-      liqueur: 'sugar',
-      mixer: 'carbonation',
-      syrup: 'sugar',
-      garnish: 'garnish',
-      wine: 'grape',
-      beer: 'grain',
-      other: 'botanical',
-    };
-    return groupMap[category] || 'botanical';
-  };
 
   // Get all existing symbols (from elements + custom bottles)
   const allSymbols = useMemo(() => {
