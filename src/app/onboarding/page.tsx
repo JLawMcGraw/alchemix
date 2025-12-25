@@ -196,6 +196,8 @@ function OnboardingContent() {
     periodic_period: PeriodicPeriod;
   } | null>(null);
   const [customBottles, setCustomBottles] = useState<InventoryItemInput[]>([]);
+  // Track which element is being edited (for updating vs adding)
+  const [editingElement, setEditingElement] = useState<string | null>(null);
 
   // Get curated elements for bottle selection
   const quickAddElements = useMemo(() => getQuickAddElements(), []);
@@ -255,19 +257,42 @@ function OnboardingContent() {
     setResultsPage(1);
   }, [makeableRecipes.length]);
 
-  const toggleElement = (symbol: string) => {
-    const newSet = new Set(selectedElements);
-    if (newSet.has(symbol)) {
-      newSet.delete(symbol);
-    } else {
-      newSet.add(symbol);
+  // Generate a 2-letter symbol for custom bottles
+  const generateCustomSymbol = (name: string, existingSymbols: Set<string>): string => {
+    // Try first two letters capitalized
+    const base = name.replace(/[^a-zA-Z]/g, '');
+    if (base.length >= 2) {
+      const symbol = base.charAt(0).toUpperCase() + base.charAt(1).toLowerCase();
+      if (!existingSymbols.has(symbol)) return symbol;
     }
-    setSelectedElements(newSet);
+    // Try first letter + number
+    for (let i = 1; i <= 9; i++) {
+      const symbol = base.charAt(0).toUpperCase() + i;
+      if (!existingSymbols.has(symbol)) return symbol;
+    }
+    // Fallback: X + number
+    for (let i = 1; i <= 99; i++) {
+      const symbol = 'X' + i;
+      if (!existingSymbols.has(symbol)) return symbol;
+    }
+    return 'XX';
   };
 
-  // Open AddBottleModal with element prefill for customization
-  const openAddBottleModal = (element: PeriodicElement) => {
+  // Get all existing symbols (from elements + custom bottles)
+  const allSymbols = useMemo(() => {
+    const symbols = new Set(quickAddElements.map(e => e.symbol));
+    customBottles.forEach(b => {
+      if ((b as InventoryItemInput & { symbol?: string }).symbol) {
+        symbols.add((b as InventoryItemInput & { symbol?: string }).symbol!);
+      }
+    });
+    return symbols;
+  }, [quickAddElements, customBottles]);
+
+  // Handle clicking on an element - opens modal with prefill
+  const handleElementClick = (element: PeriodicElement) => {
     const item = elementToInventoryItem(element);
+    setEditingElement(element.symbol);
     setAddBottlePreFill({
       name: item.name,
       category: item.category,
@@ -278,18 +303,62 @@ function OnboardingContent() {
     setShowAddBottleModal(true);
   };
 
+  // Handle clicking on a custom bottle - opens modal to edit
+  const handleCustomBottleClick = (bottle: InventoryItemInput & { symbol: string }, index: number) => {
+    setEditingElement(`custom-${index}`);
+    setAddBottlePreFill({
+      name: bottle.name,
+      category: bottle.category,
+      type: bottle.type || '',
+      periodic_group: bottle.periodic_group || 'Base',
+      periodic_period: bottle.periodic_period || 'Grain',
+    });
+    setShowAddBottleModal(true);
+  };
+
   // Open AddBottleModal for custom bottle (not in top 32)
   const openCustomBottleModal = () => {
+    setEditingElement(null);
     setAddBottlePreFill(null);
     setShowAddBottleModal(true);
   };
 
-  // Handle adding bottle from modal
+  // Handle adding/updating bottle from modal
   const handleAddBottle = async (item: InventoryItemInput) => {
-    // Store custom bottle for later saving
-    setCustomBottles(prev => [...prev, item]);
+    if (editingElement?.startsWith('custom-')) {
+      // Editing an existing custom bottle
+      const index = parseInt(editingElement.replace('custom-', ''));
+      setCustomBottles(prev => {
+        const updated = [...prev];
+        const existingSymbol = (updated[index] as InventoryItemInput & { symbol?: string }).symbol;
+        updated[index] = { ...item, symbol: existingSymbol } as InventoryItemInput & { symbol: string };
+        return updated;
+      });
+    } else if (editingElement) {
+      // Adding from a periodic element - mark as selected
+      setSelectedElements(prev => new Set([...prev, editingElement]));
+    } else {
+      // Adding a completely custom bottle
+      const symbol = generateCustomSymbol(item.name, allSymbols);
+      setCustomBottles(prev => [...prev, { ...item, symbol } as InventoryItemInput & { symbol: string }]);
+    }
     setShowAddBottleModal(false);
     setAddBottlePreFill(null);
+    setEditingElement(null);
+  };
+
+  // Remove a custom bottle
+  const removeCustomBottle = (index: number) => {
+    setCustomBottles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Deselect a periodic element
+  const deselectElement = (symbol: string) => {
+    setSelectedElements(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(symbol);
+      return newSet;
+    });
   };
 
   const nextStep = () => {
@@ -496,7 +565,7 @@ function OnboardingContent() {
                   key={element.symbol}
                   className={`${styles.bottleCard} ${selectedElements.has(element.symbol) ? styles.selected : ''}`}
                   style={{ borderTop: `3px solid ${getElementColor(element)}` }}
-                  onClick={() => toggleElement(element.symbol)}
+                  onClick={() => handleElementClick(element)}
                 >
                   <span className={styles.bottleSymbol} style={{ color: getElementColor(element) }}>
                     {element.symbol}
@@ -504,19 +573,40 @@ function OnboardingContent() {
                   <span className={styles.bottleName}>{element.name}</span>
                   {selectedElements.has(element.symbol) && (
                     <button
-                      className={styles.editButton}
+                      className={styles.removeButton}
                       onClick={(e) => {
                         e.stopPropagation();
-                        openAddBottleModal(element);
+                        deselectElement(element.symbol);
                       }}
-                      title="Add details"
+                      title="Remove"
                     >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                      </svg>
+                      ×
                     </button>
                   )}
+                </div>
+              ))}
+              {/* Custom bottles in the grid */}
+              {(customBottles as (InventoryItemInput & { symbol: string })[]).map((bottle, index) => (
+                <div
+                  key={`custom-${index}`}
+                  className={`${styles.bottleCard} ${styles.selected} ${styles.customBottle}`}
+                  style={{ borderTop: '3px solid var(--bond-citrus)' }}
+                  onClick={() => handleCustomBottleClick(bottle, index)}
+                >
+                  <span className={styles.bottleSymbol} style={{ color: 'var(--bond-citrus)' }}>
+                    {bottle.symbol}
+                  </span>
+                  <span className={styles.bottleName}>{bottle.name}</span>
+                  <button
+                    className={styles.removeButton}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeCustomBottle(index);
+                    }}
+                    title="Remove"
+                  >
+                    ×
+                  </button>
                 </div>
               ))}
               {/* Add Custom Bottle button */}
@@ -531,13 +621,6 @@ function OnboardingContent() {
               </div>
             </div>
 
-            {/* Show custom bottles count */}
-            {customBottles.length > 0 && (
-              <div className={styles.customBottlesNote}>
-                + {customBottles.length} custom bottle{customBottles.length > 1 ? 's' : ''} added
-              </div>
-            )}
-
             <div className={styles.stepFooter}>
               <button className={`${styles.btn} ${styles.btnGhost}`} onClick={prevStep}>
                 ← Back
@@ -545,8 +628,8 @@ function OnboardingContent() {
               <button
                 className={`${styles.btn} ${styles.btnPrimary}`}
                 onClick={nextStep}
-                disabled={selectedElements.size === 0}
-                style={{ opacity: selectedElements.size === 0 ? 0.5 : 1 }}
+                disabled={selectedElements.size === 0 && customBottles.length === 0}
+                style={{ opacity: (selectedElements.size === 0 && customBottles.length === 0) ? 0.5 : 1 }}
               >
                 See My Cocktails
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -567,7 +650,7 @@ function OnboardingContent() {
               <div className={styles.resultsCount}>{makeableRecipes.length}</div>
               <h2 className={styles.resultsTitle}>cocktails you can make right now</h2>
               <p className={styles.resultsSubtitle}>
-                Based on the {selectedElements.size} bottles in your bar. Click a cocktail to see the recipe.
+                Based on the {selectedElements.size + customBottles.length} bottles in your bar. Click a cocktail to see the recipe.
               </p>
             </div>
 

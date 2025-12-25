@@ -269,8 +269,23 @@ vi.mock('@alchemix/recipe-molecule', () => ({
 vi.mock('@/components/modals', () => ({
   RecipeDetailModal: ({ isOpen, onClose }: any) =>
     isOpen ? <div data-testid="recipe-modal"><button onClick={onClose}>Close</button></div> : null,
-  AddBottleModal: ({ isOpen, onClose, onAdd }: any) =>
-    isOpen ? <div data-testid="add-bottle-modal"><button onClick={onClose}>Close</button><button onClick={() => onAdd({ name: 'Test', category: 'spirit' })}>Add</button></div> : null,
+  AddBottleModal: ({ isOpen, onClose, onAdd, preFill }: any) =>
+    isOpen ? (
+      <div data-testid="add-bottle-modal">
+        <button onClick={onClose}>Close</button>
+        <button
+          data-testid="add-bottle-submit"
+          onClick={() => onAdd({
+            name: preFill?.name || 'Test',
+            category: preFill?.category || 'spirit',
+            periodic_group: preFill?.periodic_group || 'Base',
+            periodic_period: preFill?.periodic_period || 'Grain',
+          })}
+        >
+          Add
+        </button>
+      </div>
+    ) : null,
 }));
 
 // Mock UI components
@@ -291,6 +306,24 @@ describe('Onboarding Page', () => {
     mockAdd.mockResolvedValue({ id: 1 });
     mockSeedClassics.mockResolvedValue({ seeded: true, count: 105 });
   });
+
+  // Helper: Select an element by clicking it and then clicking Add in the modal
+  const selectElement = async (user: ReturnType<typeof userEvent.setup>, elementName: string) => {
+    await act(async () => {
+      await user.click(screen.getByText(elementName));
+    });
+    // Modal should open, click Add
+    await waitFor(() => {
+      expect(screen.getByTestId('add-bottle-modal')).toBeInTheDocument();
+    });
+    await act(async () => {
+      await user.click(screen.getByTestId('add-bottle-submit'));
+    });
+    // Wait for modal to close
+    await waitFor(() => {
+      expect(screen.queryByTestId('add-bottle-modal')).not.toBeInTheDocument();
+    });
+  };
 
   describe('Step 1: Welcome', () => {
     it('should render welcome screen with logo', async () => {
@@ -449,14 +482,12 @@ describe('Onboarding Page', () => {
         expect(screen.getByText('STEP 2 OF 3')).toBeInTheDocument();
       }, { timeout: 2000 });
 
-      // Click on Bourbon element
+      // Click on Bourbon element and add via modal
       await waitFor(() => {
         expect(screen.getByText('Bourbon')).toBeInTheDocument();
       });
 
-      await act(async () => {
-        await user.click(screen.getByText('Bourbon'));
-      });
+      await selectElement(user, 'Bourbon');
 
       // Should have selected class on element
       await waitFor(() => {
@@ -492,16 +523,10 @@ describe('Onboarding Page', () => {
         expect(screen.getByText('Bourbon')).toBeInTheDocument();
       });
 
-      // Select Bourbon, Gin, Rum, Vodka, Lime - should unlock multiple recipes
-      await act(async () => {
-        await user.click(screen.getByText('Bourbon'));
-      });
-      await act(async () => {
-        await user.click(screen.getByText('Gin'));
-      });
-      await act(async () => {
-        await user.click(screen.getByText('Rum'));
-      });
+      // Select Bourbon, Gin, Rum via modal
+      await selectElement(user, 'Bourbon');
+      await selectElement(user, 'Gin');
+      await selectElement(user, 'Rum');
 
       // Navigate to step 3
       await act(async () => {
@@ -538,14 +563,12 @@ describe('Onboarding Page', () => {
         expect(screen.getByText('STEP 2 OF 3')).toBeInTheDocument();
       }, { timeout: 2000 });
 
-      // Select an element
+      // Select an element via modal
       await waitFor(() => {
         expect(screen.getByText('Bourbon')).toBeInTheDocument();
       });
 
-      await act(async () => {
-        await user.click(screen.getByText('Bourbon'));
-      });
+      await selectElement(user, 'Bourbon');
 
       // Navigate to step 3
       await act(async () => {
@@ -587,9 +610,7 @@ describe('Onboarding Page', () => {
         expect(screen.getByText('Cream')).toBeInTheDocument();
       });
 
-      await act(async () => {
-        await user.click(screen.getByText('Cream'));
-      });
+      await selectElement(user, 'Cream');
 
       // Navigate to step 3
       await act(async () => {
@@ -626,41 +647,18 @@ describe('Onboarding Page', () => {
         expect(screen.getByText('STEP 2 OF 3')).toBeInTheDocument();
       }, { timeout: 2000 });
 
-      // Select elements that unlock many recipes (need 7+ to trigger pagination with 6 per page)
-      // Based on mockClassicRecipes:
-      // - Bb: Old Fashioned (1)
-      // - Gn: Gin and Tonic (2)
-      // - Gn + Li: Gimlet (3)
-      // - Gn + Le: Gin Fizz (4)
-      // - Rm + Li: Daiquiri (5)
-      // - Rm + Gb: Dark and Stormy (6)
-      // - Bb + Le: Whiskey Sour (7)
-      // - Vd + Li + Gb: Moscow Mule (8)
+      // Select elements that unlock many recipes via modal
       await waitFor(() => {
         expect(screen.getByText('Bourbon')).toBeInTheDocument();
       });
 
-      await act(async () => {
-        await user.click(screen.getByText('Bourbon'));
-      });
-      await act(async () => {
-        await user.click(screen.getByText('Gin'));
-      });
-      await act(async () => {
-        await user.click(screen.getByText('Rum'));
-      });
-      await act(async () => {
-        await user.click(screen.getByText('Vodka'));
-      });
-      await act(async () => {
-        await user.click(screen.getByText('Lime'));
-      });
-      await act(async () => {
-        await user.click(screen.getByText('Lemon'));
-      });
-      await act(async () => {
-        await user.click(screen.getByText('Ginger Beer'));
-      });
+      await selectElement(user, 'Bourbon');
+      await selectElement(user, 'Gin');
+      await selectElement(user, 'Rum');
+      await selectElement(user, 'Vodka');
+      await selectElement(user, 'Lime');
+      await selectElement(user, 'Lemon');
+      await selectElement(user, 'Ginger Beer');
 
       // Navigate to step 3
       await act(async () => {
@@ -725,20 +723,16 @@ describe('Onboarding Page', () => {
         expect(screen.getByText('cocktails')).toBeInTheDocument();
       });
 
-      // Select Bourbon - should unlock Old Fashioned (1 recipe)
-      await act(async () => {
-        await user.click(screen.getByText('Bourbon'));
-      });
+      // Select Bourbon via modal - should unlock Old Fashioned (1 recipe)
+      await selectElement(user, 'Bourbon');
 
       // Counter should update to 1
       await waitFor(() => {
         expect(screen.getByText('1')).toBeInTheDocument();
       });
 
-      // Select Gin - should unlock Gin and Tonic (2 total)
-      await act(async () => {
-        await user.click(screen.getByText('Gin'));
-      });
+      // Select Gin via modal - should unlock Gin and Tonic (2 total)
+      await selectElement(user, 'Gin');
 
       await waitFor(() => {
         expect(screen.getByText('2')).toBeInTheDocument();
@@ -769,16 +763,14 @@ describe('Onboarding Page', () => {
       const continueBtn = screen.getByText('See My Cocktails').closest('button');
       expect(continueBtn).toBeDisabled();
 
-      // Select an element
-      await act(async () => {
-        await user.click(screen.getByText('Bourbon'));
-      });
+      // Select an element via modal
+      await selectElement(user, 'Bourbon');
 
       // Button should now be enabled
       expect(continueBtn).not.toBeDisabled();
     });
 
-    it('should allow deselecting elements', async () => {
+    it('should allow deselecting elements via remove button', async () => {
       const user = userEvent.setup();
 
       await act(async () => {
@@ -798,10 +790,8 @@ describe('Onboarding Page', () => {
         expect(screen.getByText('STEP 2 OF 3')).toBeInTheDocument();
       }, { timeout: 2000 });
 
-      // Select Bourbon
-      await act(async () => {
-        await user.click(screen.getByText('Bourbon'));
-      });
+      // Select Bourbon via modal
+      await selectElement(user, 'Bourbon');
 
       // Verify it's selected
       await waitFor(() => {
@@ -809,9 +799,10 @@ describe('Onboarding Page', () => {
         expect(bourbonCard?.className).toContain('selected');
       });
 
-      // Click again to deselect
+      // Click remove button (×) to deselect
+      const removeBtn = screen.getByText('Bourbon').parentElement?.querySelector('button');
       await act(async () => {
-        await user.click(screen.getByText('Bourbon'));
+        if (removeBtn) await user.click(removeBtn);
       });
 
       // Verify it's deselected
@@ -878,10 +869,8 @@ describe('Onboarding Page', () => {
         expect(screen.getByText('STEP 2 OF 3')).toBeInTheDocument();
       }, { timeout: 2000 });
 
-      // Select an element and go to step 3
-      await act(async () => {
-        await user.click(screen.getByText('Bourbon'));
-      });
+      // Select an element via modal and go to step 3
+      await selectElement(user, 'Bourbon');
 
       await act(async () => {
         await user.click(screen.getByText('See My Cocktails'));
@@ -925,10 +914,8 @@ describe('Onboarding Page', () => {
         expect(screen.getByText('STEP 2 OF 3')).toBeInTheDocument();
       }, { timeout: 2000 });
 
-      // Select Bourbon to unlock Old Fashioned
-      await act(async () => {
-        await user.click(screen.getByText('Bourbon'));
-      });
+      // Select Bourbon via modal to unlock Old Fashioned
+      await selectElement(user, 'Bourbon');
 
       // Navigate to step 3
       await act(async () => {
@@ -976,13 +963,9 @@ describe('Onboarding Page', () => {
         expect(screen.getByText('STEP 2 OF 3')).toBeInTheDocument();
       }, { timeout: 2000 });
 
-      // Select Bourbon and Gin (separate act calls to ensure both selections register)
-      await act(async () => {
-        await user.click(screen.getByText('Bourbon'));
-      });
-      await act(async () => {
-        await user.click(screen.getByText('Gin'));
-      });
+      // Select Bourbon and Gin via modal
+      await selectElement(user, 'Bourbon');
+      await selectElement(user, 'Gin');
 
       // Verify both elements are selected (should unlock 2 recipes: Old Fashioned + Gin and Tonic)
       await waitFor(() => {
@@ -1041,11 +1024,9 @@ describe('Onboarding Page', () => {
         expect(screen.getByText('STEP 2 OF 3')).toBeInTheDocument();
       }, { timeout: 2000 });
 
-      // Select Bourbon (already exists) and Gin (new)
-      await act(async () => {
-        await user.click(screen.getByText('Bourbon'));
-        await user.click(screen.getByText('Gin'));
-      });
+      // Select Bourbon (already exists) and Gin (new) via modal
+      await selectElement(user, 'Bourbon');
+      await selectElement(user, 'Gin');
 
       // Navigate to step 3
       await act(async () => {
@@ -1091,10 +1072,8 @@ describe('Onboarding Page', () => {
         expect(screen.getByText('STEP 2 OF 3')).toBeInTheDocument();
       }, { timeout: 2000 });
 
-      // Select Bourbon
-      await act(async () => {
-        await user.click(screen.getByText('Bourbon'));
-      });
+      // Select Bourbon via modal
+      await selectElement(user, 'Bourbon');
 
       // Navigate to step 3
       await act(async () => {
@@ -1144,10 +1123,8 @@ describe('Onboarding Page', () => {
         expect(screen.getByText('STEP 2 OF 3')).toBeInTheDocument();
       }, { timeout: 2000 });
 
-      // Select Bourbon
-      await act(async () => {
-        await user.click(screen.getByText('Bourbon'));
-      });
+      // Select Bourbon via modal
+      await selectElement(user, 'Bourbon');
 
       // Navigate to step 3
       await act(async () => {
@@ -1234,10 +1211,8 @@ describe('Onboarding Page', () => {
         expect(screen.getByText('STEP 2 OF 3')).toBeInTheDocument();
       }, { timeout: 2000 });
 
-      // Select Bourbon
-      await act(async () => {
-        await user.click(screen.getByText('Bourbon'));
-      });
+      // Select Bourbon via modal
+      await selectElement(user, 'Bourbon');
 
       // Navigate to step 3
       await act(async () => {
