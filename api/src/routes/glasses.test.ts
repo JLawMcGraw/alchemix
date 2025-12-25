@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import request from 'supertest';
 
 // Mock the database module FIRST (before any imports that use it)
@@ -18,7 +18,7 @@ vi.mock('../database/db', () => ({
 
 // Mock the auth middleware to bypass JWT verification
 vi.mock('../middleware/auth', () => ({
-  authMiddleware: vi.fn((req: any, _res: any, next: any) => {
+  authMiddleware: vi.fn((req: Request & { user?: { userId: number; email: string } }, _res: Response, next: NextFunction) => {
     req.user = { userId: 1, email: 'test@example.com' };
     next();
   }),

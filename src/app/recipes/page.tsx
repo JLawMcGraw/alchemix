@@ -356,7 +356,7 @@ function RecipesPageContent() {
 
 export default function RecipesPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<LoadingState message="Loading recipes..." />}>
       <RecipesPageContent />
     </Suspense>
   );

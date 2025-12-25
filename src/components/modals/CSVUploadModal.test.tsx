@@ -23,7 +23,13 @@ vi.mock('@/lib/store', () => ({
 
 // Mock Button component to simplify testing
 vi.mock('@/components/ui', () => ({
-  Button: ({ children, onClick, disabled, loading, variant }: any) => (
+  Button: ({ children, onClick, disabled, loading, variant }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    disabled?: boolean;
+    loading?: boolean;
+    variant?: string;
+  }) => (
     <button onClick={onClick} disabled={disabled || loading} data-variant={variant}>
       {loading ? 'Importing...' : children}
     </button>

@@ -358,6 +358,7 @@ export default function DashboardPage() {
                       onClick={() => router.push(`/bar?category=${cat.key}`)}
                       role="button"
                       tabIndex={0}
+                      aria-label={`View ${cat.label}: ${count} items`}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();
@@ -406,6 +407,7 @@ export default function DashboardPage() {
                     onClick={() => router.push(`/recipes?filter=${tier.filter}`)}
                     role="button"
                     tabIndex={0}
+                    aria-label={`View ${tier.label} recipes: ${tier.count} recipes`}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
@@ -457,6 +459,7 @@ export default function DashboardPage() {
                         onClick={() => router.push(`/recipes?collection=${collection.id}`)}
                         role="button"
                         tabIndex={0}
+                        aria-label={`View collection ${collection.name}: ${collection.recipe_count || 0} recipes`}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();

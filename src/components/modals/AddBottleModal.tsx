@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, ChevronDown, ChevronUp, AlertCircle, Plus, Minus } from 'lucide-react';
 import { SuccessCheckmark } from '@/components/ui';
+import { ConfirmModal } from './ConfirmModal';
 import type { InventoryCategory, InventoryItemInput, PeriodicGroup, PeriodicPeriod } from '@/types';
 import { getPeriodicTags, PERIODIC_GROUPS, PERIODIC_PERIODS } from '@/lib/periodicTableV2';
 import styles from './AddBottleModal.module.css';
@@ -78,19 +79,13 @@ export function AddBottleModal({ isOpen, onClose, onAdd, preFill }: AddBottleMod
   const [showSuccess, setShowSuccess] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [addAnother, setAddAnother] = useState(false);
+  const [showConfirmClose, setShowConfirmClose] = useState(false);
 
   const modalRef = useRef<HTMLDivElement>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
 
-  // Handle close with dirty check - defined before effects that use it
-  const handleClose = useCallback(() => {
-    if (isDirty && !loading) {
-      const confirmClose = window.confirm(
-        'You have unsaved changes. Are you sure you want to close this form?'
-      );
-      if (!confirmClose) return;
-    }
-
+  // Actually close the modal and reset state
+  const doClose = useCallback(() => {
     setFormData(createInitialFormState());
     setError(null);
     setLoading(false);
@@ -98,8 +93,18 @@ export function AddBottleModal({ isOpen, onClose, onAdd, preFill }: AddBottleMod
     setShowSuccess(false);
     setShowDetails(false);
     setAddAnother(false);
+    setShowConfirmClose(false);
     onClose();
-  }, [isDirty, loading, onClose]);
+  }, [onClose]);
+
+  // Handle close with dirty check - defined before effects that use it
+  const handleClose = useCallback(() => {
+    if (isDirty && !loading) {
+      setShowConfirmClose(true);
+      return;
+    }
+    doClose();
+  }, [isDirty, loading, doClose]);
 
   // Apply pre-fill data when modal opens, or reset if no preFill
   useEffect(() => {
@@ -247,14 +252,17 @@ export function AddBottleModal({ isOpen, onClose, onAdd, preFill }: AddBottleMod
     }
   };
 
+  if (showSuccess) {
+    return (
+      <SuccessCheckmark
+        message="Item added successfully!"
+        onComplete={doClose}
+      />
+    );
+  }
+
   return (
     <>
-      {showSuccess && (
-        <SuccessCheckmark
-          message="Item added successfully!"
-          onComplete={handleClose}
-        />
-      )}
       <div className={styles.overlay} onClick={handleClose}>
         <div
           className={styles.modal}
@@ -465,6 +473,17 @@ export function AddBottleModal({ isOpen, onClose, onAdd, preFill }: AddBottleMod
           </form>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={showConfirmClose}
+        onClose={() => setShowConfirmClose(false)}
+        onConfirm={doClose}
+        title="Discard changes?"
+        message="You have unsaved changes. Are you sure you want to close this form?"
+        confirmText="Discard"
+        cancelText="Keep Editing"
+        variant="warning"
+      />
     </>
   );
 }

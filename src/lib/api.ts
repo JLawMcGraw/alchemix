@@ -591,9 +591,7 @@ export const aiApi = {
     onComplete: () => void,
     onError: (error: string) => void
   ): Promise<void> {
-    console.log('[API] sendMessageStream starting');
     const csrfToken = getCSRFToken();
-    console.log('[API] Fetching stream endpoint');
 
     const response = await fetch(`${API_BASE_URL}/api/messages/stream`, {
       method: 'POST',
@@ -627,17 +625,13 @@ export const aiApi = {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
 
-    console.log('[Streaming] Starting to read response');
-
     while (true) {
       const { done, value } = await reader.read();
       if (done) {
-        console.log('[Streaming] Reader done');
         break;
       }
 
       const chunk = decoder.decode(value, { stream: true });
-      console.log('[Streaming] Received chunk:', chunk.substring(0, 100));
       const lines = chunk.split('\n');
 
       for (const line of lines) {
@@ -647,17 +641,14 @@ export const aiApi = {
             try {
               const data = JSON.parse(jsonStr);
               if (data.error) {
-                console.log('[Streaming] Error:', data.error);
                 onError(data.error);
                 return;
               }
               if (data.done) {
-                console.log('[Streaming] Done signal received');
                 onComplete();
                 return;
               }
               if (data.text) {
-                console.log('[Streaming] Text chunk:', data.text.substring(0, 50));
                 onChunk(data.text);
               }
             } catch {

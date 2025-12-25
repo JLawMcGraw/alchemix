@@ -4,9 +4,9 @@
 
 | Field | Value |
 |-------|-------|
-| Version | v1.34.0 |
+| Version | v1.35.0 |
 | Branch | `postgresql-deployment` |
-| Tests | 1,287 total (884 backend, 234 frontend, 169 recipe-molecule) |
+| Tests | 1287 total (884 backend, 234 frontend, 169 recipe-molecule) |
 | Last Updated | December 25, 2025 |
 
 ---

@@ -2,29 +2,58 @@
  * RecipeMolecule Component Tests
  */
 
+import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { RecipeMolecule } from './RecipeMolecule';
 import type { Recipe } from '@/types';
 
+// Type definitions for molecule package mocks
+interface MoleculeNode {
+  id: string;
+  label: string;
+  category: string;
+  x: number;
+  y: number;
+  radius: number;
+}
+
+interface TransformedRecipe {
+  name?: string;
+  nodes: MoleculeNode[];
+  bonds: Array<{ source: string; target: string }>;
+}
+
+interface MoleculeProps {
+  recipe?: TransformedRecipe;
+  width: number;
+  height: number;
+  svgRef?: React.RefObject<SVGSVGElement>;
+}
+
+interface LayoutSize {
+  width: number;
+  height: number;
+}
+
 // Mock the @alchemix/recipe-molecule package
 vi.mock('@alchemix/recipe-molecule', () => ({
   // Molecule component mock
-  Molecule: vi.fn(({ recipe, width, height, svgRef }: any) => (
+  Molecule: vi.fn(({ recipe, width, height, svgRef }: MoleculeProps) => (
     <svg
       ref={svgRef}
       width={width}
       height={height}
       data-testid="molecule-svg"
     >
-      {recipe?.nodes?.map((node: any, idx: number) => (
+      {recipe?.nodes?.map((node: MoleculeNode, idx: number) => (
         <circle key={idx} cx={node.x} cy={node.y} r={node.radius} />
       ))}
     </svg>
   )),
 
   // transformRecipe function mock
-  transformRecipe: vi.fn((recipe: any, layoutSize: any) => {
+  transformRecipe: vi.fn((recipe: { name?: string; ingredients?: string[] }, _layoutSize: LayoutSize) => {
     const ingredients = recipe.ingredients || [];
     if (ingredients.length === 0) {
       return { nodes: [], bonds: [] };

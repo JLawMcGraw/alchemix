@@ -53,16 +53,28 @@ vi.mock('@/lib/passwordPolicy', () => ({
 // Mock UI components
 vi.mock('@/components/ui', () => ({
   AlcheMixLogo: () => <div data-testid="logo">Logo</div>,
-  Button: ({ children, onClick, disabled, loading, type }: any) => (
+  Button: ({ children, onClick, disabled, loading, type }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    disabled?: boolean;
+    loading?: boolean;
+    type?: 'button' | 'submit' | 'reset';
+  }) => (
     <button onClick={onClick} disabled={disabled || loading} type={type}>
       {loading ? 'Loading...' : children}
     </button>
   ),
-  Card: ({ children }: any) => <div>{children}</div>,
-  Input: ({ placeholder, type, value, onChange, ...props }: any) => (
+  Card: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Input: ({ placeholder, type, value, onChange, ...props }: {
+    placeholder?: string;
+    type?: string;
+    value?: string;
+    onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    [key: string]: unknown;
+  }) => (
     <input placeholder={placeholder} type={type} value={value} onChange={onChange} {...props} />
   ),
-  ElementCard: ({ element }: any) => (
+  ElementCard: ({ element }: { element?: { symbol?: string; name?: string } }) => (
     <div data-testid={`element-${element?.symbol}`}>{element?.name}</div>
   ),
 }));

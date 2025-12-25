@@ -500,7 +500,7 @@ describe('inputValidator', () => {
 
     it('should block common NoSQL injection operators', () => {
       const operators = ['$where', '$ne', '$gt', '$lt', '$regex', '$in', '$nin'];
-      const malicious: any = {};
+      const malicious: Record<string, string> = {};
       operators.forEach(op => {
         malicious[op] = 'malicious';
       });

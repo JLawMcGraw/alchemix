@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { Request, Response, NextFunction } from 'express';
 import { errorHandler, notFoundHandler } from './errorHandler';
 import {
@@ -31,8 +31,8 @@ describe('errorHandler', () => {
   let mockReq: Partial<Request>;
   let mockRes: Partial<Response>;
   let mockNext: NextFunction;
-  let jsonMock: any;
-  let statusMock: any;
+  let jsonMock: Mock;
+  let statusMock: Mock;
 
   beforeEach(() => {
     // Reset mocks
@@ -44,15 +44,15 @@ describe('errorHandler', () => {
       method: 'GET',
       path: '/api/test',
       ip: '127.0.0.1',
-      socket: { remoteAddress: '127.0.0.1' } as any,
+      socket: { remoteAddress: '127.0.0.1' } as unknown as Request['socket'],
     };
 
     mockRes = {
-      status: statusMock as any,
-      json: jsonMock as any,
-    } as Response;
+      status: statusMock,
+      json: jsonMock,
+    } as unknown as Response;
 
-    mockNext = vi.fn() as any;
+    mockNext = vi.fn();
 
     // Clear environment variable
     setNodeEnv(undefined);
@@ -289,8 +289,8 @@ describe('errorHandler', () => {
 describe('notFoundHandler', () => {
   let mockReq: Partial<Request>;
   let mockRes: Partial<Response>;
-  let jsonMock: any;
-  let statusMock: any;
+  let jsonMock: Mock;
+  let statusMock: Mock;
 
   beforeEach(() => {
     jsonMock = vi.fn();
@@ -302,14 +302,14 @@ describe('notFoundHandler', () => {
       path: '/api/nonexistent',
       query: {},
       ip: '127.0.0.1',
-      socket: { remoteAddress: '127.0.0.1' } as any,
+      socket: { remoteAddress: '127.0.0.1' } as unknown as Request['socket'],
       get: vi.fn().mockReturnValue('Test User Agent'),
     };
 
     mockRes = {
-      status: statusMock as any,
-      json: jsonMock as any,
-    } as Response;
+      status: statusMock,
+      json: jsonMock,
+    } as unknown as Response;
   });
 
   it('should return 404 status code', () => {

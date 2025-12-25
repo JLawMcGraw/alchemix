@@ -19,6 +19,8 @@ export type { StepperInputProps } from './StepperInput';
 
 export { Spinner } from './Spinner';
 
+export { LoadingSpinner } from './LoadingSpinner';
+
 export { SuccessCheckmark } from './SuccessCheckmark';
 
 export { ToastProvider, useToast } from './Toast';

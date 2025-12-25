@@ -34,16 +34,16 @@ const mockStore = {
 };
 
 vi.mock('@/lib/store', () => ({
-  useStore: (selector: (state: typeof mockStore) => any) => selector(mockStore),
+  useStore: <T,>(selector: (state: typeof mockStore) => T) => selector(mockStore),
 }));
 
 vi.mock('zustand/react/shallow', () => ({
-  useShallow: (fn: any) => fn,
+  useShallow: <T,>(fn: T) => fn,
 }));
 
 // Mock UI components
 vi.mock('@/components/ui', () => ({
-  AlcheMixLogo: ({ size, showText }: any) => (
+  AlcheMixLogo: ({ size, showText }: { size?: number; showText?: boolean }) => (
     <div data-testid="logo" data-size={size} data-show-text={showText}>
       AlcheMix Logo
     </div>

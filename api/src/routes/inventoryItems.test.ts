@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import request from 'supertest';
 
 // Mock the database module FIRST (before any imports that use it)
@@ -19,7 +19,7 @@ vi.mock('../database/db', () => ({
 
 // Mock the auth middleware to bypass JWT verification
 vi.mock('../middleware/auth', () => ({
-  authMiddleware: vi.fn((req: any, _res: any, next: any) => {
+  authMiddleware: vi.fn((req: Request & { user?: { userId: number; email: string } }, _res: Response, next: NextFunction) => {
     req.user = { userId: 1, email: 'test@example.com' };
     next();
   }),
@@ -150,7 +150,7 @@ describe('Inventory Items Routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data).toHaveLength(2);
-      expect(res.body.data.every((item: any) => item.category === 'spirit')).toBe(true);
+      expect(res.body.data.every((item: { category: string }) => item.category === 'spirit')).toBe(true);
     });
 
     it('should support custom pagination limits', async () => {

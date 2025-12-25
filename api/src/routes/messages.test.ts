@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import request from 'supertest';
 
 // Mock AIService
@@ -22,7 +22,7 @@ vi.mock('../services/AIService', () => ({
 
 // Mock the auth middleware to bypass JWT verification
 vi.mock('../middleware/auth', () => ({
-  authMiddleware: vi.fn((req: any, _res: any, next: any) => {
+  authMiddleware: vi.fn((req: Request & { user?: { userId: number; email: string } }, _res: Response, next: NextFunction) => {
     req.user = { userId: 1, email: 'test@example.com' };
     next();
   }),
@@ -32,7 +32,7 @@ vi.mock('../middleware/auth', () => ({
 
 // Mock rate limiter to bypass in tests
 vi.mock('../middleware/userRateLimit', () => ({
-  userRateLimit: vi.fn(() => (_req: any, _res: any, next: any) => next()),
+  userRateLimit: vi.fn(() => (_req: Request, _res: Response, next: NextFunction) => next()),
 }));
 
 // Mock token blacklist

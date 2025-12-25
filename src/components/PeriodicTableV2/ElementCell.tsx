@@ -209,6 +209,7 @@ export default function ElementCell({
                   onClick={() => handleElementClick(el)}
                   role="button"
                   tabIndex={0}
+                  aria-label={`${el.name}${isOwned ? ', in your bar' : ', not in bar'}${isSelected ? ', selected' : ''}`}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();

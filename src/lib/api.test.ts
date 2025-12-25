@@ -1,30 +1,56 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
+import type { AxiosRequestConfig, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
+
+type RequestInterceptor = (config: InternalAxiosRequestConfig) => InternalAxiosRequestConfig | Promise<InternalAxiosRequestConfig>;
+type ResponseInterceptor = {
+  onFulfilled: (response: AxiosResponse) => AxiosResponse | Promise<AxiosResponse>;
+  onRejected: (error: unknown) => unknown;
+};
+
+interface MockAxiosInstance {
+  get: Mock;
+  post: Mock;
+  put: Mock;
+  delete: Mock;
+  _requestInterceptor: RequestInterceptor | null;
+  _responseInterceptor: ResponseInterceptor | null;
+  interceptors: {
+    request: { use: Mock };
+    response: { use: Mock };
+  };
+}
 
 // Use vi.hoisted to ensure mocks are set up before module import
 const { mockAxiosInstance } = vi.hoisted(() => {
-  const instance: any = {
+  const instance: MockAxiosInstance = {
     get: vi.fn(),
     post: vi.fn(),
     put: vi.fn(),
     delete: vi.fn(),
     _requestInterceptor: null,
     _responseInterceptor: null,
+    interceptors: {
+      request: {
+        use: vi.fn(),
+      },
+      response: {
+        use: vi.fn(),
+      },
+    },
   };
 
-  instance.interceptors = {
-    request: {
-      use: vi.fn((onFulfilled) => {
-        instance._requestInterceptor = onFulfilled;
-        return 0;
-      }),
-    },
-    response: {
-      use: vi.fn((onFulfilled, onRejected) => {
-        instance._responseInterceptor = { onFulfilled, onRejected };
-        return 0;
-      }),
-    },
-  };
+  instance.interceptors.request.use = vi.fn((onFulfilled: RequestInterceptor) => {
+    instance._requestInterceptor = onFulfilled;
+    return 0;
+  });
+
+  instance.interceptors.response.use = vi.fn((
+    onFulfilled: ResponseInterceptor['onFulfilled'],
+    onRejected: ResponseInterceptor['onRejected']
+  ) => {
+    instance._responseInterceptor = { onFulfilled, onRejected };
+    return 0;
+  });
 
   return { mockAxiosInstance: instance };
 });
@@ -66,50 +92,50 @@ describe('API Client', () => {
   describe('Request Interceptor', () => {
     it('should add X-CSRF-Token header for POST requests', async () => {
       // Trigger interceptor with POST method
-      const config = { headers: {}, method: 'POST' };
-      const interceptor = mockAxiosInstance._requestInterceptor;
-      const result = interceptor(config);
+      const config = { headers: {}, method: 'POST' } as InternalAxiosRequestConfig;
+      const interceptor = mockAxiosInstance._requestInterceptor!;
+      const result = await interceptor(config);
 
-      expect(result.headers['X-CSRF-Token']).toBe('test-csrf-token-123');
+      expect((result.headers as Record<string, string>)['X-CSRF-Token']).toBe('test-csrf-token-123');
     });
 
     it('should add X-CSRF-Token header for PUT requests', async () => {
-      const config = { headers: {}, method: 'PUT' };
-      const interceptor = mockAxiosInstance._requestInterceptor;
-      const result = interceptor(config);
+      const config = { headers: {}, method: 'PUT' } as InternalAxiosRequestConfig;
+      const interceptor = mockAxiosInstance._requestInterceptor!;
+      const result = await interceptor(config);
 
-      expect(result.headers['X-CSRF-Token']).toBe('test-csrf-token-123');
+      expect((result.headers as Record<string, string>)['X-CSRF-Token']).toBe('test-csrf-token-123');
     });
 
     it('should add X-CSRF-Token header for DELETE requests', async () => {
-      const config = { headers: {}, method: 'DELETE' };
-      const interceptor = mockAxiosInstance._requestInterceptor;
-      const result = interceptor(config);
+      const config = { headers: {}, method: 'DELETE' } as InternalAxiosRequestConfig;
+      const interceptor = mockAxiosInstance._requestInterceptor!;
+      const result = await interceptor(config);
 
-      expect(result.headers['X-CSRF-Token']).toBe('test-csrf-token-123');
+      expect((result.headers as Record<string, string>)['X-CSRF-Token']).toBe('test-csrf-token-123');
     });
 
-    it('should not add X-CSRF-Token header for GET requests', () => {
-      const config = { headers: {}, method: 'GET' };
-      const interceptor = mockAxiosInstance._requestInterceptor;
-      const result = interceptor(config);
+    it('should not add X-CSRF-Token header for GET requests', async () => {
+      const config = { headers: {}, method: 'GET' } as InternalAxiosRequestConfig;
+      const interceptor = mockAxiosInstance._requestInterceptor!;
+      const result = await interceptor(config);
 
-      expect(result.headers['X-CSRF-Token']).toBeUndefined();
+      expect((result.headers as Record<string, string>)['X-CSRF-Token']).toBeUndefined();
     });
 
-    it('should handle missing CSRF cookie gracefully', () => {
+    it('should handle missing CSRF cookie gracefully', async () => {
       // Clear the cookie
       Object.defineProperty(document, 'cookie', {
         writable: true,
         value: '',
       });
 
-      const config = { headers: {}, method: 'POST' };
-      const interceptor = mockAxiosInstance._requestInterceptor;
-      const result = interceptor(config);
+      const config = { headers: {}, method: 'POST' } as InternalAxiosRequestConfig;
+      const interceptor = mockAxiosInstance._requestInterceptor!;
+      const result = await interceptor(config);
 
       // Should not crash, just no CSRF header
-      expect(result.headers['X-CSRF-Token']).toBeUndefined();
+      expect((result.headers as Record<string, string>)['X-CSRF-Token']).toBeUndefined();
     });
   });
 
@@ -123,7 +149,7 @@ describe('API Client', () => {
 
       window.location.pathname = '/dashboard';
 
-      const interceptor = mockAxiosInstance._responseInterceptor.onRejected;
+      const interceptor = mockAxiosInstance._responseInterceptor!.onRejected;
 
       try {
         await interceptor(error);
@@ -145,7 +171,7 @@ describe('API Client', () => {
 
       window.location.pathname = '/login';
 
-      const interceptor = mockAxiosInstance._responseInterceptor.onRejected;
+      const interceptor = mockAxiosInstance._responseInterceptor!.onRejected;
 
       try {
         await interceptor(error);
@@ -163,15 +189,15 @@ describe('API Client', () => {
         },
       };
 
-      const interceptor = mockAxiosInstance._responseInterceptor.onRejected;
+      const interceptor = mockAxiosInstance._responseInterceptor!.onRejected;
 
       await expect(interceptor(error)).rejects.toEqual(error);
       expect(localStorage.removeItem).not.toHaveBeenCalled();
     });
 
     it('should pass through successful responses', () => {
-      const response = { data: { success: true } };
-      const interceptor = mockAxiosInstance._responseInterceptor.onFulfilled;
+      const response = { data: { success: true } } as AxiosResponse;
+      const interceptor = mockAxiosInstance._responseInterceptor!.onFulfilled;
 
       expect(interceptor(response)).toBe(response);
     });
@@ -568,7 +594,7 @@ describe('API Client', () => {
 
     it('should handle empty conversation history', async () => {
       const message = 'Hello';
-      const conversationHistory: any[] = [];
+      const conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];
 
       const mockResponse = {
         data: {

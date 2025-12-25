@@ -70,6 +70,7 @@ export function BottleCard({ item, isSelected = false, onSelect, onClick }: Bott
       onKeyDown={handleCardKeyDown}
       role="button"
       tabIndex={0}
+      aria-label={`${item.name}${item.type ? `, ${item.type}` : ''}, ${stockCount} in stock`}
     >
       {/* Header */}
       <div className={styles.header}>

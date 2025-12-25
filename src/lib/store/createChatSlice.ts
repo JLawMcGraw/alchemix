@@ -115,7 +115,6 @@ export const createChatSlice: StateCreator<
   },
 
   sendMessageStream: async (message) => {
-    console.log('[ChatSlice] sendMessageStream called');
     try {
       // Add user message to history with timestamp
       const userMessage: ChatMessage = {
@@ -126,7 +125,6 @@ export const createChatSlice: StateCreator<
       const historyWithUser = [...get().chatHistory, userMessage];
       set({ chatHistory: historyWithUser, streamingMessage: '' });
 
-      console.log('[ChatSlice] Calling aiApi.sendMessageStream');
       // Stream AI response
       await aiApi.sendMessageStream(
         message,

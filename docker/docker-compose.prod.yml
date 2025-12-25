@@ -27,7 +27,7 @@ services:
   neo4j:
     restart: always
     environment:
-      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:-changeme}
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:?NEO4J_PASSWORD is required}
       - NEO4J_dbms_memory_heap_max__size=1500m
       - NEO4J_dbms_memory_pagecache_size=512m
     # Production: Only expose to internal network
@@ -52,7 +52,7 @@ services:
   postgres:
     restart: always
     environment:
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     # Production: Only expose to internal network
     ports: []
     deploy:

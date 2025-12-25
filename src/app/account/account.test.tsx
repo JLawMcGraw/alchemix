@@ -57,16 +57,21 @@ const mockImportData = vi.fn();
 
 vi.mock('@/lib/api', () => ({
   authApi: {
-    changePassword: (...args: any[]) => mockChangePassword(...args),
-    deleteAccount: (...args: any[]) => mockDeleteAccount(...args),
+    changePassword: (...args: unknown[]) => mockChangePassword(...args),
+    deleteAccount: (...args: unknown[]) => mockDeleteAccount(...args),
     exportData: () => mockExportData(),
-    importData: (...args: any[]) => mockImportData(...args),
+    importData: (...args: unknown[]) => mockImportData(...args),
   },
 }));
 
 // Mock UI components
 vi.mock('@/components/ui/Modal', () => ({
-  Modal: ({ isOpen, onClose, title, children }: any) =>
+  Modal: ({ isOpen, onClose, title, children }: {
+    isOpen: boolean;
+    onClose: () => void;
+    title: string;
+    children: React.ReactNode;
+  }) =>
     isOpen ? (
       <div role="dialog" aria-label={title}>
         <h2>{title}</h2>
@@ -79,11 +84,17 @@ vi.mock('@/components/ui/Modal', () => ({
 }));
 
 vi.mock('@/components/ui/Input', () => ({
-  Input: (props: any) => <input {...props} />,
+  Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => <input {...props} />,
 }));
 
 vi.mock('@/components/ui/Button', () => ({
-  Button: ({ children, onClick, disabled, loading, variant }: any) => (
+  Button: ({ children, onClick, disabled, loading, variant }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    disabled?: boolean;
+    loading?: boolean;
+    variant?: string;
+  }) => (
     <button onClick={onClick} disabled={disabled || loading} data-variant={variant}>
       {loading ? 'Loading...' : children}
     </button>

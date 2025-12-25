@@ -6,7 +6,7 @@
 
 Modern cocktail inventory and recipe management system with AI-powered bartender recommendations. Features a "Molecular Mixology" design system that treats cocktails as chemical formulas and ingredients as periodic table elements.
 
-**Version:** v1.34.0 | **Last Updated:** December 25, 2025
+**Version:** v1.35.0 | **Last Updated:** December 25, 2025
 
 ## Features
 

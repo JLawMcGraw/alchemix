@@ -4,11 +4,11 @@ import React, { useEffect, useState, Suspense, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
-import { Button, useToast } from '@/components/ui';
+import { Button, useToast, LoadingSpinner } from '@/components/ui';
 import { Card } from '@/components/ui/Card';
 import { BottleCard } from '@/components/BottleCard';
 import { Wine, Upload, Plus, Martini, X, ChevronLeft, ChevronRight, Trash2, Grid3X3, List } from 'lucide-react';
-import { CSVUploadModal, AddBottleModal, ItemDetailModal } from '@/components/modals';
+import { CSVUploadModal, AddBottleModal, ItemDetailModal, DeleteConfirmModal } from '@/components/modals';
 // Periodic Table Version Toggle
 // V1: Traditional element grid with sections (original)
 // V2: 6x6 grid by function × origin (new design)
@@ -65,6 +65,7 @@ function BarPageContent() {
   // Selection state for bulk operations
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
   // Modal states
   const [csvModalOpen, setCsvModalOpen] = useState(false);
@@ -237,15 +238,12 @@ function BarPageContent() {
     }
   };
 
-  const handleBulkDelete = async () => {
+  const handleBulkDeleteClick = () => {
     if (selectedIds.size === 0) return;
+    setShowBulkDeleteConfirm(true);
+  };
 
-    const confirmed = window.confirm(
-      `Are you sure you want to delete ${selectedIds.size} item${selectedIds.size === 1 ? '' : 's'}? This cannot be undone.`
-    );
-
-    if (!confirmed) return;
-
+  const handleBulkDeleteConfirm = async () => {
     setIsDeleting(true);
     try {
       const idsArray = Array.from(selectedIds);
@@ -332,7 +330,7 @@ function BarPageContent() {
                 <Button
                   variant="danger"
                   size="md"
-                  onClick={handleBulkDelete}
+                  onClick={handleBulkDeleteClick}
                   disabled={isDeleting}
                 >
                   <Trash2 size={16} />
@@ -559,6 +557,15 @@ function BarPageContent() {
           item={selectedItem}
           onItemUpdated={(updatedItem) => setSelectedItem(updatedItem)}
         />
+
+        <DeleteConfirmModal
+          isOpen={showBulkDeleteConfirm}
+          onClose={() => setShowBulkDeleteConfirm(false)}
+          onConfirm={handleBulkDeleteConfirm}
+          title="Delete Items"
+          message={`Are you sure you want to delete ${selectedIds.size} item${selectedIds.size !== 1 ? 's' : ''}? This action cannot be undone.`}
+          itemName={selectedIds.size === 1 ? 'this item' : `${selectedIds.size} items`}
+        />
       </div>
     </div>
   );
@@ -566,7 +573,7 @@ function BarPageContent() {
 
 export default function BarPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<LoadingSpinner message="Loading your bar..." />}>
       <BarPageContent />
     </Suspense>
   );

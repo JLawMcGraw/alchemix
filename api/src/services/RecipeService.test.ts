@@ -649,8 +649,10 @@ describe('RecipeService', () => {
 
   describe('bulkMove', () => {
     it('should move multiple recipes to a collection', async () => {
-      // Mock collection validation
-      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: collectionId });
+      // Mock collection validation (validateCollection makes 2 queryOne calls)
+      (queryOne as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({ id: collectionId, user_id: userId }) // First: debug lookup
+        .mockResolvedValueOnce({ id: collectionId }); // Second: actual validation
       // Mock update
       (execute as ReturnType<typeof vi.fn>).mockResolvedValue({ rowCount: 3 });
 
@@ -692,12 +694,12 @@ describe('RecipeService', () => {
     });
 
     it('should return error when exceeding max recipes', async () => {
-      const tooManyIds = Array.from({ length: 101 }, (_, i) => i + 1);
+      const tooManyIds = Array.from({ length: 501 }, (_, i) => i + 1);
 
       const result = await recipeService.bulkMove(tooManyIds, userId, collectionId);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Maximum 100 recipes per bulk operation');
+      expect(result.error).toBe('Maximum 500 recipes per bulk operation');
     });
   });
 

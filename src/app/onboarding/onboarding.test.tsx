@@ -267,9 +267,14 @@ vi.mock('@alchemix/recipe-molecule', () => ({
 
 // Mock modals
 vi.mock('@/components/modals', () => ({
-  RecipeDetailModal: ({ isOpen, onClose }: any) =>
+  RecipeDetailModal: ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) =>
     isOpen ? <div data-testid="recipe-modal"><button onClick={onClose}>Close</button></div> : null,
-  AddBottleModal: ({ isOpen, onClose, onAdd, preFill }: any) =>
+  AddBottleModal: ({ isOpen, onClose, onAdd, preFill }: {
+    isOpen: boolean;
+    onClose: () => void;
+    onAdd: (item: { name: string; category: string; periodic_group: string; periodic_period: string }) => void;
+    preFill?: { name?: string; category?: string; periodic_group?: string; periodic_period?: string };
+  }) =>
     isOpen ? (
       <div data-testid="add-bottle-modal">
         <button onClick={onClose}>Close</button>
@@ -290,7 +295,7 @@ vi.mock('@/components/modals', () => ({
 
 // Mock UI components
 vi.mock('@/components/ui', () => ({
-  AlcheMixLogo: ({ size }: any) => <div data-testid="logo" data-size={size}>Logo</div>,
+  AlcheMixLogo: ({ size }: { size?: number }) => <div data-testid="logo" data-size={size}>Logo</div>,
 }));
 
 // Import after mocks

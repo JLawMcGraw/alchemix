@@ -79,6 +79,7 @@ export function ElementCard({
           title={`Add ${element.name} to your bar`}
           role="button"
           tabIndex={0}
+          aria-label={`Add ${element.name} to your bar`}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.stopPropagation();

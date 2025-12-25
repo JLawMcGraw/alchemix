@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
 import { SuccessCheckmark } from '@/components/ui';
+import { ConfirmModal } from './ConfirmModal';
 import { GlassSelector } from '@/components/GlassSelector';
 import type { Recipe, Collection } from '@/types';
 import styles from './AddRecipeModal.module.css';
@@ -50,25 +51,28 @@ export function AddRecipeModal({ isOpen, onClose, onAdd, collections = [] }: Add
   const [isDirty, setIsDirty] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [showConfirmClose, setShowConfirmClose] = useState(false);
 
   const modalRef = useRef<HTMLDivElement>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
 
-  const handleClose = useCallback(() => {
-    if (isDirty && !showSuccess && !loading) {
-      const confirmClose = window.confirm(
-        'You have unsaved changes. Are you sure you want to close?'
-      );
-      if (!confirmClose) return;
-    }
-
+  const doClose = useCallback(() => {
     setFormData(createInitialFormState());
     setError(null);
     setIsDirty(false);
     setShowSuccess(false);
     setShowDetails(false);
+    setShowConfirmClose(false);
     onClose();
-  }, [isDirty, showSuccess, loading, onClose]);
+  }, [onClose]);
+
+  const handleClose = useCallback(() => {
+    if (isDirty && !showSuccess && !loading) {
+      setShowConfirmClose(true);
+      return;
+    }
+    doClose();
+  }, [isDirty, showSuccess, loading, doClose]);
 
   useEffect(() => {
     if (isOpen) {
@@ -168,14 +172,17 @@ export function AddRecipeModal({ isOpen, onClose, onAdd, collections = [] }: Add
 
   const primarySpirit = SPIRITS.find(s => s.value === formData.spirits[0]);
 
+  if (showSuccess) {
+    return (
+      <SuccessCheckmark
+        message="Recipe added successfully!"
+        onComplete={doClose}
+      />
+    );
+  }
+
   return (
     <>
-      {showSuccess && (
-        <SuccessCheckmark
-          message="Recipe added successfully!"
-          onComplete={handleClose}
-        />
-      )}
       <div className={styles.overlay} onClick={handleClose}>
         <div
           className={styles.modal}
@@ -406,6 +413,17 @@ export function AddRecipeModal({ isOpen, onClose, onAdd, collections = [] }: Add
           </form>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={showConfirmClose}
+        onClose={() => setShowConfirmClose(false)}
+        onConfirm={doClose}
+        title="Discard changes?"
+        message="You have unsaved changes. Are you sure you want to close this form?"
+        confirmText="Discard"
+        cancelText="Keep Editing"
+        variant="warning"
+      />
     </>
   );
 }

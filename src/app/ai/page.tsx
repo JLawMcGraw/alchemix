@@ -8,27 +8,8 @@ import { parseAIResponse } from '@/lib/aiPersona';
 import { RotateCcw } from 'lucide-react';
 import { AlcheMixLogo } from '@/components/ui';
 import type { ChatMessage, Recipe } from '@/types';
+import { THINKING_PHRASES, QUICK_PROMPTS, DATE_LABELS } from './constants';
 import styles from './ai.module.css';
-
-// Lab-themed thinking phrases for the AI typing animation
-const THINKING_PHRASES = [
-  "Analyzing your bar inventory",
-  "Consulting the recipe archives",
-  "Running flavor experiments",
-  "Mixing up some ideas",
-  "Calculating molecular ratios",
-  "Searching the cocktail database",
-  "Distilling your options",
-  "Fermenting a response",
-  "Shaking up suggestions",
-  "Measuring ingredient synergies",
-  "Reviewing tasting notes",
-  "Cross-referencing flavor profiles",
-  "Checking spirit compatibility",
-  "Balancing the formula",
-  "Preparing lab results",
-  "Consulting the lab notes",
-];
 
 export default function AIPage() {
   const { isValidating, isAuthenticated } = useAuthGuard();
@@ -139,14 +120,6 @@ export default function AIPage() {
     craftable: shoppingListStats?.craftable || 0,
   };
 
-  // Quick prompts
-  const quickPrompts = [
-    "What can I make right now?",
-    "Suggest something with gin",
-    "I want something refreshing",
-    "What should I buy next?",
-  ];
-
   // Group chat history by date for sidebar
   const getHistorySessions = () => {
     const sessions: { id: number; preview: string; date: string }[] = [];
@@ -162,9 +135,9 @@ export default function AIPage() {
 
         let dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         if (date.toDateString() === today.toDateString()) {
-          dateStr = 'Today';
+          dateStr = DATE_LABELS.TODAY;
         } else if (date.toDateString() === yesterday.toDateString()) {
-          dateStr = 'Yesterday';
+          dateStr = DATE_LABELS.YESTERDAY;
         }
 
         sessions.push({
@@ -561,7 +534,7 @@ export default function AIPage() {
             <div className={styles.promptsCard}>
               <div className={styles.promptsLabel}>Quick Prompts</div>
               <div className={styles.promptsList}>
-                {quickPrompts.map((prompt, i) => (
+                {QUICK_PROMPTS.map((prompt, i) => (
                   <button
                     key={i}
                     onClick={() => handleQuickPrompt(prompt)}

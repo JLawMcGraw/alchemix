@@ -1,13 +1,13 @@
 # Project Development Progress
 
-Last updated: 2025-12-25 (Session 8)
+Last updated: 2025-12-25 (Session 9)
 
 ---
 
 ## Current Status
 
-**Version**: v1.34.0
-**Phase**: Deployment Preparation - PostgreSQL Migration
+**Version**: v1.35.0
+**Phase**: Deployment Preparation - Code Review Complete
 **Branch**: `postgresql-deployment`
 **Blockers**: None
 
@@ -15,7 +15,7 @@ Last updated: 2025-12-25 (Session 8)
 - Backend: 884 tests (35 test files)
 - Frontend: 234 tests (12 test files)
 - Recipe-Molecule: 169 tests (3 test files)
-- **Total: 1,287 tests**
+- **Total: 1287 tests**
 
 **Redesign Progress**:
 - Phase 1-4 (Batch A - Foundation): **Complete**
@@ -27,12 +27,118 @@ Last updated: 2025-12-25 (Session 8)
 - FTUX Onboarding Flow: **Complete** (3-step flow at /onboarding)
 - Design System Consistency Pass: **Complete** (All pages audited for rounded corners)
 - Code Review Polish: **Complete** (Accessibility, dark mode, CSS variables)
+- Pre-Deployment Code Review: **Complete** (All high/medium priority items fixed)
 
 **PostgreSQL Migration**: **Complete** (Phase 1-5 done, Phase 6 Deploy pending)
 
 ---
 
-## Recent Session (2025-12-25): Recipe Collections UX & MemMachine Fixes
+## Recent Session (2025-12-25): Pre-Deployment Code Review & Polish
+
+### Summary
+Comprehensive code review before deployment. Fixed all high and medium priority issues including security (console.log removal, docker passwords), accessibility (aria-labels, modal confirmations), TypeScript strictness (any types in tests), and UX polish (loading UI consistency, modal success states).
+
+### Work Completed
+
+#### 1. High Priority Fixes
+
+**Console.log Removal**:
+- Removed 8 console.log statements from `src/lib/api.ts` (streaming debug logs)
+- Removed 2 console.log statements from `src/lib/store/createChatSlice.ts`
+
+**Accessible Modal Confirmations** (replaced window.confirm):
+- Created `ConfirmModal` component for unsaved changes warnings
+- Updated `AddBottleModal`, `AddRecipeModal`, `EditBottleModal` to use ConfirmModal
+- Updated `bar/page.tsx` bulk delete to use DeleteConfirmModal
+- All 5 window.confirm() usages replaced
+
+**Error Boundaries**:
+- Added `src/app/recipes/error.tsx` with retry functionality
+- Added `src/app/bar/error.tsx` with retry functionality
+
+**TypeScript Strictness**:
+- Fixed 30+ `any` types across all test files
+- Added proper type imports (Mock, Request, Response, NextFunction)
+- Created type definitions for mock components
+
+**Docker Security**:
+- Changed `docker/docker-compose.prod.yml` to require passwords via `${VAR:?error}` syntax
+- No more weak default passwords (changeme)
+
+#### 2. Medium Priority Fixes
+
+**Accessibility (aria-labels)**:
+- `dashboard/page.tsx`: Added aria-labels to category cells, recipe tiers, collections
+- `BottleCard.tsx`: Added aria-label with item name and stock count
+- `ElementCell.tsx`: Added aria-label for element list items
+- `ElementCard.tsx`: Added aria-label for add button
+
+**Loading UI Consistency**:
+- Created `LoadingSpinner` component in `src/components/ui/LoadingSpinner/`
+- Updated `bar/page.tsx` Suspense fallback
+- Updated `recipes/page.tsx` Suspense fallback
+
+**Hardcoded Strings Extraction**:
+- Created `src/app/ai/constants.ts` with THINKING_PHRASES, QUICK_PROMPTS, DATE_LABELS
+- Updated `ai/page.tsx` to import from constants
+
+#### 3. Bug Fix: Modal Success State
+
+**Problem**: Success checkmark appeared on top of modal instead of replacing it.
+
+**Solution**: Changed all modals to return early with SuccessCheckmark when showSuccess is true.
+
+**Files**:
+- `AddBottleModal.tsx`
+- `AddRecipeModal.tsx`
+- `EditBottleModal.tsx`
+
+#### 4. Test Suite Fixes
+
+**Problem**: Test count discrepancy - `npm run test:all` only ran 511 tests (subset), while full `npm test` runs 884 tests.
+
+**Fixes**:
+- `RecipeService.test.ts`: Fixed bulk move limit test (changed 101→501, "Maximum 100"→"Maximum 500")
+- `RecipeService.test.ts`: Fixed "should move multiple recipes to a collection" test - `validateCollection()` makes 2 queryOne calls, test only mocked 1. Added second mock for the actual validation query.
+
+### Files Changed
+
+**New Files**:
+- `src/app/recipes/error.tsx`
+- `src/app/bar/error.tsx`
+- `src/components/modals/ConfirmModal.tsx`
+- `src/components/modals/ConfirmModal.module.css`
+- `src/components/ui/LoadingSpinner/LoadingSpinner.tsx`
+- `src/components/ui/LoadingSpinner/LoadingSpinner.module.css`
+- `src/components/ui/LoadingSpinner/index.ts`
+- `src/app/ai/constants.ts`
+
+**Modified Files**:
+- `src/lib/api.ts` - removed console.logs
+- `src/lib/store/createChatSlice.ts` - removed console.logs
+- `docker/docker-compose.prod.yml` - required password validation
+- `src/components/modals/AddBottleModal.tsx` - ConfirmModal + success fix
+- `src/components/modals/AddRecipeModal.tsx` - ConfirmModal + success fix
+- `src/components/modals/EditBottleModal.tsx` - ConfirmModal + DeleteConfirmModal + success fix
+- `src/app/bar/page.tsx` - DeleteConfirmModal + LoadingSpinner
+- `src/app/recipes/page.tsx` - LoadingState fallback
+- `src/app/dashboard/page.tsx` - aria-labels
+- `src/components/BottleCard/BottleCard.tsx` - aria-label
+- `src/components/PeriodicTableV2/ElementCell.tsx` - aria-label
+- `src/components/ui/ElementCard.tsx` - aria-label
+- `src/components/ui/index.ts` - export LoadingSpinner
+- `src/app/ai/page.tsx` - use constants
+- All test files - fixed any types
+- `api/src/services/RecipeService.test.ts` - fixed bulk move limit and collection validation mocks
+- `src/lib/api.test.ts` - fixed axios interceptor type assertions
+
+### Next Steps
+- Deploy to production
+- Monitor for any issues
+
+---
+
+## Session 8 (2025-12-25): Recipe Collections UX & MemMachine Fixes
 
 ### Summary
 Major UX improvements for recipe collection management: added Select All for uncategorized recipes, Create & Move to new collection in bulk move modal, fixed pill tag styling, and eliminated MemMachine duplicate entries.

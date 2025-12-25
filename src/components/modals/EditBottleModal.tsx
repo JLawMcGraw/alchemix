@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { X, ChevronDown, ChevronUp, AlertCircle, Plus, Minus, Trash2 } from 'lucide-react';
 import { SuccessCheckmark } from '@/components/ui';
+import { ConfirmModal } from './ConfirmModal';
+import { DeleteConfirmModal } from './DeleteConfirmModal';
 import type { InventoryItem, InventoryCategory } from '@/types';
 import styles from './EditBottleModal.module.css';
 
@@ -49,6 +51,8 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate, onDelete }:
   const [error, setError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [showConfirmClose, setShowConfirmClose] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const modalRef = useRef<HTMLDivElement>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
@@ -66,20 +70,23 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate, onDelete }:
   // Check if details section has changes
   const detailsHaveChanges = changedFields.some(f => ['abv', 'origin', 'notes'].includes(f));
 
-  const handleClose = useCallback(() => {
-    if (hasChanges && !loading && !showSuccess) {
-      const confirmClose = window.confirm(
-        'You have unsaved changes. Are you sure you want to close?'
-      );
-      if (!confirmClose) return;
-    }
-
+  const doClose = useCallback(() => {
     setError(null);
     setLoading(false);
     setShowSuccess(false);
     setShowDetails(false);
+    setShowConfirmClose(false);
+    setShowDeleteConfirm(false);
     onClose();
-  }, [hasChanges, loading, showSuccess, onClose]);
+  }, [onClose]);
+
+  const handleClose = useCallback(() => {
+    if (hasChanges && !loading && !showSuccess) {
+      setShowConfirmClose(true);
+      return;
+    }
+    doClose();
+  }, [hasChanges, loading, showSuccess, doClose]);
 
   // Populate form when bottle changes
   useEffect(() => {
@@ -190,13 +197,13 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate, onDelete }:
     }
   };
 
-  const handleDelete = async () => {
-    if (!onDelete || !bottle.id) return;
+  const handleDeleteClick = () => {
+    if (!onDelete || !bottle?.id) return;
+    setShowDeleteConfirm(true);
+  };
 
-    const confirmDelete = window.confirm(
-      `Are you sure you want to delete "${bottle.name}"? This action cannot be undone.`
-    );
-    if (!confirmDelete) return;
+  const handleDeleteConfirm = async () => {
+    if (!onDelete || !bottle?.id) return;
 
     setLoading(true);
     setError(null);
@@ -215,14 +222,17 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate, onDelete }:
     }
   };
 
+  if (showSuccess) {
+    return (
+      <SuccessCheckmark
+        message="Item updated successfully!"
+        onComplete={doClose}
+      />
+    );
+  }
+
   return (
     <>
-      {showSuccess && (
-        <SuccessCheckmark
-          message="Item updated successfully!"
-          onComplete={handleClose}
-        />
-      )}
       <div className={styles.overlay} onClick={handleClose}>
         <div
           className={styles.modal}
@@ -424,7 +434,7 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate, onDelete }:
                 <button
                   type="button"
                   className={styles.deleteBtn}
-                  onClick={handleDelete}
+                  onClick={handleDeleteClick}
                   disabled={loading}
                 >
                   <Trash2 size={14} />
@@ -452,6 +462,26 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate, onDelete }:
           </form>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={showConfirmClose}
+        onClose={() => setShowConfirmClose(false)}
+        onConfirm={doClose}
+        title="Discard changes?"
+        message="You have unsaved changes. Are you sure you want to close this form?"
+        confirmText="Discard"
+        cancelText="Keep Editing"
+        variant="warning"
+      />
+
+      <DeleteConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Item"
+        message="Are you sure you want to delete this item?"
+        itemName={bottle?.name}
+      />
     </>
   );
 }
