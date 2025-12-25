@@ -279,12 +279,17 @@ function OnboardingContent() {
     }
   }, [isValidating, user, router, isReplayMode]);
 
-  // Calculate makeable recipes based on selection
+  // Calculate makeable recipes based on selection (including custom bottles)
   const makeableRecipes = useMemo(() => {
+    // Combine selected periodic elements with custom bottle symbols
+    const allSelectedSymbols = new Set([
+      ...selectedElements,
+      ...customBottles.map(b => b.symbol),
+    ]);
     return classicRecipes.filter((recipe) =>
-      recipe.requires.every((req) => selectedElements.has(req))
+      recipe.requires.every((req) => allSelectedSymbols.has(req))
     );
-  }, [selectedElements, classicRecipes]);
+  }, [selectedElements, customBottles, classicRecipes]);
 
   // Calculate pagination for results
   const totalResultsPages = Math.ceil(makeableRecipes.length / RESULTS_PER_PAGE);

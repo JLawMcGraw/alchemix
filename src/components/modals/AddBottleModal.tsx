@@ -101,17 +101,25 @@ export function AddBottleModal({ isOpen, onClose, onAdd, preFill }: AddBottleMod
     onClose();
   }, [isDirty, loading, onClose]);
 
-  // Apply pre-fill data when modal opens with preFill prop
+  // Apply pre-fill data when modal opens, or reset if no preFill
   useEffect(() => {
-    if (isOpen && preFill) {
-      setFormData(prev => ({
-        ...prev,
-        name: preFill.name,
-        category: preFill.category,
-        type: preFill.type,
-        periodic_group: preFill.periodic_group,
-        periodic_period: preFill.periodic_period,
-      }));
+    if (isOpen) {
+      if (preFill) {
+        setFormData(prev => ({
+          ...prev,
+          name: preFill.name,
+          category: preFill.category,
+          type: preFill.type,
+          periodic_group: preFill.periodic_group,
+          periodic_period: preFill.periodic_period,
+        }));
+      } else {
+        // Reset form when opening with no preFill (e.g., "Add Other")
+        setFormData(createInitialFormState());
+        setError(null);
+        setIsDirty(false);
+        setShowDetails(false);
+      }
     }
   }, [isOpen, preFill]);
 
