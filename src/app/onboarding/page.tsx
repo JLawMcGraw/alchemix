@@ -814,6 +814,7 @@ function OnboardingContent() {
         onClose={() => {
           setShowAddBottleModal(false);
           setAddBottlePreFill(null);
+          setEditingElement(null);
         }}
         onAdd={handleAddBottle}
         preFill={addBottlePreFill}
