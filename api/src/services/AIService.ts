@@ -2111,7 +2111,7 @@ ${hasRecipes ? `End with: RECOMMENDATIONS: Recipe Name 1, Recipe Name 2
         ],
         generationConfig: {
           temperature: 1.0,  // Gemini 3 works best at temperature 1.0
-          maxOutputTokens: 16384,  // Gemini 3 Pro uses "thinking tokens" (~4000) that count against this limit
+          maxOutputTokens: 8192,  // Flash needs less headroom than Pro
           topP: 0.95,
           topK: 40
         },
@@ -2124,7 +2124,7 @@ ${hasRecipes ? `End with: RECOMMENDATIONS: Recipe Name 1, Recipe Name 2
       };
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent`,
         {
           method: 'POST',
           headers: {
@@ -2222,6 +2222,128 @@ ${hasRecipes ? `End with: RECOMMENDATIONS: Recipe Name 1, Recipe Name 2
       } : undefined;
 
       return { response: aiMessage, usage };
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  /**
+   * Send message to Gemini API with streaming response
+   * Yields text chunks as they arrive from the API
+   */
+  async *sendMessageStream(
+    userId: number,
+    message: string,
+    history: { role: 'user' | 'assistant'; content: string }[] = []
+  ): AsyncGenerator<string, void, unknown> {
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    if (!apiKey || apiKey === 'your-api-key-here') {
+      throw new Error('AI service is not configured');
+    }
+
+    const systemPrompt = await this.buildContextAwarePrompt(userId, message, history);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
+
+    try {
+      const staticText = systemPrompt[0]?.text || '';
+      const dynamicText = systemPrompt[1]?.text || '';
+
+      // Convert history to Gemini format
+      const geminiHistory = history.map(msg => ({
+        role: msg.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: msg.content }]
+      }));
+
+      const geminiRequest = {
+        system_instruction: {
+          parts: [{ text: staticText + '\n\n' + dynamicText }]
+        },
+        contents: [
+          ...geminiHistory,
+          { role: 'user', parts: [{ text: message }] }
+        ],
+        generationConfig: {
+          temperature: 1.0,
+          maxOutputTokens: 8192,
+          topP: 0.95,
+          topK: 40
+        },
+        safetySettings: [
+          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+        ]
+      };
+
+      // Use streamGenerateContent endpoint
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:streamGenerateContent?alt=sse`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey
+          },
+          body: JSON.stringify(geminiRequest),
+          signal: controller.signal,
+        }
+      );
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        logger.error('Gemini streaming API error', { status: response.status, body: errorBody });
+        throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
+      }
+
+      if (!response.body) {
+        throw new Error('No response body for streaming');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullResponse = '';
+      let chunkIndex = 0;
+
+      logger.info('Starting to read Gemini stream');
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          logger.info('Gemini stream complete', { totalChunks: chunkIndex });
+          break;
+        }
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const jsonStr = line.slice(6).trim();
+            if (jsonStr && jsonStr !== '[DONE]') {
+              try {
+                const data = JSON.parse(jsonStr);
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text) {
+                  chunkIndex++;
+                  fullResponse += text;
+                  yield text;
+                }
+              } catch {
+                // Skip malformed JSON chunks
+              }
+            }
+          }
+        }
+      }
+
+      // Store conversation after streaming completes
+      if (fullResponse) {
+        await memoryService.storeConversationTurn(userId, message, fullResponse);
+      }
+
     } finally {
       clearTimeout(timeoutId);
     }

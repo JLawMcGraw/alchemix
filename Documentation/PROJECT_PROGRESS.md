@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2025-12-24 (Session 6)
+Last updated: 2025-12-25 (Session 7)
 
 ---
 
@@ -32,7 +32,121 @@ Last updated: 2025-12-24 (Session 6)
 
 ---
 
-## Recent Session (2025-12-24): Code Review Polish & Accessibility Fixes
+## Recent Session (2025-12-25): AI Streaming, MemMachine Performance & CSV Import Fix
+
+### Summary
+Major performance improvements: implemented AI response streaming for faster perceived response times, dramatically improved MemMachine batch upload performance (~20x faster), fixed CSV import to properly skip empty rows, and improved login page UX.
+
+### Work Completed
+
+#### 1. AI Bartender Speed Improvements
+**Problem**: Users thought AI bartender was broken due to slow response times.
+
+**Analysis**:
+- Investigated if MCP server would help (answer: no, different purpose)
+- Identified Gemini Pro model as slower than needed
+- Identified lack of streaming as main UX issue (users wait for entire response)
+
+**Solutions Implemented**:
+- Switched from `gemini-3-pro-preview` to `gemini-3-flash-preview` for faster responses
+- Reduced maxOutputTokens from 16384 to 8192
+
+#### 2. AI Response Streaming (SSE)
+**Backend**:
+- Added `sendMessageStream` async generator to AIService
+- Uses Gemini's `streamGenerateContent?alt=sse` endpoint
+- Created `/api/messages/stream` POST endpoint with SSE headers
+- Proper headers: `Content-Type: text/event-stream`, `X-Accel-Buffering: no`, `Content-Encoding: none`
+
+**Frontend**:
+- Added `sendMessageStream` to api.ts using fetch with ReadableStream
+- Added `streamingMessage: string | null` state to chat slice
+- Updated AI page to show streaming text in real-time
+- Green typing animation shows during initial "thinking" wait, then streaming text appears
+- Fixed bug where typing text turned black (wrong CSS class)
+
+**Files**:
+- `api/src/services/AIService.ts`
+- `api/src/routes/messages.ts`
+- `src/lib/api.ts`
+- `src/lib/store/createChatSlice.ts`
+- `src/app/ai/page.tsx`
+
+#### 3. MemMachine Batch Upload Performance (~20x Faster)
+**Problem**: Importing 130 recipes took 5+ minutes due to slow MemMachine uploads.
+
+**Root Cause Discovery**:
+- Initial batch settings: 5 recipes, 1500ms delay between batches
+- First fix: increased to 10 recipes, 800ms delay - still slow
+- **Real issue**: Code was making individual HTTP requests per recipe (130 requests for 130 recipes)
+
+**Solution**:
+- Changed from concurrent individual calls to true batch API calls
+- MemMachine's `/api/v2/memories` accepts multiple messages in one request
+- Now sends 20 recipes per single API request
+- Reduced delay to 500ms between batches
+- **Before**: 130 recipes = 130 HTTP requests
+- **After**: 130 recipes = 7 HTTP requests
+
+**File**: `api/src/services/MemoryService.ts`
+
+#### 4. MemMachine Resilience Check
+**Existing Architecture Reviewed**:
+- On login: `syncMissingToMemMachine` checks for recipes with `memmachine_uid = NULL`
+- Manual sync available: `POST /api/recipes/memmachine/sync` for full re-upload
+- Login sync only catches NULL UIDs (recipes where upload failed/was interrupted)
+
+#### 5. CSV Import Empty Row Fix
+**Problem**: User imported recipe CSV showing "130 added, 879 failed" even though import was successful.
+
+**Root Cause**: CSV files often have hundreds of trailing empty rows. The CSV parser creates records for each, and validation fails them (no name field), counting as failures.
+
+**Solution**:
+- Added `isEmptyRow()` private method to detect rows where all values are empty/null/whitespace
+- Empty rows now silently skipped before validation (not counted as failures)
+- Applied fix to both RecipeService and InventoryService
+
+**Files**:
+- `api/src/services/RecipeService.ts` (lines 600-603, 1189-1207)
+- `api/src/services/InventoryService.ts` (lines 403-406, 907-925)
+
+#### 6. Login Page UX
+**Change**: Top right button changed from "Get Started" (opens signup modal) to "Log In" (opens login modal)
+
+**File**: `src/app/login/page.tsx`
+
+### Files Changed
+
+**API Services**:
+- `api/src/services/AIService.ts` - Streaming method, Flash model, reduced tokens
+- `api/src/services/MemoryService.ts` - True batch API calls (20 per request vs 1)
+- `api/src/services/RecipeService.ts` - `isEmptyRow()` helper for CSV import
+- `api/src/services/InventoryService.ts` - `isEmptyRow()` helper for CSV import
+
+**API Routes**:
+- `api/src/routes/messages.ts` - `/stream` SSE endpoint
+
+**Frontend Store**:
+- `src/lib/api.ts` - `sendMessageStream` with ReadableStream parsing
+- `src/lib/store/createChatSlice.ts` - `streamingMessage` state and action
+
+**Frontend Pages**:
+- `src/app/ai/page.tsx` - Streaming UI, typing animation fallback
+- `src/app/login/page.tsx` - "Log In" button instead of "Get Started"
+
+### Technical Decisions
+- **Gemini Flash over Pro**: Acceptable quality tradeoff for much faster responses
+- **SSE over WebSocket**: Simpler, sufficient for one-way streaming, better browser support
+- **20 recipes per batch**: Balance between speed and not overwhelming MemMachine
+- **Silent skip for empty rows**: Better UX than reporting hundreds of "failures" for empty rows
+
+### Next Priority
+- Production deployment (Phase 6)
+- Monitor MemMachine sync reliability after batch optimization
+
+---
+
+## Previous Session (2025-12-24): Code Review Polish & Accessibility Fixes
 
 ### Summary
 Addressed code review feedback from v1.34.0: added keyboard accessibility to BottleCard, improved out-of-stock visibility, extracted hardcoded colors to CSS variables, added `--nav-height` variable, restored seasonal greetings, updated favicon to match new logo geometry, and fixed TopNav test mismatch.

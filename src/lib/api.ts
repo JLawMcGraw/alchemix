@@ -580,6 +580,97 @@ export const aiApi = {
     return data.data.message;
   },
 
+  /**
+   * Stream a message to the AI bartender
+   * Uses Server-Sent Events for real-time response streaming
+   */
+  async sendMessageStream(
+    message: string,
+    conversationHistory: { role: string; content: string }[],
+    onChunk: (text: string) => void,
+    onComplete: () => void,
+    onError: (error: string) => void
+  ): Promise<void> {
+    console.log('[API] sendMessageStream starting');
+    const csrfToken = getCSRFToken();
+    console.log('[API] Fetching stream endpoint');
+
+    const response = await fetch(`${API_BASE_URL}/api/messages/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        message,
+        history: Array.isArray(conversationHistory)
+          ? conversationHistory.map((entry) => ({
+              role: entry.role,
+              content: entry.content,
+            }))
+          : [],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Request failed' }));
+      onError(errorData.error || `HTTP ${response.status}`);
+      return;
+    }
+
+    if (!response.body) {
+      onError('No response body');
+      return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    console.log('[Streaming] Starting to read response');
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        console.log('[Streaming] Reader done');
+        break;
+      }
+
+      const chunk = decoder.decode(value, { stream: true });
+      console.log('[Streaming] Received chunk:', chunk.substring(0, 100));
+      const lines = chunk.split('\n');
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr) {
+            try {
+              const data = JSON.parse(jsonStr);
+              if (data.error) {
+                console.log('[Streaming] Error:', data.error);
+                onError(data.error);
+                return;
+              }
+              if (data.done) {
+                console.log('[Streaming] Done signal received');
+                onComplete();
+                return;
+              }
+              if (data.text) {
+                console.log('[Streaming] Text chunk:', data.text.substring(0, 50));
+                onChunk(data.text);
+              }
+            } catch {
+              // Skip malformed JSON
+            }
+          }
+        }
+      }
+    }
+
+    onComplete();
+  },
+
   async getDashboardInsight(): Promise<{ greeting: string; insight: string }> {
     const { data } = await apiClient.get<{ success: boolean; data: { greeting: string; insight: string } }>(
       '/api/messages/dashboard-insight'

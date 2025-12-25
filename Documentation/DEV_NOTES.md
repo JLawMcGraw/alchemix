@@ -4,6 +4,84 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-12-25 - MemMachine Batch Upload Optimization
+
+### The Problem
+Importing 130 recipes took 5+ minutes. MemMachine uploads were extremely slow.
+
+### Root Cause
+The code was making **individual HTTP requests per recipe**, even when running concurrently. 130 recipes = 130 HTTP requests, each requiring MemMachine to generate embeddings.
+
+### The Fix
+Changed to **true batch API calls**. MemMachine's `/api/v2/memories` endpoint accepts multiple messages in a single request.
+
+```typescript
+// BEFORE: 10 concurrent individual calls per batch
+const batchPromises = batch.map((recipe) => storeWithRetry(recipe));
+
+// AFTER: 1 API call with 20 recipes in messages array
+const messages = batch.map(recipe => ({
+  content: this.formatRecipeForStorage(recipe),
+  producer: `user_${userId}`,
+  produced_for: `user_${userId}`,
+}));
+await this.post('/api/v2/memories', { org_id, project_id, messages });
+```
+
+### Results
+- **Before**: 130 recipes = 130 HTTP requests
+- **After**: 130 recipes = 7 HTTP requests (20 per batch)
+- ~20x faster
+
+---
+
+## 2025-12-25 - SSE Streaming for AI Responses
+
+### The Decision
+Implemented Server-Sent Events (SSE) for AI response streaming instead of WebSockets.
+
+### Why SSE over WebSocket
+- **Simpler**: No connection management, just HTTP with chunked response
+- **Sufficient**: AI responses are one-way (server → client)
+- **Better browser support**: Works through proxies that might block WebSocket
+- **No library needed**: Native fetch with ReadableStream
+
+### Implementation
+- Backend: Gemini's `streamGenerateContent?alt=sse` endpoint + Express response streaming
+- Frontend: fetch with `response.body.getReader()` + TextDecoder
+- Headers: `Content-Type: text/event-stream`, `X-Accel-Buffering: no` (nginx), `Content-Encoding: none`
+
+### Gotcha
+Must disable compression for SSE or chunks get buffered. Set `Content-Encoding: none`.
+
+---
+
+## 2025-12-25 - CSV Import Empty Row Handling
+
+### The Problem
+User imported CSV showing "130 added, 879 failed" even though import was successful.
+
+### Root Cause
+CSV files often have hundreds of trailing empty rows. The CSV parser creates records for each, validation fails (no name field), and they're counted as failures.
+
+### The Fix
+Added `isEmptyRow()` check before validation. Empty rows are silently skipped, not counted as failures.
+
+```typescript
+private isEmptyRow(record: Record<string, unknown>): boolean {
+  for (const value of Object.values(record)) {
+    if (value === undefined || value === null) continue;
+    if (typeof value === 'string' && value.trim().length === 0) continue;
+    return false; // Found non-empty value
+  }
+  return true;
+}
+```
+
+Applied to both RecipeService and InventoryService.
+
+---
+
 ## 2025-12-18 - Claude Prompt Caching Optimization
 
 ### The Problem

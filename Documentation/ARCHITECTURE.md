@@ -1,7 +1,7 @@
 # AlcheMix Architecture
 
-**Version**: v1.33.0
-**Last Updated**: December 21, 2025
+**Version**: v1.34.0
+**Last Updated**: December 25, 2025
 
 This document provides a comprehensive map of the AlcheMix system architecture, including high-level diagrams, component relationships, and data flows.
 
@@ -81,7 +81,7 @@ graph TB
 | | TypeScript | Type safety |
 | | pg (node-postgres) | PostgreSQL database driver |
 | **Database** | PostgreSQL 16 | Relational database |
-| **AI** | Gemini 3 Pro/Flash | AI bartender recommendations |
+| **AI** | Gemini 3 Flash + SSE Streaming | AI bartender recommendations |
 | **Memory** | PostgreSQL + MemMachine v2 | Hybrid search (exact + semantic) |
 | | Neo4j 5.23 | Vector embeddings storage |
 | **Auth** | JWT | Token-based authentication |
@@ -383,8 +383,9 @@ graph LR
 
         subgraph ChatSlice["Chat Slice"]
             Messages[chatHistory]
+            Streaming[streamingMessage]
             ShopItems[shoppingListItems]
-            SendMsg["sendMessage()"]
+            SendMsg["sendMessageStream()"]
         end
     end
 
@@ -427,7 +428,7 @@ graph TD
             REC["/api/recipes/*<br/>(search, bulk-move)"]
             COL["/api/collections/*"]
             FAV["/api/favorites/*"]
-            MSG["/api/messages"]
+            MSG["/api/messages<br/>/api/messages/stream"]
             SHOP["/api/shopping-list/*"]
             GLASS["/api/glasses/*"]
         end
@@ -698,7 +699,7 @@ sequenceDiagram
     Store-->>UI: Re-render
 ```
 
-### AI Bartender Chat
+### AI Bartender Chat (with SSE Streaming)
 
 ```mermaid
 sequenceDiagram
@@ -711,10 +712,10 @@ sequenceDiagram
     participant MM as MemMachine
     participant Gemini as Gemini API
 
-    UI->>Store: sendMessage(text)
-    Store->>API: aiApi.sendMessage(message, history)
-    API->>Route: POST /api/messages
-    Route->>AISvc: processMessage()
+    UI->>Store: sendMessageStream(text)
+    Store->>API: aiApi.sendMessageStream(message, history)
+    API->>Route: POST /api/messages/stream
+    Route->>AISvc: processMessageStream()
 
     Note over AISvc: Hybrid Search (parallel)
     AISvc->>DB: Search by ingredients (exact match)
@@ -725,20 +726,26 @@ sequenceDiagram
     AISvc->>AISvc: Merge & deduplicate results
     AISvc->>AISvc: Compute craftability markers
     AISvc->>AISvc: Build context prompt
-    AISvc->>Gemini: Send to Gemini 3 Pro
-    Gemini-->>AISvc: AI response
+    AISvc->>Gemini: streamGenerateContent (SSE)
 
-    AISvc-->>Route: Response + recommendations
-    Route-->>API: JSON response
-    API-->>Store: Update chatHistory
-    Store-->>UI: Display response
+    loop SSE Stream
+        Gemini-->>AISvc: Text chunk
+        AISvc-->>Route: Yield chunk
+        Route-->>API: SSE event: {text: "..."}
+        API-->>Store: Append to streamingMessage
+        Store-->>UI: Update display
+    end
+
+    Route-->>API: SSE event: {done: true}
+    Store->>Store: Move streamingMessage to chatHistory
+    Store-->>UI: Final render
 ```
 
 ---
 
 ## External Integrations
 
-### Gemini AI Integration
+### Gemini AI Integration (with SSE Streaming)
 
 ```mermaid
 graph LR
@@ -749,7 +756,8 @@ graph LR
     end
 
     subgraph GeminiAPI["Gemini API"]
-        Models[Gemini 3 Pro/Flash]
+        Models[Gemini 3 Flash]
+        Stream[streamGenerateContent?alt=sse]
     end
 
     subgraph Context["Context Building"]
@@ -762,9 +770,16 @@ graph LR
     CocktailData -->|Query Expansion| AIService
     Context --> AIService
     Persona --> AIService
-    AIService -->|Generate Content| Models
-    Models -->|Response| AIService
+    AIService -->|SSE Request| Stream
+    Stream -->|Text Chunks| AIService
 ```
+
+**Streaming Implementation:**
+- Backend uses `streamGenerateContent?alt=sse` endpoint
+- Express sends chunks via Server-Sent Events (SSE)
+- Headers: `Content-Type: text/event-stream`, `X-Accel-Buffering: no`
+- Frontend uses `fetch` with `ReadableStream` to parse chunks
+- Zustand `streamingMessage` state updates incrementally
 
 ### Hybrid Search Architecture
 
@@ -892,7 +907,7 @@ npm run type-check       # TypeScript checks (all packages)
 
 # Testing
 cd api && npm test       # Backend tests (884)
-npm test                 # Frontend tests (233)
+npm test                 # Frontend tests (234)
 cd packages/recipe-molecule && npm test  # Molecule tests (169)
 
 # Docker (for MemMachine)
@@ -1034,7 +1049,7 @@ docker compose -f docker/docker-compose.yml up -d
 | Module | Depends On | External Packages |
 |--------|-----------|-------------------|
 | `lib/store.ts` | lib/api.ts | zustand, zustand/middleware |
-| `lib/api.ts` | - | fetch (built-in) |
+| `lib/api.ts` | - | fetch (built-in), ReadableStream for SSE |
 | `lib/colors.ts` | types | (pure) - shared color constants |
 | `lib/utils.ts` | - | (pure) - shared utilities |
 | `lib/periodicTable/*` | - | (pure) |
@@ -1074,10 +1089,10 @@ packages/types/
         │  PostgreSQL   │   │  MemMachine   │   │  Gemini API   │
         │   (Docker)    │   │  (Docker)     │   │   (Google)    │
         ├───────────────┤   ├───────────────┤   ├───────────────┤
-        │ Users         │   │ POST /store   │   │ Pro (chat)    │
-        │ Inventory     │   │ POST /query   │   │ Flash (dash)  │
+        │ Users         │   │ POST /store   │   │ Flash (SSE)   │
+        │ Inventory     │   │ POST /query   │   │ Streaming     │
         │ Recipes       │   │ DELETE /mem   │   │ max_tokens:   │
-        │ Collections   │   │               │   │ 4096/1024     │
+        │ Collections   │   │               │   │ 8192          │
         │ Favorites     │   └───────┬───────┘   └───────────────┘
         │ Classifications│          │
         └───────────────┘          ▼
@@ -1157,4 +1172,4 @@ Request Flow:
 
 ---
 
-*Last updated: December 21, 2025*
+*Last updated: December 25, 2025*

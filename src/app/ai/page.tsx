@@ -34,7 +34,8 @@ export default function AIPage() {
   const { isValidating, isAuthenticated } = useAuthGuard();
   const {
     chatHistory,
-    sendMessage,
+    streamingMessage,
+    sendMessageStream,
     clearChat,
     recipes,
     favorites,
@@ -66,7 +67,7 @@ export default function AIPage() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatHistory]);
+  }, [chatHistory, streamingMessage]);
 
   useEffect(() => {
     if (isAuthenticated && !isValidating) {
@@ -210,7 +211,7 @@ export default function AIPage() {
     setErrorMessage(null);
 
     try {
-      await sendMessage(userMessage);
+      await sendMessageStream(userMessage);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to send message.';
       setErrorMessage(message);
@@ -613,7 +614,7 @@ export default function AIPage() {
 
             {/* Messages */}
             <div className={styles.messages}>
-              {chatArray.length === 0 ? (
+              {chatArray.length === 0 && streamingMessage === null ? (
                 <div className={styles.emptyState}>
                   <div className={styles.emptyLogo}>
                     <AlcheMixLogo size="lg" showText={false} />
@@ -637,11 +638,14 @@ export default function AIPage() {
                     </div>
                   ))}
 
-                  {loading && (
+                  {/* Show streaming message or typing indicator */}
+                  {streamingMessage !== null && (
                     <div className={styles.messageAi}>
-                      <div className={styles.typingText}>
-                        {typingText}
-                      </div>
+                      {streamingMessage ? (
+                        <div className={styles.messageText}>{streamingMessage}</div>
+                      ) : (
+                        <div className={styles.typingText}>{typingText}</div>
+                      )}
                     </div>
                   )}
 

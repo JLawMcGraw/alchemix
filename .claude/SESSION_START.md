@@ -7,7 +7,7 @@
 | Version | v1.34.0 |
 | Branch | `postgresql-deployment` |
 | Tests | 1,287 total (884 backend, 234 frontend, 169 recipe-molecule) |
-| Last Updated | December 24, 2025 |
+| Last Updated | December 25, 2025 |
 
 ---
 
@@ -29,7 +29,7 @@ A full-stack cocktail inventory and recipe management app with AI-powered barten
 |-------|------------|
 | Frontend | Next.js 14, TypeScript, Zustand, CSS Modules |
 | Backend | Express.js, TypeScript, PostgreSQL (pg driver) |
-| AI | Gemini 3 Pro (conversations) + Gemini 3 Flash (dashboard) |
+| AI | Gemini 3 Flash (conversations + dashboard) with SSE streaming |
 | Memory | MemMachine (Neo4j vector store) + PostgreSQL hybrid search |
 | Auth | JWT + bcrypt, token blacklist, database-backed versioning |
 | Molecule Viz | `@alchemix/recipe-molecule` (custom d3-force SVG) |
@@ -126,7 +126,7 @@ npm run lint
 - **Onboarding (FTUX)**: 3-step flow - welcome, quick-add bottles (periodic table elements), preview makeable cocktails
 - **My Bar**: 9 category tabs, BottleCard grid, ItemDetailModal (view/edit)
 - **Recipes**: Collections, bulk operations, CSV import, mastery filters, molecule visualization
-- **AI Bartender**: MemMachine semantic search + concept expansion (spirit-forward, tiki, boozy, etc.)
+- **AI Bartender**: MemMachine semantic search + concept expansion, SSE streaming responses
 - **Shopping List**: Persistent items, recipe buckets, near-miss algorithm
 - **Periodic Table**: V1 (traditional sections) or V2 (6×6 grid by function/origin)
 

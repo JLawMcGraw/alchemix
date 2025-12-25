@@ -359,9 +359,9 @@ export class MemoryService {
     errors: string[];
     uidMap: Map<string, string>; // Map recipe name → UID
   }> {
-    // Reduced batch size and increased delay to prevent MemMachine overload
-    const batchSize = 5;
-    const delayBetweenBatches = 1500;
+    // Batch settings - send multiple recipes in ONE API request
+    const batchSize = 20; // Recipes per single API call
+    const delayBetweenBatches = 500;
     const maxRetries = 2;
     let successCount = 0;
     let failedCount = 0;
@@ -373,46 +373,57 @@ export class MemoryService {
     // Ensure project exists once
     const projectId = await this.ensureProjectExists(userId, 'recipes');
 
-    // Helper to store a single recipe with retry
-    const storeWithRetry = async (recipe: RecipeData, attempt: number = 1): Promise<{ success: boolean; recipe: string; uid: string | null; error?: string }> => {
+    // Helper to store a batch of recipes in a SINGLE API request
+    const storeBatch = async (batch: RecipeData[], attempt: number = 1): Promise<{
+      successes: Array<{ recipe: string; uid: string | null }>;
+      failures: Array<{ recipe: string; error: string }>;
+    }> => {
       try {
-        const recipeText = this.formatRecipeForStorage(recipe);
+        // Build messages array with ALL recipes in this batch
+        const messages = batch.map(recipe => ({
+          content: this.formatRecipeForStorage(recipe),
+          producer: `user_${userId}`,
+          produced_for: `user_${userId}`,
+        }));
 
         const request: AddMemoriesRequest = {
           org_id: ORG_ID,
           project_id: projectId,
-          messages: [
-            {
-              content: recipeText,
-              producer: `user_${userId}`,
-              produced_for: `user_${userId}`,
-            },
-          ],
+          messages,
         };
 
         const response = await this.post<AddMemoriesResponse>('/api/v2/memories', request);
-        const uid = response.results?.[0]?.uid;
 
-        if (attempt > 1) {
-          logger.info('MemMachine: Stored recipe after retry', { recipeName: recipe.name, userId, uid, attempt });
+        // Map UIDs back to recipe names (results array matches messages array order)
+        const successes: Array<{ recipe: string; uid: string | null }> = [];
+        const results = response.results || [];
+
+        for (let i = 0; i < batch.length; i++) {
+          const uid = results[i]?.uid || null;
+          successes.push({ recipe: batch[i].name, uid });
         }
-        return { success: true, recipe: recipe.name, uid };
+
+        return { successes, failures: [] };
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Unknown error';
 
         // Retry on timeout/abort errors
         if (attempt < maxRetries && (errorMsg.includes('aborted') || errorMsg.includes('timeout'))) {
-          logger.warn('MemMachine: Retrying recipe storage', { recipeName: recipe.name, userId, attempt, error: errorMsg });
-          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
-          return storeWithRetry(recipe, attempt + 1);
+          logger.warn('MemMachine: Retrying batch', { batchSize: batch.length, userId, attempt, error: errorMsg });
+          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+          return storeBatch(batch, attempt + 1);
         }
 
-        logger.error('MemMachine: Failed to store recipe in batch', { recipeName: recipe.name, userId, error: errorMsg, attempt });
-        return { success: false, recipe: recipe.name, uid: null, error: errorMsg };
+        logger.error('MemMachine: Batch failed', { batchSize: batch.length, userId, error: errorMsg });
+        // Mark all recipes in batch as failed
+        return {
+          successes: [],
+          failures: batch.map(r => ({ recipe: r.name, error: errorMsg }))
+        };
       }
     };
 
-    // Process recipes in batches
+    // Process recipes in batches - ONE API call per batch
     for (let i = 0; i < recipes.length; i += batchSize) {
       const batch = recipes.slice(i, i + batchSize);
       const batchNumber = Math.floor(i / batchSize) + 1;
@@ -420,28 +431,20 @@ export class MemoryService {
 
       logger.info('MemMachine: Processing batch', { batchNumber, totalBatches, batchSize: batch.length });
 
-      // Process each recipe in the current batch concurrently
-      const batchPromises = batch.map((recipe) => storeWithRetry(recipe));
+      const result = await storeBatch(batch);
 
-      // Wait for all recipes in this batch to complete
-      const batchResults = await Promise.allSettled(batchPromises);
-
-      // Count successes and failures, collect UIDs
-      for (const result of batchResults) {
-        if (result.status === 'fulfilled') {
-          if (result.value.success) {
-            successCount++;
-            if (result.value.uid) {
-              uidMap.set(result.value.recipe, result.value.uid);
-            }
-          } else {
-            failedCount++;
-            errors.push(`${result.value.recipe}: ${result.value.error}`);
-          }
-        } else {
-          failedCount++;
-          errors.push(`Unknown recipe: ${result.reason}`);
+      // Count successes and collect UIDs
+      for (const success of result.successes) {
+        successCount++;
+        if (success.uid) {
+          uidMap.set(success.recipe, success.uid);
         }
+      }
+
+      // Count failures
+      for (const failure of result.failures) {
+        failedCount++;
+        errors.push(`${failure.recipe}: ${failure.error}`);
       }
 
       // Wait between batches (except for the last batch)

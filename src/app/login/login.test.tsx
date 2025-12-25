@@ -75,23 +75,29 @@ describe('Login Page', () => {
     mockValidateToken.mockResolvedValue(false);
   });
 
-  // Helper function to open the login modal (signup mode first, then switch to login)
+  // Helper function to open the login modal
   const openLoginModal = async () => {
     render(<LoginPage />);
-    // Click the "Get Started" button to open modal (opens in signup mode)
-    const getStartedButton = screen.getByText('Get Started');
-    await userEvent.click(getStartedButton);
-    // Switch to login mode by clicking "Log in" link
-    const loginLink = screen.getByText('Log in');
-    await userEvent.click(loginLink);
+    // Click the "Log In" button to open modal (opens in login mode)
+    const loginButton = screen.getByRole('button', { name: 'Log In' });
+    await userEvent.click(loginButton);
   };
 
   // Helper function to open signup modal
   const openSignupModal = async () => {
     render(<LoginPage />);
-    // Click the "Get Started" button to open modal (opens in signup mode)
-    const getStartedButton = screen.getByText('Get Started');
-    await userEvent.click(getStartedButton);
+    // Click the "Log In" button then switch to signup mode
+    const loginButton = screen.getByRole('button', { name: 'Log In' });
+    await userEvent.click(loginButton);
+    // Switch to signup mode by clicking "Sign up" link
+    const signupLink = screen.getByText('Sign up');
+    await userEvent.click(signupLink);
+  };
+
+  // Helper to get the submit button (distinguishes from nav button)
+  const getSubmitButton = () => {
+    const buttons = screen.getAllByRole('button', { name: 'Log In' });
+    return buttons.find(btn => btn.getAttribute('type') === 'submit')!;
   };
 
   describe('Rendering', () => {
@@ -100,9 +106,9 @@ describe('Login Page', () => {
       expect(screen.getByTestId('logo')).toBeInTheDocument();
     });
 
-    it('should render Get Started button', () => {
+    it('should render Log In button in nav', () => {
       render(<LoginPage />);
-      expect(screen.getByText('Get Started')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Log In' })).toBeInTheDocument();
     });
 
     it('should render periodic table preview elements', () => {
@@ -112,7 +118,7 @@ describe('Login Page', () => {
       expect(screen.getByText('Gin')).toBeInTheDocument();
     });
 
-    it('should open modal and render login form when Get Started is clicked', async () => {
+    it('should open modal and render login form when Log In is clicked', async () => {
       await openLoginModal();
       // Modal should now show form elements
       expect(screen.getByPlaceholderText('you@example.com')).toBeInTheDocument();
@@ -130,8 +136,8 @@ describe('Login Page', () => {
       await userEvent.type(emailInput, 'test@example.com');
       await userEvent.type(passwordInput, 'Password123!');
 
-      // Submit button text is "Log In" in login mode
-      const submitButton = screen.getByText('Log In');
+      // Submit button (type="submit") in modal
+      const submitButton = getSubmitButton();
       await userEvent.click(submitButton);
 
       await waitFor(() => {
@@ -142,7 +148,7 @@ describe('Login Page', () => {
     it('should show validation error for empty fields', async () => {
       await openLoginModal();
 
-      const submitButton = screen.getByText('Log In');
+      const submitButton = getSubmitButton();
       await userEvent.click(submitButton);
 
       // Login should not be called for empty fields
@@ -175,8 +181,9 @@ describe('Login Page', () => {
 
     it('should have accessible submit button', async () => {
       await openLoginModal();
-      const submitButton = screen.getByText('Log In');
-      expect(submitButton).toBeInTheDocument();
+      // Use helper to get submit button (type="submit") vs nav button
+      const submitButton = getSubmitButton();
+      expect(submitButton).toHaveAttribute('type', 'submit');
     });
   });
 });

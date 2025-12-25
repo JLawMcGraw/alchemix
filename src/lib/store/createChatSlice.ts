@@ -31,6 +31,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 export interface ChatSlice {
   // State
   chatHistory: ChatMessage[];
+  streamingMessage: string | null; // Current streaming message content
   shoppingListSuggestions: ShoppingListSuggestion[];
   shoppingListStats: ShoppingListStats | null;
   shoppingListItems: ShoppingListItem[];
@@ -45,6 +46,7 @@ export interface ChatSlice {
 
   // Actions
   sendMessage: (message: string) => Promise<string>;
+  sendMessageStream: (message: string) => Promise<void>;
   clearChat: () => void;
   fetchShoppingList: () => Promise<void>;
   fetchDashboardInsight: () => Promise<void>;
@@ -64,6 +66,7 @@ export const createChatSlice: StateCreator<
 > = (set, get) => ({
   // Initial State
   chatHistory: [],
+  streamingMessage: null,
   shoppingListSuggestions: [],
   shoppingListStats: null,
   shoppingListItems: [],
@@ -111,8 +114,57 @@ export const createChatSlice: StateCreator<
     }
   },
 
+  sendMessageStream: async (message) => {
+    console.log('[ChatSlice] sendMessageStream called');
+    try {
+      // Add user message to history with timestamp
+      const userMessage: ChatMessage = {
+        role: 'user',
+        content: message,
+        timestamp: new Date().toISOString()
+      };
+      const historyWithUser = [...get().chatHistory, userMessage];
+      set({ chatHistory: historyWithUser, streamingMessage: '' });
+
+      console.log('[ChatSlice] Calling aiApi.sendMessageStream');
+      // Stream AI response
+      await aiApi.sendMessageStream(
+        message,
+        historyWithUser,
+        // onChunk - append text to streaming message
+        (text) => {
+          set((state) => ({
+            streamingMessage: (state.streamingMessage || '') + text
+          }));
+        },
+        // onComplete - move streaming message to history
+        () => {
+          const finalMessage = get().streamingMessage || '';
+          const aiMessage: ChatMessage = {
+            role: 'assistant',
+            content: finalMessage,
+            timestamp: new Date().toISOString()
+          };
+          set((state) => ({
+            chatHistory: [...state.chatHistory, aiMessage],
+            streamingMessage: null
+          }));
+        },
+        // onError
+        (error) => {
+          console.error('Streaming error:', error);
+          set({ streamingMessage: null });
+          throw new Error(error);
+        }
+      );
+    } catch (error) {
+      set({ streamingMessage: null });
+      throw error;
+    }
+  },
+
   clearChat: () => {
-    set({ chatHistory: [] });
+    set({ chatHistory: [], streamingMessage: null });
   },
 
   fetchShoppingList: async () => {

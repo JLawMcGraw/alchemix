@@ -597,6 +597,11 @@ export class RecipeService {
       const record = records[i];
       const rowNumber = i + 2;
 
+      // Skip completely empty rows (common in CSVs with trailing empty lines)
+      if (this.isEmptyRow(record)) {
+        continue;
+      }
+
       const validation = this.validateCSVRecipeData(record);
 
       if (!validation.isValid) {
@@ -1179,6 +1184,26 @@ export class RecipeService {
       }
     }
     return null;
+  }
+
+  /**
+   * Check if a CSV row is completely empty
+   *
+   * Returns true if all values in the record are empty, null, undefined,
+   * or whitespace-only strings. Common in CSVs with trailing empty lines.
+   */
+  private isEmptyRow(record: Record<string, unknown>): boolean {
+    for (const value of Object.values(record)) {
+      if (value === undefined || value === null) {
+        continue;
+      }
+      if (typeof value === 'string' && value.trim().length === 0) {
+        continue;
+      }
+      // Found a non-empty value
+      return false;
+    }
+    return true;
   }
 }
 

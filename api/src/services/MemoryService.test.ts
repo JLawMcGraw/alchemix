@@ -471,11 +471,11 @@ describe('MemoryService', () => {
 
   describe('storeUserRecipesBatch', () => {
     it('should batch upload recipes', async () => {
-      // All successful
+      // True batch: all recipes sent in one API call, returns multiple UIDs
       mockFetch.mockResolvedValue({
         ok: true,
         json: async () => ({
-          results: [{ uid: 'batch-uid' }],
+          results: [{ uid: 'uid-1' }, { uid: 'uid-2' }],
         }),
       });
 
@@ -491,29 +491,26 @@ describe('MemoryService', () => {
       expect(result.uidMap.size).toBe(2);
     });
 
-    it('should handle partial failures', async () => {
-      // First succeeds, second fails
+    it('should handle batch API failure', async () => {
+      // Project creation succeeds, batch upload fails
       mockFetch
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({}), // Project creation
         })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ results: [{ uid: 'uid1' }] }),
-        })
         .mockRejectedValueOnce(new Error('API Error'));
 
       const recipes: RecipeData[] = [
-        { name: 'Success', ingredients: ['A'] },
-        { name: 'Fail', ingredients: ['B'] },
+        { name: 'Recipe1', ingredients: ['A'] },
+        { name: 'Recipe2', ingredients: ['B'] },
       ];
 
       const result = await memoryService.storeUserRecipesBatch(1, recipes);
 
-      expect(result.success).toBe(1);
-      expect(result.failed).toBe(1);
-      expect(result.errors.length).toBe(1);
+      // When batch fails, all recipes in that batch fail
+      expect(result.success).toBe(0);
+      expect(result.failed).toBe(2);
+      expect(result.errors.length).toBe(2);
     });
   });
 

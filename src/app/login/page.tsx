@@ -159,11 +159,11 @@ export default function LoginPage() {
           <AlcheMixLogo size="sm" showText={true} showTagline={false} />
         </div>
         <div className={styles.navActions}>
-          <button 
+          <button
             className={styles.btnPrimary}
-            onClick={() => { setShowModal(true); setIsSignup(true); setFormError(''); }}
+            onClick={() => { setShowModal(true); setIsSignup(false); setFormError(''); }}
           >
-            Get Started
+            Log In
           </button>
         </div>
       </nav>

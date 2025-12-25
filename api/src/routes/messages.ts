@@ -198,6 +198,81 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
 }));
 
 /**
+ * POST /api/messages/stream - Stream Message to AI Bartender (SSE)
+ *
+ * Streams AI response chunks via Server-Sent Events for faster perceived response.
+ * Same security checks as the regular endpoint.
+ */
+router.post('/stream', asyncHandler(async (req: Request, res: Response) => {
+  const { message, history } = req.body;
+  const userId = req.user?.userId;
+
+  // Security validation (same as regular endpoint)
+  if (!userId) {
+    return res.status(401).json({ success: false, error: 'Authentication required' });
+  }
+
+  if (!message || typeof message !== 'string') {
+    return res.status(400).json({ success: false, error: 'Message is required' });
+  }
+
+  if (message.length > 2000) {
+    return res.status(400).json({ success: false, error: 'Message too long' });
+  }
+
+  const sanitizedMessage = sanitizeString(message, 2000, true);
+  const sanitizedHistory = aiService.sanitizeHistoryEntries(
+    Array.isArray(history) ? history : [],
+    userId
+  );
+
+  const injectionCheck = aiService.detectPromptInjection(sanitizedMessage);
+  if (injectionCheck.detected) {
+    logSecurityEvent('Prompt injection attempt detected', { userId, pattern: injectionCheck.pattern });
+    return res.status(400).json({ success: false, error: 'Message contains prohibited content' });
+  }
+
+  // Set up SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+  res.setHeader('Content-Encoding', 'none'); // Disable compression for SSE
+  res.flushHeaders();
+
+  logger.info('Starting streaming response', { userId });
+
+  try {
+    const stream = aiService.sendMessageStream(userId, sanitizedMessage, sanitizedHistory);
+    let chunkCount = 0;
+
+    for await (const chunk of stream) {
+      chunkCount++;
+      // Send each chunk as an SSE event
+      const data = `data: ${JSON.stringify({ text: chunk })}\n\n`;
+      res.write(data);
+      // Force flush after each chunk
+      if (typeof (res as any).flush === 'function') {
+        (res as any).flush();
+      }
+    }
+
+    logger.info('Streaming complete', { userId, chunkCount });
+
+    // Send completion event
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    res.end();
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Streaming error', { error: errorMessage, userId });
+
+    // Send error as SSE event
+    res.write(`data: ${JSON.stringify({ error: errorMessage })}\n\n`);
+    res.end();
+  }
+}));
+
+/**
  * GET /api/messages/dashboard-insight - Get Dashboard Greeting & Insight
  *
  * Generates a proactive AI-powered greeting and actionable insight for the dashboard.

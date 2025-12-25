@@ -6,7 +6,7 @@
 
 Modern cocktail inventory and recipe management system with AI-powered bartender recommendations. Features a "Molecular Mixology" design system that treats cocktails as chemical formulas and ingredients as periodic table elements.
 
-**Version:** v1.34.0 | **Last Updated:** December 22, 2025
+**Version:** v1.34.0 | **Last Updated:** December 25, 2025
 
 ## Features
 
@@ -17,7 +17,7 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 - **Recipe Management** - Full CRUD, collections/folders, bulk operations, CSV import, spirit detection, Favorites tab
 - **Recipe Molecule Visualization** - Chemical bond-style molecular diagrams for cocktail recipes
 - **Smart Shopping List** - Near-miss algorithm, ingredient recommendations, 6 recipe buckets
-- **AI Bartender** - Gemini-powered assistant with hybrid search (PostgreSQL + MemMachine), concept expansion (spirit-forward, tiki, boozy, etc.), and typewriter-style thinking animation
+- **AI Bartender** - Gemini-powered assistant with SSE streaming responses, hybrid search (PostgreSQL + MemMachine), concept expansion (spirit-forward, tiki, boozy, etc.)
 - **Dashboard** - Lab overview with My Bar composition, Recipe Mastery stats, Collections sidebar
 
 ### Design & UX
@@ -114,7 +114,7 @@ This starts both servers:
 |-------|------------|
 | Frontend | Next.js 14, TypeScript, Zustand, CSS Modules |
 | Backend | Express.js, TypeScript, PostgreSQL (pg driver), JWT |
-| AI | Gemini 3 Pro (conversations) + Gemini 3 Flash (dashboard insights) |
+| AI | Gemini 3 Flash with SSE streaming (conversations + dashboard) |
 | Infrastructure | Docker, Neo4j 5.23, PostgreSQL 16 (pgvector), MemMachine v2 |
 | Email | Nodemailer (Gmail, SendGrid, Mailgun, Amazon SES) |
 
@@ -189,6 +189,7 @@ alchemix/
 - `GET/POST/DELETE /api/favorites` - Favorites
 - `GET/POST/DELETE /api/glasses` - Custom glassware types
 - `POST /api/messages` - AI Bartender chat
+- `POST /api/messages/stream` - AI Bartender chat with SSE streaming
 - `GET /api/shopping-list/smart` - Smart shopping recommendations
 
 ## Environment Variables
@@ -231,10 +232,10 @@ The project has comprehensive test coverage using Vitest:
 
 | Suite | Tests | Description |
 |-------|-------|-------------|
-| Frontend | 233 | API client, store, UI components, page tests, onboarding |
+| Frontend | 234 | API client, store, UI components, page tests, onboarding |
 | Backend | 884 | Auth, inventory, recipes, collections, favorites, messages, shopping list, middleware, services |
 | Recipe Molecule | 169 | Ingredient parser, classifier, layout engine, formula generator |
-| **Total** | **1,286** | |
+| **Total** | **1,287** | |
 
 ```bash
 # Run all tests

@@ -738,15 +738,16 @@ describe('RecipeService', () => {
 
       const records = [
         { name: 'Valid Recipe', ingredients: 'Gin' },
-        { ingredients: 'No name' }, // Missing name
-        { name: '' }, // Empty name
+        { ingredients: 'No name' }, // Missing name - fails validation
+        { name: '' }, // Empty name only - treated as empty row, skipped
       ];
 
       const result = await recipeService.importFromCSV(userId, records, null);
 
+      // Empty rows are silently skipped, not counted as failures
       expect(result.imported).toBe(1);
-      expect(result.failed).toBe(2);
-      expect(result.errors).toHaveLength(2);
+      expect(result.failed).toBe(1);
+      expect(result.errors).toHaveLength(1);
     });
 
     it('should assign recipes to collection', async () => {
