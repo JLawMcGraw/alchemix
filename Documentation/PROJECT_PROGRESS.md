@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2025-12-25 (Session 9)
+Last updated: 2025-12-27 (Session 10)
 
 ---
 
@@ -33,7 +33,60 @@ Last updated: 2025-12-25 (Session 9)
 
 ---
 
-## Recent Session (2025-12-25): Pre-Deployment Code Review & Polish
+## Recent Session (2025-12-27): New Mac Setup & Documentation Fixes
+
+### Summary
+Set up development environment on new Mac. Fixed environment documentation discrepancies between README, api/.env.example, and docker/.env.example. Removed unused better-sqlite3 dependency (project uses PostgreSQL).
+
+### Work Completed
+
+#### 1. Environment Setup
+- Created `docker/.env` with OpenAI API key for MemMachine
+- Created `api/.env` with JWT, DB, Gemini, and SMTP settings
+- Created `.env.local` for Next.js frontend
+- Started Docker containers (PostgreSQL, Neo4j, MemMachine)
+- Created alchemix database
+
+#### 2. Documentation Fixes
+
+**api/.env.example**:
+- Fixed Docker instructions to use `docker compose` instead of manual `docker run`
+- Removed incorrect `alchemix:alchemix` credentials from comments
+
+**docker/.env.example**:
+- Removed redundant `JWT_SECRET`, `GEMINI_API_KEY` (belong in api/.env only)
+- Removed unused service URLs
+- Simplified to just `OPENAI_API_KEY` and database credentials
+
+**docker/README.md**:
+- Removed incorrect `ANTHROPIC_API_KEY` reference
+
+**README.md**:
+- Added memmachine repo clone step (required as sibling for Docker)
+- Reordered: Configure environment BEFORE starting Docker
+- Split environment variables into 3 clear sections: `api/.env`, `docker/.env`, `.env.local`
+- Added `OPENAI_API_KEY` documentation (was missing)
+- Added JWT secret generation command
+
+#### 3. Dependency Cleanup
+- Removed `better-sqlite3` and `@types/better-sqlite3` from api/package.json (project uses PostgreSQL)
+
+### Files Changed
+- `README.md` - Setup instructions restructured
+- `api/.env.example` - Fixed Docker instructions
+- `api/package.json` - Removed better-sqlite3
+- `api/package-lock.json` - Updated dependencies
+- `docker/.env.example` - Simplified to required vars only
+- `docker/README.md` - Removed ANTHROPIC_API_KEY reference
+- `package-lock.json` - Updated dependencies
+
+### Next Priorities
+- Deploy to production
+- Test full setup flow on clean machine
+
+---
+
+## Previous Session (2025-12-25): Pre-Deployment Code Review & Polish
 
 ### Summary
 Comprehensive code review before deployment. Fixed all high and medium priority issues including security (console.log removal, docker passwords), accessibility (aria-labels, modal confirmations), TypeScript strictness (any types in tests), and UX polish (loading UI consistency, modal success states).
