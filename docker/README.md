@@ -38,7 +38,7 @@ docker/
 cp docker/.env.example docker/.env
 
 # Edit .env with your API keys
-# Required: OPENAI_API_KEY, JWT_SECRET, ANTHROPIC_API_KEY
+# Required: OPENAI_API_KEY (for MemMachine embeddings)
 
 # Option 1: Infrastructure only (recommended for development)
 # Runs Neo4j, Postgres, MemMachine in Docker; API/Frontend locally

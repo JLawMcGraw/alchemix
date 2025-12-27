@@ -47,35 +47,38 @@ Before you begin, ensure you have the following installed:
 
 ## Quick Start
 
-### 1. Clone and Install
+### 1. Clone Repositories
 
 ```bash
+# Clone both repos as siblings (required for Docker)
 git clone https://github.com/JLawMcGraw/alchemix.git
+git clone https://github.com/JLawMcGraw/memmachine.git
+
+# Directory structure should be:
+# parent-folder/
+# ├── alchemix/
+# └── memmachine/
+
 cd alchemix
 npm run install:all
 ```
 
-### 2. Start Docker Services
+### 2. Configure Environment
 
 ```bash
-# Start PostgreSQL, Neo4j, and MemMachine
-cd docker && docker compose up -d
-
-# Create the alchemix database (first time only)
-docker exec alchemix-postgres psql -U memmachine -c "CREATE DATABASE alchemix;"
-```
-
-### 3. Configure Environment
-
-```bash
-# Copy the example environment file
+# Copy environment files
+cp docker/.env.example docker/.env
 cp api/.env.example api/.env
 ```
 
-Edit `api/.env` and set the required values:
-
+Edit `docker/.env` - set your OpenAI API key (required for MemMachine):
 ```env
-# REQUIRED - Generate a secure secret (minimum 32 characters)
+OPENAI_API_KEY=your-openai-api-key
+```
+
+Edit `api/.env` - set the required values:
+```env
+# REQUIRED - Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 JWT_SECRET=your-super-secure-secret-key-at-least-32-chars
 
 # REQUIRED - PostgreSQL connection string
@@ -86,9 +89,19 @@ FRONTEND_URL=http://localhost:3001
 ```
 
 Optional settings for full functionality:
-- `GEMINI_API_KEY` - Enable AI Bartender features (Gemini 3 Pro/Flash)
+- `GEMINI_API_KEY` - Enable AI Bartender features
 - `SMTP_*` - Enable email verification and password reset
-- `MEMMACHINE_API_URL` - Enable semantic recipe search
+- `MEMMACHINE_API_URL` - Enable semantic recipe search (default: http://localhost:8080)
+
+### 3. Start Docker Services
+
+```bash
+# Start PostgreSQL, Neo4j, and MemMachine
+cd docker && docker compose up -d
+
+# Create the alchemix database (first time only)
+docker exec alchemix-postgres psql -U memmachine -c "CREATE DATABASE alchemix;"
+```
 
 ### 4. Start Development Servers
 
@@ -194,6 +207,7 @@ alchemix/
 
 ## Environment Variables
 
+### api/.env (Backend)
 ```env
 # Required
 JWT_SECRET=your-secret-key-minimum-32-chars
@@ -212,6 +226,24 @@ SMTP_FROM=AlcheMix <your-email@gmail.com>
 
 # Optional - MemMachine
 MEMMACHINE_API_URL=http://localhost:8080
+```
+
+### docker/.env (Docker Services)
+```env
+# Required - OpenAI for MemMachine embeddings
+OPENAI_API_KEY=your-openai-api-key
+
+# Database credentials (match docker-compose.yml defaults)
+POSTGRES_USER=memmachine
+POSTGRES_PASSWORD=memmachinepassword
+POSTGRES_DB=memmachine
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=alchemixpassword
+```
+
+### .env.local (Frontend - optional)
+```env
+NEXT_PUBLIC_API_URL=http://localhost:3000
 ```
 
 ## Development
