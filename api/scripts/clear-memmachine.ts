@@ -11,7 +11,7 @@
  */
 
 import { memoryService } from '../src/services/MemoryService';
-import { db } from '../src/database/db';
+import { queryAll, execute, transaction } from '../src/database/db';
 
 interface User {
   id: number;
@@ -46,7 +46,7 @@ async function clearAndResyncMemMachine() {
 
   if (allUsersFlag) {
     // Get all user IDs
-    const users = db.prepare('SELECT id, email FROM users').all() as User[];
+    const users = await queryAll<User>('SELECT id, email FROM users');
     userIds = users.map(u => u.id);
     console.log(`📋 Found ${userIds.length} users to process`);
   } else {
@@ -77,8 +77,8 @@ async function clearAndResyncMemMachine() {
     console.log(`\n--- Processing user ${userId} ---`);
 
     try {
-      // Step 1: Clear MemMachine project
-      console.log(`  🗑️  Clearing MemMachine project...`);
+      // Step 1a: Clear MemMachine recipes project
+      console.log(`  🗑️  Clearing MemMachine recipes project...`);
       const cleared = await memoryService.deleteAllRecipeMemories(userId);
 
       if (!cleared) {
@@ -86,19 +86,36 @@ async function clearAndResyncMemMachine() {
         failCount++;
         continue;
       }
-      console.log(`  ✅ Cleared MemMachine project`);
+      console.log(`  ✅ Cleared MemMachine recipes project`);
+
+      // Step 1b: Clear MemMachine chat history project
+      console.log(`  🗑️  Clearing MemMachine chat history...`);
+      try {
+        const chatResponse = await fetch('http://localhost:8080/api/v2/projects/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ org_id: 'alchemix', project_id: `user_${userId}_chat` })
+        });
+        if (chatResponse.ok || chatResponse.status === 204 || chatResponse.status === 404 || chatResponse.status === 500) {
+          console.log(`  ✅ Cleared chat history`);
+        } else {
+          console.log(`  ⚠️  Chat history clear returned ${chatResponse.status}`);
+        }
+      } catch (e) {
+        console.log(`  ⚠️  Chat history project may not exist (this is OK)`);
+      }
 
       // Step 2: Clear UIDs in database
       console.log(`  🔄 Clearing memmachine_uid in database...`);
-      db.prepare('UPDATE recipes SET memmachine_uid = NULL WHERE user_id = ?').run(userId);
+      await execute('UPDATE recipes SET memmachine_uid = NULL WHERE user_id = $1', [userId]);
       console.log(`  ✅ Cleared UIDs in database`);
 
       if (resyncFlag) {
         // Step 3: Re-upload all recipes
-        const recipes = db.prepare(`
+        const recipes = await queryAll<Recipe>(`
           SELECT id, name, ingredients, instructions, glass, category
-          FROM recipes WHERE user_id = ? ORDER BY created_at DESC
-        `).all(userId) as Recipe[];
+          FROM recipes WHERE user_id = $1 ORDER BY created_at DESC
+        `, [userId]);
 
         console.log(`  📤 Re-uploading ${recipes.length} recipes to MemMachine...`);
 
@@ -115,18 +132,24 @@ async function clearAndResyncMemMachine() {
 
           console.log(`  ✅ Uploaded ${uploadResult.success} recipes (${uploadResult.failed} failed)`);
 
-          // Step 4: Store UIDs in database
-          if (uploadResult.uidMap.size > 0) {
-            console.log(`  💾 Storing ${uploadResult.uidMap.size} UIDs in database...`);
+          // Step 4: Store UIDs in database (using index-based matching)
+          const updates: Array<{ id: number; uid: string }> = [];
+          for (let i = 0; i < uploadResult.uidResults.length && i < recipes.length; i++) {
+            const uid = uploadResult.uidResults[i].uid;
+            if (uid) {
+              updates.push({ id: recipes[i].id, uid });
+            }
+          }
 
-            const updateStmt = db.prepare('UPDATE recipes SET memmachine_uid = ? WHERE user_id = ? AND name = ?');
-            const updateMany = db.transaction((entries: Array<[string, string]>) => {
-              for (const [recipeName, uid] of entries) {
-                updateStmt.run(uid, userId, recipeName);
+          if (updates.length > 0) {
+            console.log(`  💾 Storing ${updates.length} UIDs in database...`);
+
+            await transaction(async (client) => {
+              for (const { id, uid } of updates) {
+                await client.query('UPDATE recipes SET memmachine_uid = $1 WHERE id = $2', [uid, id]);
               }
             });
 
-            updateMany(Array.from(uploadResult.uidMap.entries()));
             console.log(`  ✅ Stored all UIDs in database`);
           }
         } else {
@@ -170,7 +193,7 @@ async function clearAndResyncMemMachine() {
   }
 }
 
-function safeParseJSON(str: string): any {
+function safeParseJSON(str: string): string[] | string {
   try {
     return JSON.parse(str);
   } catch {

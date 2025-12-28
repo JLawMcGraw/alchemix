@@ -39,6 +39,18 @@ import type { RecipeData, NormalizedSearchResult } from './MemoryService';
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
+// Helper to create mock fetch response with both text() and json() methods
+function mockResponse(data: object, ok = true) {
+  const text = JSON.stringify(data);
+  return {
+    ok,
+    status: ok ? 200 : 500,
+    statusText: ok ? 'OK' : 'Error',
+    text: async () => text,
+    json: async () => data,
+  };
+}
+
 describe('MemoryService', () => {
   let memoryService: MemoryService;
 
@@ -50,10 +62,7 @@ describe('MemoryService', () => {
     });
 
     // Default successful response
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({}),
-    });
+    mockFetch.mockResolvedValue(mockResponse({}));
   });
 
   afterEach(() => {
@@ -81,10 +90,7 @@ describe('MemoryService', () => {
 
   describe('healthCheck', () => {
     it('should return true when service is healthy', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ status: 'healthy' }),
-      });
+      mockFetch.mockResolvedValueOnce(mockResponse({ status: 'healthy' }));
 
       const result = await memoryService.healthCheck();
 
@@ -98,10 +104,7 @@ describe('MemoryService', () => {
     });
 
     it('should return false when service is unhealthy', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ status: 'unhealthy' }),
-      });
+      mockFetch.mockResolvedValueOnce(mockResponse({ status: 'unhealthy' }));
 
       const result = await memoryService.healthCheck();
 
@@ -144,15 +147,13 @@ describe('MemoryService', () => {
         ok: false,
         status: 409,
         statusText: 'Conflict',
+        text: async () => '',
       });
 
       // Mock memory storage
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          results: [{ uid: 'test-uid-123' }],
-        }),
-      });
+      mockFetch.mockResolvedValueOnce(mockResponse({
+        results: [{ uid: 'test-uid-123' }],
+      }));
 
       const result = await memoryService.storeUserRecipe(1, testRecipe);
 
@@ -166,12 +167,9 @@ describe('MemoryService', () => {
         statusText: 'Conflict',
       });
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          results: [{ uid: 'uid-456' }],
-        }),
-      });
+      mockFetch.mockResolvedValueOnce(mockResponse({
+        results: [{ uid: 'uid-456' }],
+      }));
 
       const recipeWithStringIngredients: RecipeData = {
         name: 'Simple Drink',
@@ -190,12 +188,9 @@ describe('MemoryService', () => {
         statusText: 'Conflict',
       });
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          results: [{ uid: 'uid-789' }],
-        }),
-      });
+      mockFetch.mockResolvedValueOnce(mockResponse({
+        results: [{ uid: 'uid-789' }],
+      }));
 
       const recipeWithJsonIngredients: RecipeData = {
         name: 'JSON Drink',
@@ -228,10 +223,7 @@ describe('MemoryService', () => {
         statusText: 'Conflict',
       });
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ results: [] }),
-      });
+      mockFetch.mockResolvedValueOnce(mockResponse({ results: [] }));
 
       const result = await memoryService.storeUserRecipe(1, testRecipe);
 
@@ -241,23 +233,20 @@ describe('MemoryService', () => {
 
   describe('queryUserProfile', () => {
     it('should return normalized search results', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          content: {
-            episodic_memory: {
-              long_term_memory: {
-                episodes: [
-                  { content: 'Recipe: Mojito. Category: Cocktail.', uid: 'uid1' },
-                ],
-              },
+      mockFetch.mockResolvedValueOnce(mockResponse({
+        content: {
+          episodic_memory: {
+            long_term_memory: {
+              episodes: [
+                { content: 'Recipe: Mojito. Category: Cocktail.', uid: 'uid1' },
+              ],
             },
-            semantic_memory: [
-              { content: 'User prefers citrus cocktails' },
-            ],
           },
-        }),
-      });
+          semantic_memory: [
+            { content: 'User prefers citrus cocktails' },
+          ],
+        },
+      }));
 
       const result = await memoryService.queryUserProfile(1, 'rum cocktails');
 
@@ -294,10 +283,7 @@ describe('MemoryService', () => {
 
   describe('deleteUserRecipeByUid', () => {
     it('should delete recipe and return true', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({}),
-      });
+      mockFetch.mockResolvedValueOnce(mockResponse({}));
 
       const result = await memoryService.deleteUserRecipeByUid(1, 'uid-123', 'Mojito');
 
@@ -327,10 +313,7 @@ describe('MemoryService', () => {
 
   describe('deleteAllRecipeMemories', () => {
     it('should delete project and return true', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({}),
-      });
+      mockFetch.mockResolvedValueOnce(mockResponse({}));
 
       const result = await memoryService.deleteAllRecipeMemories(1);
 
@@ -349,16 +332,18 @@ describe('MemoryService', () => {
       expect(result).toBe(true);
     });
 
-    it('should return false on other errors', async () => {
+    it('should return true on 500 (MemMachine returns 500 when project doesnt exist)', async () => {
+      // MemMachine returns 500 with "Session is None" when project doesn't exist
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
         statusText: 'Internal Server Error',
+        text: async () => '',
       });
 
       const result = await memoryService.deleteAllRecipeMemories(1);
 
-      expect(result).toBe(false);
+      expect(result).toBe(true); // Treat as success since nothing to delete
     });
   });
 
@@ -370,10 +355,7 @@ describe('MemoryService', () => {
         statusText: 'Conflict',
       });
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({}),
-      });
+      mockFetch.mockResolvedValueOnce(mockResponse({}));
 
       await expect(
         memoryService.storeConversationTurn(1, 'What cocktail should I make?', 'Try a Mojito!')
@@ -472,12 +454,9 @@ describe('MemoryService', () => {
   describe('storeUserRecipesBatch', () => {
     it('should batch upload recipes', async () => {
       // True batch: all recipes sent in one API call, returns multiple UIDs
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          results: [{ uid: 'uid-1' }, { uid: 'uid-2' }],
-        }),
-      });
+      mockFetch.mockResolvedValue(mockResponse({
+        results: [{ uid: 'uid-1' }, { uid: 'uid-2' }],
+      }));
 
       const recipes: RecipeData[] = [
         { name: 'Recipe1', ingredients: ['A', 'B'] },
@@ -488,16 +467,38 @@ describe('MemoryService', () => {
 
       expect(result.success).toBe(2);
       expect(result.failed).toBe(0);
-      expect(result.uidMap.size).toBe(2);
+      expect(result.uidResults.length).toBe(2);
+      expect(result.uidResults[0]).toEqual({ name: 'Recipe1', uid: 'uid-1' });
+      expect(result.uidResults[1]).toEqual({ name: 'Recipe2', uid: 'uid-2' });
+    });
+
+    it('should preserve UIDs for duplicate recipe names', async () => {
+      // Duplicate recipe names should each get their own UID
+      mockFetch.mockResolvedValue(mockResponse({
+        results: [{ uid: 'uid-1' }, { uid: 'uid-2' }, { uid: 'uid-3' }],
+      }));
+
+      const recipes: RecipeData[] = [
+        { name: 'Mojito', ingredients: ['Rum', 'Lime'] },
+        { name: 'Daiquiri', ingredients: ['Rum', 'Lime', 'Sugar'] },
+        { name: 'Mojito', ingredients: ['White Rum', 'Mint'] }, // Duplicate name
+      ];
+
+      const result = await memoryService.storeUserRecipesBatch(1, recipes);
+
+      expect(result.success).toBe(3);
+      expect(result.failed).toBe(0);
+      expect(result.uidResults.length).toBe(3);
+      // Each recipe gets its own UID, even with duplicate names
+      expect(result.uidResults[0]).toEqual({ name: 'Mojito', uid: 'uid-1' });
+      expect(result.uidResults[1]).toEqual({ name: 'Daiquiri', uid: 'uid-2' });
+      expect(result.uidResults[2]).toEqual({ name: 'Mojito', uid: 'uid-3' });
     });
 
     it('should handle batch API failure', async () => {
       // Project creation succeeds, batch upload fails
       mockFetch
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({}), // Project creation
-        })
+        .mockResolvedValueOnce(mockResponse({})) // Project creation
         .mockRejectedValueOnce(new Error('API Error'));
 
       const recipes: RecipeData[] = [
@@ -516,15 +517,12 @@ describe('MemoryService', () => {
 
   describe('getEnhancedContext', () => {
     it('should return user context on success', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          content: {
-            episodic_memory: { long_term_memory: { episodes: [] } },
-            semantic_memory: [],
-          },
-        }),
-      });
+      mockFetch.mockResolvedValueOnce(mockResponse({
+        content: {
+          episodic_memory: { long_term_memory: { episodes: [] } },
+          semantic_memory: [],
+        },
+      }));
 
       const result = await memoryService.getEnhancedContext(1, 'test query');
 

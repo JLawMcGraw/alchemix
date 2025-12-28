@@ -125,7 +125,12 @@ export class MemoryService {
         throw new HttpError(`HTTP ${response.status}: ${response.statusText}`, response.status);
       }
 
-      return await response.json() as T;
+      // Handle empty responses (e.g., from delete endpoints)
+      const text = await response.text();
+      if (!text || text.trim() === '') {
+        return {} as T;
+      }
+      return JSON.parse(text) as T;
     } finally {
       clearTimeout(timeoutId);
     }
@@ -348,7 +353,7 @@ export class MemoryService {
    *
    * @param userId - User ID
    * @param recipes - Array of recipe objects
-   * @returns Object with success/failure counts and UID mapping
+   * @returns Object with success/failure counts and UID results (in same order as input)
    */
   async storeUserRecipesBatch(
     userId: number,
@@ -357,7 +362,7 @@ export class MemoryService {
     success: number;
     failed: number;
     errors: string[];
-    uidMap: Map<string, string>; // Map recipe name → UID
+    uidResults: Array<{ name: string; uid: string | null }>; // UIDs in same order as input recipes
   }> {
     // Batch settings - send multiple recipes in ONE API request
     const batchSize = 20; // Recipes per single API call
@@ -366,7 +371,7 @@ export class MemoryService {
     let successCount = 0;
     let failedCount = 0;
     const errors: string[] = [];
-    const uidMap = new Map<string, string>();
+    const uidResults: Array<{ name: string; uid: string | null }> = [];
 
     logger.info('MemMachine: Starting batch upload', { recipeCount: recipes.length, userId, batchSize, delayBetweenBatches });
 
@@ -433,18 +438,17 @@ export class MemoryService {
 
       const result = await storeBatch(batch);
 
-      // Count successes and collect UIDs
+      // Collect UIDs in order (preserves index for duplicate recipe names)
       for (const success of result.successes) {
         successCount++;
-        if (success.uid) {
-          uidMap.set(success.recipe, success.uid);
-        }
+        uidResults.push({ name: success.recipe, uid: success.uid });
       }
 
-      // Count failures
+      // Count failures (add null UIDs to preserve index alignment)
       for (const failure of result.failures) {
         failedCount++;
         errors.push(`${failure.recipe}: ${failure.error}`);
+        uidResults.push({ name: failure.recipe, uid: null });
       }
 
       // Wait between batches (except for the last batch)
@@ -453,9 +457,10 @@ export class MemoryService {
       }
     }
 
-    logger.info('MemMachine: Batch upload complete', { succeeded: successCount, failed: failedCount, uidsCaptured: uidMap.size });
+    const uidsCaptured = uidResults.filter(r => r.uid !== null).length;
+    logger.info('MemMachine: Batch upload complete', { succeeded: successCount, failed: failedCount, uidsCaptured });
 
-    return { success: successCount, failed: failedCount, errors, uidMap };
+    return { success: successCount, failed: failedCount, errors, uidResults };
   }
 
   /**
@@ -724,6 +729,12 @@ export class MemoryService {
       // 404 is acceptable - project might not exist
       if (isHttpError(error) && error.status === 404) {
         logger.info('MemMachine: Project not found (already deleted or never existed)', { userId });
+        return true;
+      }
+      // MemMachine returns 500 with "Session ... is None" when project doesn't exist
+      if (isHttpError(error) && error.status === 500) {
+        logger.info('MemMachine: Project likely not found (treating 500 as success)', { userId });
+        this.projectCache.delete(buildRecipeProjectId(userId));
         return true;
       }
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';

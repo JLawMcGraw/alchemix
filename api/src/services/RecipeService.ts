@@ -19,7 +19,7 @@ import { logger } from '../utils/logger';
  */
 export interface IMemoryService {
   storeUserRecipe(userId: number, recipe: { name: string; ingredients: string[] | string; instructions?: string; glass?: string; category?: string }): Promise<string | null>;
-  storeUserRecipesBatch(userId: number, recipes: Array<{ name: string; ingredients: string[] | string; instructions?: string; glass?: string; category?: string }>): Promise<{ success: number; failed: number; uidMap: Map<string, string> }>;
+  storeUserRecipesBatch(userId: number, recipes: Array<{ name: string; ingredients: string[] | string; instructions?: string; glass?: string; category?: string }>): Promise<{ success: number; failed: number; uidResults: Array<{ name: string; uid: string | null }> }>;
   deleteUserRecipe(userId: number, recipeName: string): Promise<void>;
   deleteUserRecipeByUid(userId: number, uid: string, recipeName?: string): Promise<boolean>;
   deleteUserRecipesBatch(userId: number, uids: string[]): Promise<{ success: number; failed: number }>;
@@ -769,18 +769,23 @@ export class RecipeService {
     // Upload to MemMachine
     const uploadResult = await this.memoryService.storeUserRecipesBatch(userId, recipesForUpload);
 
-    // Update database with UIDs
-    if (uploadResult.uidMap.size > 0) {
+    // Update database with UIDs (using index-based matching)
+    const updates: Array<{ id: number; uid: string }> = [];
+    for (let i = 0; i < uploadResult.uidResults.length && i < missingRecipes.length; i++) {
+      const uid = uploadResult.uidResults[i].uid;
+      if (uid) {
+        updates.push({ id: missingRecipes[i].id, uid });
+      }
+    }
+
+    if (updates.length > 0) {
       try {
         await transaction(async (client) => {
-          for (const recipe of missingRecipes) {
-            const uid = uploadResult.uidMap.get(recipe.name);
-            if (uid) {
-              await client.query('UPDATE recipes SET memmachine_uid = $1 WHERE id = $2', [uid, recipe.id]);
-            }
+          for (const { id, uid } of updates) {
+            await client.query('UPDATE recipes SET memmachine_uid = $1 WHERE id = $2', [uid, id]);
           }
         });
-        logger.info('Updated MemMachine UIDs after sync', { userId, count: uploadResult.uidMap.size });
+        logger.info('Updated MemMachine UIDs after sync', { userId, count: updates.length });
       } catch (err) {
         logger.error('Failed to update MemMachine UIDs after sync', { error: err instanceof Error ? err.message : 'Unknown error' });
       }
@@ -1051,18 +1056,9 @@ export class RecipeService {
 
   /**
    * Batch store recipes in MemMachine
-   * Uses recipe ID for UID storage to handle duplicate recipe names correctly
+   * Uses index-based UID matching to handle duplicate recipe names correctly
    */
   private batchStoreInMemMachine(userId: number, recipes: Array<{ id: number; name: string; ingredients: string[]; instructions: string | null; glass: string | null; category: string | null }>): void {
-    // Build a map of recipe name -> id for UID storage
-    // For duplicate names, we'll use the order they appear in the array
-    const recipeNameToIds = new Map<string, number[]>();
-    for (const r of recipes) {
-      const ids = recipeNameToIds.get(r.name) || [];
-      ids.push(r.id);
-      recipeNameToIds.set(r.name, ids);
-    }
-
     // Transform null to undefined for MemMachine API compatibility
     const recipesForApi = recipes.map(r => ({
       name: r.name,
@@ -1072,26 +1068,18 @@ export class RecipeService {
       category: r.category ?? undefined,
     }));
 
-    // Track which index we're at for each recipe name
-    const nameIndexTracker = new Map<string, number>();
-
     this.memoryService.storeUserRecipesBatch(userId, recipesForApi).then(async result => {
-      if (result.uidMap.size > 0) {
-        logger.debug('Storing MemMachine UIDs in database', { count: result.uidMap.size });
-
-        const updates: Array<{ id: number; uid: string }> = [];
-
-        // Match UIDs to recipe IDs
-        for (const [recipeName, uid] of result.uidMap.entries()) {
-          const ids = recipeNameToIds.get(recipeName);
-          if (ids && ids.length > 0) {
-            const currentIndex = nameIndexTracker.get(recipeName) || 0;
-            if (currentIndex < ids.length) {
-              updates.push({ id: ids[currentIndex], uid });
-              nameIndexTracker.set(recipeName, currentIndex + 1);
-            }
-          }
+      // Match UIDs to recipe IDs by index (uidResults is in same order as input recipes)
+      const updates: Array<{ id: number; uid: string }> = [];
+      for (let i = 0; i < result.uidResults.length && i < recipes.length; i++) {
+        const uid = result.uidResults[i].uid;
+        if (uid) {
+          updates.push({ id: recipes[i].id, uid });
         }
+      }
+
+      if (updates.length > 0) {
+        logger.debug('Storing MemMachine UIDs in database', { count: updates.length });
 
         // Update UIDs in transaction
         try {

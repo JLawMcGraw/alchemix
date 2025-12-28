@@ -447,22 +447,36 @@ class AIService {
   private async detectBottleMentionsWithNotes(
     userId: number,
     query: string
-  ): Promise<Array<{ name: string; tastingNotes: string; spiritType: string | null }>> {
+  ): Promise<Array<{
+    name: string;
+    tastingNotes: string;
+    spiritType: string | null;
+    distilleryLocation: string | null;
+    category: string | null;
+  }>> {
     try {
       const lowerQuery = query.toLowerCase();
 
-      // Fetch user's inventory items with tasting notes AND spirit type
+      // Fetch user's inventory items with tasting notes, spirit type, and location
       const bottles = await queryAll<{
         name: string;
         tasting_notes: string | null;
         type: string | null;
+        distillery_location: string | null;
+        category: string | null;
       }>(`
-        SELECT name, tasting_notes, type
+        SELECT name, tasting_notes, type, distillery_location, category
         FROM inventory_items
         WHERE user_id = $1 AND stock_number > 0
       `, [userId]);
 
-      const matchedBottles: Array<{ name: string; tastingNotes: string; spiritType: string | null }> = [];
+      const matchedBottles: Array<{
+        name: string;
+        tastingNotes: string;
+        spiritType: string | null;
+        distilleryLocation: string | null;
+        category: string | null;
+      }> = [];
 
       for (const bottle of bottles) {
         // Check if bottle name is mentioned in query (fuzzy match)
@@ -476,11 +490,14 @@ class AIService {
           matchedBottles.push({
             name: bottle.name,
             tastingNotes: bottle.tasting_notes || '',
-            spiritType: bottle.type
+            spiritType: bottle.type,
+            distilleryLocation: bottle.distillery_location,
+            category: bottle.category
           });
           logger.info('[AI-SEARCH] Found mentioned bottle', {
             bottleName: bottle.name,
             spiritType: bottle.type,
+            distilleryLocation: bottle.distillery_location,
             hasTastingNotes: !!bottle.tasting_notes
           });
         }
@@ -1463,6 +1480,95 @@ IMPORTANT:
             normalizedType: requiredSpiritType
           });
         }
+
+        // TIERED SEARCH: Find recipes matching the bottle's spirit characteristics
+        // Tier 1: Exact spirit type (e.g., "rhum agricole" → recipes calling for agricole)
+        // Tier 2: Production style/region (e.g., Martinique rums, pot still, etc.)
+        // Tier 3: Base spirit category (e.g., any rum recipes)
+
+        const tier1Recipes: RecipeRecord[] = [];
+        const tier2Recipes: RecipeRecord[] = [];
+        const tier3Recipes: RecipeRecord[] = [];
+
+        // TIER 1: Search for exact spirit type terms
+        if (firstBottle.spiritType) {
+          const spiritTypeTerms = firstBottle.spiritType.toLowerCase().split(/\s+/);
+          const skipWords = new Set(['white', 'dark', 'light', 'aged', 'gold', 'year', 'old', 'extra', 'reserve']);
+
+          for (const term of spiritTypeTerms) {
+            if (term.length < 4 || skipWords.has(term)) continue;
+
+            const matches = await this.queryRecipesWithIngredient(userId, term);
+            for (const recipe of matches) {
+              if (!tier1Recipes.some(r => r.id === recipe.id)) {
+                tier1Recipes.push(recipe);
+              }
+            }
+          }
+          logger.info('[AI-SEARCH] Tier 1 (exact type) results', {
+            spiritType: firstBottle.spiritType,
+            count: tier1Recipes.length
+          });
+        }
+
+        // TIER 2: Search by distillery location/region (for terroir-specific recipes)
+        if (firstBottle.distilleryLocation) {
+          const locationTerms = firstBottle.distilleryLocation.toLowerCase().split(/[\s,]+/);
+          // Caribbean islands and regions known for specific rum styles
+          const significantLocations = ['martinique', 'guadeloupe', 'jamaica', 'barbados', 'haiti', 'cuba',
+                                        'puerto rico', 'trinidad', 'guyana', 'demerara', 'islay', 'speyside',
+                                        'highland', 'oaxaca', 'jalisco', 'cognac', 'armagnac'];
+
+          for (const term of locationTerms) {
+            if (term.length < 4) continue;
+            // Only search if it's a significant spirit-producing region
+            if (significantLocations.some(loc => loc.includes(term) || term.includes(loc))) {
+              const matches = await this.queryRecipesWithIngredient(userId, term);
+              for (const recipe of matches) {
+                if (!tier1Recipes.some(r => r.id === recipe.id) &&
+                    !tier2Recipes.some(r => r.id === recipe.id)) {
+                  tier2Recipes.push(recipe);
+                }
+              }
+            }
+          }
+          logger.info('[AI-SEARCH] Tier 2 (region/style) results', {
+            distilleryLocation: firstBottle.distilleryLocation,
+            count: tier2Recipes.length
+          });
+        }
+
+        // TIER 3: Fall back to base spirit category
+        if (requiredSpiritType && (tier1Recipes.length + tier2Recipes.length) < 5) {
+          const matches = await this.queryRecipesWithIngredient(userId, requiredSpiritType);
+          for (const recipe of matches) {
+            if (!tier1Recipes.some(r => r.id === recipe.id) &&
+                !tier2Recipes.some(r => r.id === recipe.id) &&
+                !tier3Recipes.some(r => r.id === recipe.id)) {
+              tier3Recipes.push(recipe);
+            }
+          }
+          logger.info('[AI-SEARCH] Tier 3 (base spirit) results', {
+            baseSpirit: requiredSpiritType,
+            count: tier3Recipes.length
+          });
+        }
+
+        // Combine tiers: prioritize exact matches, then region, then base spirit
+        // Add to allRecipes in priority order
+        for (const recipe of [...tier1Recipes, ...tier2Recipes, ...tier3Recipes]) {
+          if (!allRecipes.some(r => r.id === recipe.id)) {
+            allRecipes.push(recipe);
+          }
+        }
+
+        logger.info('[AI-SEARCH] Tiered bottle search complete', {
+          bottle: firstBottle.name,
+          tier1: tier1Recipes.length,
+          tier2: tier2Recipes.length,
+          tier3: tier3Recipes.length,
+          totalRecipesNow: allRecipes.length
+        });
       }
 
       // Step 2d: Detect if user is flexible about missing ingredients

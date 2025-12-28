@@ -29,7 +29,7 @@ vi.mock('../utils/logger', () => ({
 vi.mock('./MemoryService', () => ({
   memoryService: {
     storeUserRecipe: vi.fn().mockResolvedValue('mock-uid'),
-    storeUserRecipesBatch: vi.fn().mockResolvedValue({ success: 0, failed: 0, uidMap: new Map() }),
+    storeUserRecipesBatch: vi.fn().mockResolvedValue({ success: 0, failed: 0, uidResults: [] }),
     deleteUserRecipe: vi.fn().mockResolvedValue(undefined),
     deleteUserRecipeByUid: vi.fn().mockResolvedValue(true),
     deleteUserRecipesBatch: vi.fn().mockResolvedValue({ success: 0, failed: 0 }),
@@ -47,7 +47,7 @@ import { Recipe } from '../types';
 function createMockMemoryService(): IMemoryService {
   return {
     storeUserRecipe: vi.fn().mockResolvedValue('mock-uid'),
-    storeUserRecipesBatch: vi.fn().mockResolvedValue({ success: 0, failed: 0, uidMap: new Map() }),
+    storeUserRecipesBatch: vi.fn().mockResolvedValue({ success: 0, failed: 0, uidResults: [] }),
     deleteUserRecipe: vi.fn().mockResolvedValue(undefined),
     deleteUserRecipeByUid: vi.fn().mockResolvedValue(true),
     deleteUserRecipesBatch: vi.fn().mockResolvedValue({ success: 0, failed: 0 }),

@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2025-12-27 (Session 10)
+Last updated: 2025-12-27 (Session 11)
 
 ---
 
@@ -12,10 +12,10 @@ Last updated: 2025-12-27 (Session 10)
 **Blockers**: None
 
 **Test Coverage**:
-- Backend: 884 tests (35 test files)
+- Backend: 885 tests (35 test files)
 - Frontend: 234 tests (12 test files)
 - Recipe-Molecule: 169 tests (3 test files)
-- **Total: 1287 tests**
+- **Total: 1288 tests**
 
 **Redesign Progress**:
 - Phase 1-4 (Batch A - Foundation): **Complete**
@@ -33,7 +33,93 @@ Last updated: 2025-12-27 (Session 10)
 
 ---
 
-## Recent Session (2025-12-27): New Mac Setup & Documentation Fixes
+## Recent Session (2025-12-27): MemMachine UID Bug Fix & Tiered Bottle Search
+
+### Summary
+Fixed critical UID uniqueness bug where duplicate recipe names caused UID loss in MemMachine sync. Cleared and re-synced all 476 recipes. Implemented tiered bottle search so AI bartender returns multiple recipe options when a specific bottle is mentioned.
+
+### Work Completed
+
+#### 1. UID Uniqueness Bug Fix (Critical)
+**Problem**: `storeUserRecipesBatch` used `Map<recipeName, uid>` which caused duplicate recipe names to overwrite each other's UIDs. If a user had two recipes named "Mojito", only one would get its UID stored.
+
+**Solution**: Changed to `uidResults: Array<{name, uid}>` to preserve index-based matching.
+
+**Files Changed**:
+- `api/src/services/MemoryService.ts` - Changed return type from `uidMap: Map<string, string>` to `uidResults: Array<{name, uid}>`
+- `api/src/services/RecipeService.ts` - Updated `batchStoreInMemMachine` and `syncMissingToMemMachine` to use index-based UID matching instead of name lookup
+- `api/src/services/MemoryService.test.ts` - Added test for duplicate name handling, added `mockResponse()` helper
+
+#### 2. MemMachine Infrastructure Fixes
+- Fixed `post()` method in MemoryService to handle empty responses (was throwing "Unexpected end of JSON input" - now reads as text first, parses only if non-empty)
+- Added 500 error handling in `deleteAllRecipeMemories` (MemMachine returns 500 with "Session is None" when project doesn't exist - now treated as success)
+- Updated test suite with proper mock responses including `text()` method
+
+#### 3. Clear-MemMachine Script Overhaul
+**Problem**: Script used SQLite syntax (`db.prepare`, `db.run`) but project uses PostgreSQL.
+
+**Solution**: Rewrote `api/scripts/clear-memmachine.ts`:
+- Converted to PostgreSQL using `queryAll`, `execute`, `transaction` from db module
+- Added chat history project clearing (`user_{id}_chat` - was being missed)
+- Handles 500 responses as success (MemMachine quirk)
+
+**Execution**: Successfully cleared and re-synced 476 recipes for user 1, with all UIDs properly stored in database.
+
+#### 4. AI Bartender Single Recipe Bug
+**Problem**: When user asked "what can I make with my Neisson" (a Martinique rhum agricole), AI only returned 1 recipe instead of multiple options.
+
+**Root Cause Investigation**:
+- System correctly detected bottle and spirit type ("Rhum Agricole")
+- System correctly set spirit filter to "rum"
+- But system NEVER searched MemMachine for recipes using that spirit type
+- The spirit type was only being used as a filter, not as a search query
+
+#### 5. Tiered Bottle Search Implementation
+Implemented user-suggested three-tier search in `AIService.ts`:
+
+**Tier 1 - Exact Spirit Type**: Searches for specific spirit type terms (e.g., "agricole" for Rhum Agricole)
+- Splits spirit type into words, searches for each significant term
+- Skips common words like "rum", "whiskey" (saved for Tier 3)
+
+**Tier 2 - Distillery Region**: Searches by distillery location for spirit-producing regions
+- Significant locations: martinique, guadeloupe, jamaica, barbados, cuba, puerto rico, kentucky, tennessee, scotland, ireland, japan, mexico, oaxaca
+- Adds regional recipes that may not have "agricole" in name but are still relevant
+
+**Tier 3 - Base Spirit Category**: Falls back to base spirit (e.g., "rum") only if Tier 1+2 return fewer than 5 recipes
+- Prevents flooding results with generic recipes when specific matches exist
+
+**Files Changed**:
+- `api/src/services/AIService.ts` - Expanded `detectBottleMentionsWithNotes` to return `distilleryLocation` and `category`, implemented tiered search logic
+- Combined results in priority order with deduplication
+
+#### 6. Test Suite Updates
+- Created `mockResponse()` helper function for consistent mock fetch responses
+- Updated all mock responses to include `text()` method (required after post() fix)
+- Updated test expectation for 500 error (now returns `true` since treated as success)
+- Added test for duplicate recipe name UID preservation
+- Backend tests: 884 → 885 (+1 new test)
+
+### Files Changed
+- `api/src/services/MemoryService.ts` - UID array return type, empty response handling, 500 error handling
+- `api/src/services/MemoryService.test.ts` - mockResponse helper, duplicate name test, updated mocks
+- `api/src/services/RecipeService.ts` - Index-based UID matching in batch operations
+- `api/src/services/AIService.ts` - Tiered bottle search, expanded bottle detection with distilleryLocation/category
+- `api/scripts/clear-memmachine.ts` - Full PostgreSQL rewrite, chat history clearing
+
+### Verified Results
+- Tiered search test with "Neisson" bottle:
+  - Tier 1 (agricole): 10+ recipes (Ti' Punch, Agricole Guava Cooler, etc.)
+  - Tier 2 (martinique): 10+ recipes (overlaps with Tier 1)
+  - Tier 3 (rum): Many more general rum recipes (only used if needed)
+- All 885 backend tests pass
+
+### Next Priorities
+- Deploy to production
+- Test tiered search with various bottle types (scotch, bourbon, tequila, etc.)
+
+---
+
+## Previous Session (2025-12-27): New Mac Setup & Documentation Fixes
 
 ### Summary
 Set up development environment on new Mac. Fixed environment documentation discrepancies between README, api/.env.example, and docker/.env.example. Removed unused better-sqlite3 dependency (project uses PostgreSQL).

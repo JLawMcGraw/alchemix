@@ -4,6 +4,101 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2025-12-27 - Tiered Bottle Search for AI Bartender
+
+### The Problem
+When user mentioned a specific bottle (e.g., "Neisson" - a Martinique rhum agricole), the AI only returned 1 recipe instead of multiple options.
+
+### Root Cause
+The system detected the bottle and its spirit type correctly, but only used it as a filter. It never actually searched MemMachine for recipes using that spirit type as a query term.
+
+### The Solution - Three-Tier Search
+Implemented a tiered search strategy that prioritizes specificity:
+
+1. **Tier 1 - Exact Spirit Type**: Search for specific terms like "agricole"
+2. **Tier 2 - Distillery Region**: Search by location (martinique, jamaica, scotland, etc.)
+3. **Tier 3 - Base Spirit Category**: Fall back to "rum", "whiskey" only if Tier 1+2 return < 5 recipes
+
+```typescript
+// Tier 1: Specific spirit type terms
+const spiritTypeTerms = firstBottle.spiritType.toLowerCase().split(/\s+/);
+for (const term of spiritTypeTerms) {
+  if (term.length >= 4 && !skipWords.has(term)) {
+    const matches = await this.queryRecipesWithIngredient(userId, term);
+    tier1Recipes.push(...matches);
+  }
+}
+
+// Tier 2: Regional matches (only significant spirit-producing regions)
+const significantLocations = ['martinique', 'guadeloupe', 'jamaica', ...];
+
+// Tier 3: Base spirit (only if Tier 1+2 insufficient)
+if (tier1Recipes.length + tier2Recipes.length < 5) {
+  // Add general spirit category matches
+}
+```
+
+### Why This Approach
+- Prevents generic recipes from flooding results when specific matches exist
+- Respects the user's intent to use their specific bottle
+- Regional matching catches recipes that may not have "agricole" in the name but are designed for that style
+- Fallback ensures users always get options even for uncommon spirits
+
+---
+
+## 2025-12-27 - MemMachine UID Index-Based Matching
+
+### The Problem
+Duplicate recipe names caused UID loss. If a user had two recipes named "Mojito", only one got its UID stored in the database.
+
+### Root Cause
+`storeUserRecipesBatch` returned `uidMap: Map<string, string>` where key was recipe name. Maps overwrite duplicate keys, so second "Mojito" overwrote the first.
+
+### The Fix
+Changed to `uidResults: Array<{name, uid}>` to preserve order. Use index-based matching instead of name lookup:
+
+```typescript
+// BEFORE: Name-based lookup (loses duplicates)
+const uidMap = new Map<string, string>();
+for (const result of response.results) {
+  uidMap.set(recipeName, result.uid);
+}
+// Later: const uid = uidMap.get(recipe.name);
+
+// AFTER: Index-based matching (preserves all)
+const uidResults: Array<{name: string; uid: string}> = [];
+for (let i = 0; i < response.results.length && i < recipes.length; i++) {
+  uidResults.push({ name: recipes[i].name, uid: response.results[i].uid });
+}
+// Later: const uid = result.uidResults[index].uid;
+```
+
+### Lesson
+When order matters and duplicates are possible, use arrays, not maps.
+
+---
+
+## 2025-12-27 - MemMachine Empty Response Handling
+
+### The Problem
+`post()` method threw "Unexpected end of JSON input" when MemMachine returned empty responses.
+
+### Root Cause
+Code called `response.json()` directly, which fails on empty body.
+
+### The Fix
+Read as text first, only parse if non-empty:
+
+```typescript
+const text = await response.text();
+if (!text || text.trim() === '') {
+  return {} as T;
+}
+return JSON.parse(text) as T;
+```
+
+---
+
 ## 2025-12-25 - MemMachine Batch Upload Optimization
 
 ### The Problem
