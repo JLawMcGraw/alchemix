@@ -111,7 +111,7 @@ describe('generateFormula', () => {
         '0.75 oz Lime juice',
       ];
       const formula = generateFormula(ingredients);
-      expect(formula).toContain('Ch'); // Chartreuse
+      expect(formula).toContain('Ct'); // Chartreuse
       expect(formula).toContain('Ms'); // Maraschino
       expect(formula).not.toContain('Sw'); // Not grouped
     });
@@ -225,10 +225,10 @@ describe('generateFormula', () => {
       expect(formula).not.toContain('wheel');
     });
 
-    it('should omit ginger beer', () => {
+    it('should include ginger beer as signature ingredient', () => {
       const ingredients = ['2 oz Vodka', '0.5 oz Lime juice', '4 oz Ginger beer'];
       const formula = generateFormula(ingredients);
-      expect(formula).not.toContain('ginger');
+      expect(formula).toContain('Gb');
     });
   });
 
@@ -271,7 +271,7 @@ describe('generateFormula', () => {
       const formula = generateFormula(ingredients);
       // All equal parts → ratio 1 for each
       expect(formula).toContain('Gn');
-      expect(formula).toContain('Ch');
+      expect(formula).toContain('Ct');
       expect(formula).toContain('Ms');
       expect(formula).toContain('Li');
     });

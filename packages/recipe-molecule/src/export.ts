@@ -5,7 +5,49 @@
  * Browser-side implementation using canvas
  */
 
-import type { MoleculeRecipe } from './core/types';
+import { ExportError } from './core/validation';
+
+// ═══════════════════════════════════════════════════════════════
+// EXPORT OPTIONS
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Options for PNG export
+ */
+export interface PNGExportOptions {
+  /** Scale factor for output (default: 2 for retina) */
+  scale?: number;
+  /** Background color (default: '#fafafa', use 'transparent' for none) */
+  backgroundColor?: string | 'transparent';
+  /** Override output width in pixels */
+  width?: number;
+  /** Override output height in pixels */
+  height?: number;
+  /** PNG quality 0-1 (default: 1.0) */
+  quality?: number;
+}
+
+/**
+ * Options for SVG export
+ */
+export interface SVGExportOptions {
+  /** Whether to inline CSS styles (default: true for standalone SVG) */
+  inlineStyles?: boolean;
+  /** Override width attribute */
+  width?: number | string;
+  /** Override height attribute */
+  height?: number | string;
+}
+
+const DEFAULT_PNG_OPTIONS: Required<Omit<PNGExportOptions, 'width' | 'height'>> = {
+  scale: 2,
+  backgroundColor: '#fafafa',
+  quality: 1.0,
+};
+
+const DEFAULT_SVG_OPTIONS: Required<Omit<SVGExportOptions, 'width' | 'height'>> = {
+  inlineStyles: true,
+};
 
 // ═══════════════════════════════════════════════════════════════
 // SVG EXPORT
@@ -13,11 +55,27 @@ import type { MoleculeRecipe } from './core/types';
 
 /**
  * Export molecule as SVG file
+ *
+ * @param svgElement - The SVG element to export
+ * @param filename - Output filename (default: 'recipe-molecule.svg')
+ * @param options - Export options for customization
+ *
+ * @example
+ * ```typescript
+ * exportSVG(svgRef.current, 'daiquiri.svg', {
+ *   inlineStyles: true,
+ *   width: 800,
+ *   height: 600,
+ * });
+ * ```
  */
 export function exportSVG(
   svgElement: SVGSVGElement,
-  filename: string = 'recipe-molecule.svg'
+  filename: string = 'recipe-molecule.svg',
+  options: SVGExportOptions = {}
 ): void {
+  const opts = { ...DEFAULT_SVG_OPTIONS, ...options };
+
   // Clone the SVG to avoid modifying the original
   const clone = svgElement.cloneNode(true) as SVGSVGElement;
 
@@ -25,8 +83,18 @@ export function exportSVG(
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
   clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
 
+  // Apply dimension overrides
+  if (opts.width !== undefined) {
+    clone.setAttribute('width', String(opts.width));
+  }
+  if (opts.height !== undefined) {
+    clone.setAttribute('height', String(opts.height));
+  }
+
   // Inline styles for standalone SVG
-  inlineStyles(clone);
+  if (opts.inlineStyles) {
+    inlineStyles(clone);
+  }
 
   // Serialize to string
   const serializer = new XMLSerializer();
@@ -39,12 +107,31 @@ export function exportSVG(
 
 /**
  * Get SVG as string (for server-side processing)
+ *
+ * @param svgElement - The SVG element to serialize
+ * @param options - Export options for customization
+ * @returns SVG string with inlined styles
  */
-export function getSVGString(svgElement: SVGSVGElement): string {
+export function getSVGString(
+  svgElement: SVGSVGElement,
+  options: SVGExportOptions = {}
+): string {
+  const opts = { ...DEFAULT_SVG_OPTIONS, ...options };
+
   const clone = svgElement.cloneNode(true) as SVGSVGElement;
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
   clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
-  inlineStyles(clone);
+
+  if (opts.width !== undefined) {
+    clone.setAttribute('width', String(opts.width));
+  }
+  if (opts.height !== undefined) {
+    clone.setAttribute('height', String(opts.height));
+  }
+
+  if (opts.inlineStyles) {
+    inlineStyles(clone);
+  }
 
   const serializer = new XMLSerializer();
   return serializer.serializeToString(clone);
@@ -56,32 +143,70 @@ export function getSVGString(svgElement: SVGSVGElement): string {
 
 /**
  * Export molecule as PNG file
+ *
+ * @param svgElement - The SVG element to export
+ * @param filename - Output filename (default: 'recipe-molecule.png')
+ * @param options - Export options for customization
+ *
+ * @example
+ * ```typescript
+ * // High-res export with transparent background
+ * await exportPNG(svgRef.current, 'daiquiri.png', {
+ *   scale: 4,
+ *   backgroundColor: 'transparent',
+ * });
+ *
+ * // Custom dimensions
+ * await exportPNG(svgRef.current, 'daiquiri.png', {
+ *   width: 1200,
+ *   height: 900,
+ * });
+ * ```
  */
 export async function exportPNG(
   svgElement: SVGSVGElement,
   filename: string = 'recipe-molecule.png',
-  scale: number = 2 // 2x for retina
+  options: PNGExportOptions = {}
 ): Promise<void> {
-  const pngBlob = await svgToPNG(svgElement, scale);
+  const pngBlob = await svgToPNG(svgElement, options);
   downloadBlob(pngBlob, filename);
 }
 
 /**
  * Convert SVG to PNG blob
+ *
+ * @param svgElement - The SVG element to convert
+ * @param options - Export options for customization
+ * @returns PNG blob
+ * @throws ExportError if canvas context fails or blob creation fails
  */
 export async function svgToPNG(
   svgElement: SVGSVGElement,
-  scale: number = 2
+  options: PNGExportOptions = {}
 ): Promise<Blob> {
+  const opts = { ...DEFAULT_PNG_OPTIONS, ...options };
+
   return new Promise((resolve, reject) => {
-    // Get SVG dimensions
-    const width = svgElement.viewBox.baseVal.width || svgElement.clientWidth || 520;
-    const height = svgElement.viewBox.baseVal.height || svgElement.clientHeight || 420;
+    // Get SVG dimensions from viewBox or element
+    const viewBoxWidth = svgElement.viewBox.baseVal.width || svgElement.clientWidth || 520;
+    const viewBoxHeight = svgElement.viewBox.baseVal.height || svgElement.clientHeight || 420;
+
+    // Use custom dimensions or viewBox dimensions
+    const width = opts.width ?? viewBoxWidth;
+    const height = opts.height ?? viewBoxHeight;
 
     // Clone and prepare SVG
     const clone = svgElement.cloneNode(true) as SVGSVGElement;
     clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
     clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+
+    // Update viewBox if dimensions changed
+    if (opts.width || opts.height) {
+      clone.setAttribute('viewBox', `0 0 ${viewBoxWidth} ${viewBoxHeight}`);
+      clone.setAttribute('width', String(width));
+      clone.setAttribute('height', String(height));
+    }
+
     inlineStyles(clone);
 
     // Serialize SVG
@@ -93,24 +218,27 @@ export async function svgToPNG(
     // Create image
     const img = new Image();
     img.onload = () => {
-      // Create canvas
+      // Create canvas with scale
       const canvas = document.createElement('canvas');
-      canvas.width = width * scale;
-      canvas.height = height * scale;
+      canvas.width = width * opts.scale;
+      canvas.height = height * opts.scale;
 
       const ctx = canvas.getContext('2d');
       if (!ctx) {
-        reject(new Error('Failed to get canvas context'));
+        URL.revokeObjectURL(url);
+        reject(new ExportError('Failed to get canvas context', { width, height, scale: opts.scale }));
         return;
       }
 
-      // Fill background (optional: white background)
-      ctx.fillStyle = '#fafafa';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // Fill background (skip if transparent)
+      if (opts.backgroundColor !== 'transparent') {
+        ctx.fillStyle = opts.backgroundColor;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
 
       // Scale and draw
-      ctx.scale(scale, scale);
-      ctx.drawImage(img, 0, 0);
+      ctx.scale(opts.scale, opts.scale);
+      ctx.drawImage(img, 0, 0, width, height);
 
       // Convert to blob
       canvas.toBlob(
@@ -119,17 +247,17 @@ export async function svgToPNG(
           if (blob) {
             resolve(blob);
           } else {
-            reject(new Error('Failed to create PNG blob'));
+            reject(new ExportError('Failed to create PNG blob', { width, height }));
           }
         },
         'image/png',
-        1.0
+        opts.quality
       );
     };
 
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new Error('Failed to load SVG image'));
+      reject(new ExportError('Failed to load SVG image for PNG conversion'));
     };
 
     img.src = url;
@@ -137,17 +265,27 @@ export async function svgToPNG(
 }
 
 /**
- * Get PNG as data URL
+ * Get PNG as data URL (base64 encoded)
+ *
+ * @param svgElement - The SVG element to convert
+ * @param options - Export options for customization
+ * @returns Data URL string (data:image/png;base64,...)
+ *
+ * @example
+ * ```typescript
+ * const dataUrl = await getPNGDataURL(svgRef.current, { scale: 3 });
+ * // Use in <img src={dataUrl} /> or for clipboard
+ * ```
  */
 export async function getPNGDataURL(
   svgElement: SVGSVGElement,
-  scale: number = 2
+  options: PNGExportOptions = {}
 ): Promise<string> {
-  const blob = await svgToPNG(svgElement, scale);
+  const blob = await svgToPNG(svgElement, options);
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
+    reader.onerror = () => reject(new ExportError('Failed to read PNG blob as data URL'));
     reader.readAsDataURL(blob);
   });
 }

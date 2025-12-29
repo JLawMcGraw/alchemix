@@ -8,6 +8,9 @@
 // Types
 export * from './types';
 
+// Constants
+export * from './constants';
+
 // Parser
 export { parseIngredient, parseIngredients, toOunces } from './parser';
 
@@ -39,4 +42,21 @@ export {
 export {
   generateFormula,
   generateCompactFormula,
+  getSymbolName,
+  parseFormulaSymbols,
+  type FormulaSymbolInfo,
 } from './formula';
+
+// Validation
+export {
+  ValidationError,
+  LayoutError,
+  ExportError,
+  RecipeMoleculeError,
+  validateRecipe,
+  validateLayoutOptions,
+  validateLayout,
+  assertValidRecipe,
+  logWarnings,
+  type ValidationResult,
+} from './validation';

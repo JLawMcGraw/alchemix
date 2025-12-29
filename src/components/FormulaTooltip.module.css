@@ -1,0 +1,108 @@
+.trigger {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: default;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  text-decoration: none;
+}
+
+.trigger:hover,
+.trigger:focus {
+  outline: none;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 10000;
+  min-width: 240px;
+  max-width: 320px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  padding: 12px;
+  animation: fadeIn 0.15s ease;
+  pointer-events: none;
+}
+
+.header {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-tertiary);
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.symbolList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.symbolItem {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.symbolCode {
+  font-weight: 600;
+  color: var(--fg-primary);
+  min-width: 48px;
+}
+
+.symbolEquals {
+  color: var(--fg-tertiary);
+}
+
+.symbolName {
+  color: var(--fg-secondary);
+  flex: 1;
+}
+
+.coefficient {
+  color: var(--bond-botanical);
+  font-weight: 500;
+}
+
+.ratio {
+  color: var(--fg-tertiary);
+  font-size: 0.75rem;
+}
+
+.hint {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--fg-tertiary);
+  text-align: center;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

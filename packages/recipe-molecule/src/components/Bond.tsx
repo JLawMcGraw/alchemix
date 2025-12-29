@@ -14,23 +14,8 @@
 
 import type { MoleculeNode, BondType } from '../core/types';
 import { getDoubleBondLines, shortenBondToEdge } from '../core/bonds';
+import { HEX_RADIUS, TEXT_RADIUS, CORNER_ANGLES } from '../core/constants';
 import styles from '../styles/molecule.module.css';
-
-// Benzene ring radius - must match Molecule.tsx
-const BENZENE_RADIUS = 22;
-
-// Text label "radius" - distance to stop before text center
-const TEXT_RADIUS = 8;
-
-// Hexagon corner angles (vertices) - rotated 30° so flat edges face top/bottom
-const CORNER_ANGLES = [
-  -Math.PI / 3,         // 0: upper-right
-  0,                    // 1: right
-  Math.PI / 3,          // 2: lower-right
-  Math.PI * 2 / 3,      // 3: lower-left
-  Math.PI,              // 4: left
-  -Math.PI * 2 / 3,     // 5: upper-left
-];
 
 /**
  * Find the hexagon corner closest to a target point
@@ -57,8 +42,8 @@ function getNearestHexCorner(
 
   const cornerAngle = CORNER_ANGLES[bestCorner];
   return {
-    x: cx + BENZENE_RADIUS * Math.cos(cornerAngle),
-    y: cy + BENZENE_RADIUS * Math.sin(cornerAngle),
+    x: cx + HEX_RADIUS * Math.cos(cornerAngle),
+    y: cy + HEX_RADIUS * Math.sin(cornerAngle),
   };
 }
 
@@ -80,20 +65,20 @@ export function Bond({ from, to, type }: BondProps) {
   // Determine "from" radius based on node type
   const getFromRadius = (): number => {
     if (isFromJunction) return 0; // Junction nodes have no visible element
-    if (isFromSpirit) return BENZENE_RADIUS;
+    if (isFromSpirit) return HEX_RADIUS;
     return TEXT_RADIUS;
   };
 
   // Determine "to" radius based on node type
   const getToRadius = (): number => {
     if (isToJunction) return 0; // Junction nodes have no visible element
-    if (isToSpirit) return BENZENE_RADIUS;
+    if (isToSpirit) return HEX_RADIUS;
     return TEXT_RADIUS;
   };
 
   if (isSpiritToSpirit) {
     // Spirit-to-spirit: connect center-to-center, stopping at benzene ring edges
-    const shortened = shortenBondToEdge(from.x, from.y, to.x, to.y, BENZENE_RADIUS, BENZENE_RADIUS);
+    const shortened = shortenBondToEdge(from.x, from.y, to.x, to.y, HEX_RADIUS, HEX_RADIUS);
     x1 = shortened.x1;
     y1 = shortened.y1;
     x2 = shortened.x2;
@@ -183,8 +168,8 @@ function SingleBond({ x1, y1, x2, y2 }: LineProps) {
 }
 
 function DoubleBond({ x1, y1, x2, y2 }: LineProps) {
-  // Offset (2.5px each side = 5px apart total) - visible even when scaled
-  const { line1, line2 } = getDoubleBondLines(x1, y1, x2, y2, 2.5);
+  // Tighter offset (1.5px each side = 3px gap) for more refined look
+  const { line1, line2 } = getDoubleBondLines(x1, y1, x2, y2, 1.5);
 
   return (
     <g>
@@ -194,7 +179,7 @@ function DoubleBond({ x1, y1, x2, y2 }: LineProps) {
         x2={line1[2]}
         y2={line1[3]}
         className={styles.bond}
-        strokeWidth={1}
+        style={{ strokeWidth: 1 }}
         fill="none"
       />
       <line
@@ -203,7 +188,7 @@ function DoubleBond({ x1, y1, x2, y2 }: LineProps) {
         x2={line2[2]}
         y2={line2[3]}
         className={styles.bond}
-        strokeWidth={1}
+        style={{ strokeWidth: 1 }}
         fill="none"
       />
     </g>
@@ -237,8 +222,8 @@ function WedgeBond({ x1, y1, x2, y2 }: LineProps) {
   const px = -dy / len;
   const py = dx / len;
 
-  // Wedge width at the end
-  const wedgeWidth = 3;
+  // Wedge width at the end - refined size
+  const wedgeWidth = 2.2;
 
   // Triangle: narrow at start, wide at end
   const points = [
@@ -272,10 +257,10 @@ function DashedWedgeBond({ x1, y1, x2, y2 }: LineProps) {
   const px = -dy / len; // Perpendicular
   const py = dx / len;
 
-  // Exactly 3 dashes that taper (widen along the bond)
+  // Exactly 3 dashes that taper (widen along the bond) - refined sizes
   const numDashes = 3;
-  const dashLength = 3;
-  const maxWidth = 3; // Maximum width at the end
+  const dashLength = 2.5;
+  const maxWidth = 2.2; // Maximum width at the end
 
   const dashes: JSX.Element[] = [];
 

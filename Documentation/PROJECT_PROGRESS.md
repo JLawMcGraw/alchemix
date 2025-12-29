@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2025-12-27 (Session 11)
+Last updated: 2025-12-28 (Session 12)
 
 ---
 
@@ -28,12 +28,187 @@ Last updated: 2025-12-27 (Session 11)
 - Design System Consistency Pass: **Complete** (All pages audited for rounded corners)
 - Code Review Polish: **Complete** (Accessibility, dark mode, CSS variables)
 - Pre-Deployment Code Review: **Complete** (All high/medium priority items fixed)
+- Recipe-Molecule Polish: **Complete** (Ingredient classification, formula tooltips, visual refinements)
 
 **PostgreSQL Migration**: **Complete** (Phase 1-5 done, Phase 6 Deploy pending)
 
 ---
 
-## Recent Session (2025-12-27): MemMachine UID Bug Fix & Tiered Bottle Search
+## Recent Session (2025-12-28): Recipe-Molecule Major Overhaul
+
+### Summary
+Comprehensive update to recipe-molecule package: expanded ingredient classification to 80+ liqueurs/spirits, added interactive formula tooltips, Instagram Story export format, refined molecule visualization aesthetics (Inter font, softer colors, thinner strokes). Fixed recipes page search UX bugs.
+
+### Work Completed
+
+#### 1. Ingredient Classification Expansion (formula.ts, classifier.ts)
+Massively expanded ingredient recognition for accurate formula generation:
+
+**New Signature Elements (40+ additions)**:
+- `Bc` Blue Curacao (prioritized before generic curacao)
+- Fruit liqueurs: Pe (peach), Cm (raspberry/chambord), Sf (strawberry), At (apricot), Mu (blackberry), Pw (pear), Mi (melon/midori), Ly (lychee), Mg (mango), Gu (guava), Pp (papaya), Kq (kumquat), Yu (yuzu), Td (tamarind)
+- Herbal: Ct (chartreuse), Fa (falernum), Dr (drambuie), Be (benedictine), Gl (galliano), Sg (sloe gin), Gq (ginger liqueur), Ch (cherry heering)
+- Nut/Coffee: Fq (frangelico), Nc (coconut), Ic (irish cream)
+- Floral: Rs (rose), Hb (hibiscus)
+- Specialty: Ad (allspice dram), Vo (advocaat), L4 (licor 43), Tu (tuaca), Sm (sambuca), St (strega), Gp (grappa)
+- Sparkling: Sp (prosecco, champagne, cava)
+- Savory: Tj (tomato juice), Wo (worcestershire)
+- Carbonated: Gb (ginger beer)
+
+**Classification Algorithm Improvements**:
+- Weighted keyword matching (longer matches score higher)
+- Compound-aware: "maraschino cherry" → garnish, not liqueur
+- Nectars/purees classified as sweet, not garnish
+- Cachaça with accent support
+
+**Files Changed**:
+- `packages/recipe-molecule/src/core/formula.ts` (+400 lines)
+- `packages/recipe-molecule/src/core/classifier.ts` (+240 lines)
+- `packages/recipe-molecule/src/core/classifier.test.ts` (updated tests)
+- `packages/recipe-molecule/src/core/formula.test.ts` (updated tests)
+
+#### 2. FormulaTooltip Component (NEW)
+Interactive hover tooltip explaining formula symbols:
+
+**Features**:
+- Hover over formula to see breakdown
+- Shows symbol → full name mapping
+- Displays coefficients (count) and subscripts (ratio)
+- Portal-based positioning with viewport awareness
+- Dark mode support
+
+**Files Added**:
+- `src/components/FormulaTooltip.tsx`
+- `src/components/FormulaTooltip.module.css`
+
+**Package Exports Added**:
+- `parseFormulaSymbols()` function for breaking down formulas
+- `FormulaSymbolInfo` type
+
+#### 3. Recipe Detail Modal Overhaul (RecipeDetailModal.tsx)
+Major update to recipe export and display:
+
+**Instagram Story Export**:
+- Changed from generic 600px to 1080×1920 (9:16 ratio)
+- Clean white background
+- Optimized layout for social sharing
+
+**Symbol Corrections**:
+- Salt: Sa → Na (matches periodic table)
+- Garnish: Gn → Ga
+- Dairy: Dy → Da
+
+**FormulaTooltip Integration**:
+- Formula now shows interactive tooltip on hover
+
+#### 4. Export API Improvements (export.ts)
+Enhanced SVG and PNG export with options:
+
+**PNGExportOptions**:
+- `scale`: Resolution multiplier (default: 2)
+- `backgroundColor`: Color or 'transparent'
+- `width`/`height`: Override dimensions
+- `quality`: PNG quality 0-1
+
+**SVGExportOptions**:
+- `inlineStyles`: Embed CSS for standalone use
+- `width`/`height`: Override attributes
+
+**Error Handling**:
+- Added `ExportError` class for export failures
+
+#### 5. Constants Extraction (NEW: constants.ts)
+Centralized geometry constants:
+- `HEX_RADIUS`, `HEX_ROTATION`, `CORNER_ANGLES`
+- `TEXT_RADIUS`, `TARGET_BOND_LENGTH`, `CHAIN_BOND_LENGTH`
+- `MAX_CHAIN_LENGTH`, `MIN_NODE_DISTANCE`, `CANVAS_PADDING`
+
+#### 6. Validation Module (NEW: validation.ts)
+Input validation utilities for recipe-molecule package.
+
+#### 7. Molecule Visualization Aesthetics
+
+**Typography (Inter font throughout)**:
+- Spirit labels: 6.5px (5.5px for >4 chars)
+- Node labels: 10px
+- Negative letter-spacing for spirits (-0.01em, -0.02em)
+
+**Strokes & Colors**:
+- General bonds: 1.2px (CSS)
+- Double bonds: 1px (inline style)
+- Inner benzene lines: 0.7px (inline style)
+- Wedge width: 2.2px
+- Backbone opacity: 0.12
+- All blacks: #3f3f46 (softer)
+
+**CSS Specificity Fix**:
+- Problem: `strokeWidth={0.7}` overridden by CSS
+- Solution: Use `style={{ strokeWidth: 0.7 }}`
+
+**Files Changed**:
+- `packages/recipe-molecule/src/styles/molecule.module.css`
+- `packages/recipe-molecule/src/components/Molecule.tsx`
+- `packages/recipe-molecule/src/components/Bond.tsx`
+- `packages/recipe-molecule/src/components/Node.tsx`
+
+#### 8. Layout Improvements (layout.ts)
+- Extended ingredient placement logic
+- Improved chain positioning
+- Better overflow handling
+
+#### 9. Empty Recipe Placeholder
+Updated to AlcheMix inverted Y molecular icon:
+- Monochrome styling (#3f3f46)
+- Proper bond geometry (lines stop at circle edges)
+- "No ingredients" label in Inter
+
+**File**: `src/components/RecipeMolecule.tsx`
+
+#### 10. Recipes Page Search UX
+
+**Bug Fix**: Search clear loads all recipes
+- Changed `loadRecipes(1, false)` → `loadRecipes(1, true)`
+- File: `src/app/recipes/useRecipesPage.ts`
+
+**Feature**: X button to clear search
+- Appears when search has text
+- Dark mode support
+- Files: `RecipeFilters.tsx`, `recipes.module.css`
+
+### Files Changed Summary
+
+**New Files** (6):
+- `src/components/FormulaTooltip.tsx`
+- `src/components/FormulaTooltip.module.css`
+- `packages/recipe-molecule/src/core/constants.ts`
+- `packages/recipe-molecule/src/core/validation.ts`
+- `packages/recipe-molecule/src/components/Molecule.test.tsx`
+- `packages/recipe-molecule/src/test/` (test utilities)
+
+**Modified Files** (17):
+- `packages/recipe-molecule/src/core/formula.ts` (+400 lines)
+- `packages/recipe-molecule/src/core/classifier.ts` (+240 lines)
+- `packages/recipe-molecule/src/core/layout.ts` (+200 lines)
+- `packages/recipe-molecule/src/export.ts` (+150 lines)
+- `packages/recipe-molecule/src/core/types.ts`
+- `packages/recipe-molecule/src/core/index.ts`
+- `packages/recipe-molecule/src/adapter.ts`
+- `packages/recipe-molecule/src/index.ts`
+- `packages/recipe-molecule/src/styles/molecule.module.css`
+- `packages/recipe-molecule/src/components/Molecule.tsx`
+- `packages/recipe-molecule/src/components/Bond.tsx`
+- `packages/recipe-molecule/src/components/Node.tsx`
+- `src/components/modals/RecipeDetailModal.tsx`
+- `src/components/RecipeMolecule.tsx`
+- `src/app/recipes/useRecipesPage.ts`
+- `src/app/recipes/RecipeFilters.tsx`
+- `src/app/recipes/recipes.module.css`
+
+**Total**: ~1560 insertions, ~490 deletions
+
+---
+
+## Previous Session (2025-12-27): MemMachine UID Bug Fix & Tiered Bottle Search
 
 ### Summary
 Fixed critical UID uniqueness bug where duplicate recipe names caused UID loss in MemMachine sync. Cleared and re-synced all 476 recipes. Implemented tiered bottle search so AI bartender returns multiple recipe options when a specific bottle is mentioned.

@@ -159,8 +159,8 @@ export function useRecipesPage() {
     if (activeTab === 'all' && debouncedSearch) {
       loadRecipes(1, true, { search: debouncedSearch });
     } else if (activeTab === 'all' && !debouncedSearch && !masteryFilter && prevSearch) {
-      // Clear search - reload without filter only if we HAD a previous search
-      loadRecipes(1, false);
+      // Clear search - reload ALL recipes, not just first page
+      loadRecipes(1, true);
     }
     // Note: loadRecipes is stable (empty deps array) so safe to exclude from deps
     // eslint-disable-next-line react-hooks/exhaustive-deps

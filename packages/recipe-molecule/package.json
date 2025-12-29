@@ -11,14 +11,15 @@
     "test:watch": "vitest"
   },
   "peerDependencies": {
-    "d3-force": "^3.0.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@types/d3-force": "^3.0.10",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^14.3.1",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
+    "jsdom": "^23.2.0",
     "typescript": "^5.3.3",
     "vitest": "^1.6.1"
   }

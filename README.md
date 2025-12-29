@@ -6,7 +6,7 @@
 
 Modern cocktail inventory and recipe management system with AI-powered bartender recommendations. Features a "Molecular Mixology" design system that treats cocktails as chemical formulas and ingredients as periodic table elements.
 
-**Version:** v1.35.0 | **Last Updated:** December 25, 2025
+**Version:** v1.35.0 | **Last Updated:** December 28, 2025
 
 ## Features
 
@@ -15,7 +15,7 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 - **My Bar** - Category-organized inventory with 9 tabs, card grid layout, CSV import, periodic tags
 - **Periodic Table of Mixology** - 90+ elements organized by function (Group) and origin, with hidden elements that appear when you add matching inventory. Click any element to filter your bar.
 - **Recipe Management** - Full CRUD, collections/folders, bulk operations, CSV import, spirit detection, Favorites tab
-- **Recipe Molecule Visualization** - Chemical bond-style molecular diagrams for cocktail recipes
+- **Recipe Molecule Visualization** - Chemical bond-style molecular diagrams with 80+ classified ingredients, interactive formula tooltips, and Instagram Story export (1080×1920)
 - **Smart Shopping List** - Near-miss algorithm, ingredient recommendations, 6 recipe buckets
 - **AI Bartender** - Gemini-powered assistant with SSE streaming responses, hybrid search (PostgreSQL + MemMachine), concept expansion (spirit-forward, tiki, boozy, etc.)
 - **Dashboard** - Lab overview with My Bar composition, Recipe Mastery stats, Collections sidebar
@@ -27,6 +27,7 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 - **Spirit Detection** - Automatic spirit identification from recipe ingredients with colored badges
 - **Typography System** - Inter (UI) + JetBrains Mono (data) font pairing
 - **Recipe Cards** - Molecule visualization with spirit badges and craftable indicators
+- **Formula Tooltips** - Interactive hover tooltips explaining formula symbols (coefficients, ratios)
 
 ### Security & Auth
 - **Secure Auth** - HttpOnly cookie JWT with CSRF protection (XSS-resistant)
@@ -265,9 +266,9 @@ The project has comprehensive test coverage using Vitest:
 | Suite | Tests | Description |
 |-------|-------|-------------|
 | Frontend | 234 | API client, store, UI components, page tests, onboarding |
-| Backend | 884 | Auth, inventory, recipes, collections, favorites, messages, shopping list, middleware, services |
+| Backend | 885 | Auth, inventory, recipes, collections, favorites, messages, shopping list, middleware, services |
 | Recipe Molecule | 169 | Ingredient parser, classifier, layout engine, formula generator |
-| **Total** | **1,287** | |
+| **Total** | **1,288** | |
 
 ```bash
 # Run all tests

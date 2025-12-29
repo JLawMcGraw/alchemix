@@ -1,7 +1,7 @@
 # AlcheMix Architecture
 
-**Version**: v1.34.0
-**Last Updated**: December 25, 2025
+**Version**: v1.35.0
+**Last Updated**: December 28, 2025
 
 This document provides a comprehensive map of the AlcheMix system architecture, including high-level diagrams, component relationships, and data flows.
 
@@ -184,7 +184,8 @@ alchemix/
 │   │   ├── RecipeCard/          # Recipe card
 │   │   ├── PeriodicTableV2/     # Ingredient periodic table
 │   │   ├── GlassSelector/       # Glassware picker
-│   │   ├── RecipeMolecule.tsx   # Molecule visualization
+│   │   ├── RecipeMolecule.tsx   # Molecule visualization wrapper
+│   │   ├── FormulaTooltip.tsx   # Interactive formula symbol tooltips
 │   │   └── ThemeProvider.tsx    # Global theme management
 │   │
 │   ├── lib/                      # Utilities & State
@@ -264,15 +265,22 @@ alchemix/
 ├── packages/                     # Shared Packages
 │   └── recipe-molecule/         # Molecule visualization
 │       └── src/
-│           ├── core/            # Parsing & layout
+│           ├── core/            # Parsing, classification & layout
 │           │   ├── parser.ts
-│           │   ├── classifier.ts
+│           │   ├── classifier.ts  # 80+ ingredient classifications
+│           │   ├── formula.ts     # Chemical formula generation
 │           │   ├── layout.ts
-│           │   └── bonds.ts
-│           └── components/      # React components
-│               ├── Molecule.tsx
-│               ├── Node.tsx
-│               └── Bond.tsx
+│           │   ├── bonds.ts
+│           │   ├── constants.ts   # Shared geometry constants
+│           │   ├── validation.ts  # Input validation
+│           │   └── types.ts
+│           ├── components/      # React components
+│           │   ├── Molecule.tsx
+│           │   ├── Node.tsx
+│           │   ├── Bond.tsx
+│           │   ├── Legend.tsx
+│           │   └── Tooltip.tsx
+│           └── export.ts        # PNG/SVG export with options
 │
 ├── docker/                       # Docker Configuration
 │   ├── docker-compose.yml
@@ -906,7 +914,7 @@ npm run dev:all          # Start frontend + backend
 npm run type-check       # TypeScript checks (all packages)
 
 # Testing
-cd api && npm test       # Backend tests (884)
+cd api && npm test       # Backend tests (885)
 npm test                 # Frontend tests (234)
 cd packages/recipe-molecule && npm test  # Molecule tests (169)
 
@@ -1065,13 +1073,16 @@ docker compose -f docker/docker-compose.yml up -d
 packages/recipe-molecule/
 ├── src/core/
 │   ├── parser.ts ────────────► (pure TypeScript)
-│   ├── classifier.ts ────────► (pure TypeScript)
+│   ├── classifier.ts ────────► (80+ ingredient classifications)
+│   ├── formula.ts ───────────► (chemical formula generation, parseFormulaSymbols)
 │   ├── layout.ts ────────────► (pure, force-directed)
 │   ├── bonds.ts ─────────────► (pure, geometry)
-│   ├── formula.ts ───────────► (pure)
+│   ├── constants.ts ─────────► (HEX_RADIUS, geometry constants)
+│   ├── validation.ts ────────► (input validation utilities)
 │   └── types.ts ─────────────► (type definitions)
-└── src/components/
-    └── *.tsx ────────────────► react, react-dom
+├── src/components/
+│   └── *.tsx ────────────────► react, react-dom
+└── src/export.ts ────────────► (PNG/SVG export with options)
 
 packages/types/
 └── src/*.ts ─────────────────► (pure TypeScript types)
@@ -1172,4 +1183,4 @@ Request Flow:
 
 ---
 
-*Last updated: December 25, 2025*
+*Last updated: December 28, 2025*

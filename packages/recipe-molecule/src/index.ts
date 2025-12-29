@@ -48,6 +48,9 @@ export {
 export {
   generateFormula,
   generateCompactFormula,
+  getSymbolName,
+  parseFormulaSymbols,
+  type FormulaSymbolInfo,
 } from './core/formula';
 
 // Adapter

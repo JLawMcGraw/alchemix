@@ -353,7 +353,7 @@
 
 .searchInput {
   width: 100%;
-  padding: 10px 12px 10px 40px;
+  padding: 10px 36px 10px 40px;
   font-family: var(--font-sans);
   font-size: 0.875rem;
   color: var(--color-text-body);
@@ -370,6 +370,30 @@
 .searchInput:focus {
   outline: none;
   border-color: var(--color-text-body);
+}
+
+.searchClearBtn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: var(--color-ui-bg-base);
+  border: none;
+  border-radius: 50%;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.searchClearBtn:hover {
+  background: var(--color-border);
+  color: var(--color-text-body);
 }
 
 .filterSelect {
@@ -1119,6 +1143,16 @@
 
 :global([data-theme="dark"]) .searchInput:focus {
   border-color: #94A3B8;
+}
+
+:global([data-theme="dark"]) .searchClearBtn {
+  background: #334155;
+  color: #94A3B8;
+}
+
+:global([data-theme="dark"]) .searchClearBtn:hover {
+  background: #475569;
+  color: #F1F5F9;
 }
 
 :global([data-theme="dark"]) .filterSelect {

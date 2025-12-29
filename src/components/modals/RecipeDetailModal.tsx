@@ -7,6 +7,7 @@ import { useStore } from '@/lib/store';
 import { RecipeMolecule } from '@/components/RecipeMolecule';
 import { GlassSelector } from '@/components/GlassSelector';
 import { classifyIngredient, parseIngredient, generateFormula, toOunces, TYPE_COLORS, type IngredientType } from '@alchemix/recipe-molecule';
+import { FormulaTooltip } from '@/components/FormulaTooltip';
 import type { Recipe, Collection } from '@/types';
 import { SPIRIT_COLORS, getSpiritColorFromIngredients } from '@/lib/colors';
 import { parseIngredients } from '@/lib/utils';
@@ -44,16 +45,16 @@ const TYPE_TO_CSS_VAR: Record<IngredientType, string> = {
   junction: '--fg-tertiary',
 };
 
-// Get 2-letter symbol for ingredient type
+// Get 2-letter symbol for ingredient type (matches classifier.ts)
 const TYPE_SYMBOLS: Record<IngredientType, string> = {
   spirit: 'Sp',
   acid: 'Ac',
   sweet: 'Sw',
   bitter: 'Bt',
-  salt: 'Sa',
+  salt: 'Na',
   dilution: 'Mx',
-  garnish: 'Gn',
-  dairy: 'Dy',
+  garnish: 'Ga',
+  dairy: 'Da',
   egg: 'Eg',
   junction: '',
 };
@@ -263,85 +264,55 @@ export function RecipeDetailModal({
     });
   };
 
-  // Handle export as styled PNG
+  // Handle export as styled PNG (Instagram Story format 1080x1920)
   const handleExport = useCallback(async () => {
     if (!recipe || !moleculeSvgRef.current) return;
 
     const ingredients = parseIngredients(recipe.ingredients);
     const formula = ingredients.length > 0 ? generateFormula(ingredients) : '';
 
-    // Canvas dimensions
-    const canvasWidth = 600;
-    const padding = 40;
-    const titleHeight = 50;
-    const formulaHeight = 30;
-    const moleculeHeight = 320;
-    const ingredientLineHeight = 32;
-    const ingredientsHeight = ingredients.length * ingredientLineHeight + 40;
-    const canvasHeight = padding * 2 + titleHeight + formulaHeight + moleculeHeight + ingredientsHeight;
+    // Instagram Story dimensions (9:16 aspect ratio)
+    const canvasWidth = 1080;
+    const canvasHeight = 1920;
+    const scale = 2; // For extra crisp export
+    const padding = 80;
 
     // Create canvas
     const canvas = document.createElement('canvas');
-    canvas.width = canvasWidth * 2; // 2x for retina
-    canvas.height = canvasHeight * 2;
+    canvas.width = canvasWidth * scale;
+    canvas.height = canvasHeight * scale;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Scale for retina
-    ctx.scale(2, 2);
+    ctx.scale(scale, scale);
 
-    // Background
-    ctx.fillStyle = '#FAFAFA';
+    // === CLEAN WHITE BACKGROUND ===
+    ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-    // Title
+    // === RECIPE TITLE (at top) ===
+    const titleY = 100;
     ctx.fillStyle = '#18181B';
-    ctx.font = 'bold 28px system-ui, -apple-system, sans-serif';
+    ctx.font = 'bold 56px system-ui, -apple-system, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(recipe.name, canvasWidth / 2, padding + 30);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(recipe.name, canvasWidth / 2, titleY);
 
-    // Formula
+    // === FORMULA === (matches .formula style: 14px, weight 500, letter-spacing 0.02em)
+    const formulaY = titleY + 70;
     ctx.fillStyle = '#71717A';
-    ctx.font = '500 16px "JetBrains Mono", "SF Mono", monospace';
-    ctx.fillText(formula, canvasWidth / 2, padding + titleHeight + 20);
+    ctx.font = '500 28px "JetBrains Mono", monospace';
+    ctx.fillText(formula, canvasWidth / 2, formulaY);
 
-    // Convert SVG to image and draw (with inlined styles for proper export)
+    // === MOLECULE (hero element - larger, closer to formula) ===
+    const moleculeY = formulaY + 30;
+    const moleculeSize = 720;
+    const moleculeX = (canvasWidth - moleculeSize) / 2;
+
+    // Clone SVG and inline styles
     const svgElement = moleculeSvgRef.current;
-
-    // Clone SVG and inline computed styles for export
     const clonedSvg = svgElement.cloneNode(true) as SVGSVGElement;
 
-    // Inline styles for all elements to ensure proper rendering
-    const inlineStyles = (element: Element) => {
-      const computed = window.getComputedStyle(element);
-      const styles: string[] = [];
-
-      // Key style properties to inline
-      const propsToInline = [
-        'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'opacity',
-        'font-family', 'font-size', 'font-weight', 'letter-spacing',
-        'text-anchor', 'dominant-baseline'
-      ];
-
-      for (const prop of propsToInline) {
-        const value = computed.getPropertyValue(prop);
-        if (value && value !== 'none' && value !== '') {
-          styles.push(`${prop}: ${value}`);
-        }
-      }
-
-      if (styles.length > 0) {
-        const existingStyle = element.getAttribute('style') || '';
-        element.setAttribute('style', existingStyle + styles.join('; '));
-      }
-
-      // Recursively process children
-      for (const child of element.children) {
-        inlineStyles(child);
-      }
-    };
-
-    // Find original elements and apply their computed styles to cloned elements
     const originalElements = svgElement.querySelectorAll('*');
     const clonedElements = clonedSvg.querySelectorAll('*');
 
@@ -351,7 +322,6 @@ export function RecipeDetailModal({
 
       const computed = window.getComputedStyle(original);
       const styles: string[] = [];
-
       const propsToInline = [
         'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'opacity',
         'font-family', 'font-size', 'font-weight', 'letter-spacing',
@@ -376,67 +346,244 @@ export function RecipeDetailModal({
 
     const img = new Image();
     img.onload = () => {
-      // Draw molecule centered
-      const moleculeY = padding + titleHeight + formulaHeight + 10;
-      const moleculeX = (canvasWidth - 440) / 2;
-      ctx.drawImage(img, moleculeX, moleculeY, 440, 320);
-
+      // Draw molecule
+      ctx.drawImage(img, moleculeX, moleculeY, moleculeSize, moleculeSize * 0.75);
       URL.revokeObjectURL(svgUrl);
 
-      // Ingredients section
-      const ingredientsY = moleculeY + moleculeHeight + 20;
+      // === LEGEND (below molecule) - matches Legend.tsx and molecule.module.css exactly ===
+      const legendY = moleculeY + moleculeSize * 0.75 + 40;
 
-      // Section title
+      // Get unique ingredient types for legend (exclude spirits - they show their name)
+      const usedTypes = [...new Set(ingredients.map(ing => {
+        const parsed = parseIngredient(ing);
+        return classifyIngredient(parsed).type;
+      }))].filter(t => t !== 'spirit' && t !== 'junction');
+
+      const typeOrder = ['acid', 'sweet', 'bitter', 'salt', 'dilution', 'dairy', 'egg', 'garnish'];
+      const sortedTypes = usedTypes.sort((a, b) => typeOrder.indexOf(a) - typeOrder.indexOf(b));
+
+      const TYPE_ABBREV: Record<string, string> = {
+        acid: 'Ac', sweet: 'Sw', bitter: 'Bt', salt: 'Na',
+        dilution: 'Mx', garnish: 'Ga', dairy: 'Da', egg: 'Eg'
+      };
+      const TYPE_NAMES: Record<string, string> = {
+        acid: 'Acid', sweet: 'Sweet', bitter: 'Bitter', salt: 'Salt',
+        dilution: 'Mixer', garnish: 'Garnish', dairy: 'Dairy', egg: 'Egg'
+      };
+
+      let legendEndY = legendY;
+
+      if (sortedTypes.length > 0) {
+        // Legend title - matches .legendTitle: 10px * 2 = 20px, weight 500, letter-spacing 0.1em, uppercase
+        ctx.fillStyle = '#71717A';
+        ctx.font = '500 20px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('RECIPE CHEMICAL STRUCTURE', canvasWidth / 2, legendY);
+
+        // Legend items - horizontal layout matching Legend.tsx exactly
+        // Format: "Ac = Acid" with .legendAbbr (bold), .legendEquals (#A1A1AA), .legendName (#71717A)
+        // gap: 1rem (16px) between items, so 32px in export
+        const itemGap = 32;
+        const legendItemsY = legendY + 40;
+
+        // Calculate total width for centering
+        ctx.font = '600 20px "JetBrains Mono", monospace';
+        let totalWidth = 0;
+        const itemWidths: number[] = [];
+        sortedTypes.forEach((t, i) => {
+          const abbrWidth = ctx.measureText(TYPE_ABBREV[t]).width;
+          ctx.font = '500 20px "JetBrains Mono", monospace';
+          const equalsWidth = ctx.measureText(' = ').width;
+          const nameWidth = ctx.measureText(TYPE_NAMES[t]).width;
+          const itemWidth = abbrWidth + equalsWidth + nameWidth;
+          itemWidths.push(itemWidth);
+          totalWidth += itemWidth;
+          if (i < sortedTypes.length - 1) totalWidth += itemGap;
+          ctx.font = '600 20px "JetBrains Mono", monospace';
+        });
+
+        // Draw legend items centered
+        let currentX = (canvasWidth - totalWidth) / 2;
+        sortedTypes.forEach((t, i) => {
+          // Abbreviation - bold (#27272A, weight 600)
+          ctx.font = '600 20px "JetBrains Mono", monospace';
+          ctx.fillStyle = '#27272A';
+          ctx.textAlign = 'left';
+          ctx.fillText(TYPE_ABBREV[t], currentX, legendItemsY);
+          currentX += ctx.measureText(TYPE_ABBREV[t]).width;
+
+          // Equals sign (#A1A1AA)
+          ctx.font = '500 20px "JetBrains Mono", monospace';
+          ctx.fillStyle = '#A1A1AA';
+          ctx.fillText(' = ', currentX, legendItemsY);
+          currentX += ctx.measureText(' = ').width;
+
+          // Name (#71717A)
+          ctx.fillStyle = '#71717A';
+          ctx.fillText(TYPE_NAMES[t], currentX, legendItemsY);
+          currentX += ctx.measureText(TYPE_NAMES[t]).width;
+
+          // Add gap between items
+          if (i < sortedTypes.length - 1) {
+            currentX += itemGap;
+          }
+        });
+
+        legendEndY = legendItemsY + 40;
+      }
+
+      // === INGREDIENTS SECTION ===
+      const ingredientsStartY = legendEndY + 40;
+
+      // Section title with line - matches .sectionTitle: 12px * 2 = 24px, weight 500, letter-spacing 0.15em
       ctx.fillStyle = '#71717A';
-      ctx.font = '500 11px "JetBrains Mono", monospace';
+      ctx.font = '500 24px "JetBrains Mono", monospace';
       ctx.textAlign = 'left';
-      ctx.letterSpacing = '0.1em';
-      ctx.fillText('INGREDIENTS', padding, ingredientsY);
+      ctx.textBaseline = 'middle';
+      const ingredientsTitleX = padding + 60;
+      ctx.fillText('INGREDIENTS', ingredientsTitleX, ingredientsStartY);
 
-      // Draw line
+      // Line after title (matches .sectionTitle::after) - gap 12px * 2 = 24px
+      const titleWidth = ctx.measureText('INGREDIENTS').width;
       ctx.strokeStyle = '#E4E4E7';
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(padding + 90, ingredientsY - 4);
-      ctx.lineTo(canvasWidth - padding, ingredientsY - 4);
+      ctx.moveTo(ingredientsTitleX + titleWidth + 24, ingredientsStartY);
+      ctx.lineTo(canvasWidth - padding - 60, ingredientsStartY);
       ctx.stroke();
 
-      // Draw each ingredient
-      ingredients.forEach((ingredient, index) => {
-        const y = ingredientsY + 25 + index * ingredientLineHeight;
+      // Helper for text wrapping
+      const wrapText = (text: string, maxWidth: number): string[] => {
+        ctx.font = '26px "JetBrains Mono", monospace';
+        const words = text.split(' ');
+        const lines: string[] = [];
+        let currentLine = '';
+
+        for (const word of words) {
+          const testLine = currentLine ? `${currentLine} ${word}` : word;
+          if (ctx.measureText(testLine).width > maxWidth && currentLine) {
+            lines.push(currentLine);
+            currentLine = word;
+          } else {
+            currentLine = testLine;
+          }
+        }
+        if (currentLine) lines.push(currentLine);
+        return lines;
+      };
+
+      // Draw ingredients - matches .ingredientItem and .ingredientPip
+      // .ingredientsList gap: 4px * 2 = 8px between items
+      // .ingredientItem padding: 8px 12px * 2 = 16px 24px, gap: 10px * 2 = 20px
+      const contentStartX = padding + 60;
+      const pipSize = 44; // matches .ingredientPip 22px * 2
+      const pipRadius = pipSize / 2;
+      const textOffsetX = pipSize + 20; // pip + gap (10px * 2)
+      const maxTextWidth = canvasWidth - contentStartX - textOffsetX - padding - 60;
+      const lineHeight = 36;
+      const ingredientGap = 8; // .ingredientsList gap: 4px * 2
+      let currentY = ingredientsStartY + 50; // margin-bottom: 12px * 2 + some padding
+
+      ingredients.forEach((ingredient) => {
         const parsed = parseIngredient(ingredient);
         const classified = classifyIngredient(parsed);
         const color = TYPE_COLORS_HEX[classified.type];
         const symbol = TYPE_SYMBOLS[classified.type];
+        const lines = wrapText(ingredient, maxTextWidth);
 
-        // Color pip (circle)
+        // Calculate row height for proper pip centering
+        const rowHeight = Math.max(lines.length * lineHeight, pipSize);
+
+        // Color pip - matches .ingredientPip: 22px * 2 = 44px, vertically centered in row
+        const pipX = contentStartX + pipRadius;
+        const pipY = currentY + rowHeight / 2;
+
         ctx.beginPath();
-        ctx.arc(padding + 10, y - 4, 10, 0, Math.PI * 2);
+        ctx.arc(pipX, pipY, pipRadius, 0, Math.PI * 2);
         ctx.fillStyle = color;
         ctx.fill();
 
-        // Symbol inside pip (Sp, Ac, Sw, Bt, etc.)
+        // Symbol in pip - matches .ingredientPip: 0.75rem * 2 = 24px, text-transform: uppercase
+        // Using weight 500 for proper visual match (canvas renders heavier than CSS)
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 8px "JetBrains Mono", monospace';
+        ctx.font = '500 24px "JetBrains Mono", monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(symbol, padding + 10, y - 4);
+        ctx.fillText(symbol.toUpperCase(), pipX, pipY);
 
-        // Ingredient text
+        // Ingredient text - matches .ingredientItem: 0.8125rem * 2 = 26px mono
         ctx.fillStyle = '#27272A';
-        ctx.font = '13px "JetBrains Mono", monospace';
+        ctx.font = '26px "JetBrains Mono", monospace';
         ctx.textAlign = 'left';
-        ctx.textBaseline = 'alphabetic';
-        ctx.fillText(ingredient, padding + 30, y);
+        ctx.textBaseline = 'middle';
+
+        const textX = contentStartX + textOffsetX;
+        const textStartY = currentY + (rowHeight - lines.length * lineHeight) / 2 + lineHeight / 2;
+        lines.forEach((line, lineIndex) => {
+          ctx.fillText(line, textX, textStartY + lineIndex * lineHeight);
+        });
+
+        currentY += rowHeight + ingredientGap;
       });
 
-      // Download
-      const link = document.createElement('a');
-      link.download = `${recipe.name.replace(/\s+/g, '-').toLowerCase()}-recipe.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
+      // === FOOTER - AlcheMix Logo as SVG (horizontal: icon + text) ===
+      // Matches AlcheMixLogo.tsx exactly - icon on left, ALCHEMIX text on right
+      const logoSvgString = `
+        <svg viewBox="0 0 280 48" xmlns="http://www.w3.org/2000/svg">
+          <!-- Icon: Inverted Y molecule (scaled to 48x48) -->
+          <g transform="translate(0, 0) scale(0.48)">
+            <!-- Bonds -->
+            <g stroke="#3D3D3D" stroke-width="4" stroke-linecap="round">
+              <line x1="50" y1="50" x2="50" y2="15"/>
+              <line x1="50" y1="50" x2="22" y2="80"/>
+              <line x1="50" y1="50" x2="78" y2="80"/>
+            </g>
+            <!-- Nodes -->
+            <circle cx="50" cy="15" r="10" fill="#4A90D9" stroke="#3D3D3D" stroke-width="2.5"/>
+            <circle cx="22" cy="80" r="10" fill="#65A30D" stroke="#3D3D3D" stroke-width="2.5"/>
+            <circle cx="78" cy="80" r="10" fill="#F5A623" stroke="#3D3D3D" stroke-width="2.5"/>
+            <circle cx="50" cy="50" r="7" fill="#EC4899" stroke="#3D3D3D" stroke-width="2"/>
+          </g>
+          <!-- Text: ALCHEMIX (next to icon) -->
+          <text x="58" y="32" font-family="Inria Sans, sans-serif" font-size="22" font-weight="300" fill="#1E293B" letter-spacing="0.08em">ALCHEMIX</text>
+        </svg>
+      `;
 
-      showToast('success', 'Recipe exported successfully');
+      const logoBlob = new Blob([logoSvgString], { type: 'image/svg+xml;charset=utf-8' });
+      const logoUrl = URL.createObjectURL(logoBlob);
+      const logoImg = new Image();
+
+      logoImg.onload = () => {
+        // Draw logo centered at bottom
+        const logoWidth = 280;
+        const logoHeight = 48;
+        const logoX = (canvasWidth - logoWidth) / 2;
+        const logoY = canvasHeight - 90;
+
+        ctx.drawImage(logoImg, logoX, logoY, logoWidth, logoHeight);
+        URL.revokeObjectURL(logoUrl);
+
+        // === DOWNLOAD ===
+        const link = document.createElement('a');
+        link.download = `${recipe.name.replace(/\s+/g, '-').toLowerCase()}-recipe.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+
+        showToast('success', 'Recipe exported successfully');
+      };
+
+      logoImg.onerror = () => {
+        URL.revokeObjectURL(logoUrl);
+        // Still download even if logo fails
+        const link = document.createElement('a');
+        link.download = `${recipe.name.replace(/\s+/g, '-').toLowerCase()}-recipe.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        showToast('success', 'Recipe exported');
+      };
+
+      logoImg.src = logoUrl;
     };
 
     img.onerror = () => {
@@ -524,9 +671,10 @@ export function RecipeDetailModal({
                     {recipe.name}
                   </h2>
                   {ingredientsArray.length > 0 && (
-                    <div className={styles.formula}>
-                      {generateFormula(ingredientsArray)}
-                    </div>
+                    <FormulaTooltip
+                      formula={generateFormula(ingredientsArray)}
+                      className={styles.formula}
+                    />
                   )}
                 </>
               )}

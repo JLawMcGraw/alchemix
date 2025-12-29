@@ -158,24 +158,29 @@ export interface MoleculeRecipe {
 // LAYOUT OPTIONS
 // ═══════════════════════════════════════════════════════════════
 
+/**
+ * Configuration options for the hexagonal layout algorithm.
+ *
+ * The layout is deterministic and geometric (not force-based).
+ * Same recipe always produces identical visualization using a
+ * seeded random number generator based on ingredient hash.
+ */
 export interface LayoutOptions {
-  width: number;
-  height: number;
+  width: number;            // Canvas width in pixels
+  height: number;           // Canvas height in pixels
   chaos: number;            // 0-1, higher = more organic/random positioning
-  iterations: number;       // Force simulation iterations (more = more settled)
   minRadius: number;        // Minimum node radius
   maxRadius: number;        // Maximum node radius
-  baseRadius: number;       // Default radius for unknown amounts
+  baseRadius: number;       // Default radius for non-spirit ingredients
 }
 
 export const DEFAULT_LAYOUT_OPTIONS: LayoutOptions = {
   width: 400,
   height: 300,
   chaos: 0.5,
-  iterations: 300,
   minRadius: 6,
   maxRadius: 10,
-  baseRadius: 8, // Half size ingredient nodes
+  baseRadius: 8,
 };
 
 // ═══════════════════════════════════════════════════════════════

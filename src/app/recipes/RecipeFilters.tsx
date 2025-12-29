@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Search } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import type { Collection } from '@/types';
 import type { SpiritCategory } from '@/lib/spirits';
 import { MASTERY_FILTERS, getMasteryCount } from './recipeUtils';
@@ -154,6 +154,16 @@ export function SearchControls({
           placeholder={placeholder}
           className={styles.searchInput}
         />
+        {searchQuery && (
+          <button
+            type="button"
+            className={styles.searchClearBtn}
+            onClick={() => onSearchChange('')}
+            aria-label="Clear search"
+          >
+            <X size={14} />
+          </button>
+        )}
       </div>
       <select
         value={filterSpirit}

@@ -1,11 +1,56 @@
 /**
  * Hexagonal Backbone Layout Engine
  *
- * Creates chemical bond-style molecular structures:
- * - Central hexagonal ring (benzene) as the backbone
- * - Spirits connect to or form the hexagon
- * - Other ingredients attach at hexagon vertices
- * - Extended chain from one side for additional ingredients
+ * Creates chemistry-inspired molecular visualizations for cocktail recipes.
+ * The algorithm is DETERMINISTIC - same recipe always produces identical layout.
+ *
+ * ## Visual Structure
+ *
+ * ```
+ *        [Garnish]
+ *           |
+ *      ┌────┴────┐
+ *     /          \
+ *   [Ac]──────[SPIRIT]──────[Sw]
+ *     \          /
+ *      └────┬────┘
+ *           |
+ *        [Bt]
+ * ```
+ *
+ * - **Spirits** occupy benzene-style hexagon rings at the center
+ * - **Other ingredients** attach to hexagon corners via bonds
+ * - **Chains** extend outward at 120° angles (hexagonal zig-zag)
+ *
+ * ## Algorithm Overview
+ *
+ * 1. **Spirit Positioning**: Place spirit nodes first using preset patterns:
+ *    - 1 spirit: centered
+ *    - 2 spirits: vertical stack
+ *    - 3 spirits: triangle (same type) or V-shape (different types)
+ *    - 4 spirits: rhombus (duplicates) or vertical stack (all different)
+ *    - 5+ spirits: vertical stack
+ *
+ * 2. **Ingredient Distribution**: Assign ingredients to spirit hexagon corners:
+ *    - Acids → right corners (1, 0, 2)
+ *    - Sweets → branch from acids or use adjacent corners
+ *    - Bitters → left corners (4, 5, 3)
+ *    - Garnishes → remaining corners
+ *
+ * 3. **Chain Layout**: Each corner can have up to MAX_CHAIN_LENGTH (4) ingredients
+ *    - Chains extend at 120° angles (±60° alternating for zig-zag)
+ *    - Junction nodes created when multiple ingredients share a branch point
+ *
+ * 4. **Collision Detection**: Prevent overlapping nodes with MIN_NODE_DISTANCE
+ *
+ * 5. **Bounds Clamping**: Ensure all nodes stay within CANVAS_PADDING
+ *
+ * ## Determinism
+ *
+ * Layout consistency is achieved via:
+ * - Seeded random number generator based on ingredient name hash
+ * - Fixed corner assignment priorities
+ * - No force simulation (pure geometric calculation)
  */
 
 import type {
@@ -16,6 +61,18 @@ import type {
 } from './types';
 import { DEFAULT_LAYOUT_OPTIONS, isInlineType, isTerminalType, TYPE_COLORS } from './types';
 import { getDisplayLabel } from './classifier';
+import {
+  HEX_RADIUS,
+  TEXT_RADIUS,
+  TARGET_BOND_LENGTH,
+  CHAIN_BOND_LENGTH,
+  HEX_GRID_SPACING,
+  CORNER_ANGLES,
+  EDGE_ANGLES,
+  MAX_CHAIN_LENGTH,
+  MIN_NODE_DISTANCE,
+  CANVAS_PADDING,
+} from './constants';
 
 // ═══════════════════════════════════════════════════════════════
 // HEXAGON GEOMETRY
@@ -68,6 +125,32 @@ function getExtendedPosition(
 // MAIN LAYOUT FUNCTION
 // ═══════════════════════════════════════════════════════════════
 
+/**
+ * Compute node positions for a molecular recipe visualization.
+ *
+ * This is the main entry point for the layout algorithm. It takes classified
+ * ingredients and returns positioned nodes ready for rendering.
+ *
+ * @param ingredients - Array of classified ingredients from the classifier
+ * @param options - Layout configuration (width, height, chaos, radii)
+ * @returns Array of positioned MoleculeNode objects with x, y coordinates
+ *
+ * @example
+ * ```typescript
+ * const classified = classifyIngredients(parseIngredients(recipe.ingredients));
+ * const nodes = computeLayout(classified, { width: 400, height: 300 });
+ * // nodes now have x, y positions for rendering
+ * ```
+ *
+ * @remarks
+ * The algorithm processes in phases:
+ * 1. Separate spirits from other ingredients
+ * 2. Position spirits using preset geometric patterns
+ * 3. Assign other ingredients to hexagon corners
+ * 4. Chain ingredients that share corners
+ * 5. Detect and resolve collisions
+ * 6. Clamp positions to canvas bounds
+ */
 export function computeLayout(
   ingredients: ClassifiedIngredient[],
   options: Partial<LayoutOptions> = {}
@@ -81,46 +164,26 @@ export function computeLayout(
   const seed = hashRecipe(ingredients);
   const random = seededRandom(seed);
 
-  // Hexagon parameters - all equal for perfect hexagonal honeycomb grid
-  // Must match BENZENE_RADIUS in Molecule.tsx and Bond.tsx (22)
-  const hexRadius = 22; // Benzene ring radius
-  const TEXT_RADIUS = 8; // Must match Bond.tsx - visual "radius" of text labels
-
-  // Target visual bond length (the line you actually see after shortening)
-  // Should be proportional to hexRadius (22px) - using 18px for balanced look
-  const targetVisualBondLength = 18;
-
-  // All visual bond lengths should be uniform
-  // For chained ingredients (text-to-text), bonds are shortened by TEXT_RADIUS from both ends
-  // So center-to-center distance = targetVisualBondLength + 2*TEXT_RADIUS
-  const chainBondLength = targetVisualBondLength + TEXT_RADIUS * 2; // 34px center-to-center → 18px visual
+  // Hexagon parameters imported from constants.ts
+  // HEX_RADIUS (22), TEXT_RADIUS (8), TARGET_BOND_LENGTH (18), CHAIN_BOND_LENGTH (34)
 
   // True center of viewBox - spirit centroid will be placed here
   const viewCenterX = width * 0.5;
   const viewCenterY = height * 0.5;
 
-  // Hexagon CORNER angles (vertices) - rotated 30° so flat edges face top/bottom
-  // Starting from upper-right, going clockwise
-  const CORNER_ANGLES = [
-    -Math.PI / 3,         // 0: upper-right
-    0,                    // 1: right
-    Math.PI / 3,          // 2: lower-right
-    Math.PI * 2 / 3,      // 3: lower-left
-    Math.PI,              // 4: left
-    -Math.PI * 2 / 3,     // 5: upper-left
-  ];
+  // CORNER_ANGLES imported from constants.ts
 
   // Get position at uniform distance from hexagon corner
   // This ensures all visual bond lines have the same length
   const getCornerPosition = (cx: number, cy: number, cornerIndex: number) => {
     const angle = CORNER_ANGLES[cornerIndex % 6];
     // First, get the hexagon corner position
-    const cornerX = cx + Math.cos(angle) * hexRadius;
-    const cornerY = cy + Math.sin(angle) * hexRadius;
-    // Place ingredient so that visual bond = targetVisualBondLength
+    const cornerX = cx + Math.cos(angle) * HEX_RADIUS;
+    const cornerY = cy + Math.sin(angle) * HEX_RADIUS;
+    // Place ingredient so that visual bond = TARGET_BOND_LENGTH
     // Bond is drawn from corner to text center, shortened by TEXT_RADIUS at text end
-    // So distance from corner = targetVisualBondLength + TEXT_RADIUS
-    const distFromCorner = targetVisualBondLength + TEXT_RADIUS;
+    // So distance from corner = TARGET_BOND_LENGTH + TEXT_RADIUS
+    const distFromCorner = TARGET_BOND_LENGTH + TEXT_RADIUS;
     return {
       x: cornerX + Math.cos(angle) * distFromCorner,
       y: cornerY + Math.sin(angle) * distFromCorner,
@@ -135,7 +198,6 @@ export function computeLayout(
 
   // Global position tracking to avoid collisions across spirits
   const usedPositions: { x: number; y: number }[] = [];
-  const MIN_DISTANCE = chainBondLength * 0.8; // Minimum distance between nodes
 
   // Check if a position is too close to any already-placed position
   const isPositionTooClose = (x: number, y: number): boolean => {
@@ -143,7 +205,7 @@ export function computeLayout(
       const dx = x - pos.x;
       const dy = y - pos.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < MIN_DISTANCE) {
+      if (dist < MIN_NODE_DISTANCE) {
         return true;
       }
     }
@@ -155,20 +217,7 @@ export function computeLayout(
     usedPositions.push({ x, y });
   };
 
-  // Honeycomb grid spacing: distance between adjacent hex centers sharing an edge
-  // For flat-top hexagons, this is radius * sqrt(3)
-  const hexGridSpacing = hexRadius * Math.sqrt(3);
-
-  // Edge normal angles for flat-top hexagon (directions to adjacent hex centers)
-  // 30°, 90°, 150°, 210°, 270°, 330°
-  const EDGE_ANGLES = [
-    Math.PI / 6,        // 30° - upper-right neighbor
-    Math.PI / 2,        // 90° - top neighbor
-    Math.PI * 5 / 6,    // 150° - upper-left neighbor
-    Math.PI * 7 / 6,    // 210° - lower-left neighbor
-    Math.PI * 3 / 2,    // 270° - bottom neighbor
-    Math.PI * 11 / 6,   // 330° - lower-right neighbor
-  ];
+  // HEX_GRID_SPACING and EDGE_ANGLES imported from constants.ts
 
   // Check spirit type relationships for layout decisions
   // Look for common spirit keywords in all spirit names
@@ -204,8 +253,8 @@ export function computeLayout(
     spiritPositions.push({ x: 0, y: 0 });
   } else if (spirits.length === 2) {
     // Two spirits: place vertically adjacent on honeycomb grid
-    spiritPositions.push({ x: 0, y: -hexGridSpacing / 2 });
-    spiritPositions.push({ x: 0, y: hexGridSpacing / 2 });
+    spiritPositions.push({ x: 0, y: -HEX_GRID_SPACING / 2 });
+    spiritPositions.push({ x: 0, y: HEX_GRID_SPACING / 2 });
   } else if (spirits.length === 3) {
     if (allSameSpiritType) {
       // Same spirit type: compact triangle
@@ -213,12 +262,12 @@ export function computeLayout(
       const angle330 = Math.PI * 11 / 6;
       spiritPositions.push({ x: 0, y: 0 }); // Left spirit (anchor)
       spiritPositions.push({
-        x: Math.cos(angle30) * hexGridSpacing,
-        y: Math.sin(angle30) * hexGridSpacing
+        x: Math.cos(angle30) * HEX_GRID_SPACING,
+        y: Math.sin(angle30) * HEX_GRID_SPACING
       }); // Lower-right
       spiritPositions.push({
-        x: Math.cos(angle330) * hexGridSpacing,
-        y: Math.sin(angle330) * hexGridSpacing
+        x: Math.cos(angle330) * HEX_GRID_SPACING,
+        y: Math.sin(angle330) * HEX_GRID_SPACING
       }); // Upper-right
     } else {
       // Different spirit types: V-shape
@@ -226,21 +275,21 @@ export function computeLayout(
       const angle2 = Math.PI * 11 / 6; // 330°
       spiritPositions.push({ x: 0, y: 0 }); // Top spirit
       spiritPositions.push({
-        x: Math.cos(angle1) * hexGridSpacing,
-        y: Math.sin(angle1) * hexGridSpacing
+        x: Math.cos(angle1) * HEX_GRID_SPACING,
+        y: Math.sin(angle1) * HEX_GRID_SPACING
       }); // Bottom-left
       spiritPositions.push({
-        x: Math.cos(angle2) * hexGridSpacing,
-        y: Math.sin(angle2) * hexGridSpacing
+        x: Math.cos(angle2) * HEX_GRID_SPACING,
+        y: Math.sin(angle2) * HEX_GRID_SPACING
       }); // Bottom-right
     }
   } else if (spirits.length === 4) {
     // 4 spirits: vertical stack only if ALL 4 are different types, otherwise rhombus
     if (allDifferentSpiritTypes) {
       // All different spirit types: vertical stack (clear separation)
-      const startY = -((spirits.length - 1) * hexGridSpacing) / 2;
+      const startY = -((spirits.length - 1) * HEX_GRID_SPACING) / 2;
       spirits.forEach((_, i) => {
-        spiritPositions.push({ x: 0, y: startY + i * hexGridSpacing });
+        spiritPositions.push({ x: 0, y: startY + i * HEX_GRID_SPACING });
       });
     } else {
       // Has duplicate spirit types: rhombus layout (compact honeycomb cluster)
@@ -252,15 +301,15 @@ export function computeLayout(
       const cos30 = Math.sqrt(3) / 2; // ≈ 0.866
       const sin30 = 0.5;
       spiritPositions.push({ x: 0, y: 0 }); // left anchor
-      spiritPositions.push({ x: cos30 * hexGridSpacing, y: -sin30 * hexGridSpacing }); // upper-right
-      spiritPositions.push({ x: cos30 * hexGridSpacing, y: sin30 * hexGridSpacing }); // lower-right
-      spiritPositions.push({ x: cos30 * 2 * hexGridSpacing, y: 0 }); // far right
+      spiritPositions.push({ x: cos30 * HEX_GRID_SPACING, y: -sin30 * HEX_GRID_SPACING }); // upper-right
+      spiritPositions.push({ x: cos30 * HEX_GRID_SPACING, y: sin30 * HEX_GRID_SPACING }); // lower-right
+      spiritPositions.push({ x: cos30 * 2 * HEX_GRID_SPACING, y: 0 }); // far right
     }
   } else {
     // 5+ spirits: vertical stack
-    const startY = -((spirits.length - 1) * hexGridSpacing) / 2;
+    const startY = -((spirits.length - 1) * HEX_GRID_SPACING) / 2;
     spirits.forEach((_, i) => {
-      spiritPositions.push({ x: 0, y: startY + i * hexGridSpacing });
+      spiritPositions.push({ x: 0, y: startY + i * HEX_GRID_SPACING });
     });
   }
 
@@ -418,8 +467,7 @@ export function computeLayout(
   // cornerIdx tracks which corner this chain is from (for special zig-zag patterns)
   const lastNodeAtCorner: Record<string, { id: string; x: number; y: number; chainStep: number; incomingAngle: number; cornerIdx: number }> = {};
 
-  // Maximum chain length before requiring a new corner
-  const MAX_CHAIN_LENGTH = 4;
+  // MAX_CHAIN_LENGTH imported from constants.ts
 
   // Check if a corner's chain has reached max length
   const isCornerAtMaxLength = (spiritIdx: number, cornerIdx: number): boolean => {
@@ -454,9 +502,9 @@ export function computeLayout(
       // Insert junction between spirit and ingredient when needed for branching
       if (useJunction && !cornerJunctions[cornerKey]) {
         // Create junction at distance from spirit center
-        // Junction is placed so spirit-corner-to-junction visual bond = targetVisualBondLength
+        // Junction is placed so spirit-corner-to-junction visual bond = TARGET_BOND_LENGTH
         // Bond goes from hex corner to junction center (junction has no radius)
-        const junctionDist = hexRadius + targetVisualBondLength;
+        const junctionDist = HEX_RADIUS + TARGET_BOND_LENGTH;
         const junctionX = spirit.x + Math.cos(radialAngle) * junctionDist;
         const junctionY = spirit.y + Math.sin(radialAngle) * junctionDist;
         const junction = createJunctionNode(junctionX, junctionY, spirit.id);
@@ -466,13 +514,13 @@ export function computeLayout(
 
         // Place ingredient at 60° angle from junction (hexagonal zig-zag)
         // Junction has no visual radius, text label shortened by TEXT_RADIUS
-        // So center-to-center = targetVisualBondLength + TEXT_RADIUS
+        // So center-to-center = TARGET_BOND_LENGTH + TEXT_RADIUS
         // For lower-right corner (60°), branch east (0°) instead of southwest
         // This makes chains spread horizontally first, then zig-zag
         const branchAngle = (cornerIdx === 2)
           ? radialAngle - (Math.PI / 3)  // -60° → horizontal east for lower-right corner
           : radialAngle + (Math.PI / 3); // +60° for other corners
-        const junctionToBranchLength = targetVisualBondLength + TEXT_RADIUS; // 26px → 18px visual
+        const junctionToBranchLength = TARGET_BOND_LENGTH + TEXT_RADIUS; // 26px → 18px visual
         finalX = junctionX + Math.cos(branchAngle) * junctionToBranchLength;
         finalY = junctionY + Math.sin(branchAngle) * junctionToBranchLength;
         parentId = junction.id;
@@ -488,7 +536,7 @@ export function computeLayout(
         const branchNum = junction.branchCount || 0;
         const branchAngle = radialAngle + (branchNum % 2 === 0 ? (Math.PI / 3) : -(Math.PI / 3));
         // Junction has no visual radius, text label shortened by TEXT_RADIUS
-        const junctionToBranchLength = targetVisualBondLength + TEXT_RADIUS; // 26px to match first branch
+        const junctionToBranchLength = TARGET_BOND_LENGTH + TEXT_RADIUS; // 26px to match first branch
         finalX = junction.x + Math.cos(branchAngle) * junctionToBranchLength;
         finalY = junction.y + Math.sin(branchAngle) * junctionToBranchLength;
         parentId = junction.id;
@@ -516,9 +564,9 @@ export function computeLayout(
           : (stepNum % 2 === 0 ? (Math.PI / 3) : -(Math.PI / 3)); // Normal pattern
         const outAngle = lastNode.incomingAngle + angleOffset;
 
-        // Use chainBondLength for text-to-text connections to account for shortening at both ends
-        finalX = lastNode.x + Math.cos(outAngle) * chainBondLength;
-        finalY = lastNode.y + Math.sin(outAngle) * chainBondLength;
+        // Use CHAIN_BOND_LENGTH for text-to-text connections to account for shortening at both ends
+        finalX = lastNode.x + Math.cos(outAngle) * CHAIN_BOND_LENGTH;
+        finalY = lastNode.y + Math.sin(outAngle) * CHAIN_BOND_LENGTH;
         parentId = lastNode.id;
         incomingAngle = outAngle;
       } else {
@@ -532,9 +580,8 @@ export function computeLayout(
     }
 
     // Clamp to bounds (don't skip ingredients, just keep them on canvas)
-    const padding = 30;
-    finalX = Math.max(padding, Math.min(width - padding, finalX));
-    finalY = Math.max(padding, Math.min(height - padding, finalY));
+    finalX = Math.max(CANVAS_PADDING, Math.min(width - CANVAS_PADDING, finalX));
+    finalY = Math.max(CANVAS_PADDING, Math.min(height - CANVAS_PADDING, finalY));
 
     // Check for collision with existing positions
     if (isPositionTooClose(finalX, finalY)) {
@@ -878,10 +925,9 @@ export function computeLayout(
   });
 
   // Ensure all nodes are within bounds
-  const padding = 40;
   nodes.forEach(node => {
-    node.x = Math.max(padding, Math.min(width - padding, node.x));
-    node.y = Math.max(padding, Math.min(height - padding, node.y));
+    node.x = Math.max(CANVAS_PADDING, Math.min(width - CANVAS_PADDING, node.x));
+    node.y = Math.max(CANVAS_PADDING, Math.min(height - CANVAS_PADDING, node.y));
   });
 
   return nodes;
@@ -891,6 +937,19 @@ export function computeLayout(
 // NODE CREATION
 // ═══════════════════════════════════════════════════════════════
 
+/**
+ * Create a MoleculeNode from a classified ingredient with position data.
+ *
+ * @internal
+ * @param ingredient - The classified ingredient data
+ * @param index - Unique index for generating node ID
+ * @param x - X position in SVG coordinates
+ * @param y - Y position in SVG coordinates
+ * @param options - Layout options for radius calculation
+ * @param parentId - ID of parent node (for bond generation)
+ * @param isInline - If true, bonds can pass through this node
+ * @param outgoingAngle - Direction for chained nodes
+ */
 function createNode(
   ingredient: ClassifiedIngredient,
   index: number,
@@ -922,6 +981,17 @@ function createNode(
 // BACKBONE GENERATION
 // ═══════════════════════════════════════════════════════════════
 
+/**
+ * Generate the backbone structure (central hexagon) for the molecule.
+ *
+ * The backbone defines the central anchor point for the visualization.
+ * When nodes are provided, it centers on the first spirit node.
+ *
+ * @param width - Canvas width
+ * @param height - Canvas height
+ * @param nodes - Optional positioned nodes to center on
+ * @returns MoleculeBackbone with center coordinates and radius
+ */
 export function generateBackbone(
   width: number,
   height: number,
@@ -946,6 +1016,17 @@ export function generateBackbone(
   };
 }
 
+/**
+ * Generate SVG polygon points string for a hexagon.
+ *
+ * Creates a flat-top hexagon (vertex at top) suitable for use
+ * in SVG <polygon> elements.
+ *
+ * @param cx - Center X coordinate
+ * @param cy - Center Y coordinate
+ * @param radius - Distance from center to vertices
+ * @returns Space-separated coordinate pairs: "x1,y1 x2,y2 ..."
+ */
 export function hexagonPoints(cx: number, cy: number, radius: number): string {
   const points: string[] = [];
   for (let i = 0; i < 6; i++) {
@@ -957,6 +1038,17 @@ export function hexagonPoints(cx: number, cy: number, radius: number): string {
   return points.join(' ');
 }
 
+/**
+ * Generate SVG polygon points string for an equilateral triangle.
+ *
+ * Creates an upward-pointing triangle suitable for use
+ * in SVG <polygon> elements.
+ *
+ * @param cx - Center X coordinate
+ * @param cy - Center Y coordinate
+ * @param radius - Distance from center to vertices
+ * @returns Space-separated coordinate pairs: "x1,y1 x2,y2 x3,y3"
+ */
 export function trianglePoints(cx: number, cy: number, radius: number): string {
   const points: string[] = [];
   for (let i = 0; i < 3; i++) {
@@ -972,17 +1064,30 @@ export function trianglePoints(cx: number, cy: number, radius: number): string {
 // HELPERS
 // ═══════════════════════════════════════════════════════════════
 
+/**
+ * Calculate node radius based on ingredient type.
+ * Spirits get larger radius to accommodate the benzene ring.
+ *
+ * @internal
+ */
 function calculateRadius(
   ingredient: ClassifiedIngredient,
   options: LayoutOptions
 ): number {
-  // Spirits get larger radius, other ingredients use baseRadius
   if (ingredient.type === 'spirit') {
-    return 18; // Larger spirit nodes
+    return 18; // Larger spirit nodes for benzene ring
   }
   return options.baseRadius;
 }
 
+/**
+ * Generate a deterministic hash from ingredient names.
+ * Used to seed the random number generator for consistent layouts.
+ *
+ * @internal
+ * @param ingredients - Array of classified ingredients
+ * @returns Positive integer hash value
+ */
 function hashRecipe(ingredients: ClassifiedIngredient[]): number {
   const str = ingredients.map(i => i.name).join('|');
   let hash = 0;
@@ -994,6 +1099,23 @@ function hashRecipe(ingredients: ClassifiedIngredient[]): number {
   return Math.abs(hash);
 }
 
+/**
+ * Create a seeded pseudo-random number generator.
+ *
+ * Uses Linear Congruential Generator (LCG) algorithm with
+ * constants from MINSTD. Ensures the same seed always
+ * produces the same sequence of numbers.
+ *
+ * @param seed - Initial seed value (from hashRecipe)
+ * @returns Function that returns next random number in [0, 1)
+ *
+ * @example
+ * ```typescript
+ * const random = seededRandom(12345);
+ * console.log(random()); // Always same value for seed 12345
+ * console.log(random()); // Next value in sequence
+ * ```
+ */
 export function seededRandom(seed: number): () => number {
   return () => {
     seed = (seed * 1103515245 + 12345) & 0x7fffffff;

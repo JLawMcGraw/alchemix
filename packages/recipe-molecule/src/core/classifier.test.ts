@@ -47,6 +47,13 @@ describe('Ingredient Classifier', () => {
         expect(result.type).toBe('spirit');
       });
 
+      it('should classify demerara rum as spirit (type priority beats length)', () => {
+        // "demerara rum" matches both "demerara" (sweet) and "rum" (spirit)
+        // Both are single-word matches, but spirit has higher type priority
+        const result = classifyIngredient(createParsed('demerara rum'));
+        expect(result.type).toBe('spirit');
+      });
+
       it('should classify tequila as spirit', () => {
         const result = classifyIngredient(createParsed('tequila'));
         expect(result.type).toBe('spirit');
@@ -260,9 +267,19 @@ describe('Ingredient Classifier', () => {
       });
 
       it('should classify cherry as garnish', () => {
-        // Note: "maraschino cherry" gets classified as sweet because
-        // "maraschino" is also a liqueur. Use plain "cherry" for garnish.
         const result = classifyIngredient(createParsed('cherry'));
+        expect(result.type).toBe('garnish');
+      });
+
+      it('should classify maraschino cherry as garnish (compound match beats single word)', () => {
+        // "maraschino cherry" should match as garnish, not sweet
+        // The compound keyword "maraschino cherry" scores higher than single "maraschino"
+        const result = classifyIngredient(createParsed('maraschino cherry'));
+        expect(result.type).toBe('garnish');
+      });
+
+      it('should classify luxardo cherry as garnish', () => {
+        const result = classifyIngredient(createParsed('luxardo cherry'));
         expect(result.type).toBe('garnish');
       });
 
@@ -276,9 +293,13 @@ describe('Ingredient Classifier', () => {
         expect(result.type).toBe('garnish');
       });
 
+      it('should classify lime wheel as garnish (compound match)', () => {
+        // "lime wheel" compound keyword in garnish beats single "lime" in acid
+        const result = classifyIngredient(createParsed('lime wheel'));
+        expect(result.type).toBe('garnish');
+      });
+
       it('should classify wheel garnish as garnish', () => {
-        // Note: "lime wheel" gets classified as acid because "lime" matches first
-        // Use descriptive terms like "citrus wheel" for garnish classification
         const result = classifyIngredient(createParsed('wheel garnish'));
         expect(result.type).toBe('garnish');
       });

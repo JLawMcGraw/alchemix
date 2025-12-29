@@ -11,13 +11,8 @@ import { Bond } from './Bond';
 import { Node } from './Node';
 import { Tooltip } from './Tooltip';
 import { Legend } from './Legend';
+import { HEX_RADIUS, HEX_ROTATION } from '../core/constants';
 import styles from '../styles/molecule.module.css';
-
-// Hexagon radius - same for spirit hexagon and honeycomb grid
-const HEX_RADIUS = 22;
-
-// Rotation so flat edges face top/bottom
-const ROTATION = Math.PI / 6;
 
 /**
  * Get honeycomb grid positions
@@ -29,7 +24,7 @@ function getHoneycombPositions(cx: number, cy: number, radius: number) {
   const outerPositions: { x: number; y: number; angle: number }[] = [];
 
   for (let i = 0; i < 6; i++) {
-    const angle = (Math.PI / 3) * i - Math.PI / 2 + ROTATION;
+    const angle = (Math.PI / 3) * i - Math.PI / 2 + HEX_ROTATION;
 
     // Spirit hexagon corners
     corners.push({
@@ -55,11 +50,11 @@ function getHoneycombPositions(cx: number, cy: number, radius: number) {
  */
 function BenzeneRing({ cx, cy, radius }: { cx: number; cy: number; radius: number }) {
   const edges: JSX.Element[] = [];
-  const innerRadius = radius * 0.72;
+  const innerRadius = radius * 0.72; // Original spacing
 
   for (let i = 0; i < 6; i++) {
-    const angle1 = (Math.PI / 3) * i - Math.PI / 2 + ROTATION;
-    const angle2 = (Math.PI / 3) * ((i + 1) % 6) - Math.PI / 2 + ROTATION;
+    const angle1 = (Math.PI / 3) * i - Math.PI / 2 + HEX_ROTATION;
+    const angle2 = (Math.PI / 3) * ((i + 1) % 6) - Math.PI / 2 + HEX_ROTATION;
 
     // Outer hexagon vertices
     const x1 = cx + radius * Math.cos(angle1);
@@ -76,11 +71,11 @@ function BenzeneRing({ cx, cy, radius }: { cx: number; cy: number; radius: numbe
         x2={x2}
         y2={y2}
         className={styles.bond}
-        strokeWidth={1.5}
+        strokeWidth={1.2}
       />
     );
 
-    // Inner edge for double bonds (alternating: edges 0, 2, 4)
+    // Inner edge for double bonds (alternating: edges 0, 2, 4) - thinner for delicate look
     if (i % 2 === 0) {
       const ix1 = cx + innerRadius * Math.cos(angle1);
       const iy1 = cy + innerRadius * Math.sin(angle1);
@@ -95,7 +90,7 @@ function BenzeneRing({ cx, cy, radius }: { cx: number; cy: number; radius: numbe
           x2={ix2}
           y2={iy2}
           className={styles.bond}
-          strokeWidth={1.5}
+          style={{ strokeWidth: 0.7 }}
         />
       );
     }
@@ -112,8 +107,8 @@ function drawHexagon(cx: number, cy: number, radius: number, keyPrefix: string):
   const edges: JSX.Element[] = [];
 
   for (let i = 0; i < 6; i++) {
-    const angle1 = (Math.PI / 3) * i - Math.PI / 2 + ROTATION;
-    const angle2 = (Math.PI / 3) * ((i + 1) % 6) - Math.PI / 2 + ROTATION;
+    const angle1 = (Math.PI / 3) * i - Math.PI / 2 + HEX_ROTATION;
+    const angle2 = (Math.PI / 3) * ((i + 1) % 6) - Math.PI / 2 + HEX_ROTATION;
 
     const x1 = cx + radius * Math.cos(angle1);
     const y1 = cy + radius * Math.sin(angle1);

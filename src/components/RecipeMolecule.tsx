@@ -122,10 +122,10 @@ export function RecipeMolecule({
     );
   }
 
-  // If no ingredients, show placeholder with AlcheMix logo shape (Y-molecule) without color
+  // If no ingredients, show placeholder with AlcheMix icon (inverted Y) in monochrome
   if (!moleculeRecipe || moleculeRecipe.nodes.length === 0) {
     const iconSize = size === 'thumbnail' ? 80 : 100;
-    const strokeColor = 'var(--fg-tertiary, #94A3B8)';
+    const strokeColor = '#3f3f46';
 
     return (
       <div
@@ -139,72 +139,41 @@ export function RecipeMolecule({
           padding: size === 'thumbnail' ? '24px' : '32px',
         }}
       >
-        {/* Y-shaped molecule icon (same as AlcheMix logo, without color) */}
+        {/* AlcheMix icon - inverted Y molecular structure (monochrome) */}
         <svg
           width={iconSize}
           height={iconSize}
           viewBox="0 0 100 100"
           fill="none"
-          style={{ opacity: 0.35 }}
+          style={{ opacity: 0.3 }}
         >
-          {/*
-            Bonds - shortened to stop at circle edges
-            Center: (50, 45) r=7, Top-left: (25, 18) r=10, Top-right: (75, 18) r=10, Bottom: (50, 78) r=10
-
-            Top-left bond: angle = atan2(18-45, 25-50) = atan2(-27, -25) ≈ -132.6°
-            - From center: (50 + 7*cos(-132.6°), 45 + 7*sin(-132.6°)) ≈ (45.3, 39.9)
-            - To top-left: (25 + 10*cos(47.4°), 18 + 10*sin(47.4°)) ≈ (31.8, 25.4)
-
-            Top-right bond: angle = atan2(18-45, 75-50) = atan2(-27, 25) ≈ -47.2°
-            - From center: (50 + 7*cos(-47.2°), 45 + 7*sin(-47.2°)) ≈ (54.8, 39.9)
-            - To top-right: (75 + 10*cos(-132.8°), 18 + 10*sin(-132.8°)) ≈ (68.2, 25.4)
-
-            Bottom bond: straight down
-            - From center: (50, 45 + 7) = (50, 52)
-            - To bottom: (50, 78 - 10) = (50, 68)
-          */}
-          <g strokeWidth="4" strokeLinecap="round" stroke={strokeColor}>
-            <line x1="45.3" y1="39.9" x2="31.8" y2="25.4" />
-            <line x1="54.7" y1="39.9" x2="68.2" y2="25.4" />
-            <line x1="50" y1="52" x2="50" y2="68" />
+          {/* Bonds - shortened to stop at circle edges */}
+          <g stroke={strokeColor} strokeWidth="1.5" strokeLinecap="round">
+            {/* Top bond: from center (r=7) to top circle (r=10) */}
+            <line x1="50" y1="43" x2="50" y2="25" />
+            {/* Bottom-left bond */}
+            <line x1="45.2" y1="55.1" x2="28.8" y2="72.7" />
+            {/* Bottom-right bond */}
+            <line x1="54.8" y1="55.1" x2="71.2" y2="72.7" />
           </g>
 
           {/* Terminal Nodes */}
-          <circle
-            cx="25" cy="18" r="10"
-            fill="none"
-            stroke={strokeColor}
-            strokeWidth="2.5"
-          />
-          <circle
-            cx="75" cy="18" r="10"
-            fill="none"
-            stroke={strokeColor}
-            strokeWidth="2.5"
-          />
-          <circle
-            cx="50" cy="78" r="10"
-            fill="none"
-            stroke={strokeColor}
-            strokeWidth="2.5"
-          />
+          <circle cx="50" cy="15" r="10" fill="none" stroke={strokeColor} strokeWidth="1.2" />
+          <circle cx="22" cy="80" r="10" fill="none" stroke={strokeColor} strokeWidth="1.2" />
+          <circle cx="78" cy="80" r="10" fill="none" stroke={strokeColor} strokeWidth="1.2" />
 
-          {/* Central Junction Node (smaller) */}
-          <circle
-            cx="50" cy="45" r="7"
-            fill="none"
-            stroke={strokeColor}
-            strokeWidth="2"
-          />
+          {/* Center junction node */}
+          <circle cx="50" cy="50" r="7" fill="none" stroke={strokeColor} strokeWidth="1.2" />
         </svg>
         <span
           style={{
-            fontFamily: 'var(--font-mono)',
+            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
             fontSize: size === 'thumbnail' ? '0.625rem' : 'var(--text-xs, 0.75rem)',
-            fontWeight: 500,
+            fontWeight: 450,
             textTransform: 'uppercase',
-            letterSpacing: '0.1em',
-            color: 'var(--fg-tertiary, #94A3B8)',
+            letterSpacing: '0.04em',
+            color: '#3f3f46',
+            opacity: 0.5,
           }}
         >
           No ingredients

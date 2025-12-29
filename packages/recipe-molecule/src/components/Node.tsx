@@ -31,8 +31,9 @@ export function Node({
 
   // Spirit nodes render label at center of benzene ring
   if (type === 'spirit') {
-    // Use smaller font for longer labels (e.g., WHISKEY, TEQUILA, BRANDY)
-    const isLongLabel = label.length > 5;
+    // Use smaller font for longer labels (e.g., VODKA, WHISKEY, TEQUILA)
+    // Threshold lowered for Inter font which is wider than monospace
+    const isLongLabel = label.length > 4;
     const labelClass = isLongLabel ? styles.spiritLabelSmall : styles.spiritLabel;
 
     return (
@@ -62,9 +63,10 @@ export function Node({
     );
   }
 
-  // Position label at node center, sublabel below
-  const labelY = sublabel ? y + 4 : y + 5;
-  const sublabelY = y + 16;
+  // Position label at node center (dominant-baseline: central handles vertical centering)
+  // Sublabel goes below the main label
+  const labelY = sublabel ? y - 2 : y;
+  const sublabelY = y + 10;
 
   return (
     <g

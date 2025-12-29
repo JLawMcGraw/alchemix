@@ -1,7 +1,8 @@
 /**
  * Alchemix Adapter
  *
- * Transforms Alchemix recipe format into MoleculeRecipe for visualization
+ * Transforms Alchemix recipe format into MoleculeRecipe for visualization.
+ * Includes input validation and helpful warnings for common issues.
  */
 
 import type {
@@ -14,18 +15,65 @@ import { parseIngredients } from './core/parser';
 import { classifyIngredients, calculateChaos } from './core/classifier';
 import { computeLayout, generateBackbone } from './core/layout';
 import { generateBonds } from './core/bonds';
+import {
+  validateRecipe,
+  validateLayoutOptions,
+  validateLayout,
+  logWarnings,
+  ValidationError,
+} from './core/validation';
+
+// Re-export validation utilities for consumers
+export {
+  validateRecipe,
+  validateLayoutOptions,
+  ValidationError,
+} from './core/validation';
 
 // ═══════════════════════════════════════════════════════════════
 // MAIN ADAPTER
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * Transform an Alchemix recipe into a MoleculeRecipe for visualization
+ * Transform an Alchemix recipe into a MoleculeRecipe for visualization.
+ *
+ * @param recipe - The recipe to transform (name and ingredients required)
+ * @param options - Optional layout configuration
+ * @returns MoleculeRecipe ready for rendering
+ * @throws ValidationError if recipe is invalid (missing name, wrong type)
+ *
+ * @example
+ * ```typescript
+ * const molecule = transformRecipe({
+ *   name: 'Daiquiri',
+ *   ingredients: ['2 oz rum', '1 oz lime juice', '0.75 oz simple syrup'],
+ * });
+ * ```
  */
 export function transformRecipe(
   recipe: AlchemixRecipe,
   options?: Partial<LayoutOptions>
 ): MoleculeRecipe {
+  // Validate recipe input
+  const recipeValidation = validateRecipe(recipe);
+  if (!recipeValidation.valid) {
+    throw new ValidationError(
+      `Invalid recipe: ${recipeValidation.errors.join('; ')}`,
+      { recipe, errors: recipeValidation.errors }
+    );
+  }
+  logWarnings(recipeValidation, `Recipe "${recipe.name}"`);
+
+  // Validate layout options
+  const optionsValidation = validateLayoutOptions(options);
+  if (!optionsValidation.valid) {
+    throw new ValidationError(
+      `Invalid layout options: ${optionsValidation.errors.join('; ')}`,
+      { options, errors: optionsValidation.errors }
+    );
+  }
+  logWarnings(optionsValidation, 'Layout options');
+
   const opts: LayoutOptions = { ...DEFAULT_LAYOUT_OPTIONS, ...options };
 
   // 1. Normalize ingredients to array
@@ -55,13 +103,17 @@ export function transformRecipe(
   // 5. Compute node positions
   const nodes = computeLayout(classified, layoutOpts);
 
-  // 6. Generate bonds between nodes
+  // 6. Validate layout quality and log any warnings
+  const layoutValidation = validateLayout(nodes, opts.width, opts.height);
+  logWarnings(layoutValidation, `Layout for "${recipe.name}"`);
+
+  // 7. Generate bonds between nodes
   const bonds = generateBonds(nodes);
 
-  // 7. Generate backbone shape
+  // 8. Generate backbone shape
   const backbone = generateBackbone(opts.width, opts.height, nodes);
 
-  // 8. Derive method description from instructions/glass
+  // 9. Derive method description from instructions/glass
   const method = deriveMethod(recipe.instructions, recipe.glass);
 
   return {
