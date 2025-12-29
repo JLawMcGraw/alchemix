@@ -242,12 +242,12 @@
   margin-bottom: 16px;
 }
 
-/* Inset dashed line between the two rows */
+/* Two dashed lines for 3 rows: at 33.33% and 66.66% */
+.categoryGrid::before,
 .categoryGrid::after {
   content: '';
   display: block;
   position: absolute;
-  top: 50%;
   left: 16px;
   right: 16px;
   height: 1px;
@@ -256,6 +256,14 @@
   background-repeat: repeat-x;
   pointer-events: none;
   z-index: 1;
+}
+
+.categoryGrid::before {
+  top: 33.33%;
+}
+
+.categoryGrid::after {
+  top: 66.66%;
 }
 
 .categoryCell {
@@ -417,32 +425,10 @@
   }
 
   .categoryGrid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
   }
 
-  /* On mobile with 2 columns, position horizontal dashed lines at 1/3 and 2/3 */
-  .categoryGrid::after {
-    top: 33.33%;
-  }
-
-  /* On mobile, vertical dashes only between odd/even pairs */
-  .categoryCell:not(:nth-child(3n))::before {
-    display: none;
-  }
-
-  .categoryCell:nth-child(odd)::before {
-    content: '';
-    display: block;
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    right: 0;
-    width: 1px;
-    background-image: linear-gradient(to bottom, var(--color-border) 50%, transparent 50%);
-    background-size: 1px 8px;
-    background-repeat: repeat-y;
-    pointer-events: none;
-  }
+  /* Keep 3x3 grid on mobile - horizontal lines stay at 33.33% and 66.66% */
 
   .headline {
     font-size: 1.5rem;
@@ -479,6 +465,7 @@
   border-color: #475569;
 }
 
+:global([data-theme="dark"]) .categoryGrid::before,
 :global([data-theme="dark"]) .categoryGrid::after {
   background-image: linear-gradient(to right, #334155 50%, transparent 50%);
 }

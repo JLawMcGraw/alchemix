@@ -63,12 +63,13 @@ const createInitialFormState = (): FormState => ({
 const CATEGORIES: { value: InventoryCategory; label: string }[] = [
   { value: 'spirit', label: 'Spirit' },
   { value: 'liqueur', label: 'Liqueur' },
-  { value: 'mixer', label: 'Mixer' },
-  { value: 'garnish', label: 'Garnish' },
-  { value: 'syrup', label: 'Syrup' },
   { value: 'wine', label: 'Wine' },
-  { value: 'beer', label: 'Beer' },
-  { value: 'other', label: 'Other' },
+  { value: 'beer', label: 'Beer & Cider' },
+  { value: 'bitters', label: 'Bitters' },
+  { value: 'mixer', label: 'Mixer' },
+  { value: 'syrup', label: 'Syrup' },
+  { value: 'garnish', label: 'Garnish' },
+  { value: 'pantry', label: 'Pantry' },
 ];
 
 export function AddBottleModal({ isOpen, onClose, onAdd, preFill }: AddBottleModalProps) {

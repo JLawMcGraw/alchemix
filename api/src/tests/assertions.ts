@@ -150,7 +150,7 @@ export function assertValidInventoryItem(item: any) {
   expect(item).toHaveProperty('created_at');
 
   // Category should be one of valid values
-  const validCategories = ['spirit', 'liqueur', 'mixer', 'garnish', 'syrup', 'wine', 'beer', 'other'];
+  const validCategories = ['spirit', 'liqueur', 'wine', 'beer', 'bitters', 'mixer', 'syrup', 'garnish', 'pantry'];
   expect(validCategories).toContain(item.category);
 }
 

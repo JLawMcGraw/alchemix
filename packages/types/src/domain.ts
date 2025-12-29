@@ -47,12 +47,13 @@ export interface SignupCredentials {
 export type InventoryCategory =
   | 'spirit'
   | 'liqueur'
-  | 'mixer'
-  | 'garnish'
-  | 'syrup'
   | 'wine'
   | 'beer'
-  | 'other';
+  | 'bitters'
+  | 'mixer'
+  | 'syrup'
+  | 'garnish'
+  | 'pantry';
 
 /**
  * Periodic Table Group (Column) - What the ingredient DOES

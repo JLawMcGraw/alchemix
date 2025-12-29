@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2025-12-28 (Session 12)
+Last updated: 2025-12-29 (Session 13)
 
 ---
 
@@ -12,10 +12,10 @@ Last updated: 2025-12-28 (Session 12)
 **Blockers**: None
 
 **Test Coverage**:
-- Backend: 885 tests (35 test files)
-- Frontend: 234 tests (12 test files)
-- Recipe-Molecule: 169 tests (3 test files)
-- **Total: 1288 tests**
+- Backend: 886 tests (35 test files)
+- Frontend: 447 tests (18 test files)
+- Recipe-Molecule: 292 tests (6 test files)
+- **Total: 1625 tests**
 
 **Redesign Progress**:
 - Phase 1-4 (Batch A - Foundation): **Complete**
@@ -34,7 +34,70 @@ Last updated: 2025-12-28 (Session 12)
 
 ---
 
-## Recent Session (2025-12-28): Recipe-Molecule Major Overhaul
+## Recent Session (2025-12-29): Comprehensive Test Coverage Expansion
+
+### Summary
+Massive expansion of frontend and recipe-molecule test coverage, adding 337 new tests. Fixed bar page filter dropdown functionality and spirit type persistence across category filters.
+
+### Work Completed
+
+#### 1. Bar Page Filter Dropdown Fixes
+Fixed multiple issues with the category/spirit type filter dropdown:
+- Added `z-index: 11` to `.filterMenu` (was blocked by backdrop at z-9)
+- Added `type="button"` to prevent form submission
+- Fixed spirit type detection condition to check `spiritTypeCounts` values
+- Added `storedSpiritTypeCounts` state to persist spirit types across category changes
+
+**Files Changed**:
+- `src/app/bar/bar.module.css`
+- `src/app/bar/page.tsx`
+
+#### 2. Frontend Utility Tests (213 new tests)
+Added comprehensive tests for previously untested utility functions:
+
+| File | Tests | Coverage |
+|------|-------|----------|
+| `src/lib/spirits.test.ts` | 39 | categorizeSpirit, matchesSpiritCategory, getSpiritCategories |
+| `src/lib/formatters.test.ts` | 54 | formatMeasurement, getElementSymbol, toSubscript, formatFormula |
+| `src/lib/periodicTable.test.ts` | 46 | Element matching, inventory functions, exclusion rules |
+| `src/lib/colors.test.ts` | 35 | Color constants, getSpiritColorFromIngredients, detectSpiritTypes |
+| `src/components/BottleCard/BottleCard.test.tsx` | 24 | Rendering, selection, click handling, accessibility |
+| `src/components/FormulaTooltip.test.tsx` | 15 | Tooltip rendering, interaction, symbol display |
+
+#### 3. Recipe-Molecule Tests (123 new tests)
+Extended package test coverage from 169 to 292 tests:
+
+| File | Tests | Coverage |
+|------|-------|----------|
+| `packages/recipe-molecule/src/core/validation.test.ts` | 53 | Error classes, validateRecipe, validateLayoutOptions, validateLayout |
+| `packages/recipe-molecule/src/adapter.test.ts` | 32 | transformRecipe, transformRecipes, method derivation, glass normalization |
+
+**Key Test Scenarios**:
+- Error class hierarchy (RecipeMoleculeError → ValidationError, LayoutError, ExportError)
+- Recipe validation with edge cases (null, empty, JSON strings)
+- Layout validation (node bounds, overlaps, edge proximity)
+- Glass name normalization (17 glass types → canonical names)
+- Classic cocktail transformations (Negroni, Old Fashioned, Margarita)
+
+### Files Changed
+- `src/app/bar/bar.module.css` - Filter dropdown z-index fix
+- `src/app/bar/page.tsx` - Spirit type persistence
+- `src/lib/spirits.test.ts` - NEW (39 tests)
+- `src/lib/formatters.test.ts` - NEW (54 tests)
+- `src/lib/periodicTable.test.ts` - NEW (46 tests)
+- `src/lib/colors.test.ts` - NEW (35 tests)
+- `src/components/BottleCard/BottleCard.test.tsx` - NEW (24 tests)
+- `src/components/FormulaTooltip.test.tsx` - NEW (15 tests)
+- `packages/recipe-molecule/src/core/validation.test.ts` - NEW (53 tests)
+- `packages/recipe-molecule/src/adapter.test.ts` - NEW (32 tests)
+
+### Next Priorities
+- Deploy to production (PostgreSQL Phase 6)
+- Optional: Add tests for layout.ts, bonds.ts, export.ts in recipe-molecule
+
+---
+
+## Session (2025-12-28): Recipe-Molecule Major Overhaul
 
 ### Summary
 Comprehensive update to recipe-molecule package: expanded ingredient classification to 80+ liqueurs/spirits, added interactive formula tooltips, Instagram Story export format, refined molecule visualization aesthetics (Inter font, softer colors, thinner strokes). Fixed recipes page search UX bugs.

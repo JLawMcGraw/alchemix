@@ -14,7 +14,7 @@ import { InventoryItem, PeriodicGroup, PeriodicPeriod } from '../types';
 /**
  * Valid inventory categories
  */
-export const VALID_CATEGORIES = ['spirit', 'liqueur', 'mixer', 'garnish', 'syrup', 'wine', 'beer', 'other'] as const;
+export const VALID_CATEGORIES = ['spirit', 'liqueur', 'wine', 'beer', 'bitters', 'mixer', 'syrup', 'garnish', 'pantry'] as const;
 export type InventoryCategory = typeof VALID_CATEGORIES[number];
 
 /**
@@ -62,12 +62,13 @@ export interface CategoryCounts {
   all: number;
   spirit: number;
   liqueur: number;
+  wine: number;
+  beer: number;
+  bitters: number;
   mixer: number;
   syrup: number;
   garnish: number;
-  wine: number;
-  beer: number;
-  other: number;
+  pantry: number;
 }
 
 /**
@@ -197,12 +198,13 @@ export class InventoryService {
       all: parseInt(totalResult?.total ?? '0', 10),
       spirit: 0,
       liqueur: 0,
+      wine: 0,
+      beer: 0,
+      bitters: 0,
       mixer: 0,
       syrup: 0,
       garnish: 0,
-      wine: 0,
-      beer: 0,
-      other: 0
+      pantry: 0
     };
 
     // Fill in actual counts
@@ -599,18 +601,19 @@ export class InventoryService {
       if (combined.includes(keyword)) return 'spirit';
     }
 
-    // Check wine
+    // Check wine (includes fortified wines and sparkling)
     const wineKeywords = [
       'wine', 'vermouth', 'sherry', 'port', 'madeira',
-      'marsala', 'champagne', 'prosecco', 'sparkling wine'
+      'marsala', 'champagne', 'prosecco', 'sparkling wine',
+      'cava', 'cremant', 'sekt'
     ];
 
     for (const keyword of wineKeywords) {
       if (combined.includes(keyword)) return 'wine';
     }
 
-    // Check beer (exclude ginger beer/ale and root beer which are mixers)
-    const beerKeywords = ['beer', 'ale', 'lager', 'stout', 'ipa'];
+    // Check beer & cider (exclude ginger beer/ale and root beer which are mixers)
+    const beerKeywords = ['beer', 'ale', 'lager', 'stout', 'ipa', 'cider', 'hard cider', 'perry'];
     const notBeerKeywords = ['ginger beer', 'ginger ale', 'root beer'];
 
     const isNotBeer = notBeerKeywords.some(kw => combined.includes(kw));
@@ -618,6 +621,20 @@ export class InventoryService {
       for (const keyword of beerKeywords) {
         if (combined.includes(keyword)) return 'beer';
       }
+    }
+
+    // Check bitters (dash-able aromatic bitters) - BEFORE mixers
+    const bittersKeywords = [
+      'bitters', 'angostura', 'peychaud', "peychaud's",
+      'orange bitters', 'aromatic bitters', 'chocolate bitters',
+      'mole bitters', 'celery bitters', 'grapefruit bitters',
+      'lavender bitters', 'coffee bitters', 'cherry bitters',
+      'fee brothers', 'scrappy', 'regans', "regan's",
+      'bittermens', 'bitter truth'
+    ];
+
+    for (const keyword of bittersKeywords) {
+      if (combined.includes(keyword)) return 'bitters';
     }
 
     // Check syrups
@@ -634,14 +651,11 @@ export class InventoryService {
       if (combined.includes(keyword)) return 'syrup';
     }
 
-    // Check mixers
+    // Check mixers (sodas, tropical juices, dairy - NOT citrus or bitters)
     const mixerKeywords = [
-      'juice', 'lemon juice', 'lime juice', 'orange juice', 'grapefruit juice',
       'pineapple juice', 'cranberry juice', 'tomato juice',
-      'lemon', 'lime', 'orange', 'grapefruit',
       'tonic', 'tonic water', 'soda', 'cola', 'ginger beer', 'ginger ale',
       'club soda', 'seltzer', 'sparkling water', 'soda water',
-      'bitter', 'bitters', 'angostura', 'peychaud',
       'cream', 'milk', 'coconut cream', 'coconut milk'
     ];
 
@@ -649,17 +663,41 @@ export class InventoryService {
       if (combined.includes(keyword)) return 'mixer';
     }
 
-    // Check garnishes
+    // Check garnishes (fruits, herbs, picks - NOT salts/spices)
     const garnishKeywords = [
       'garnish', 'cherry', 'olive', 'onion',
-      'salt', 'sugar', 'rim', 'mint', 'herb'
+      'mint', 'herb', 'basil', 'rosemary', 'thyme',
+      'peel', 'twist', 'wheel', 'wedge', 'slice',
+      'umbrella', 'pick', 'skewer'
     ];
 
     for (const keyword of garnishKeywords) {
       if (combined.includes(keyword)) return 'garnish';
     }
 
-    return 'other';
+    // Check pantry items (salts, spices, acids, citrus)
+    const pantryKeywords = [
+      // Citrus (whole fruit and juice)
+      'lemon', 'lime', 'orange', 'grapefruit', 'citrus',
+      'lemon juice', 'lime juice', 'orange juice', 'grapefruit juice',
+      // Salts
+      'salt', 'sea salt', 'kosher salt', 'himalayan salt', 'smoked salt',
+      // Peppers & spices
+      'pepper', 'black pepper', 'white pepper', 'pink pepper',
+      'tajin', 'chili powder', 'cayenne', 'paprika',
+      // Acids
+      'citric acid', 'malic acid', 'tartaric acid', 'ascorbic acid',
+      // Other
+      'msg', 'monosodium glutamate',
+      'sugar rim', 'salt rim', 'rimming salt', 'rim'
+    ];
+
+    for (const keyword of pantryKeywords) {
+      if (combined.includes(keyword)) return 'pantry';
+    }
+
+    // Default to pantry for unrecognized items
+    return 'pantry';
   }
 
   /**

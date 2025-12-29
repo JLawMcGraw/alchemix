@@ -1,7 +1,7 @@
 # AlcheMix Architecture
 
 **Version**: v1.35.0
-**Last Updated**: December 28, 2025
+**Last Updated**: December 29, 2025
 
 This document provides a comprehensive map of the AlcheMix system architecture, including high-level diagrams, component relationships, and data flows.
 
@@ -914,9 +914,9 @@ npm run dev:all          # Start frontend + backend
 npm run type-check       # TypeScript checks (all packages)
 
 # Testing
-cd api && npm test       # Backend tests (885)
-npm test                 # Frontend tests (234)
-cd packages/recipe-molecule && npm test  # Molecule tests (169)
+cd api && npm test       # Backend tests (886)
+npm test                 # Frontend tests (447)
+cd packages/recipe-molecule && npm test  # Molecule tests (292)
 
 # Docker (for MemMachine)
 docker compose -f docker/docker-compose.yml up -d
@@ -1183,4 +1183,4 @@ Request Flow:
 
 ---
 
-*Last updated: December 28, 2025*
+*Last updated: December 29, 2025*

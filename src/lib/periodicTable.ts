@@ -398,7 +398,7 @@ export function getInventoryForElement(
  */
 export interface AddModalPreFill {
   name: string;
-  category: 'spirit' | 'liqueur' | 'mixer' | 'syrup' | 'garnish' | 'wine' | 'beer' | 'other';
+  category: 'spirit' | 'liqueur' | 'wine' | 'beer' | 'bitters' | 'mixer' | 'syrup' | 'garnish' | 'pantry';
   type: string;
   periodic_group: 'Base' | 'Modifier' | 'Sweetener' | 'Reagent' | 'Bridge' | 'Catalyst';
   periodic_period: 'Grain' | 'Agave' | 'Cane' | 'Grape' | 'Botanic' | 'Fruit';
@@ -461,7 +461,7 @@ export function elementToAddModalPreFill(element: PeriodicElement): AddModalPreF
     // Bitters, vermouths, etc. are typically liqueurs
     category = 'liqueur';
   } else {
-    category = 'other';
+    category = 'pantry';
   }
 
   return {

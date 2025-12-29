@@ -584,9 +584,18 @@ describe('InventoryService', () => {
       expect(result.sanitized!.category).toBe('liqueur');
     });
 
-    it('should auto-categorize mixers', () => {
+    it('should auto-categorize bitters', () => {
       const result = inventoryService.validateItemData({
         name: 'Angostura Bitters',
+      });
+
+      expect(result.isValid).toBe(true);
+      expect(result.sanitized!.category).toBe('bitters');
+    });
+
+    it('should auto-categorize mixers', () => {
+      const result = inventoryService.validateItemData({
+        name: 'Tonic Water',
       });
 
       expect(result.isValid).toBe(true);
@@ -611,13 +620,13 @@ describe('InventoryService', () => {
       expect(result.sanitized!.category).toBe('garnish');
     });
 
-    it('should default to other when cannot auto-categorize', () => {
+    it('should default to pantry when cannot auto-categorize', () => {
       const result = inventoryService.validateItemData({
         name: 'Random Item XYZ',
       });
 
       expect(result.isValid).toBe(true);
-      expect(result.sanitized!.category).toBe('other');
+      expect(result.sanitized!.category).toBe('pantry');
     });
   });
 

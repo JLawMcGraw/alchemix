@@ -471,10 +471,11 @@ export const CLASSIFICATION_MAP: Record<string, CellPosition> = {
 export const CATEGORY_FALLBACKS: Record<string, CellPosition> = {
   'spirit': { group: 1, period: 3 },
   'liqueur': { group: 3, period: 6 },
+  'wine': { group: 2, period: 4 },
+  'beer': { group: 1, period: 3 },
+  'bitters': { group: 6, period: 6 },
   'mixer': { group: 5, period: 5 },
   'syrup': { group: 4, period: 3 },
   'garnish': { group: 6, period: 6 },
-  'wine': { group: 2, period: 4 },
-  'beer': { group: 1, period: 3 },
-  'other': { group: 3, period: 6 },
+  'pantry': { group: 6, period: 6 },
 };

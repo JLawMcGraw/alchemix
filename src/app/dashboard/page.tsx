@@ -138,14 +138,21 @@ const getTimeGreeting = (): string => {
   return timeBase;
 };
 
-// Category configuration with colors (labels are sentence case - CSS handles uppercase)
+// Category configuration with colors - 3x3 grid layout
+// Labels are sentence case - CSS handles uppercase
 const CATEGORIES = [
-  { key: 'spirit', label: 'Spirits', color: '#D97706' },    // Amber
-  { key: 'liqueur', label: 'Liqueurs', color: '#EC4899' },  // Pink
-  { key: 'mixer', label: 'Mixers', color: '#0EA5E9' },      // Sky blue
-  { key: 'syrup', label: 'Syrups', color: '#6366F1' },      // Indigo
-  { key: 'garnish', label: 'Garnishes', color: '#65A30D' }, // Green
-  { key: 'other', label: 'Other', color: '#94A3B8' },       // Gray
+  // Row 1
+  { key: 'spirit', label: 'Spirits', color: '#D97706' },     // Amber
+  { key: 'liqueur', label: 'Liqueurs', color: '#EC4899' },   // Pink
+  { key: 'wine', label: 'Wine', color: '#8B5CF6' },          // Violet
+  // Row 2
+  { key: 'beer', label: 'Beer & Cider', color: '#F59E0B' },  // Yellow
+  { key: 'bitters', label: 'Bitters', color: '#EF4444' },    // Red
+  { key: 'mixer', label: 'Mixers', color: '#0EA5E9' },       // Sky blue
+  // Row 3
+  { key: 'syrup', label: 'Syrups', color: '#6366F1' },       // Indigo
+  { key: 'garnish', label: 'Garnishes', color: '#65A30D' },  // Green
+  { key: 'pantry', label: 'Pantry', color: '#78716C' },      // Stone
 ];
 
 

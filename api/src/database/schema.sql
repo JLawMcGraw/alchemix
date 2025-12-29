@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- ============================================================================
 -- Stores user's bar inventory including spirits, mixers, garnishes, etc.
 --
--- Categories: spirit, liqueur, mixer, garnish, syrup, wine, beer, other
+-- Categories: spirit, liqueur, wine, beer, bitters, mixer, syrup, garnish, pantry
 
 CREATE TABLE IF NOT EXISTS inventory_items (
   id SERIAL PRIMARY KEY,
@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS inventory_items (
 
   -- Required fields
   name TEXT NOT NULL,
-  category TEXT NOT NULL CHECK (category IN ('spirit', 'liqueur', 'mixer', 'garnish', 'syrup', 'wine', 'beer', 'other')),
+  category TEXT NOT NULL CHECK (category IN ('spirit', 'liqueur', 'wine', 'beer', 'bitters', 'mixer', 'syrup', 'garnish', 'pantry')),
 
   -- Item details
   type TEXT,

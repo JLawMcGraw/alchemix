@@ -31,12 +31,13 @@ type FormState = {
 const CATEGORIES: { value: InventoryCategory; label: string }[] = [
   { value: 'spirit', label: 'Spirit' },
   { value: 'liqueur', label: 'Liqueur' },
+  { value: 'wine', label: 'Wine' },
+  { value: 'beer', label: 'Beer & Cider' },
+  { value: 'bitters', label: 'Bitters' },
   { value: 'mixer', label: 'Mixer' },
   { value: 'syrup', label: 'Syrup' },
   { value: 'garnish', label: 'Garnish' },
-  { value: 'wine', label: 'Wine' },
-  { value: 'beer', label: 'Beer' },
-  { value: 'other', label: 'Other' },
+  { value: 'pantry', label: 'Pantry' },
 ];
 
 export function ItemDetailModal({ isOpen, onClose, item, onItemUpdated }: ItemDetailModalProps) {

@@ -178,12 +178,13 @@ function categoryToGroup(category: InventoryCategory): ElementGroup {
   const groupMap: Record<InventoryCategory, ElementGroup> = {
     spirit: 'grain',
     liqueur: 'sugar',
+    wine: 'grape',
+    beer: 'grain',
+    bitters: 'botanical',
     mixer: 'carbonation',
     syrup: 'sugar',
     garnish: 'garnish',
-    wine: 'grape',
-    beer: 'grain',
-    other: 'botanical',
+    pantry: 'botanical',
   };
   return groupMap[category] || 'botanical';
 }

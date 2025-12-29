@@ -6,8 +6,8 @@
 |-------|-------|
 | Version | v1.35.0 |
 | Branch | `postgresql-deployment` |
-| Tests | 1288 total (885 backend, 234 frontend, 169 recipe-molecule) |
-| Last Updated | December 27, 2025 |
+| Tests | 1625 total (886 backend, 447 frontend, 292 recipe-molecule) |
+| Last Updated | December 29, 2025 |
 
 ---
 

@@ -7,7 +7,7 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { Button, useToast, LoadingSpinner } from '@/components/ui';
 import { Card } from '@/components/ui/Card';
 import { BottleCard } from '@/components/BottleCard';
-import { Wine, Upload, Plus, Martini, X, ChevronLeft, ChevronRight, Trash2, Grid3X3, List } from 'lucide-react';
+import { Wine, Upload, Plus, Martini, X, ChevronLeft, ChevronRight, Trash2, Grid3X3, List, ChevronDown, Filter } from 'lucide-react';
 import { CSVUploadModal, AddBottleModal, ItemDetailModal, DeleteConfirmModal } from '@/components/modals';
 // Periodic Table Version Toggle
 // V1: Traditional element grid with sections (original)
@@ -31,17 +31,29 @@ type CategoryTab = {
   icon: typeof Wine;
 };
 
-// Category definitions
+// Category definitions (9 categories + all)
 const CATEGORIES: CategoryTab[] = [
   { id: 'all', label: 'All Items', icon: Wine },
   { id: 'spirit', label: 'Spirits', icon: Wine },
   { id: 'liqueur', label: 'Liqueurs', icon: Wine },
+  { id: 'wine', label: 'Wine', icon: Wine },
+  { id: 'beer', label: 'Beer & Cider', icon: Wine },
+  { id: 'bitters', label: 'Bitters', icon: Wine },
   { id: 'mixer', label: 'Mixers', icon: Wine },
   { id: 'syrup', label: 'Syrups', icon: Wine },
   { id: 'garnish', label: 'Garnishes', icon: Wine },
-  { id: 'wine', label: 'Wine', icon: Wine },
-  { id: 'beer', label: 'Beer', icon: Wine },
-  { id: 'other', label: 'Other', icon: Wine },
+  { id: 'pantry', label: 'Pantry', icon: Wine },
+];
+
+// Spirit types for sub-filtering
+const SPIRIT_TYPES: SpiritCategory[] = [
+  'Whiskey',
+  'Rum',
+  'Gin',
+  'Vodka',
+  'Tequila',
+  'Brandy',
+  'Other Spirits',
 ];
 
 function BarPageContent() {
@@ -56,6 +68,9 @@ function BarPageContent() {
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
 
+  // Store spirit type counts separately so they persist across category filters
+  const [storedSpiritTypeCounts, setStoredSpiritTypeCounts] = useState<Record<SpiritCategory, number>>({} as Record<SpiritCategory, number>);
+
   // View mode: 'periodic' (periodic table) or 'list' (traditional list)
   const [viewMode, setViewMode] = useState<'periodic' | 'list'>('periodic');
 
@@ -66,6 +81,9 @@ function BarPageContent() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+
+  // Filter dropdown state
+  const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
 
   // Modal states
   const [csvModalOpen, setCsvModalOpen] = useState(false);
@@ -157,6 +175,23 @@ function BarPageContent() {
     return items;
   }, [itemsArray, spiritTypeFilter, selectedElement]);
 
+  // Compute spirit type counts for the dropdown
+  // When viewing 'all' items, update the stored counts
+  useEffect(() => {
+    if (activeCategory === 'all' && itemsArray.length > 0) {
+      const spiritItems = itemsArray.filter(item => item.category === 'spirit');
+      const counts = spiritItems.reduce((acc, item) => {
+        const category = categorizeSpirit(item.type, item.name);
+        acc[category] = (acc[category] || 0) + 1;
+        return acc;
+      }, {} as Record<SpiritCategory, number>);
+      setStoredSpiritTypeCounts(counts);
+    }
+  }, [activeCategory, itemsArray]);
+
+  // Use stored counts for the dropdown (persists across category changes)
+  const spiritTypeCounts = storedSpiritTypeCounts;
+
 
   // Early return after all hooks have been called
   if (isValidating || !isAuthenticated) {
@@ -166,6 +201,33 @@ function BarPageContent() {
   // Get category count from fetched counts
   const getCategoryCount = (categoryId: InventoryCategory | 'all') => {
     return categoryCounts[categoryId] || 0;
+  };
+
+  // Get the current filter label for the dropdown trigger
+  const getFilterLabel = () => {
+    if (spiritTypeFilter) {
+      return spiritTypeFilter;
+    }
+    const cat = CATEGORIES.find(c => c.id === activeCategory);
+    return cat?.label || 'All Items';
+  };
+
+  // Check if any filter is active (not showing all items)
+  const isFilterActive = activeCategory !== 'all' || spiritTypeFilter !== null;
+
+  // Handle category selection from dropdown
+  const handleCategorySelect = (categoryId: InventoryCategory | 'all') => {
+    setActiveCategory(categoryId);
+    setCurrentPage(1);
+    setSpiritTypeFilter(null);
+    setFilterDropdownOpen(false);
+  };
+
+  // Handle spirit type selection from dropdown
+  const handleSpiritTypeSelect = (spiritType: SpiritCategory) => {
+    setActiveCategory('spirit');
+    setSpiritTypeFilter(spiritType);
+    setFilterDropdownOpen(false);
   };
 
   // Modal handlers
@@ -305,6 +367,74 @@ function BarPageContent() {
             </div>
           </div>
           <div className={styles.actions}>
+            {/* Filter Dropdown */}
+            <div className={styles.filterDropdown}>
+              <button
+                type="button"
+                className={`${styles.filterTrigger} ${isFilterActive ? styles.filterActive : ''}`}
+                onClick={() => setFilterDropdownOpen(!filterDropdownOpen)}
+              >
+                <Filter size={14} />
+                <span className={styles.filterTriggerLabel}>{getFilterLabel()}</span>
+                <ChevronDown
+                  size={14}
+                  className={`${styles.filterTriggerIcon} ${filterDropdownOpen ? styles.open : ''}`}
+                />
+              </button>
+              {filterDropdownOpen && (
+                <>
+                  <div
+                    className={styles.filterBackdrop}
+                    onClick={() => setFilterDropdownOpen(false)}
+                  />
+                  <div className={styles.filterMenu}>
+                    {/* Category Section */}
+                    <div className={styles.filterSection}>
+                      <div className={styles.filterSectionTitle}>Category</div>
+                      {CATEGORIES.map((category) => (
+                        <button
+                          key={category.id}
+                          type="button"
+                          className={`${styles.filterOption} ${
+                            activeCategory === category.id && !spiritTypeFilter ? styles.filterOptionActive : ''
+                          }`}
+                          onClick={() => handleCategorySelect(category.id)}
+                        >
+                          {category.label}
+                          <span className={styles.filterOptionCount}>
+                            {getCategoryCount(category.id)}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    {/* Spirit Types Section - only show if there are spirits */}
+                    {Object.values(spiritTypeCounts).some(count => count > 0) && (
+                      <div className={styles.filterSection}>
+                        <div className={styles.filterSectionTitle}>Spirit Type</div>
+                        {SPIRIT_TYPES.map((spiritType) => {
+                          const count = spiritTypeCounts[spiritType] || 0;
+                          if (count === 0) return null;
+                          return (
+                            <button
+                              key={spiritType}
+                              type="button"
+                              className={`${styles.filterOption} ${
+                                spiritTypeFilter === spiritType ? styles.filterOptionActive : ''
+                              }`}
+                              onClick={() => handleSpiritTypeSelect(spiritType)}
+                            >
+                              {spiritType}
+                              <span className={styles.filterOptionCount}>{count}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
             {/* View Toggle */}
             <div className={styles.viewToggle}>
               <button
@@ -370,72 +500,47 @@ function BarPageContent() {
           />
         )}
 
-        {/* List View - Category Tabs */}
-        {viewMode === 'list' && (
-          <>
-            <div className={styles.tabs}>
-              {CATEGORIES.map((category) => {
-                const count = getCategoryCount(category.id);
-                return (
+        {/* List View - Spirit Distribution (optional visual aid) */}
+        {viewMode === 'list' && (activeCategory === 'all' || activeCategory === 'spirit') && itemsArray.length > 0 && (() => {
+          const spiritItems = itemsArray.filter(item => item.category === 'spirit');
+          if (spiritItems.length === 0) return null;
+
+          const spiritCounts = spiritItems.reduce((acc, item) => {
+            const category = categorizeSpirit(item.type, item.name);
+            acc[category] = (acc[category] || 0) + 1;
+            return acc;
+          }, {} as Record<SpiritCategory, number>);
+
+          const sortedSpirits = Object.entries(spiritCounts)
+            .sort(([, a], [, b]) => b - a)
+            .slice(0, 6);
+
+          const handleSpiritClick = (spiritType: string) => {
+            setActiveCategory('spirit');
+            setSpiritTypeFilter(spiritType as SpiritCategory);
+          };
+
+          return (
+            <Card padding="md" className={styles.spiritDistribution}>
+              <h3 className={styles.spiritDistributionTitle}>
+                <Wine size={16} />
+                Spirit Distribution
+              </h3>
+              <div className={styles.spiritGrid}>
+                {sortedSpirits.map(([spirit, count]) => (
                   <button
-                    key={category.id}
-                    className={`${styles.tab} ${activeCategory === category.id ? styles.tabActive : ''}`}
-                    onClick={() => {
-                      setActiveCategory(category.id);
-                      setCurrentPage(1);
-                      setSpiritTypeFilter(null);
-                    }}
+                    key={spirit}
+                    className={styles.spiritItem}
+                    onClick={() => handleSpiritClick(spirit)}
                   >
-                    {category.label}
-                    <span className={styles.tabCount}>{count}</span>
+                    <span className={styles.spiritName}>{spirit}</span>
+                    <span className={styles.spiritCount}>{count}</span>
                   </button>
-                );
-              })}
-            </div>
-
-            {/* Spirit Distribution - Show on "All" tab and when filtering spirits */}
-            {(activeCategory === 'all' || activeCategory === 'spirit') && itemsArray.length > 0 && (() => {
-              const spiritItems = itemsArray.filter(item => item.category === 'spirit');
-              if (spiritItems.length === 0) return null;
-
-              const spiritCounts = spiritItems.reduce((acc, item) => {
-                const category = categorizeSpirit(item.type, item.name);
-                acc[category] = (acc[category] || 0) + 1;
-                return acc;
-              }, {} as Record<SpiritCategory, number>);
-
-              const sortedSpirits = Object.entries(spiritCounts)
-                .sort(([, a], [, b]) => b - a)
-                .slice(0, 6);
-
-              const handleSpiritClick = (spiritType: string) => {
-                setActiveCategory('spirit');
-                setSpiritTypeFilter(spiritType as SpiritCategory);
-              };
-
-              return (
-                <Card padding="md" className={styles.spiritDistribution}>
-                  <h3 className={styles.spiritDistributionTitle}>
-                    <Wine size={16} />
-                    Spirit Distribution
-                  </h3>
-                  <div className={styles.spiritGrid}>
-                    {sortedSpirits.map(([spirit, count]) => (
-                      <button
-                        key={spirit}
-                        className={styles.spiritItem}
-                        onClick={() => handleSpiritClick(spirit)}
-                      >
-                        <span className={styles.spiritName}>{spirit}</span>
-                        <span className={styles.spiritCount}>{count}</span>
-                      </button>
-                    ))}
-                  </div>
-                </Card>
-              );
-            })()}
-          </>
-        )}
+                ))}
+              </div>
+            </Card>
+          );
+        })()}
 
         {/* Bulk Selection Controls */}
         {filteredItems.length > 0 && (
