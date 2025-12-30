@@ -58,6 +58,7 @@ import type {
   MoleculeNode,
   LayoutOptions,
   MoleculeBackbone,
+  IngredientType,
 } from './types';
 import { 
   DEFAULT_LAYOUT_OPTIONS, 
@@ -211,6 +212,169 @@ export function getDominantSpiritFamily(spirits: ClassifiedIngredient[]): Spirit
 export function computeMoleculeRotation(spirits: ClassifiedIngredient[]): number {
   const family = getDominantSpiritFamily(spirits);
   return SPIRIT_FAMILY_ROTATION[family];
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RING FORMATION FOR EQUAL-AMOUNT INGREDIENTS
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Represents a group of same-type ingredients that should form a ring.
+ */
+export interface RingGroup {
+  type: IngredientType;
+  ingredients: ClassifiedIngredient[];
+  ringSize: number;
+}
+
+/**
+ * Detect groups of ingredients that should form rings.
+ * 
+ * A ring is formed when:
+ * - 3-6 ingredients of the same type
+ * - All have non-null amounts
+ * - All amounts are exactly equal
+ * 
+ * @param ingredients - Array of classified ingredients (excluding spirits)
+ * @returns Array of ring groups to be formed
+ */
+export function detectRingGroups(ingredients: ClassifiedIngredient[]): RingGroup[] {
+  const ringGroups: RingGroup[] = [];
+  
+  // Group ingredients by type (excluding spirits and junctions)
+  const byType: Record<string, ClassifiedIngredient[]> = {};
+  
+  for (const ing of ingredients) {
+    if (ing.type === 'spirit' || ing.type === 'junction') continue;
+    
+    if (!byType[ing.type]) {
+      byType[ing.type] = [];
+    }
+    byType[ing.type].push(ing);
+  }
+  
+  // Check each type group for ring eligibility
+  for (const [type, group] of Object.entries(byType)) {
+    // Need 3-6 ingredients for a ring
+    if (group.length < 3 || group.length > 6) continue;
+    
+    // All must have non-null amounts
+    if (group.some(ing => ing.amount === null)) continue;
+    
+    // All amounts must be exactly equal
+    const firstAmount = group[0].amount;
+    const allEqual = group.every(ing => ing.amount === firstAmount);
+    
+    if (allEqual) {
+      ringGroups.push({
+        type: type as IngredientType,
+        ingredients: group,
+        ringSize: group.length,
+      });
+    }
+  }
+  
+  return ringGroups;
+}
+
+/**
+ * Ring vertex positions for a regular polygon.
+ */
+interface RingVertex {
+  x: number;
+  y: number;
+  angle: number;  // Angle from ring center
+}
+
+/**
+ * Computed ring layout with vertex positions.
+ */
+export interface RingLayout {
+  centerX: number;
+  centerY: number;
+  vertices: RingVertex[];
+  attachmentVertexIndex: number;  // Which vertex connects to backbone
+  radius: number;  // Ring radius
+}
+
+/**
+ * Compute the layout for a ring of ingredients.
+ * 
+ * The ring is positioned so that one vertex (the attachment vertex) is
+ * at the attachment point, with the ring extending outward from the backbone.
+ * 
+ * @param ringSize - Number of vertices (3-6)
+ * @param attachX - X coordinate of attachment point (where ring connects to backbone)
+ * @param attachY - Y coordinate of attachment point
+ * @param incomingAngle - Angle from backbone to attachment point
+ * @returns Ring layout with vertex positions
+ */
+export function computeRingLayout(
+  ringSize: number,
+  attachX: number,
+  attachY: number,
+  incomingAngle: number
+): RingLayout {
+  // Ring radius based on standard bond length
+  // Using slightly smaller radius for rings to keep them compact
+  const ringRadius = CHAIN_BOND_LENGTH * 0.7;
+  
+  // Calculate internal angle of regular polygon
+  // Internal angle = (n-2) * 180 / n
+  const internalAngle = ((ringSize - 2) * Math.PI) / ringSize;
+  
+  // Angle between adjacent vertices from center
+  const vertexAngle = (2 * Math.PI) / ringSize;
+  
+  // The attachment vertex is at index 0
+  // Position ring center so vertex 0 is at attachment point
+  // Ring extends in the direction of incomingAngle
+  const centerX = attachX + Math.cos(incomingAngle) * ringRadius;
+  const centerY = attachY + Math.sin(incomingAngle) * ringRadius;
+  
+  // Generate vertices
+  // Start from the attachment point and go around
+  const vertices: RingVertex[] = [];
+  
+  // First vertex is at attachment point
+  // Calculate starting angle: the angle from center to attachment point
+  const startAngle = Math.atan2(attachY - centerY, attachX - centerX);
+  
+  for (let i = 0; i < ringSize; i++) {
+    const angle = startAngle + i * vertexAngle;
+    vertices.push({
+      x: centerX + ringRadius * Math.cos(angle),
+      y: centerY + ringRadius * Math.sin(angle),
+      angle,
+    });
+  }
+  
+  return {
+    centerX,
+    centerY,
+    vertices,
+    attachmentVertexIndex: 0,
+    radius: ringRadius,
+  };
+}
+
+/**
+ * Get the preferred corner for a ring based on its ingredient type.
+ * This determines where the ring attaches to the spirit backbone.
+ */
+function getRingPreferredCorner(type: IngredientType): number[] {
+  switch (type) {
+    case 'acid':
+      return [2, 1, 3]; // Lower-right area
+    case 'sweet':
+      return [0, 1, 5]; // Upper-right area
+    case 'bitter':
+      return [4, 5, 3]; // Left area
+    case 'garnish':
+      return [5, 0, 4]; // Upper-left area
+    default:
+      return [2, 3, 1]; // Default to bottom area
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -451,11 +615,22 @@ export function computeLayout(
   const othersToPlace = mainIngredientUsed
     ? others.filter(i => i !== mainIngredientUsed)
     : others;
-  const acids = othersToPlace.filter(i => i.type === 'acid');
-  const sweets = othersToPlace.filter(i => i.type === 'sweet');
-  const bitters = othersToPlace.filter(i => i.type === 'bitter');
-  const garnishes = othersToPlace.filter(i => i.type === 'garnish');
-  const remaining = othersToPlace.filter(i =>
+  
+  // Detect ring groups (same-type ingredients with exact equal amounts)
+  const ringGroups = detectRingGroups(othersToPlace);
+  
+  // Get all ingredients that are part of rings (to exclude from normal placement)
+  const ringIngredientSet = new Set<ClassifiedIngredient>();
+  ringGroups.forEach(rg => rg.ingredients.forEach(ing => ringIngredientSet.add(ing)));
+  
+  // Filter out ring ingredients from normal categorization
+  const nonRingIngredients = othersToPlace.filter(i => !ringIngredientSet.has(i));
+  
+  const acids = nonRingIngredients.filter(i => i.type === 'acid');
+  const sweets = nonRingIngredients.filter(i => i.type === 'sweet');
+  const bitters = nonRingIngredients.filter(i => i.type === 'bitter');
+  const garnishes = nonRingIngredients.filter(i => i.type === 'garnish');
+  const remaining = nonRingIngredients.filter(i =>
     !['acid', 'sweet', 'bitter', 'garnish'].includes(i.type)
   );
 
@@ -820,6 +995,74 @@ export function computeLayout(
     if (type === 'garnish') return effectiveSpiritCount - 1; // Garnishes on last spirit
     return index % effectiveSpiritCount;
   };
+
+  // ═══════════════════════════════════════════════════════════════
+  // RING PLACEMENT
+  // ═══════════════════════════════════════════════════════════════
+  
+  // Place ring groups before individual ingredients
+  let ringCounter = 0;
+  ringGroups.forEach((ringGroup) => {
+    const ringId = `ring-${ringCounter++}`;
+    const spiritIdx = 0; // Rings always attach to first/primary spirit
+    
+    // Get preferred corner for this ring type
+    const preferredCorners = getRingPreferredCorner(ringGroup.type);
+    const corner = findBestCorner(spiritIdx, preferredCorners);
+    
+    if (corner === null) return; // No available corner
+    
+    usedCorners[spiritIdx][corner] = true;
+    
+    const spirit = nodes[spiritIdx];
+    const radialAngle = CORNER_ANGLES[corner];
+    
+    // Calculate attachment point (where ring connects to spirit backbone)
+    const attachPos = getCornerPosition(spirit.x, spirit.y, corner);
+    
+    // Compute ring layout
+    const ringLayout = computeRingLayout(
+      ringGroup.ringSize,
+      attachPos.x,
+      attachPos.y,
+      radialAngle
+    );
+    
+    // Create nodes for each ring vertex
+    ringGroup.ingredients.forEach((ing, vertexIdx) => {
+      const vertex = ringLayout.vertices[vertexIdx];
+      
+      // Check for collision
+      if (isPositionTooClose(vertex.x, vertex.y)) {
+        // Skip this ring if collision detected
+        // TODO: Could try repositioning instead
+        return;
+      }
+      
+      const node = createNode(
+        ing,
+        nodes.length,
+        vertex.x,
+        vertex.y,
+        opts,
+        vertexIdx === 0 ? spirit.id : undefined, // Only attachment vertex has parent
+        false, // Ring nodes are not inline
+        vertex.angle
+      );
+      
+      // Add ring metadata
+      node.ringId = ringId;
+      node.ringIndex = vertexIdx;
+      node.ringSize = ringGroup.ringSize;
+      
+      nodes.push(node);
+      registerPosition(vertex.x, vertex.y);
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // CHAIN PLACEMENT (non-ring ingredients)
+  // ═══════════════════════════════════════════════════════════════
 
   // Place acids - chain them together
   // Junction only if multiple acids OR acids+sweets share same corner (sour pairing)

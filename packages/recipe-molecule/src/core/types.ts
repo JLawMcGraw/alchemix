@@ -131,6 +131,9 @@ export interface MoleculeNode extends ClassifiedIngredient {
   isInline?: boolean;       // If true, bonds pass through this node (not terminal)
   outgoingAngle?: number;   // Angle for outgoing bond (when inline)
   branchCount?: number;     // For junction nodes: how many branches have been created
+  ringId?: string;          // If part of a ring, identifies which ring
+  ringIndex?: number;       // Position within ring (0 = attachment vertex)
+  ringSize?: number;        // Size of the ring this node belongs to
 }
 
 export interface MoleculeBond {

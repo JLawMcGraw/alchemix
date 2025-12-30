@@ -44,9 +44,48 @@ export function generateBonds(nodes: MoleculeNode[]): MoleculeBond[] {
   const nodeMap = new Map<string, MoleculeNode>();
   nodes.forEach(n => nodeMap.set(n.id, n));
 
-  // For each non-spirit node, connect to its parent (set during layout)
+  // Generate ring bonds first
+  // Group ring nodes by ringId
+  const ringNodes = new Map<string, MoleculeNode[]>();
+  others.forEach(node => {
+    if (node.ringId) {
+      if (!ringNodes.has(node.ringId)) {
+        ringNodes.set(node.ringId, []);
+      }
+      ringNodes.get(node.ringId)!.push(node);
+    }
+  });
+
+  // For each ring, create bonds between adjacent vertices
+  ringNodes.forEach((ringMembers, ringId) => {
+    // Sort by ringIndex to ensure correct order
+    ringMembers.sort((a, b) => (a.ringIndex ?? 0) - (b.ringIndex ?? 0));
+    
+    const ringSize = ringMembers.length;
+    for (let i = 0; i < ringSize; i++) {
+      const current = ringMembers[i];
+      const next = ringMembers[(i + 1) % ringSize];
+      
+      // Use single bonds for ring edges (like cycloalkanes)
+      addBond(current.id, next.id, 'single');
+    }
+    
+    // Connect attachment vertex (ringIndex 0) to its parent
+    const attachmentNode = ringMembers.find(n => n.ringIndex === 0);
+    if (attachmentNode?.parentId) {
+      const parent = nodeMap.get(attachmentNode.parentId);
+      if (parent) {
+        addBond(attachmentNode.parentId, attachmentNode.id, determineBondType(parent, attachmentNode));
+      }
+    }
+  });
+
+  // For each non-spirit, non-ring node, connect to its parent (set during layout)
   // This ensures proper chaining along hex edges
   others.forEach(node => {
+    // Skip ring nodes - they're handled above
+    if (node.ringId) return;
+    
     if (node.parentId) {
       const parent = nodeMap.get(node.parentId);
       if (parent) {
