@@ -1019,10 +1019,12 @@ export function computeLayout(
 
     if (effectiveSpiritCount === 3) {
       // Distribute by ingredient type to balance visual
-      if (type === 'acid') return 0; // Acids on anchor spirit
-      if (type === 'sweet') return index === 0 ? 0 : 1; // First sweet with acids, rest on spirit 1
+      // For V-shape (different spirit types): Spirit 2 (upper-right) has horizontal corners
+      // For triangle (same spirit types): Spirit 0 (left) works well
+      if (type === 'acid') return allSameSpiritType ? 0 : 2; // Acids on spirit with horizontal corners
+      if (type === 'sweet') return allSameSpiritType ? (index === 0 ? 0 : 1) : (index === 0 ? 2 : 1);
       if (type === 'bitter') return 1; // Bitters on spirit 1
-      if (type === 'garnish') return 2; // Garnishes on spirit 2
+      if (type === 'garnish') return allSameSpiritType ? 2 : 0; // Garnishes opposite from acids
       return index % 3;
     }
 
