@@ -135,8 +135,12 @@ function isOptional(node: MoleculeNode): boolean {
 
 /**
  * Check if ingredient has no specified amount (undefined quantity)
+ * Only returns true if there's genuinely no amount AND no unit
+ * (e.g., "lime wedge" not "1 teaspoon sugar")
  */
 function hasNoAmount(node: MoleculeNode): boolean {
+  // If there's a unit, assume there was an intended amount even if parsing failed
+  if (node.unit) return false;
   return node.amount === null;
 }
 
