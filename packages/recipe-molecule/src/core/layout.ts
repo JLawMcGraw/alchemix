@@ -823,11 +823,14 @@ export function computeLayout(
         // Junction has no visual radius, text label shortened by TEXT_RADIUS
         // So center-to-center = TARGET_BOND_LENGTH + TEXT_RADIUS
         const branchAngleOffset = isTerminalType(ing.type) ? TERMINAL_BRANCH_ANGLE : INLINE_BRANCH_ANGLE;
-        // For lower-right corner (60°), branch in negative direction instead
-        // This makes chains spread horizontally first, then zig-zag
-        const branchAngle = (cornerIdx === 2)
-          ? radialAngle - branchAngleOffset  // Negative direction for lower-right corner
-          : radialAngle + branchAngleOffset; // Positive direction for other corners
+        // For corners on the right side (1, 2), branch upward (-offset) so chains
+        // zig-zag in upper-right quadrant instead of always going down-right.
+        // For corners on the left side (3, 4), also branch upward for symmetry.
+        // Upper corners (0, 5) branch downward (+offset) toward center mass.
+        const useNegativeOffset = (cornerIdx === 1 || cornerIdx === 2 || cornerIdx === 3 || cornerIdx === 4);
+        const branchAngle = useNegativeOffset
+          ? radialAngle - branchAngleOffset
+          : radialAngle + branchAngleOffset;
         const junctionToBranchLength = TARGET_BOND_LENGTH + TEXT_RADIUS; // 26px → 18px visual
         finalX = junctionX + Math.cos(branchAngle) * junctionToBranchLength;
         finalY = junctionY + Math.sin(branchAngle) * junctionToBranchLength;
@@ -868,11 +871,12 @@ export function computeLayout(
         // Inline types use standard 120° hexagonal zig-zag
         const stepNum = lastNode.chainStep;
         const baseBranchAngle = isTerminalType(ing.type) ? TERMINAL_BRANCH_ANGLE : INLINE_BRANCH_ANGLE;
-        // Alternate between positive and negative to create zig-zag
-        // For corner 2 (lower-right), invert the pattern since we started with negative
-        const isCorner2 = lastNode.cornerIdx === 2;
-        const angleOffset = isCorner2
-          ? (stepNum % 2 === 0 ? -baseBranchAngle : baseBranchAngle)  // Inverted for corner 2
+        // Corners 1,2,3,4 start with negative offset, so invert their zig-zag pattern
+        // Corners 0,5 start with positive offset, use normal pattern
+        const useInvertedPattern = (lastNode.cornerIdx === 1 || lastNode.cornerIdx === 2 || 
+                                    lastNode.cornerIdx === 3 || lastNode.cornerIdx === 4);
+        const angleOffset = useInvertedPattern
+          ? (stepNum % 2 === 0 ? -baseBranchAngle : baseBranchAngle)  // Inverted pattern
           : (stepNum % 2 === 0 ? baseBranchAngle : -baseBranchAngle); // Normal pattern
         const outAngle = lastNode.incomingAngle + angleOffset;
 
