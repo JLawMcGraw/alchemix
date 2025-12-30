@@ -121,7 +121,43 @@ function isMixer(node: MoleculeNode): boolean {
   return MIXER_KEYWORDS.some(keyword => raw.includes(keyword) || name.includes(keyword));
 }
 
+/**
+ * Check if ingredient is marked as optional
+ */
+function isOptional(node: MoleculeNode): boolean {
+  const raw = node.raw?.toLowerCase() || '';
+  const modifiers = node.modifiers || [];
+  return modifiers.some(m => m.toLowerCase() === 'optional') ||
+         raw.includes('optional') ||
+         raw.includes('if desired') ||
+         raw.includes('to taste');
+}
+
+/**
+ * Check if ingredient has no specified amount (undefined quantity)
+ */
+function hasNoAmount(node: MoleculeNode): boolean {
+  return node.amount === null;
+}
+
 function determineBondType(from: MoleculeNode, to: MoleculeNode): BondType {
+  // Get the "real" node (non-junction) for type checks
+  const realFrom = from.type === 'junction' ? null : from;
+  const realTo = to.type === 'junction' ? null : to;
+  const targetNode = realTo || realFrom;
+  
+  // Optional ingredients get hydrogen bonds (light dotted)
+  // Check this early as it overrides other bond types
+  if ((realTo && isOptional(realTo)) || (realFrom && isOptional(realFrom))) {
+    return 'hydrogen';
+  }
+  
+  // Ingredients with no amount get wavy bonds (undefined quantity)
+  // Only apply to the "to" node to avoid double-applying
+  if (realTo && hasNoAmount(realTo) && realTo.type !== 'spirit') {
+    return 'wavy';
+  }
+  
   // Junction nodes: determine bond type based on what's NOT a junction
   if (from.type === 'junction' || to.type === 'junction') {
     // Find the non-junction node to determine bond style

@@ -141,6 +141,14 @@ export function Bond({ from, to, type }: BondProps) {
     return <DashedWedgeBond x1={x1} y1={y1} x2={x2} y2={y2} />;
   }
 
+  if (type === 'wavy') {
+    return <WavyBond x1={x1} y1={y1} x2={x2} y2={y2} />;
+  }
+
+  if (type === 'hydrogen') {
+    return <HydrogenBond x1={x1} y1={y1} x2={x2} y2={y2} />;
+  }
+
   return <SingleBond x1={x1} y1={y1} x2={x2} y2={y2} />;
 }
 
@@ -300,4 +308,68 @@ function DashedWedgeBond({ x1, y1, x2, y2 }: LineProps) {
   return <g>{dashes}</g>;
 }
 
+/**
+ * Wavy bond for ingredients with no specified amount ("to taste")
+ * Represents undefined/variable quantity - like racemic stereochemistry in organic chemistry
+ */
+function WavyBond({ x1, y1, x2, y2 }: LineProps) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.sqrt(dx * dx + dy * dy);
 
+  if (len === 0) return null;
+
+  // Unit vectors
+  const ux = dx / len;
+  const uy = dy / len;
+  const px = -dy / len; // Perpendicular
+  const py = dx / len;
+
+  // Create a wavy path with sine wave
+  const amplitude = 2; // Wave height
+  const frequency = 3; // Number of waves
+  const steps = 20; // Points to draw
+
+  const points: string[] = [];
+  
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const waveOffset = Math.sin(t * frequency * Math.PI * 2) * amplitude;
+    
+    const x = x1 + dx * t + px * waveOffset;
+    const y = y1 + dy * t + py * waveOffset;
+    
+    points.push(`${x},${y}`);
+  }
+
+  return (
+    <polyline
+      points={points.join(' ')}
+      className={styles.bond}
+      fill="none"
+      style={{ strokeWidth: 1.2 }}
+    />
+  );
+}
+
+/**
+ * Hydrogen bond for optional ingredients
+ * Light dotted line representing weak/optional connection
+ * Lighter and more spaced than regular dashed bonds
+ */
+function HydrogenBond({ x1, y1, x2, y2 }: LineProps) {
+  return (
+    <line
+      x1={x1}
+      y1={y1}
+      x2={x2}
+      y2={y2}
+      className={styles.bond}
+      style={{ 
+        strokeDasharray: '1, 4',  // Very small dots with large gaps
+        strokeWidth: 0.8,         // Thinner than normal
+        opacity: 0.6,             // Lighter appearance
+      }}
+    />
+  );
+}

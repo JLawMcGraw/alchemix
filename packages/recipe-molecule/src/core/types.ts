@@ -22,10 +22,12 @@ export type IngredientType =
 
 export type BondType =
   | 'single'      // ──── Standard ingredients
-  | 'double'      // ════ Spirit-to-spirit backbone
-  | 'dashed'      // ╌╌╌╌ Optional/accent ingredients
+  | 'double'      // ════ Acid-sweet balance (strong flavor bond)
+  | 'dashed'      // ╌╌╌╌ Carbonated mixers (ginger beer, soda, etc.)
   | 'wedge'       // ▲▲▲▲ Solid wedge - garnishes (stereochem "in front")
-  | 'dashedWedge'; // ◁╌╌ Dashed wedge - bitters (stereochem "behind")
+  | 'dashedWedge' // ◁╌╌ Dashed wedge - bitters (stereochem "behind")
+  | 'wavy'        // ∿∿∿∿ Wavy - ingredients with no specified amount ("to taste")
+  | 'hydrogen';   // ····· Light dotted - optional ingredients
 
 // ═══════════════════════════════════════════════════════════════
 // COLOR PALETTE (Design Tokens)
