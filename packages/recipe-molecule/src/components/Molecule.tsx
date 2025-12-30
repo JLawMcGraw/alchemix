@@ -250,6 +250,7 @@ export function Molecule({
   });
 
   // Compute actual bounding box of molecule content for tight viewBox
+  // When rotation is applied, we need to account for the expanded bounding box
   const contentBounds = useMemo(() => {
     if (recipe.nodes.length === 0) {
       return { minX: 0, minY: 0, maxX: width, maxY: height };
@@ -257,15 +258,36 @@ export function Molecule({
 
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
+    // If rotation is applied, calculate rotated positions for accurate bounds
+    const rotation = recipe.rotation || 0;
+    const rotationRad = (rotation * Math.PI) / 180;
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const cosR = Math.cos(rotationRad);
+    const sinR = Math.sin(rotationRad);
+
     recipe.nodes.forEach(node => {
       // Account for node radius and label space
       // Text labels need more vertical space (especially above for text baseline)
       const extentX = node.type === 'spirit' ? HEX_RADIUS + 10 : 20;
       const extentY = node.type === 'spirit' ? HEX_RADIUS + 10 : 25; // More vertical for text
-      minX = Math.min(minX, node.x - extentX);
-      minY = Math.min(minY, node.y - extentY);
-      maxX = Math.max(maxX, node.x + extentX);
-      maxY = Math.max(maxY, node.y + extentY);
+      
+      // If rotation is applied, compute the rotated position
+      let nodeX = node.x;
+      let nodeY = node.y;
+      
+      if (rotation !== 0) {
+        // Rotate point around center
+        const dx = node.x - centerX;
+        const dy = node.y - centerY;
+        nodeX = centerX + dx * cosR - dy * sinR;
+        nodeY = centerY + dx * sinR + dy * cosR;
+      }
+      
+      minX = Math.min(minX, nodeX - extentX);
+      minY = Math.min(minY, nodeY - extentY);
+      maxX = Math.max(maxX, nodeX + extentX);
+      maxY = Math.max(maxY, nodeY + extentY);
     });
 
     // Add padding around content (more at top for text labels)
@@ -279,7 +301,7 @@ export function Molecule({
     maxY = maxY + paddingBottom;
 
     return { minX, minY, maxX, maxY };
-  }, [recipe.nodes, width, height]);
+  }, [recipe.nodes, recipe.rotation, width, height]);
 
   // Create node lookup map for bonds
   const nodeMap = useCallback(() => {
@@ -329,7 +351,9 @@ export function Molecule({
         ref={svgRef}
         viewBox={tightViewBox
           ? `${contentBounds.minX} ${contentBounds.minY} ${contentBounds.maxX - contentBounds.minX} ${contentBounds.maxY - contentBounds.minY}`
-          : `0 0 ${width} ${height}`
+          : recipe.rotation 
+            ? `${contentBounds.minX} ${contentBounds.minY} ${contentBounds.maxX - contentBounds.minX} ${contentBounds.maxY - contentBounds.minY}`
+            : `0 0 ${width} ${height}`
         }
         width={renderWidth}
         height={renderHeight}
@@ -377,6 +401,7 @@ export function Molecule({
               <Node
                 key={node.id}
                 node={node}
+                rotation={recipe.rotation}
                 onMouseEnter={handleMouseEnter}
                 onMouseMove={handleMouseMove}
                 onMouseLeave={handleMouseLeave}

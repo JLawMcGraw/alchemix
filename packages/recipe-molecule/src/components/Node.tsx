@@ -11,6 +11,7 @@ import styles from '../styles/molecule.module.css';
 
 interface NodeProps {
   node: MoleculeNode;
+  rotation?: number;  // Molecule rotation to counter-rotate text
   onMouseEnter?: (event: React.MouseEvent, node: MoleculeNode) => void;
   onMouseMove?: (event: React.MouseEvent, node: MoleculeNode) => void;
   onMouseLeave?: () => void;
@@ -18,11 +19,15 @@ interface NodeProps {
 
 export function Node({
   node,
+  rotation = 0,
   onMouseEnter,
   onMouseMove,
   onMouseLeave,
 }: NodeProps) {
   const { x, y, label, sublabel, type } = node;
+  
+  // Counter-rotation transform to keep text upright
+  const counterRotation = rotation ? `rotate(${-rotation}, ${x}, ${y})` : undefined;
 
   // Junction nodes are invisible - render nothing
   if (type === 'junction') {
@@ -52,10 +57,12 @@ export function Node({
           className={styles.nodeHitArea}
         />
         {/* Spirit label (RUM, GIN, etc.) at center - smaller font to fit hexagon */}
+        {/* Counter-rotate to keep text upright when molecule is rotated */}
         <text
           x={x}
           y={y + 3}
           className={labelClass}
+          transform={counterRotation}
         >
           {label}
         </text>
@@ -85,10 +92,12 @@ export function Node({
       />
 
       {/* Text label (abbreviated type: Ac, Sw, Bt, etc.) */}
+      {/* Counter-rotate to keep text upright when molecule is rotated */}
       <text
         x={x}
         y={labelY}
         className={styles.nodeLabel}
+        transform={counterRotation}
       >
         {label}
       </text>
@@ -99,6 +108,7 @@ export function Node({
           x={x}
           y={sublabelY}
           className={styles.nodeSublabel}
+          transform={counterRotation}
         >
           {sublabel}
         </text>
