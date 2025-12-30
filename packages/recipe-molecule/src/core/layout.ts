@@ -861,7 +861,8 @@ export function computeLayout(
         // Terminal types use wider angle for more spread
         const branchNum = junction.branchCount || 0;
         const branchAngleOffset = isTerminalType(ing.type) ? TERMINAL_BRANCH_ANGLE : INLINE_BRANCH_ANGLE;
-        const branchAngle = radialAngle + (branchNum % 2 === 0 ? branchAngleOffset : -branchAngleOffset);
+        // Snap to clean 60° increments for perfect hexagonal geometry
+        const branchAngle = snapToHexAngle(radialAngle + (branchNum % 2 === 0 ? branchAngleOffset : -branchAngleOffset));
         // Junction has no visual radius, text label shortened by TEXT_RADIUS
         const junctionToBranchLength = TARGET_BOND_LENGTH + TEXT_RADIUS; // 26px to match first branch
         finalX = junction.x + Math.cos(branchAngle) * junctionToBranchLength;
@@ -874,7 +875,7 @@ export function computeLayout(
         finalX = basePos.x;
         finalY = basePos.y;
         parentId = spirit.id;
-        incomingAngle = radialAngle;
+        incomingAngle = snapToHexAngle(radialAngle);
       }
     } else {
       // Chained ingredient: continue from previous node at appropriate angle
@@ -906,7 +907,7 @@ export function computeLayout(
         finalX = basePos.x;
         finalY = basePos.y;
         parentId = spirit.id;
-        incomingAngle = radialAngle;
+        incomingAngle = snapToHexAngle(radialAngle);
       }
     }
 
