@@ -214,6 +214,31 @@ export function computeMoleculeRotation(spirits: ClassifiedIngredient[]): number
   return SPIRIT_FAMILY_ROTATION[family];
 }
 
+/**
+ * Adjust corner indices to compensate for molecule rotation.
+ * 
+ * When a molecule is rotated, we need to shift which corners are "preferred"
+ * so that after rotation, the branches still end up in the expected positions
+ * (acids on east, bitters on west, etc.).
+ * 
+ * @param corners - Original corner preferences (e.g., [1, 0, 2] for acids)
+ * @param rotationDegrees - Rotation angle in degrees (0, 60, 120, 180, 240, 300)
+ * @returns Adjusted corner indices
+ */
+function adjustCornersForRotation(corners: number[], rotationDegrees: number): number[] {
+  // Each corner is 60° apart, so we shift by rotation/60
+  // We shift in the opposite direction to compensate for the rotation
+  const shift = Math.round(rotationDegrees / 60) % 6;
+  if (shift === 0) return corners;
+  
+  return corners.map(corner => {
+    // Subtract shift (opposite of rotation) and wrap around 0-5
+    let adjusted = (corner - shift) % 6;
+    if (adjusted < 0) adjusted += 6;
+    return adjusted;
+  });
+}
+
 // ═══════════════════════════════════════════════════════════════
 // RING FORMATION FOR EQUAL-AMOUNT INGREDIENTS
 // ═══════════════════════════════════════════════════════════════
@@ -361,20 +386,29 @@ export function computeRingLayout(
 /**
  * Get the preferred corner for a ring based on its ingredient type.
  * This determines where the ring attaches to the spirit backbone.
+ * 
+ * @param type - Ingredient type
+ * @param rotationDegrees - Molecule rotation to compensate for
  */
-function getRingPreferredCorner(type: IngredientType): number[] {
+function getRingPreferredCorner(type: IngredientType, rotationDegrees: number = 0): number[] {
+  let baseCorners: number[];
   switch (type) {
     case 'acid':
-      return [2, 1, 3]; // Lower-right area
+      baseCorners = [2, 1, 3]; // Lower-right area
+      break;
     case 'sweet':
-      return [0, 1, 5]; // Upper-right area
+      baseCorners = [0, 1, 5]; // Upper-right area
+      break;
     case 'bitter':
-      return [4, 5, 3]; // Left area
+      baseCorners = [4, 5, 3]; // Left area
+      break;
     case 'garnish':
-      return [5, 0, 4]; // Upper-left area
+      baseCorners = [5, 0, 4]; // Upper-left area
+      break;
     default:
-      return [2, 3, 1]; // Default to bottom area
+      baseCorners = [2, 3, 1]; // Default to bottom area
   }
+  return adjustCornersForRotation(baseCorners, rotationDegrees);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -449,6 +483,10 @@ export function computeLayout(
   // Separate spirits from other ingredients
   const spirits = ingredients.filter(i => i.type === 'spirit');
   const others = ingredients.filter(i => i.type !== 'spirit');
+
+  // Compute rotation to adjust corner preferences
+  // This compensates for spirit-family-based rotation applied at render time
+  const moleculeRotation = computeMoleculeRotation(spirits);
 
   const nodes: MoleculeNode[] = [];
 
@@ -1006,8 +1044,8 @@ export function computeLayout(
     const ringId = `ring-${ringCounter++}`;
     const spiritIdx = 0; // Rings always attach to first/primary spirit
     
-    // Get preferred corner for this ring type
-    const preferredCorners = getRingPreferredCorner(ringGroup.type);
+    // Get preferred corner for this ring type, adjusted for rotation
+    const preferredCorners = getRingPreferredCorner(ringGroup.type, moleculeRotation);
     const corner = findBestCorner(spiritIdx, preferredCorners);
     
     if (corner === null) return; // No available corner
@@ -1073,7 +1111,9 @@ export function computeLayout(
 
     if (typeCornerMap.acid[spiritIdx] === undefined) {
       // Prefer right/east corners for acids (1=right, 0=upper-right, 2=lower-right)
-      const corner = findBestCorner(spiritIdx, [1, 0, 2]);
+      // Adjust for rotation so acids still appear on east after molecule rotates
+      const preferredCorners = adjustCornersForRotation([1, 0, 2], moleculeRotation);
+      const corner = findBestCorner(spiritIdx, preferredCorners);
       if (corner !== null) {
         typeCornerMap.acid[spiritIdx] = corner;
         usedCorners[spiritIdx][corner] = true;
@@ -1087,7 +1127,8 @@ export function computeLayout(
       const corner = typeCornerMap.acid[spiritIdx];
       // Check if corner chain is at max length - if so, find a new corner
       if (isCornerAtMaxLength(spiritIdx, corner)) {
-        const newCorner = findBestCorner(spiritIdx, [0, 2, 5, 3]); // Try other corners
+        const fallbackCorners = adjustCornersForRotation([0, 2, 5, 3], moleculeRotation);
+        const newCorner = findBestCorner(spiritIdx, fallbackCorners); // Try other corners
         if (newCorner !== null) {
           typeCornerMap.acid[spiritIdx] = newCorner;
           usedCorners[spiritIdx][newCorner] = true;
@@ -1125,7 +1166,8 @@ export function computeLayout(
       sweetsPlacedPerSpirit[spiritIdx]++;
     } else if (typeCornerMap.sweet[spiritIdx] === undefined) {
       // First sweet at this spirit (no acids) - find a corner
-      const allCorners = [1, 2, 0, 3, 4, 5];
+      // Adjust for rotation to maintain consistent visual placement
+      const allCorners = adjustCornersForRotation([1, 2, 0, 3, 4, 5], moleculeRotation);
       for (const corner of allCorners) {
         const available = getAvailableCorners(spiritIdx);
         if (available.includes(corner) && !usedCorners[spiritIdx][corner]) {
@@ -1140,7 +1182,8 @@ export function computeLayout(
     } else {
       // After first 2 sweets on this spirit, find a NEW corner for better distribution
       if (sweetNumOnSpirit >= 2) {
-        const preferLeft = [4, 5, 3, 0, 1, 2]; // Prefer left corners for variety
+        // Prefer left corners for variety, adjusted for rotation
+        const preferLeft = adjustCornersForRotation([4, 5, 3, 0, 1, 2], moleculeRotation);
         let placed = false;
         for (const altCorner of preferLeft) {
           const currentCorner = typeCornerMap.sweet[spiritIdx];
@@ -1180,7 +1223,9 @@ export function computeLayout(
 
     if (typeCornerMap.bitter[spiritIdx] === undefined) {
       // Prefer left/west corners for bitters (4=left, 5=upper-left, 3=lower-left)
-      const corner = findBestCorner(spiritIdx, [4, 5, 3]);
+      // Adjust for rotation so bitters still appear on west after molecule rotates
+      const preferredCorners = adjustCornersForRotation([4, 5, 3], moleculeRotation);
+      const corner = findBestCorner(spiritIdx, preferredCorners);
       if (corner !== null) {
         typeCornerMap.bitter[spiritIdx] = corner;
         usedCorners[spiritIdx][corner] = true;
@@ -1204,7 +1249,8 @@ export function computeLayout(
 
     if (typeCornerMap.garnish[spiritIdx] === undefined) {
       // First garnish - find a corner that doesn't collide
-      const preferredCorners = [4, 3, 5, 0, 1, 2]; // Try all corners
+      // Adjust for rotation to maintain consistent visual placement
+      const preferredCorners = adjustCornersForRotation([4, 3, 5, 0, 1, 2], moleculeRotation);
       let placed = false;
 
       for (const corner of preferredCorners) {
@@ -1254,7 +1300,8 @@ export function computeLayout(
   // No junctions for remaining - direct connections
   remaining.forEach((ing, i) => {
     const spiritIdx = i % effectiveSpiritCount;
-    const corner = findBestCorner(spiritIdx, [2, 3, 1, 0, 4, 5]);
+    const preferredCorners = adjustCornersForRotation([2, 3, 1, 0, 4, 5], moleculeRotation);
+    const corner = findBestCorner(spiritIdx, preferredCorners);
 
     if (corner !== null) {
       usedCorners[spiritIdx][corner] = true;
