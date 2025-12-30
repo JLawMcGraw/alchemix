@@ -59,7 +59,15 @@ import type {
   LayoutOptions,
   MoleculeBackbone,
 } from './types';
-import { DEFAULT_LAYOUT_OPTIONS, isInlineType, isTerminalType, TYPE_COLORS } from './types';
+import { 
+  DEFAULT_LAYOUT_OPTIONS, 
+  isInlineType, 
+  isTerminalType, 
+  TYPE_COLORS,
+  SPIRIT_FAMILY_KEYWORDS,
+  SPIRIT_FAMILY_ROTATION,
+  type SpiritFamily,
+} from './types';
 import { getDisplayLabel } from './classifier';
 import {
   HEX_RADIUS,
@@ -119,6 +127,88 @@ function getExtendedPosition(
     x: vertex.x + Math.cos(vertex.angle) * distance,
     y: vertex.y + Math.sin(vertex.angle) * distance,
   };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SPIRIT FAMILY DETECTION
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Determine the spirit family from an ingredient name.
+ * Matches against known spirit keywords.
+ * 
+ * @param spiritName - The name of the spirit ingredient
+ * @returns The spirit family, or 'other' if unrecognized
+ */
+export function getSpiritFamily(spiritName: string): SpiritFamily {
+  const lower = spiritName.toLowerCase();
+  for (const [keyword, family] of Object.entries(SPIRIT_FAMILY_KEYWORDS)) {
+    if (lower.includes(keyword)) return family;
+  }
+  return 'other';
+}
+
+/**
+ * Determine the dominant spirit family from a list of spirits.
+ * Uses majority voting with first-listed as tiebreaker.
+ * 
+ * @param spirits - Array of classified spirit ingredients
+ * @returns The dominant spirit family
+ */
+export function getDominantSpiritFamily(spirits: ClassifiedIngredient[]): SpiritFamily {
+  if (spirits.length === 0) return 'other';
+  
+  // Count occurrences of each family
+  const familyCounts: Record<SpiritFamily, number> = {
+    whiskey: 0,
+    rum: 0,
+    gin: 0,
+    tequila: 0,
+    vodka: 0,
+    brandy: 0,
+    other: 0,
+  };
+  
+  spirits.forEach(s => {
+    const family = getSpiritFamily(s.name);
+    familyCounts[family]++;
+  });
+  
+  // Find max count
+  let maxCount = 0;
+  let maxFamily: SpiritFamily = 'other';
+  
+  for (const [family, count] of Object.entries(familyCounts)) {
+    if (count > maxCount) {
+      maxCount = count;
+      maxFamily = family as SpiritFamily;
+    }
+  }
+  
+  // Check for tie - use first spirit as tiebreaker
+  const tiedFamilies = Object.entries(familyCounts)
+    .filter(([_, count]) => count === maxCount)
+    .map(([family]) => family as SpiritFamily);
+  
+  if (tiedFamilies.length > 1) {
+    const firstSpiritFamily = getSpiritFamily(spirits[0].name);
+    if (tiedFamilies.includes(firstSpiritFamily)) {
+      return firstSpiritFamily;
+    }
+  }
+  
+  return maxFamily;
+}
+
+/**
+ * Compute the rotation angle for a molecule based on its dominant spirit family.
+ * 
+ * @param spirits - Array of classified spirit ingredients
+ * @returns Rotation angle in degrees
+ */
+export function computeMoleculeRotation(spirits: ClassifiedIngredient[]): number {
+  const family = getDominantSpiritFamily(spirits);
+  return SPIRIT_FAMILY_ROTATION[family];
 }
 
 // ═══════════════════════════════════════════════════════════════

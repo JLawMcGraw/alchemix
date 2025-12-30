@@ -13,7 +13,7 @@ import type {
 import { DEFAULT_LAYOUT_OPTIONS } from './core/types';
 import { parseIngredients } from './core/parser';
 import { classifyIngredients, calculateChaos } from './core/classifier';
-import { computeLayout, generateBackbone } from './core/layout';
+import { computeLayout, generateBackbone, computeMoleculeRotation } from './core/layout';
 import { generateBonds } from './core/bonds';
 import {
   validateRecipe,
@@ -87,6 +87,7 @@ export function transformRecipe(
       nodes: [],
       bonds: [],
       backbone: generateBackbone(opts.width, opts.height),
+      rotation: 0,
     };
   }
 
@@ -116,12 +117,17 @@ export function transformRecipe(
   // 9. Derive method description from instructions/glass
   const method = deriveMethod(recipe.instructions, recipe.glass);
 
+  // 10. Compute rotation based on dominant spirit family
+  const spirits = classified.filter(i => i.type === 'spirit');
+  const rotation = computeMoleculeRotation(spirits);
+
   return {
     name: recipe.name,
     method,
     nodes,
     bonds,
     backbone,
+    rotation,
   };
 }
 

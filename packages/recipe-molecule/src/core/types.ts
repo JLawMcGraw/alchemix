@@ -152,6 +152,7 @@ export interface MoleculeRecipe {
   nodes: MoleculeNode[];
   bonds: MoleculeBond[];
   backbone: MoleculeBackbone;
+  rotation?: number;        // Spirit-family-based rotation angle (degrees)
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -195,3 +196,66 @@ export interface AlchemixRecipe {
   glass?: string;
   category?: string;
 }
+
+// ═══════════════════════════════════════════════════════════════
+// SPIRIT FAMILIES (For Orientation Rotation)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Spirit families determine the overall molecule rotation.
+ * This creates visual "families" where cocktails based on the same
+ * spirit type share a similar orientation.
+ */
+export type SpiritFamily = 
+  | 'whiskey'   // Whiskey, bourbon, rye, scotch
+  | 'rum'       // Rum, cachaca
+  | 'gin'       // Gin
+  | 'tequila'   // Tequila, mezcal
+  | 'vodka'     // Vodka
+  | 'brandy'    // Brandy, cognac, armagnac, calvados, pisco
+  | 'other';    // Unrecognized spirits
+
+/**
+ * Keywords used to identify spirit family from ingredient name.
+ * Keys are lowercase for case-insensitive matching.
+ */
+export const SPIRIT_FAMILY_KEYWORDS: Record<string, SpiritFamily> = {
+  // Whiskey family
+  whiskey: 'whiskey',
+  whisky: 'whiskey',
+  bourbon: 'whiskey',
+  rye: 'whiskey',
+  scotch: 'whiskey',
+  // Rum family
+  rum: 'rum',
+  cachaca: 'rum',
+  rhum: 'rum',
+  // Gin family
+  gin: 'gin',
+  // Tequila family
+  tequila: 'tequila',
+  mezcal: 'tequila',
+  // Vodka family
+  vodka: 'vodka',
+  // Brandy family
+  brandy: 'brandy',
+  cognac: 'brandy',
+  armagnac: 'brandy',
+  calvados: 'brandy',
+  pisco: 'brandy',
+};
+
+/**
+ * Rotation angles (in degrees) for each spirit family.
+ * Creates visual diversity across cocktail collections while
+ * keeping drinks of the same spirit family visually related.
+ */
+export const SPIRIT_FAMILY_ROTATION: Record<SpiritFamily, number> = {
+  whiskey: 0,     // Classic, foundational (default orientation)
+  rum: 60,        // Tropical tilt
+  gin: 120,       // Botanical angle
+  tequila: 180,   // Inverted, distinct
+  vodka: 240,     // Neutral, subtle shift
+  brandy: 300,    // Refined, slight tilt
+  other: 0,       // Default to whiskey orientation
+};

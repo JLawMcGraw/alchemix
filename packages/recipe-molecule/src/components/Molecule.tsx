@@ -336,50 +336,53 @@ export function Molecule({
         className={styles.svg}
         preserveAspectRatio="xMidYMid meet"
       >
-        {/* Layer 1: Benzene rings around spirit nodes */}
-        <g>
-          {recipe.nodes
-            .filter(node => node.type === 'spirit')
-            .map((spirit, i) => (
-              <BenzeneRing
-                key={`benzene-${i}`}
-                cx={spirit.x}
-                cy={spirit.y}
-                radius={HEX_RADIUS}
+        {/* Apply spirit-family-based rotation around canvas center */}
+        <g transform={recipe.rotation ? `rotate(${recipe.rotation}, ${width / 2}, ${height / 2})` : undefined}>
+          {/* Layer 1: Benzene rings around spirit nodes */}
+          <g>
+            {recipe.nodes
+              .filter(node => node.type === 'spirit')
+              .map((spirit, i) => (
+                <BenzeneRing
+                  key={`benzene-${i}`}
+                  cx={spirit.x}
+                  cy={spirit.y}
+                  radius={HEX_RADIUS}
+                />
+              ))}
+          </g>
+
+          {/* Layer 2: Bonds (connecting nodes) */}
+          <g>
+            {recipe.bonds.map((bond, i) => {
+              const from = nodeMap[bond.from];
+              const to = nodeMap[bond.to];
+
+              if (!from || !to) return null;
+
+              return (
+                <Bond
+                  key={`bond-${i}`}
+                  from={from}
+                  to={to}
+                  type={bond.type}
+                />
+              );
+            })}
+          </g>
+
+          {/* Layer 3: Nodes with circles and labels */}
+          <g>
+            {recipe.nodes.map(node => (
+              <Node
+                key={node.id}
+                node={node}
+                onMouseEnter={handleMouseEnter}
+                onMouseMove={handleMouseMove}
+                onMouseLeave={handleMouseLeave}
               />
             ))}
-        </g>
-
-        {/* Layer 2: Bonds (connecting nodes) */}
-        <g>
-          {recipe.bonds.map((bond, i) => {
-            const from = nodeMap[bond.from];
-            const to = nodeMap[bond.to];
-
-            if (!from || !to) return null;
-
-            return (
-              <Bond
-                key={`bond-${i}`}
-                from={from}
-                to={to}
-                type={bond.type}
-              />
-            );
-          })}
-        </g>
-
-        {/* Layer 3: Nodes with circles and labels */}
-        <g>
-          {recipe.nodes.map(node => (
-            <Node
-              key={node.id}
-              node={node}
-              onMouseEnter={handleMouseEnter}
-              onMouseMove={handleMouseMove}
-              onMouseLeave={handleMouseLeave}
-            />
-          ))}
+          </g>
         </g>
       </svg>
 
