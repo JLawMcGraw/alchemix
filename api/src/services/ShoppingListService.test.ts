@@ -127,6 +127,33 @@ describe('ShoppingListService', () => {
       expect(shoppingListService['hasIngredient'](bottles, 'silver rum')).toBe(true);
     });
 
+    it('should match Jamaican rum variants (dark jamaican, jamaican black, black jamaican)', () => {
+      const bottlesWithJamaicanRum: BottleData[] = [
+        { name: 'Hamilton Jamaican Pot Still Black', liquorType: 'Rum', detailedClassification: 'Jamaican Black' },
+      ];
+
+      // "dark jamaican rum" should match "Jamaican Black" classification
+      expect(shoppingListService['hasIngredient'](bottlesWithJamaicanRum, 'dark jamaican rum')).toBe(true);
+      expect(shoppingListService['hasIngredient'](bottlesWithJamaicanRum, 'jamaican rum')).toBe(true);
+      expect(shoppingListService['hasIngredient'](bottlesWithJamaicanRum, 'black jamaican rum')).toBe(true);
+
+      // Also test the reverse - if user has "Dark Jamaican Rum" bottle
+      const bottlesWithDarkJamaican: BottleData[] = [
+        { name: 'Dark Jamaican Rum', liquorType: 'Rum', detailedClassification: 'Dark Rum' },
+      ];
+      expect(shoppingListService['hasIngredient'](bottlesWithDarkJamaican, 'jamaican black')).toBe(true);
+      expect(shoppingListService['hasIngredient'](bottlesWithDarkJamaican, 'jamaican rum')).toBe(true);
+    });
+
+    it('should match dark rum variants (black rum, gold rum)', () => {
+      const bottlesWithDarkRum: BottleData[] = [
+        { name: 'Goslings Black Seal', liquorType: 'Rum', detailedClassification: 'Black Rum' },
+      ];
+
+      expect(shoppingListService['hasIngredient'](bottlesWithDarkRum, 'dark rum')).toBe(true);
+      expect(shoppingListService['hasIngredient'](bottlesWithDarkRum, 'black blended rum')).toBe(true);
+    });
+
     it('should match pantry items without bottles', () => {
       expect(shoppingListService['hasIngredient']([], 'ice')).toBe(true);
       expect(shoppingListService['hasIngredient']([], 'sugar')).toBe(true);

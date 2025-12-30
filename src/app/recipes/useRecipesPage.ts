@@ -85,7 +85,7 @@ export function useRecipesPage() {
     hasNextPage: false,
     hasPreviousPage: false
   });
-  const [lastLoadedParams, setLastLoadedParams] = useState<{ filter: string | null; collection: string | null } | null>(null);
+  const [lastLoadedParams, setLastLoadedParams] = useState<{ filter: string | null; collection: string | null; tab: string | null } | null>(null);
 
   // Helper to deduplicate recipes by ID
   const deduplicateRecipes = (recipes: Recipe[]): Recipe[] => {
@@ -176,15 +176,21 @@ export function useRecipesPage() {
 
     const paramsChanged = !lastLoadedParams ||
       lastLoadedParams.filter !== filter ||
-      lastLoadedParams.collection !== collectionId;
+      lastLoadedParams.collection !== collectionId ||
+      lastLoadedParams.tab !== tab;
 
-    if (!paramsChanged && !(tab === 'favorites' && activeTab !== 'favorites')) return;
-    setLastLoadedParams({ filter, collection: collectionId });
+    if (!paramsChanged) return;
+    setLastLoadedParams({ filter, collection: collectionId, tab });
 
     if (tab === 'favorites') {
       setActiveTab('favorites');
       setActiveCollection(null);
       setMasteryFilter(null);
+    } else if (tab === 'collections') {
+      setActiveTab('collections');
+      setActiveCollection(null);
+      setMasteryFilter(null);
+      loadRecipes(1, true);
     } else if (filter) {
       setMasteryFilter(filter);
       setActiveCollection(null);
@@ -590,12 +596,13 @@ export function useRecipesPage() {
     setActiveCollection(null);
     setMasteryFilter(null);
     if (tab === 'collections') {
-      router.push('/recipes');
+      router.push('/recipes?tab=collections');
       // Load all recipes for accurate uncategorized count
       loadRecipes(1, true);
     } else if (tab === 'favorites') {
       router.push('/recipes?tab=favorites');
     } else {
+      router.push('/recipes');
       loadRecipes(1, true);
     }
   }, [router, loadRecipes]);

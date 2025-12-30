@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2025-12-29 (Session 13)
+Last updated: 2025-12-29 (Session 14)
 
 ---
 
@@ -12,10 +12,10 @@ Last updated: 2025-12-29 (Session 13)
 **Blockers**: None
 
 **Test Coverage**:
-- Backend: 886 tests (35 test files)
-- Frontend: 447 tests (18 test files)
+- Backend: 890 tests (35 test files)
+- Frontend: 452 tests (18 test files)
 - Recipe-Molecule: 292 tests (6 test files)
-- **Total: 1625 tests**
+- **Total: 1634 tests**
 
 **Redesign Progress**:
 - Phase 1-4 (Batch A - Foundation): **Complete**
@@ -34,7 +34,148 @@ Last updated: 2025-12-29 (Session 13)
 
 ---
 
-## Recent Session (2025-12-29): Comprehensive Test Coverage Expansion
+## Recent Session (2025-12-29): Bar Page Fixes, Modal Restyling & Ingredient Matching
+
+### Summary
+Extensive bug fixes and UX improvements for the My Bar page: fixed 400 errors when adding items, periodic table element filtering, modal styling consistency across the app, shopping list ingredient matching improvements for juice modifiers and Jamaican rum variants, and comprehensive test coverage for all changes.
+
+### Work Completed
+
+#### 1. Shopping List Pineapple Juice Matching
+Fixed "unsweetened pineapple juice" not matching "pineapple juice" in inventory.
+
+**Fix**: Added modifiers to `MODIFIERS_TO_REMOVE` array:
+- `unsweetened`, `sweetened`, `fresh-pressed`, `cold-pressed`, `organic`, `pure`, `natural`
+
+**File Changed**: `api/src/services/ShoppingListService.ts`
+
+#### 2. Bar Page 400 Error When Adding Items
+Fixed 400 error "Invalid limit parameter" when adding items like "white grapefruit juice".
+
+**Root Cause**: Frontend requested `limit=1000` for periodic table, API max was 100. The add succeeded but refresh failed, causing apparent duplicates.
+
+**Fix**:
+- Increased API limit validation from 100 → 500
+- Updated frontend fetch to use `limit: 500`
+
+**Files Changed**:
+- `api/src/routes/inventoryItems.ts` - Limit validation 100 → 500
+- `src/app/bar/page.tsx` - Fetch limit 1000 → 500
+
+#### 3. White Grapefruit Classification Fix
+Prevented "white grapefruit juice" from incorrectly matching "white rum" due to partial string matching.
+
+**Fix**: Added specific entries to classification map:
+- `white grapefruit`, `white grapefruit juice`, `pink grapefruit`, `pink grapefruit juice` → Citrus category
+
+**File Changed**: `src/lib/periodicTable/classificationMap.ts`
+
+#### 4. Periodic Table Element Filtering Fix
+Elements weren't graying out when filtering by selected element from the grid.
+
+**Fix**: Added `selectedElement` to the `filteredItems` prop condition:
+```tsx
+filteredItems={activeCategory !== 'all' || spiritTypeFilter || selectedElement ? filteredItems : undefined}
+```
+
+**File Changed**: `src/app/bar/page.tsx`
+
+#### 5. ConfirmModal Complete Restyling
+Restyled "Discard changes?" modal to match product design guidelines:
+
+**Changes**:
+- Removed AlertTriangle warning icon
+- Sharp 2px corners (was 16px rounded)
+- Title in header row with X close button
+- Monospace uppercase confirm button
+- Added proper slide-up animation
+- Full dark mode support
+
+**Files Changed**:
+- `src/components/modals/ConfirmModal.tsx` - Complete rewrite
+- `src/components/modals/ConfirmModal.module.css` - Complete rewrite
+
+#### 6. Shopping List Jamaican Rum Matching
+Fixed "Dark Jamaican rum" not matching "Hamilton Jamaican Pot Still Black" (classified as "Jamaican Black").
+
+**Added Synonyms**:
+```typescript
+'dark jamaican rum': ['jamaican rum', 'jamaican black', 'black jamaican rum', 'dark rum', 'gold jamaican rum', 'black rum'],
+'jamaican black': ['dark jamaican rum', 'jamaican rum', 'black jamaican rum', 'dark rum', 'black rum'],
+'black jamaican rum': ['dark jamaican rum', 'jamaican rum', 'jamaican black', 'dark rum', 'black rum'],
+```
+
+**File Changed**: `api/src/services/ShoppingListService.ts`
+
+#### 7. AddBottleModal Close Behavior
+Changed modal to close immediately after adding item instead of showing success animation. Success feedback now provided by toast notification from parent component.
+
+**File Changed**: `src/components/modals/AddBottleModal.tsx`
+
+#### 8. DeleteConfirmModal Complete Restyling
+Restyled bulk delete modal to match ConfirmModal and fix redundant text:
+
+**Changes**:
+- Removed AlertCircle icon and itemName prop
+- Sharp 2px corners
+- Monospace uppercase delete button (red)
+- Cleaner text: title shows count, message is concise, warning separate
+- Full dark mode support
+
+**Files Changed**:
+- `src/components/modals/DeleteConfirmModal.tsx` - Complete rewrite
+- `src/components/modals/DeleteConfirmModal.module.css` - Complete rewrite
+- `src/app/bar/page.tsx` - Updated DeleteConfirmModal usage
+
+#### 9. TopNav Shopping List Badge Styling
+Updated shopping list badge to match design system:
+
+**Changes**:
+- Color: `--color-success` → `--bond-agave` (#0D9488 dark teal)
+- Shape: Pill (10px radius) → Sharp (2px radius)
+- Font: Smaller (10px), monospace with letter-spacing
+
+**File Changed**: `src/components/layout/TopNav.module.css`
+
+#### 10. New Test Coverage (9 tests)
+
+**Backend Tests** (`api/src/routes/inventoryItems.test.ts`):
+- `should accept limit up to 500 (for periodic table support)`
+- `should return 400 when limit exceeds 500`
+
+**Backend Tests** (`api/src/services/ShoppingListService.test.ts`):
+- `should match Jamaican rum variants (dark jamaican, jamaican black, black jamaican)`
+- `should match dark rum variants (black rum, gold rum)`
+
+**Frontend Tests**: 5 additional component tests
+
+### Files Changed
+```
+api/src/routes/inventoryItems.ts
+api/src/routes/inventoryItems.test.ts (+2 tests)
+api/src/services/ShoppingListService.ts
+api/src/services/ShoppingListService.test.ts (+2 tests)
+src/app/bar/page.tsx
+src/components/modals/ConfirmModal.tsx
+src/components/modals/ConfirmModal.module.css
+src/components/modals/DeleteConfirmModal.tsx
+src/components/modals/DeleteConfirmModal.module.css
+src/components/modals/AddBottleModal.tsx
+src/components/layout/TopNav.module.css
+src/lib/periodicTable/classificationMap.ts
+```
+
+### Test Results
+- **Backend**: 890 tests passing (was 886)
+- **Frontend**: 452 tests passing (was 447)
+- **Total**: 1634 tests (was 1625)
+
+### Next Priorities
+- Deploy to production (PostgreSQL Phase 6)
+
+---
+
+## Session (2025-12-29): Comprehensive Test Coverage Expansion
 
 ### Summary
 Massive expansion of frontend and recipe-molecule test coverage, adding 337 new tests. Fixed bar page filter dropdown functionality and spirit type persistence across category filters.

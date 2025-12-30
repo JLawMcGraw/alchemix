@@ -228,6 +228,29 @@ describe('Inventory Items Routes', () => {
       expect(res.body.error).toContain('Invalid limit parameter');
     });
 
+    it('should accept limit up to 500 (for periodic table support)', async () => {
+      const mockItems = Array.from({ length: 10 }, (_, i) =>
+        createMockItem({ id: i + 1, name: `Item ${i + 1}` })
+      );
+
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue({ total: '10' });
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
+
+      const res = await request(app).get('/api/inventory-items?limit=500');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.pagination.limit).toBe(500);
+    });
+
+    it('should return 400 when limit exceeds 500', async () => {
+      const res = await request(app).get('/api/inventory-items?limit=501');
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toContain('Invalid limit parameter');
+    });
+
     it('should return 400 for invalid category parameter', async () => {
       const res = await request(app).get('/api/inventory-items?category=invalid_category');
 

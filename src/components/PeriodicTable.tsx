@@ -13,8 +13,10 @@ import {
 import styles from './PeriodicTable.module.css';
 
 export interface PeriodicTableProps {
-  /** User's inventory items for highlighting (must include stock_number to respect stock levels) */
+  /** User's inventory items for counts (should be ALL items for accurate counts) */
   inventoryItems?: Array<{ name: string; type?: string; stock_number?: number }>;
+  /** Filtered items for highlighting - if provided, only elements matching these items are highlighted */
+  filteredItems?: Array<{ name: string; type?: string; stock_number?: number }>;
   /** Currently selected element */
   selectedElement?: PeriodicElement | null;
   /** Callback when element is clicked (typically for filtering) */
@@ -49,6 +51,7 @@ const LEGEND_ITEMS: Array<{ group: ElementGroup; label: string }> = [
 
 export function PeriodicTable({
   inventoryItems = [],
+  filteredItems,
   selectedElement,
   onElementClick,
   onElementAdd,
@@ -57,7 +60,7 @@ export function PeriodicTable({
   compact = false,
   className,
 }: PeriodicTableProps) {
-  // Calculate inventory counts for each element
+  // Calculate inventory counts for each element (from ALL items)
   const elementCounts = useMemo(() => {
     const counts = new Map<string, number>();
     PERIODIC_SECTIONS.forEach((section) => {
@@ -68,6 +71,22 @@ export function PeriodicTable({
     });
     return counts;
   }, [inventoryItems]);
+
+  // Calculate which elements are highlighted (from filtered items, if provided)
+  // If no filteredItems provided, use inventoryItems (no filter active)
+  const highlightedElements = useMemo(() => {
+    const itemsToCheck = filteredItems ?? inventoryItems;
+    const highlighted = new Set<string>();
+    PERIODIC_SECTIONS.forEach((section) => {
+      section.elements.forEach((element) => {
+        const count = countInventoryForElement(element, itemsToCheck);
+        if (count > 0) {
+          highlighted.add(element.symbol);
+        }
+      });
+    });
+    return highlighted;
+  }, [filteredItems, inventoryItems]);
 
   // Filter sections to only show sections with visible elements
   const visibleSections = useMemo(() => {
@@ -126,11 +145,12 @@ export function PeriodicTable({
           <div className={styles.elementGrid}>
             {section.elements.map((element) => {
               const count = elementCounts.get(element.symbol) || 0;
+              const isHighlighted = highlightedElements.has(element.symbol);
               return (
                 <ElementCard
                   key={element.symbol}
                   element={element}
-                  hasInventory={count > 0}
+                  hasInventory={isHighlighted}
                   inventoryCount={count}
                   isActive={selectedElement?.symbol === element.symbol}
                   size={compact ? 'sm' : 'md'}

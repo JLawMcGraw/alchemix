@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { AlertCircle, X } from 'lucide-react';
-import { Button, Spinner } from '@/components/ui';
+import { X } from 'lucide-react';
+import { Spinner } from '@/components/ui';
 import styles from './DeleteConfirmModal.module.css';
 
 interface DeleteConfirmModalProps {
@@ -11,7 +11,6 @@ interface DeleteConfirmModalProps {
   onConfirm: (options?: { deleteRelated?: boolean }) => Promise<void>;
   title: string;
   message: string;
-  itemName?: string;
   warningMessage?: string;
   /** Optional checkbox for deleting related items */
   checkboxOption?: {
@@ -26,15 +25,14 @@ export function DeleteConfirmModal({
   onConfirm,
   title,
   message,
-  itemName,
-  warningMessage = 'This action cannot be undone.',
+  warningMessage,
   checkboxOption,
 }: DeleteConfirmModalProps) {
   const [loading, setLoading] = useState(false);
   const [deleteRelated, setDeleteRelated] = useState(false);
 
   const modalRef = useRef<HTMLDivElement>(null);
-  const deleteButtonRef = useRef<HTMLButtonElement>(null);
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
 
   // Reset checkbox state when modal opens
   useEffect(() => {
@@ -47,7 +45,7 @@ export function DeleteConfirmModal({
   useEffect(() => {
     if (isOpen) {
       // Auto-focus cancel button (safer for delete actions)
-      setTimeout(() => deleteButtonRef.current?.focus(), 100);
+      setTimeout(() => cancelButtonRef.current?.focus(), 100);
 
       // Handle keyboard events
       const handleKeyDown = (e: KeyboardEvent) => {
@@ -107,26 +105,19 @@ export function DeleteConfirmModal({
         aria-modal="true"
       >
         <div className={styles.header}>
-          <div className={styles.iconWrapper}>
-            <AlertCircle size={24} className={styles.alertIcon} aria-hidden="true" />
-          </div>
+          <h2 className={styles.title} id="delete-confirm-title">{title}</h2>
           <button
             className={styles.closeBtn}
             onClick={onClose}
             aria-label="Close modal"
+            type="button"
           >
             <X size={20} />
           </button>
         </div>
 
         <div className={styles.content} id="delete-confirm-desc">
-          <h2 className={styles.title} id="delete-confirm-title">{title}</h2>
           <p className={styles.message}>{message}</p>
-          {itemName && (
-            <div className={styles.itemName}>
-              <strong>{itemName}</strong>
-            </div>
-          )}
           {checkboxOption && (
             <label className={styles.checkboxWrapper}>
               <input
@@ -143,23 +134,24 @@ export function DeleteConfirmModal({
               </span>
             </label>
           )}
-          <p className={styles.warning}>{warningMessage}</p>
+          {warningMessage && <p className={styles.warning}>{warningMessage}</p>}
         </div>
 
         <div className={styles.footer}>
-          <Button
-            ref={deleteButtonRef}
-            variant="outline"
+          <button
+            ref={cancelButtonRef}
+            className={styles.cancelBtn}
             onClick={onClose}
             disabled={loading}
+            type="button"
           >
             Cancel
-          </Button>
-          <Button
-            variant="primary"
+          </button>
+          <button
+            className={styles.deleteBtn}
             onClick={handleConfirm}
             disabled={loading}
-            className={styles.deleteBtn}
+            type="button"
           >
             {loading ? (
               <>
@@ -168,7 +160,7 @@ export function DeleteConfirmModal({
             ) : (
               'Delete'
             )}
-          </Button>
+          </button>
         </div>
       </div>
     </div>

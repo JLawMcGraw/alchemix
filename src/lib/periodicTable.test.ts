@@ -291,18 +291,64 @@ describe('periodicTable utility', () => {
       expect(result.periodic_group).toBe('Catalyst');
     });
 
-    it('should return mixer category for dairy elements', () => {
+    it('should return pantry category for dairy elements', () => {
       const creamElement = ALL_ELEMENTS.find((el) => el.symbol === 'Cr')!;
       const result = elementToAddModalPreFill(creamElement);
-      expect(result.category).toBe('mixer');
+      expect(result.category).toBe('pantry');
       expect(result.periodic_group).toBe('Bridge');
     });
 
-    it('should return liqueur category for botanical elements', () => {
+    it('should return liqueur category for botanical elements like Campari', () => {
       const campariElement = ALL_ELEMENTS.find((el) => el.symbol === 'Cp')!;
       const result = elementToAddModalPreFill(campariElement);
       expect(result.category).toBe('liqueur');
       expect(result.periodic_group).toBe('Modifier');
+    });
+
+    it('should return bitters category for bitters elements', () => {
+      const angosturaElement = ALL_ELEMENTS.find((el) => el.symbol === 'An')!;
+      const result = elementToAddModalPreFill(angosturaElement);
+      expect(result.category).toBe('bitters');
+
+      const orangeBittersElement = ALL_ELEMENTS.find((el) => el.symbol === 'Ob')!;
+      expect(elementToAddModalPreFill(orangeBittersElement).category).toBe('bitters');
+
+      const peychaudsElement = ALL_ELEMENTS.find((el) => el.symbol === 'Py')!;
+      expect(elementToAddModalPreFill(peychaudsElement).category).toBe('bitters');
+    });
+
+    it('should return wine category for vermouths and fortified wines', () => {
+      const sweetVermouthElement = ALL_ELEMENTS.find((el) => el.symbol === 'Sv')!;
+      expect(elementToAddModalPreFill(sweetVermouthElement).category).toBe('wine');
+
+      const dryVermouthElement = ALL_ELEMENTS.find((el) => el.symbol === 'Dv')!;
+      expect(elementToAddModalPreFill(dryVermouthElement).category).toBe('wine');
+
+      const lilletElement = ALL_ELEMENTS.find((el) => el.symbol === 'Lt')!;
+      expect(elementToAddModalPreFill(lilletElement).category).toBe('wine');
+
+      const sparklingWineElement = ALL_ELEMENTS.find((el) => el.symbol === 'Sp')!;
+      expect(elementToAddModalPreFill(sparklingWineElement).category).toBe('wine');
+    });
+
+    it('should return beer category for beer element', () => {
+      const beerElement = ALL_ELEMENTS.find((el) => el.symbol === 'Bx')!;
+      const result = elementToAddModalPreFill(beerElement);
+      expect(result.category).toBe('beer');
+    });
+
+    it('should return pantry category for espresso and tea', () => {
+      const espressoElement = ALL_ELEMENTS.find((el) => el.symbol === 'Es')!;
+      expect(elementToAddModalPreFill(espressoElement).category).toBe('pantry');
+
+      const teaElement = ALL_ELEMENTS.find((el) => el.symbol === 'Te')!;
+      expect(elementToAddModalPreFill(teaElement).category).toBe('pantry');
+    });
+
+    it('should return liqueur category for Irish Cream despite dairy group', () => {
+      const irishCreamElement = ALL_ELEMENTS.find((el) => el.symbol === 'Ic')!;
+      const result = elementToAddModalPreFill(irishCreamElement);
+      expect(result.category).toBe('liqueur');
     });
 
     it('should map grain group to correct periodic properties', () => {

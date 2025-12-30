@@ -110,12 +110,15 @@ const SYNONYMS: Record<string, string[]> = {
   'gold rum': ['amber rum', 'aged rum', 'dark rum', 'gold puerto rican rum', 'gold jamaican rum'],
   'amber rum': ['gold rum', 'aged rum', 'dark rum'],
   'aged rum': ['gold rum', 'amber rum', 'dark rum'],
-  'dark rum': ['gold rum', 'amber rum', 'aged rum', 'gold puerto rican rum', 'gold jamaican rum', 'jamaican rum', 'black rum', 'black blended rum'],
-  'black rum': ['dark rum', 'black blended rum', 'goslings black seal'],
+  'dark rum': ['gold rum', 'amber rum', 'aged rum', 'gold puerto rican rum', 'gold jamaican rum', 'jamaican rum', 'black rum', 'black blended rum', 'dark jamaican rum'],
+  'black rum': ['dark rum', 'black blended rum', 'goslings black seal', 'dark jamaican rum', 'jamaican black'],
   'black blended rum': ['dark rum', 'black rum', 'goslings black seal'],
   'gold puerto rican rum': ['gold rum', 'dark rum', 'aged rum', 'amber rum'],
-  'gold jamaican rum': ['gold rum', 'dark rum', 'aged rum', 'amber rum', 'jamaican rum'],
-  'jamaican rum': ['dark rum', 'gold rum', 'gold jamaican rum'],
+  'gold jamaican rum': ['gold rum', 'dark rum', 'aged rum', 'amber rum', 'jamaican rum', 'dark jamaican rum'],
+  'jamaican rum': ['dark rum', 'gold rum', 'gold jamaican rum', 'dark jamaican rum', 'jamaican black', 'black jamaican rum'],
+  'dark jamaican rum': ['jamaican rum', 'jamaican black', 'black jamaican rum', 'dark rum', 'gold jamaican rum', 'black rum'],
+  'jamaican black': ['dark jamaican rum', 'jamaican rum', 'black jamaican rum', 'dark rum', 'black rum'],
+  'black jamaican rum': ['dark jamaican rum', 'jamaican rum', 'jamaican black', 'dark rum', 'black rum'],
 
   // High-proof rum variants
   '151 rum': ['151-proof rum', 'overproof rum'],
@@ -256,7 +259,8 @@ const GENERIC_TOKENS = new Set([
  * Modifiers to remove from ingredient names
  */
 const MODIFIERS_TO_REMOVE = [
-  'blended', 'pot still', 'column still', 'unaged', 'lightly aged', 'aged', 'vieux', 'aoc', 'cane', 'overproof'
+  'blended', 'pot still', 'column still', 'unaged', 'lightly aged', 'aged', 'vieux', 'aoc', 'cane', 'overproof',
+  'unsweetened', 'sweetened', 'natural', 'organic', 'pure', 'raw', 'filtered', 'unfiltered', 'cold pressed', 'cold-pressed'
 ];
 
 /**

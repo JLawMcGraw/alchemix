@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { AlertTriangle, X } from 'lucide-react';
-import { Button } from '@/components/ui';
+import { X } from 'lucide-react';
 import styles from './ConfirmModal.module.css';
 
 interface ConfirmModalProps {
@@ -84,38 +83,37 @@ export function ConfirmModal({
         aria-modal="true"
       >
         <div className={styles.header}>
-          <div className={`${styles.iconWrapper} ${styles[variant]}`}>
-            <AlertTriangle size={24} aria-hidden="true" />
-          </div>
+          <h2 className={styles.title} id="confirm-title">{title}</h2>
           <button
             className={styles.closeBtn}
             onClick={onClose}
             aria-label="Close modal"
+            type="button"
           >
             <X size={20} />
           </button>
         </div>
 
         <div className={styles.content} id="confirm-desc">
-          <h2 className={styles.title} id="confirm-title">{title}</h2>
           <p className={styles.message}>{message}</p>
         </div>
 
         <div className={styles.footer}>
-          <Button
+          <button
             ref={cancelButtonRef}
-            variant="outline"
+            className={styles.cancelBtn}
             onClick={onClose}
+            type="button"
           >
             {cancelText}
-          </Button>
-          <Button
-            variant="primary"
+          </button>
+          <button
+            className={`${styles.confirmBtn} ${variant === 'danger' ? styles.danger : ''}`}
             onClick={handleConfirm}
-            className={variant === 'danger' ? styles.dangerBtn : undefined}
+            type="button"
           >
             {confirmText}
-          </Button>
+          </button>
         </div>
       </div>
     </div>

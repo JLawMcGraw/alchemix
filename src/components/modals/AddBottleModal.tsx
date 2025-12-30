@@ -240,7 +240,8 @@ export function AddBottleModal({ isOpen, onClose, onAdd, preFill }: AddBottleMod
         setError(null);
         setTimeout(() => firstInputRef.current?.focus(), 100);
       } else {
-        setShowSuccess(true);
+        // Close modal - success toast is shown by parent component
+        doClose();
       }
     } catch (err: unknown) {
       if (err instanceof Error) {

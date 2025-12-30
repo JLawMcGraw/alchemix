@@ -84,9 +84,9 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
 
   const page = pageValidation.sanitized || 1;
 
-  // Validate limit parameter
+  // Validate limit parameter (max 500 to support periodic table which needs all items)
   const limitParam = req.query.limit as string | undefined;
-  const limitValidation = validateNumber(limitParam || '50', 1, 100);
+  const limitValidation = validateNumber(limitParam || '50', 1, 500);
 
   if (!limitValidation.isValid) {
     return res.status(400).json({

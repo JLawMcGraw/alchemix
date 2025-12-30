@@ -441,27 +441,56 @@ export function elementToAddModalPreFill(element: PeriodicElement): AddModalPreF
     garnish: 'Botanic',
   };
 
-  // Determine category based on element group
-  const spiritGroups: ElementGroup[] = ['agave', 'grain', 'cane', 'juniper', 'grape', 'neutral'];
-  const isSpirit = spiritGroups.includes(element.group);
-  
+  // Specific element symbol overrides (these take priority over group-based defaults)
+  // Bitters should be 'bitters' category
+  const bitterSymbols = ['An', 'Ob', 'Py', 'Xb', 'Yb', 'Zb'];
+  // Vermouths and aromatized/fortified wines should be 'wine' category
+  const wineSymbols = ['Sv', 'Dv', 'Lt', 'Ca', 'Pu', 'Sp', 'Wn'];
+  // Beer should be 'beer' category
+  const beerSymbols = ['Bx'];
+  // Coffee/Tea should be 'pantry' category
+  const pantrySymbols = ['Es', 'Te'];
+  // Irish Cream is a liqueur despite being in dairy group
+  const liqueurOverrideSymbols = ['Ic'];
+
+  // Determine category - check specific overrides first, then fall back to group-based
   let category: AddModalPreFill['category'];
-  if (isSpirit) {
-    category = 'spirit';
-  } else if (element.group === 'sugar') {
-    category = 'liqueur';
-  } else if (element.group === 'garnish') {
-    category = 'garnish';
-  } else if (element.group === 'carbonation' || element.group === 'dairy') {
-    category = 'mixer';
-  } else if (element.group === 'acid') {
-    // Citrus/acids go to mixer
-    category = 'mixer';
-  } else if (element.group === 'botanical') {
-    // Bitters, vermouths, etc. are typically liqueurs
+
+  if (bitterSymbols.includes(element.symbol)) {
+    category = 'bitters';
+  } else if (wineSymbols.includes(element.symbol)) {
+    category = 'wine';
+  } else if (beerSymbols.includes(element.symbol)) {
+    category = 'beer';
+  } else if (pantrySymbols.includes(element.symbol)) {
+    category = 'pantry';
+  } else if (liqueurOverrideSymbols.includes(element.symbol)) {
     category = 'liqueur';
   } else {
-    category = 'pantry';
+    // Fall back to group-based category assignment
+    const spiritGroups: ElementGroup[] = ['agave', 'grain', 'cane', 'juniper', 'grape', 'neutral'];
+    const isSpirit = spiritGroups.includes(element.group);
+
+    if (isSpirit) {
+      category = 'spirit';
+    } else if (element.group === 'sugar') {
+      category = 'liqueur';
+    } else if (element.group === 'garnish') {
+      category = 'garnish';
+    } else if (element.group === 'carbonation') {
+      category = 'mixer';
+    } else if (element.group === 'dairy') {
+      // Dairy items (cream, eggs, milk) go to pantry
+      category = 'pantry';
+    } else if (element.group === 'acid') {
+      // Citrus/acids go to mixer
+      category = 'mixer';
+    } else if (element.group === 'botanical') {
+      // Amaros, aperitivos, etc. are typically liqueurs
+      category = 'liqueur';
+    } else {
+      category = 'pantry';
+    }
   }
 
   return {

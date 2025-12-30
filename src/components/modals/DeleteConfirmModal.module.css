@@ -1,43 +1,39 @@
+/* DeleteConfirmModal - Aligned with ConfirmModal styling */
+
 .overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(15, 23, 42, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
-  padding: var(--space-2);
-  animation: fadeIn 0.2s ease-out;
+  z-index: 1100;
+  padding: 16px;
+  animation: fadeIn 0.15s ease-out;
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .modal {
-  background: var(--color-ui-bg-surface);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-xl);
+  background: white;
+  border: 1px solid var(--color-border-default, #E2E8F0);
+  border-radius: 2px;
   width: 100%;
-  max-width: 480px;
+  max-width: 400px;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  animation: slideUp 0.3s ease-out;
+  animation: slideUp 0.2s ease-out;
 }
 
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;
@@ -45,105 +41,84 @@
   }
 }
 
+/* Header */
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-3);
-  border-bottom: 1px solid var(--color-border-default);
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--color-border-default, #E2E8F0);
 }
 
-.iconWrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  background: rgba(239, 68, 68, 0.08);
-  border-radius: 50%;
-}
-
-.alertIcon {
-  color: var(--color-semantic-error);
+.title {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fg-primary, #1E293B);
+  margin: 0;
+  letter-spacing: -0.01em;
 }
 
 .closeBtn {
   background: none;
   border: none;
-  color: var(--color-text-muted);
+  color: var(--color-text-muted, #94A3B8);
   cursor: pointer;
   padding: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color var(--transition-fast);
-  border-radius: var(--radius);
+  transition: color 0.1s ease;
+  border-radius: 2px;
 }
 
 .closeBtn:hover {
-  color: var(--color-text-body);
-  background: var(--color-ui-bg-base);
+  color: var(--fg-primary, #1E293B);
 }
 
+/* Content */
 .content {
-  padding: var(--space-4);
-}
-
-.title {
-  font-family: var(--font-sans);
-  font-size: 1.25rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--color-text-body);
-  margin: 0 0 var(--space-2) 0;
+  padding: 20px;
 }
 
 .message {
-  color: var(--color-text-body);
-  line-height: 1.5;
-  margin: 0 0 var(--space-2) 0;
-}
-
-.itemName {
-  background: var(--color-ui-bg-base);
-  padding: var(--space-2);
-  border-radius: var(--radius);
-  margin: var(--space-2) 0;
-  font-family: 'Courier New', monospace;
-  color: var(--color-text-body);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-text-muted, #64748B);
+  margin: 0;
 }
 
 .warning {
-  color: var(--color-semantic-error);
   font-family: var(--font-sans);
-  font-size: 0.875rem;
-  font-weight: 500;
-  margin: var(--space-2) 0 0 0;
+  font-size: 13px;
+  color: #DC2626;
+  margin: 12px 0 0 0;
 }
 
 /* Checkbox option for delete related items */
 .checkboxWrapper {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  margin: var(--space-3) 0;
-  background: var(--color-ui-bg-base);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius);
+  gap: 10px;
+  padding: 12px;
+  margin: 16px 0 0 0;
+  background: var(--color-ui-bg-base, #F8FAFC);
+  border: 1px solid var(--color-border-default, #E2E8F0);
+  border-radius: 2px;
   cursor: pointer;
-  transition: border-color 0.15s ease;
+  transition: border-color 0.1s ease;
 }
 
 .checkboxWrapper:hover {
-  border-color: var(--color-border-hover, var(--fg-tertiary));
+  border-color: var(--fg-primary, #1E293B);
 }
 
 .checkbox {
   margin-top: 2px;
   width: 16px;
   height: 16px;
-  accent-color: var(--color-semantic-error);
+  accent-color: #DC2626;
   cursor: pointer;
 }
 
@@ -155,74 +130,142 @@
 
 .checkboxLabel {
   font-family: var(--font-sans);
-  font-size: var(--text-sm);
+  font-size: 14px;
   font-weight: 500;
-  color: var(--fg-primary);
+  color: var(--fg-primary, #1E293B);
 }
 
 .checkboxDescription {
   font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--fg-tertiary);
+  font-size: 12px;
+  color: var(--color-text-muted, #64748B);
 }
 
+/* Footer */
 .footer {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border-top: 1px solid var(--color-border-default);
-  background: var(--color-ui-bg-base);
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--color-border-default, #E2E8F0);
+  background: var(--color-ui-bg-base, #F8FAFC);
+}
+
+.cancelBtn {
+  padding: 10px 16px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--color-text-muted, #64748B);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.1s ease;
+}
+
+.cancelBtn:hover:not(:disabled) {
+  color: var(--fg-primary, #1E293B);
+}
+
+.cancelBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .deleteBtn {
-  background-color: var(--color-semantic-error) !important;
-  border-color: var(--color-semantic-error) !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: white;
+  background: #DC2626;
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+  min-width: 100px;
 }
 
 .deleteBtn:hover:not(:disabled) {
-  background-color: #c81e1e !important;
-  border-color: #c81e1e !important;
+  background: #B91C1C;
 }
 
-/* Mobile responsive */
-@media (max-width: 640px) {
+.deleteBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Dark Mode */
+:global([data-theme="dark"]) .modal {
+  background: var(--bg-elevated, #1E293B);
+  border-color: var(--border-hairline, #334155);
+}
+
+:global([data-theme="dark"]) .header {
+  border-bottom-color: var(--border-hairline, #334155);
+}
+
+:global([data-theme="dark"]) .title {
+  color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .closeBtn {
+  color: var(--fg-secondary, #94A3B8);
+}
+
+:global([data-theme="dark"]) .closeBtn:hover {
+  color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .message {
+  color: var(--fg-secondary, #94A3B8);
+}
+
+:global([data-theme="dark"]) .warning {
+  color: #F87171;
+}
+
+:global([data-theme="dark"]) .checkboxWrapper {
+  background: var(--bg-paper, #0F172A);
+  border-color: var(--border-hairline, #334155);
+}
+
+:global([data-theme="dark"]) .checkboxWrapper:hover {
+  border-color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .checkboxLabel {
+  color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .checkboxDescription {
+  color: var(--fg-secondary, #94A3B8);
+}
+
+:global([data-theme="dark"]) .footer {
+  border-top-color: var(--border-hairline, #334155);
+  background: var(--bg-paper, #0F172A);
+}
+
+:global([data-theme="dark"]) .cancelBtn {
+  color: var(--fg-secondary, #94A3B8);
+}
+
+:global([data-theme="dark"]) .cancelBtn:hover:not(:disabled) {
+  color: var(--fg-primary, #F1F5F9);
+}
+
+/* Responsive */
+@media (max-width: 520px) {
   .modal {
     max-width: 100%;
-    margin: var(--space-2);
-  }
-
-  .overlay {
-    padding: var(--space-2);
-  }
-
-  .content {
-    padding: var(--space-3);
-  }
-
-  .header,
-  .footer {
-    padding: var(--space-3);
-  }
-
-  .title {
-    font-size: 1.125rem;
-  }
-
-  /* Larger touch targets */
-  .closeBtn {
-    padding: 8px;
-    min-width: 44px;
-    min-height: 44px;
-  }
-
-  .footer {
-    flex-direction: column;
-    gap: var(--space-2);
-  }
-
-  .footer button {
-    width: 100%;
+    margin: 0 16px;
   }
 }

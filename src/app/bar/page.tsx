@@ -68,6 +68,10 @@ function BarPageContent() {
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
 
+  // Store ALL inventory items for the periodic table (not affected by category filters)
+  // This ensures the periodic table always shows accurate counts across all categories
+  const [allItemsForPeriodicTable, setAllItemsForPeriodicTable] = useState<InventoryItem[]>([]);
+
   // Store spirit type counts separately so they persist across category filters
   const [storedSpiritTypeCounts, setStoredSpiritTypeCounts] = useState<Record<SpiritCategory, number>>({} as Record<SpiritCategory, number>);
 
@@ -115,6 +119,7 @@ function BarPageContent() {
     }
   }, [isAuthenticated, isValidating]);
 
+
   // Fetch items when category or page changes (server-side filtering + pagination)
   useEffect(() => {
     if (isAuthenticated && !isValidating) {
@@ -142,11 +147,30 @@ function BarPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchItems is stable, hasInitiallyLoaded intentionally excluded to run only once
   }, [isAuthenticated, isValidating, currentPage, activeCategory]);
 
+  // When viewing 'all' category, store items for the periodic table
+  // This ensures we have complete inventory data for the periodic table even when filtering
+  useEffect(() => {
+    if (activeCategory === 'all' && inventoryItems.length > 0) {
+      setAllItemsForPeriodicTable(inventoryItems);
+    }
+  }, [activeCategory, inventoryItems]);
+
   // Ensure inventoryItems is always an array - must be before useMemo hooks
-  const itemsArray = useMemo(() => 
+  const itemsArray = useMemo(() =>
     Array.isArray(inventoryItems) ? inventoryItems : [],
     [inventoryItems]
   );
+
+  // Memoized items for the periodic table - always use allItemsForPeriodicTable when available
+  // This ensures the periodic table shows accurate counts across all categories regardless of filters
+  const periodicTableItems = useMemo(() => {
+    // Prefer allItemsForPeriodicTable (complete inventory) over itemsArray (potentially filtered)
+    if (allItemsForPeriodicTable.length > 0) {
+      return allItemsForPeriodicTable;
+    }
+    // Fallback to itemsArray only before all items are fetched
+    return itemsArray;
+  }, [allItemsForPeriodicTable, itemsArray]);
 
   // Apply client-side filters (category filtering is server-side)
   // useMemo must be called before any conditional returns
@@ -239,9 +263,11 @@ function BarPageContent() {
       await inventoryApi.backfillPeriodicTags();
 
       await fetchItems();
-      // Refresh category counts
+      // Refresh category counts and all items for periodic table
       const counts = await inventoryApi.getCategoryCounts();
       setCategoryCounts(counts);
+      const { items: allItems } = await inventoryApi.getAll({ page: 1, limit: 500 });
+      setAllItemsForPeriodicTable(allItems);
       if (result.imported > 0) {
         showToast('success', `Successfully imported ${result.imported} items from CSV`);
       } else {
@@ -255,9 +281,11 @@ function BarPageContent() {
   const handleAddItem = async (item: InventoryItemInput) => {
     try {
       await addItem(item);
-      // Refresh category counts
+      // Refresh category counts and all items for periodic table
       const counts = await inventoryApi.getCategoryCounts();
       setCategoryCounts(counts);
+      const { items: allItems } = await inventoryApi.getAll({ page: 1, limit: 500 });
+      setAllItemsForPeriodicTable(allItems);
       showToast('success', 'Item added successfully');
     } catch (error) {
       showToast('error', 'Failed to add item');
@@ -311,10 +339,12 @@ function BarPageContent() {
       const idsArray = Array.from(selectedIds);
       await inventoryApi.deleteBulk(idsArray);
 
-      // Refresh items and counts
+      // Refresh items, counts, and all items for periodic table
       await fetchItems(currentPage, 50, activeCategory);
       const counts = await inventoryApi.getCategoryCounts();
       setCategoryCounts(counts);
+      const { items: allItems } = await inventoryApi.getAll({ page: 1, limit: 500 });
+      setAllItemsForPeriodicTable(allItems);
 
       showToast('success', `Successfully deleted ${selectedIds.size} item${selectedIds.size === 1 ? '' : 's'}`);
       setSelectedIds(new Set());
@@ -342,23 +372,16 @@ function BarPageContent() {
                     : activeCategory !== 'all' && ` in ${CATEGORIES.find(c => c.id === activeCategory)?.label}`
                 }
               </p>
-              {selectedElement && (
-                <button
-                  className={styles.clearFilterBtn}
-                  onClick={() => setSelectedElement(null)}
-                  title="Clear element filter"
-                >
-                  <X size={14} />
-                  Clear
-                </button>
-              )}
-              {spiritTypeFilter && !selectedElement && (
+              {/* Show clear button when any filter is active */}
+              {(selectedElement || spiritTypeFilter || activeCategory !== 'all') && (
                 <button
                   className={styles.clearFilterBtn}
                   onClick={() => {
+                    setSelectedElement(null);
                     setSpiritTypeFilter(null);
+                    setActiveCategory('all');
                   }}
-                  title="Clear filter"
+                  title="Clear all filters"
                 >
                   <X size={14} />
                   Clear
@@ -490,11 +513,18 @@ function BarPageContent() {
         </div>
 
         {/* Periodic Table View - Version controlled by PERIODIC_TABLE_VERSION constant above */}
+        {/* Uses periodicTableItems for counts, filteredItems for highlighting when filtered */}
         {viewMode === 'periodic' && (
           <PeriodicTable
-            inventoryItems={itemsArray}
+            inventoryItems={periodicTableItems}
+            filteredItems={activeCategory !== 'all' || spiritTypeFilter || selectedElement ? filteredItems : undefined}
             selectedElement={selectedElement}
-            onElementClick={(element) => setSelectedElement(element)}
+            onElementClick={(element) => {
+              setSelectedElement(element);
+              // Clear other filters when selecting an element from the periodic table
+              setSpiritTypeFilter(null);
+              setActiveCategory('all');
+            }}
             onElementAdd={handleElementAdd}
             onClearSelection={() => setSelectedElement(null)}
           />
@@ -667,9 +697,9 @@ function BarPageContent() {
           isOpen={showBulkDeleteConfirm}
           onClose={() => setShowBulkDeleteConfirm(false)}
           onConfirm={handleBulkDeleteConfirm}
-          title="Delete Items"
-          message={`Are you sure you want to delete ${selectedIds.size} item${selectedIds.size !== 1 ? 's' : ''}? This action cannot be undone.`}
-          itemName={selectedIds.size === 1 ? 'this item' : `${selectedIds.size} items`}
+          title={`Delete ${selectedIds.size} ${selectedIds.size === 1 ? 'Item' : 'Items'}`}
+          message={`Are you sure you want to delete ${selectedIds.size === 1 ? 'this item' : `these ${selectedIds.size} items`}?`}
+          warningMessage="This action cannot be undone."
         />
       </div>
     </div>

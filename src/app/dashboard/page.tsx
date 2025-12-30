@@ -7,18 +7,34 @@ import { useStore } from '@/lib/store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { InsightSkeleton } from '@/components/ui/Skeleton';
 import { CSVUploadModal } from '@/components/modals/CSVUploadModal';
+import { RecipeDetailModal } from '@/components/modals';
+import type { Recipe } from '@/types';
 import { useToast } from '@/components/ui/Toast';
 import { inventoryApi, recipeApi } from '@/lib/api';
-import { Folder } from 'lucide-react';
+import { Folder, Plus } from 'lucide-react';
 import styles from './dashboard.module.css';
 
 /**
  * Safely render HTML content as React elements
  * Only allows: strong, em, b, i, br tags - all other HTML is stripped
  * Also converts markdown bold (**text**) and italic (*text*) to HTML
+ * If recipes and onRecipeClick are provided, bold text matching recipe names becomes clickable
  */
-const renderHTMLContent = (html: string, keyPrefix: string, fallback?: string): React.ReactNode => {
+const renderHTMLContent = (
+  html: string,
+  keyPrefix: string,
+  fallback?: string,
+  recipes?: Recipe[],
+  onRecipeClick?: (recipe: Recipe) => void
+): React.ReactNode => {
   if (!html) return fallback || null;
+
+  // Helper to find matching recipe by name (case-insensitive)
+  const findRecipeByName = (name: string): Recipe | undefined => {
+    if (!recipes) return undefined;
+    const normalizedName = name.toLowerCase().trim();
+    return recipes.find(r => r.name.toLowerCase().trim() === normalizedName);
+  };
 
   // Convert markdown to HTML before processing
   // **text** -> <strong>text</strong>
@@ -75,13 +91,38 @@ const renderHTMLContent = (html: string, keyPrefix: string, fallback?: string): 
 
     key += 1;
 
+    // Check if this is bold text that matches a recipe name
+    const isInStrong = tagStack.includes('strong');
+    const matchingRecipe = isInStrong && onRecipeClick ? findRecipeByName(text) : undefined;
+
     // Wrap in active tags (innermost first)
     let element: React.ReactNode = text;
     const activeTags = [...tagStack].reverse();
 
     activeTags.forEach((tag, i) => {
       if (tag === 'strong') {
-        element = <strong key={`${keyPrefix}-strong-${key}-${i}`}>{element}</strong>;
+        if (matchingRecipe && onRecipeClick) {
+          // Make it a clickable link
+          element = (
+            <strong
+              key={`${keyPrefix}-strong-${key}-${i}`}
+              onClick={() => onRecipeClick(matchingRecipe)}
+              style={{ cursor: 'pointer', textDecoration: 'underline' }}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onRecipeClick(matchingRecipe);
+                }
+              }}
+            >
+              {element}
+            </strong>
+          );
+        } else {
+          element = <strong key={`${keyPrefix}-strong-${key}-${i}`}>{element}</strong>;
+        }
       } else if (tag === 'em') {
         element = <em key={`${keyPrefix}-em-${key}-${i}`}>{element}</em>;
       }
@@ -164,6 +205,7 @@ export default function DashboardPage() {
     user,
     recipes,
     collections,
+    favorites,
     dashboardInsight,
     isDashboardInsightLoading,
     shoppingListStats,
@@ -172,11 +214,14 @@ export default function DashboardPage() {
     fetchCollections,
     fetchDashboardInsight,
     fetchShoppingList,
+    addFavorite,
+    removeFavorite,
   } = useStore();
   const { showToast } = useToast();
   const [csvModalOpen, setCsvModalOpen] = useState(false);
   const [csvModalType, setCsvModalType] = useState<'items' | 'recipes'>('items');
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number> | null>(null);
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
 
   // Memoized arrays
   const { recipesArray, collectionsArray } = useMemo(() => ({
@@ -186,6 +231,27 @@ export default function DashboardPage() {
 
   // Memoized time greeting (computed once on mount)
   const timeGreeting = useMemo(() => getTimeGreeting(), []);
+
+  // Memoized favorites array
+  const favoritesArray = useMemo(() =>
+    Array.isArray(favorites) ? favorites : [],
+    [favorites]
+  );
+
+  // Helper to check if a recipe is favorited
+  const isRecipeFavorited = useCallback((recipe: Recipe) => {
+    return favoritesArray.some(f => f.recipe_id === recipe.id || f.recipe_name === recipe.name);
+  }, [favoritesArray]);
+
+  // Helper to find the favorite record for a recipe
+  const findFavoriteForRecipe = useCallback((recipe: Recipe) => {
+    return favoritesArray.find(f => f.recipe_id === recipe.id || f.recipe_name === recipe.name);
+  }, [favoritesArray]);
+
+  // Handle recipe click from insight text
+  const handleRecipeClick = useCallback((recipe: Recipe) => {
+    setSelectedRecipe(recipe);
+  }, []);
 
   // CSV Import handlers
   const handleCSVUpload = useCallback(async (file: File, collectionId?: number) => {
@@ -309,7 +375,7 @@ export default function DashboardPage() {
                   <InsightSkeleton />
                 ) : dashboardInsight ? (
                   <p className={styles.insightText}>
-                    {renderHTMLContent(dashboardInsight, 'insight')}
+                    {renderHTMLContent(dashboardInsight, 'insight', undefined, recipesArray, handleRecipeClick)}
                   </p>
                 ) : (
                   <p className={styles.emptyState}>
@@ -328,7 +394,7 @@ export default function DashboardPage() {
                   onClick={() => router.push('/bar')}
                   aria-label="Go to My Bar"
                 >
-                  +
+                  <Plus size={14} />
                 </button>
               </div>
 
@@ -398,7 +464,7 @@ export default function DashboardPage() {
                   onClick={() => router.push('/recipes')}
                   aria-label="Go to Recipes"
                 >
-                  +
+                  <Plus size={14} />
                 </button>
               </div>
               <div className={styles.listContent}>
@@ -446,10 +512,10 @@ export default function DashboardPage() {
                 <h2 className={styles.cardTitle}>Collections ({collectionsArray.length})</h2>
                 <button
                   className={styles.addBtn}
-                  onClick={() => router.push('/recipes')}
+                  onClick={() => router.push('/recipes?tab=collections')}
                   aria-label="Add Collection"
                 >
-                  +
+                  <Plus size={14} />
                 </button>
               </div>
               <div className={styles.listContent}>
@@ -496,6 +562,25 @@ export default function DashboardPage() {
           type={csvModalType}
           onUpload={handleCSVUpload}
         />
+
+        {/* Recipe Detail Modal */}
+        {selectedRecipe && (
+          <RecipeDetailModal
+            recipe={selectedRecipe}
+            isOpen={!!selectedRecipe}
+            onClose={() => setSelectedRecipe(null)}
+            isFavorited={isRecipeFavorited(selectedRecipe)}
+            onToggleFavorite={async () => {
+              const favorite = findFavoriteForRecipe(selectedRecipe);
+              if (favorite && favorite.id) {
+                await removeFavorite(favorite.id);
+              } else if (selectedRecipe) {
+                await addFavorite(selectedRecipe.name, selectedRecipe.id);
+              }
+              await fetchFavorites();
+            }}
+          />
+        )}
       </div>
     </div>
   );

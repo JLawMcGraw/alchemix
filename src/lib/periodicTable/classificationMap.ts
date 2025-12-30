@@ -350,6 +350,10 @@ export const CLASSIFICATION_MAP: Record<string, CellPosition> = {
   'grapefruit juice': { group: 5, period: 2 },
   'fresh grapefruit': { group: 5, period: 2 },
   'ruby red grapefruit': { group: 5, period: 2 },
+  'white grapefruit': { group: 5, period: 2 },
+  'white grapefruit juice': { group: 5, period: 2 },
+  'pink grapefruit': { group: 5, period: 2 },
+  'pink grapefruit juice': { group: 5, period: 2 },
 
   // Period 4: Grape
   'lemon': { group: 5, period: 4 },
