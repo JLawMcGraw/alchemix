@@ -100,8 +100,9 @@ export const MIN_NODE_DISTANCE = CHAIN_BOND_LENGTH * 0.8; // ~27px
 
 /**
  * Padding from canvas edge to prevent clipping.
+ * Kept small to allow precise hexagonal angles near edges.
  */
-export const CANVAS_PADDING = 40;
+export const CANVAS_PADDING = 20;
 
 // ═══════════════════════════════════════════════════════════════
 // BRANCH ANGLES

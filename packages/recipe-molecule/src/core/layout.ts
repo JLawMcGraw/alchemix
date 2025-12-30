@@ -86,6 +86,19 @@ import {
 } from './constants';
 
 // ═══════════════════════════════════════════════════════════════
+// ANGLE HELPERS
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Snap an angle to the nearest 60° increment for clean hexagonal geometry.
+ * This prevents floating point drift from creating slightly sloped bonds.
+ */
+function snapToHexAngle(angle: number): number {
+  const hexIncrement = Math.PI / 3; // 60°
+  return Math.round(angle / hexIncrement) * hexIncrement;
+}
+
+// ═══════════════════════════════════════════════════════════════
 // HEXAGON GEOMETRY
 // ═══════════════════════════════════════════════════════════════
 
@@ -828,9 +841,10 @@ export function computeLayout(
         // For corners on the left side (3, 4), also branch upward for symmetry.
         // Upper corners (0, 5) branch downward (+offset) toward center mass.
         const useNegativeOffset = (cornerIdx === 1 || cornerIdx === 2 || cornerIdx === 3 || cornerIdx === 4);
-        const branchAngle = useNegativeOffset
+        // Snap to clean 60° increments for perfect hexagonal geometry
+        const branchAngle = snapToHexAngle(useNegativeOffset
           ? radialAngle - branchAngleOffset
-          : radialAngle + branchAngleOffset;
+          : radialAngle + branchAngleOffset);
         const junctionToBranchLength = TARGET_BOND_LENGTH + TEXT_RADIUS; // 26px → 18px visual
         finalX = junctionX + Math.cos(branchAngle) * junctionToBranchLength;
         finalY = junctionY + Math.sin(branchAngle) * junctionToBranchLength;
@@ -838,8 +852,8 @@ export function computeLayout(
         incomingAngle = branchAngle;
         junction.branchCount = 1;
 
-        // Initialize the chain tracking from junction
-        lastNodeAtCorner[cornerKey] = { id: junction.id, x: junctionX, y: junctionY, chainStep: 0, incomingAngle: radialAngle, cornerIdx };
+        // Initialize the chain tracking from junction with snapped angle
+        lastNodeAtCorner[cornerKey] = { id: junction.id, x: junctionX, y: junctionY, chainStep: 0, incomingAngle: snapToHexAngle(radialAngle), cornerIdx };
       } else if (cornerJunctions[cornerKey]) {
         // Junction already exists at this corner, connect from it
         const junction = cornerJunctions[cornerKey];
@@ -878,7 +892,8 @@ export function computeLayout(
         const angleOffset = useInvertedPattern
           ? (stepNum % 2 === 0 ? -baseBranchAngle : baseBranchAngle)  // Inverted pattern
           : (stepNum % 2 === 0 ? baseBranchAngle : -baseBranchAngle); // Normal pattern
-        const outAngle = lastNode.incomingAngle + angleOffset;
+        // Snap to clean 60° increments to prevent floating point drift causing sloped bonds
+        const outAngle = snapToHexAngle(lastNode.incomingAngle + angleOffset);
 
         // Use CHAIN_BOND_LENGTH for text-to-text connections to account for shortening at both ends
         finalX = lastNode.x + Math.cos(outAngle) * CHAIN_BOND_LENGTH;
@@ -922,7 +937,7 @@ export function computeLayout(
       x: finalX,
       y: finalY,
       chainStep: prevChainStep + 1,
-      incomingAngle: incomingAngle,
+      incomingAngle: snapToHexAngle(incomingAngle),
       cornerIdx: prevCornerIdx
     };
 
