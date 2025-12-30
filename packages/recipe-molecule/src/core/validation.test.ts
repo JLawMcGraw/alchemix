@@ -278,6 +278,12 @@ describe('validation', () => {
 
   describe('validateLayout', () => {
     const createNode = (x: number, y: number, label: string): MoleculeNode => ({
+      id: `node-${label}`,
+      raw: label,
+      name: label.toLowerCase(),
+      amount: 1,
+      unit: 'oz',
+      modifiers: [],
       x,
       y,
       radius: 20,
@@ -285,7 +291,7 @@ describe('validation', () => {
       sublabel: '',
       type: 'spirit',
       color: '#000',
-      inline: false,
+      isInline: false,
     });
 
     it('should accept valid layout with nodes inside bounds', () => {
@@ -390,7 +396,8 @@ describe('validation', () => {
   });
 
   describe('logWarnings', () => {
-    let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let consoleWarnSpy: any;
 
     beforeEach(() => {
       consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
