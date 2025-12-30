@@ -102,3 +102,22 @@ export const MIN_NODE_DISTANCE = CHAIN_BOND_LENGTH * 0.8; // ~27px
  * Padding from canvas edge to prevent clipping.
  */
 export const CANVAS_PADDING = 40;
+
+// ═══════════════════════════════════════════════════════════════
+// BRANCH ANGLES
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Branch angle for inline ingredient types (acid, sweet, dilution).
+ * Creates the standard 120° zig-zag pattern along chains.
+ * 60° offset from radial = 120° total angle between adjacent bonds.
+ */
+export const INLINE_BRANCH_ANGLE = Math.PI / 3; // 60°
+
+/**
+ * Branch angle for terminal ingredient types (garnish, bitter, salt, dairy, egg).
+ * Uses tetrahedral angle (109.5°) for wider spread, representing
+ * "finishing touches" that add dimension to the cocktail.
+ * ~54.75° offset from radial = 109.5° total angle between adjacent bonds.
+ */
+export const TERMINAL_BRANCH_ANGLE = Math.PI * 54.75 / 180; // ~54.75° (half of 109.5°)

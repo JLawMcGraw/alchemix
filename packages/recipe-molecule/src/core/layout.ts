@@ -80,6 +80,8 @@ import {
   MAX_CHAIN_LENGTH,
   MIN_NODE_DISTANCE,
   CANVAS_PADDING,
+  INLINE_BRANCH_ANGLE,
+  TERMINAL_BRANCH_ANGLE,
 } from './constants';
 
 // ═══════════════════════════════════════════════════════════════
@@ -602,14 +604,17 @@ export function computeLayout(
         nodes.push(junction);
         cornerJunctions[cornerKey] = junction;
 
-        // Place ingredient at 60° angle from junction (hexagonal zig-zag)
+        // Place ingredient at angle from junction based on ingredient type
+        // Terminal types (garnish, bitter, etc.) use wider 109.5° tetrahedral angle
+        // Inline types (acid, sweet, etc.) use standard 120° hexagonal angle
         // Junction has no visual radius, text label shortened by TEXT_RADIUS
         // So center-to-center = TARGET_BOND_LENGTH + TEXT_RADIUS
-        // For lower-right corner (60°), branch east (0°) instead of southwest
+        const branchAngleOffset = isTerminalType(ing.type) ? TERMINAL_BRANCH_ANGLE : INLINE_BRANCH_ANGLE;
+        // For lower-right corner (60°), branch in negative direction instead
         // This makes chains spread horizontally first, then zig-zag
         const branchAngle = (cornerIdx === 2)
-          ? radialAngle - (Math.PI / 3)  // -60° → horizontal east for lower-right corner
-          : radialAngle + (Math.PI / 3); // +60° for other corners
+          ? radialAngle - branchAngleOffset  // Negative direction for lower-right corner
+          : radialAngle + branchAngleOffset; // Positive direction for other corners
         const junctionToBranchLength = TARGET_BOND_LENGTH + TEXT_RADIUS; // 26px → 18px visual
         finalX = junctionX + Math.cos(branchAngle) * junctionToBranchLength;
         finalY = junctionY + Math.sin(branchAngle) * junctionToBranchLength;
@@ -622,9 +627,11 @@ export function computeLayout(
       } else if (cornerJunctions[cornerKey]) {
         // Junction already exists at this corner, connect from it
         const junction = cornerJunctions[cornerKey];
-        // Alternate branch direction: first branch +60°, second branch -60°
+        // Alternate branch direction based on ingredient type
+        // Terminal types use wider angle for more spread
         const branchNum = junction.branchCount || 0;
-        const branchAngle = radialAngle + (branchNum % 2 === 0 ? (Math.PI / 3) : -(Math.PI / 3));
+        const branchAngleOffset = isTerminalType(ing.type) ? TERMINAL_BRANCH_ANGLE : INLINE_BRANCH_ANGLE;
+        const branchAngle = radialAngle + (branchNum % 2 === 0 ? branchAngleOffset : -branchAngleOffset);
         // Junction has no visual radius, text label shortened by TEXT_RADIUS
         const junctionToBranchLength = TARGET_BOND_LENGTH + TEXT_RADIUS; // 26px to match first branch
         finalX = junction.x + Math.cos(branchAngle) * junctionToBranchLength;
@@ -640,18 +647,20 @@ export function computeLayout(
         incomingAngle = radialAngle;
       }
     } else {
-      // Chained ingredient: continue from previous node at 60° angle
+      // Chained ingredient: continue from previous node at appropriate angle
       const lastNode = lastNodeAtCorner[cornerKey];
       if (lastNode) {
-        // Calculate outgoing angle: incoming angle + 60° (or -60° alternating for zig-zag)
-        // This creates the gentle hexagonal zig-zag pattern matching the benzene ring
+        // Calculate outgoing angle based on ingredient type
+        // Terminal types use wider 109.5° tetrahedral angle
+        // Inline types use standard 120° hexagonal zig-zag
         const stepNum = lastNode.chainStep;
-        // Alternate between +60° and -60° to create zig-zag
-        // For corner 2 (lower-right), invert the pattern since we started with -60°
+        const baseBranchAngle = isTerminalType(ing.type) ? TERMINAL_BRANCH_ANGLE : INLINE_BRANCH_ANGLE;
+        // Alternate between positive and negative to create zig-zag
+        // For corner 2 (lower-right), invert the pattern since we started with negative
         const isCorner2 = lastNode.cornerIdx === 2;
         const angleOffset = isCorner2
-          ? (stepNum % 2 === 0 ? -(Math.PI / 3) : (Math.PI / 3))  // Inverted for corner 2
-          : (stepNum % 2 === 0 ? (Math.PI / 3) : -(Math.PI / 3)); // Normal pattern
+          ? (stepNum % 2 === 0 ? -baseBranchAngle : baseBranchAngle)  // Inverted for corner 2
+          : (stepNum % 2 === 0 ? baseBranchAngle : -baseBranchAngle); // Normal pattern
         const outAngle = lastNode.incomingAngle + angleOffset;
 
         // Use CHAIN_BOND_LENGTH for text-to-text connections to account for shortening at both ends
