@@ -212,6 +212,13 @@ function extractAmountAndUnit(str: string): AmountResult {
     return { amount, unit, remainder };
   }
 
+  // Check for unit-first patterns (e.g., "Teaspoon sugar" without a number)
+  // Assume amount = 1 when unit appears at the start without a number
+  const { unit, remainder } = extractUnit(str);
+  if (unit) {
+    return { amount: 1, unit, remainder };
+  }
+
   // No amount found
   return { amount: null, unit: null, remainder: str };
 }
