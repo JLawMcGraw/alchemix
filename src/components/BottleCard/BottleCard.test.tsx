@@ -28,6 +28,7 @@ describe('BottleCard', () => {
     distillery_location: 'Kentucky, USA',
     stock_number: 2,
     user_id: 1,
+    created_at: '2024-01-01T00:00:00.000Z',
   };
 
   const mockOnClick = vi.fn();

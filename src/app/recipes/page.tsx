@@ -314,7 +314,6 @@ function RecipesPageContent() {
           onConfirm={state.handleDeleteAll}
           title="Delete All Recipes?"
           message="This will remove every recipe in your library."
-          itemName="all recipes"
           warningMessage={`This action cannot be undone and will permanently delete ${state.totalRecipeCount} recipes.`}
         />
 
@@ -330,8 +329,7 @@ function RecipesPageContent() {
           onClose={() => { state.setShowCollectionDeleteConfirm(false); state.setDeletingCollection(null); }}
           onConfirm={state.handleDeleteCollection}
           title="Delete Collection?"
-          message="Are you sure you want to delete this collection?"
-          itemName={state.deletingCollection?.name || 'collection'}
+          message={`Are you sure you want to delete "${state.deletingCollection?.name || 'this collection'}"?`}
           warningMessage="This action cannot be undone."
           checkboxOption={{
             label: 'Also delete all recipes in this collection',

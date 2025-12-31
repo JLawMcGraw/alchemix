@@ -482,8 +482,7 @@ export function EditBottleModal({ isOpen, onClose, bottle, onUpdate, onDelete }:
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={handleDeleteConfirm}
         title="Delete Item"
-        message="Are you sure you want to delete this item?"
-        itemName={bottle?.name}
+        message={`Are you sure you want to delete "${bottle?.name}"?`}
       />
     </>
   );

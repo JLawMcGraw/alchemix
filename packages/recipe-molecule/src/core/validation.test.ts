@@ -408,8 +408,7 @@ describe('validation', () => {
     });
 
     it('should log warnings in development mode', () => {
-      const originalEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = 'development';
+      vi.stubEnv('NODE_ENV', 'development');
 
       const result: ValidationResult = {
         valid: true,
@@ -423,12 +422,11 @@ describe('validation', () => {
         '[recipe-molecule] Test context: Test warning 1; Test warning 2'
       );
 
-      process.env.NODE_ENV = originalEnv;
+      vi.unstubAllEnvs();
     });
 
     it('should not log warnings in production mode', () => {
-      const originalEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = 'production';
+      vi.stubEnv('NODE_ENV', 'production');
 
       const result: ValidationResult = {
         valid: true,
@@ -440,7 +438,7 @@ describe('validation', () => {
 
       expect(consoleWarnSpy).not.toHaveBeenCalled();
 
-      process.env.NODE_ENV = originalEnv;
+      vi.unstubAllEnvs();
     });
 
     it('should not log when no warnings', () => {

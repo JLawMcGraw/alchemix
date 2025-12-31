@@ -238,6 +238,37 @@ describe('Molecule', () => {
     const container = document.querySelector('.custom-class');
     expect(container).toBeInTheDocument();
   });
+
+  it('applies rotation transform when recipe has rotation', () => {
+    const recipe = createDaiquiriRecipe();
+    recipe.rotation = 60;
+    render(<Molecule recipe={recipe} />);
+
+    const svg = document.querySelector('svg');
+    const rotationGroup = svg?.querySelector('g[transform]');
+    expect(rotationGroup).toBeInTheDocument();
+    expect(rotationGroup?.getAttribute('transform')).toContain('rotate(60');
+  });
+
+  it('does not apply rotation transform when rotation is 0', () => {
+    const recipe = createDaiquiriRecipe();
+    recipe.rotation = 0;
+    render(<Molecule recipe={recipe} />);
+
+    const svg = document.querySelector('svg');
+    // First g element should not have a transform attribute when rotation is 0
+    const groups = svg?.querySelectorAll('g');
+    const firstGroup = groups?.[0];
+    expect(firstGroup?.getAttribute('transform')).toBeNull();
+  });
+
+  it('applies custom style prop', () => {
+    const recipe = createDaiquiriRecipe();
+    render(<Molecule recipe={recipe} style={{ opacity: 0.5 }} />);
+
+    const container = document.querySelector('[class*="container"]');
+    expect(container).toHaveStyle({ opacity: '0.5' });
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -336,6 +367,45 @@ describe('Node', () => {
     );
 
     expect(screen.getByText('fresh')).toBeInTheDocument();
+  });
+
+  it('applies counter-rotation transform when rotation is provided', () => {
+    const node = createSpiritNode();
+    const { container } = render(
+      <svg>
+        <Node node={node} rotation={60} />
+      </svg>
+    );
+
+    // Text should have counter-rotation to keep it upright
+    const text = container.querySelector('text');
+    expect(text?.getAttribute('transform')).toContain('rotate(-60');
+  });
+
+  it('does not apply counter-rotation when rotation is 0', () => {
+    const node = createSpiritNode();
+    const { container } = render(
+      <svg>
+        <Node node={node} rotation={0} />
+      </svg>
+    );
+
+    // Text should not have rotation transform
+    const text = container.querySelector('text');
+    expect(text?.getAttribute('transform')).toBeNull();
+  });
+
+  it('applies counter-rotation to non-spirit nodes', () => {
+    const node = createAcidNode();
+    const { container } = render(
+      <svg>
+        <Node node={node} rotation={120} />
+      </svg>
+    );
+
+    // Text should have counter-rotation
+    const text = container.querySelector('text');
+    expect(text?.getAttribute('transform')).toContain('rotate(-120');
   });
 });
 
