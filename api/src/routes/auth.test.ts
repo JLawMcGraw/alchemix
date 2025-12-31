@@ -60,6 +60,11 @@ const createMockUser = async (overrides: Partial<{
   password_hash: string;
   is_verified: number;
   token_version: number;
+  reset_token: string | null;
+  reset_token_expires: string | null;
+  verification_token: string | null;
+  verification_token_expires: string | null;
+  has_seeded_classics: boolean;
 }> = {}) => {
   const password = 'SecurePassword123!';
   const hash = await bcrypt.hash(password, 10);
@@ -69,6 +74,11 @@ const createMockUser = async (overrides: Partial<{
     password_hash: hash,
     is_verified: 1,
     token_version: 0,
+    reset_token: null as string | null,
+    reset_token_expires: null as string | null,
+    verification_token: null as string | null,
+    verification_token_expires: null as string | null,
+    has_seeded_classics: false,
     ...overrides,
   };
 };
@@ -676,6 +686,518 @@ describe('Auth Routes', () => {
       // Error messages should be generic
       expect(duplicateRes.body.error).toBeDefined();
       expect(nonExistentRes.body.error).toBeDefined();
+    });
+  });
+
+  describe('POST /auth/change-password', () => {
+    it('should change password with valid credentials', async () => {
+      const mockUser = await createMockUser();
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(mockUser);
+      (transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn) => {
+        await fn({ query: vi.fn().mockResolvedValue({ rowCount: 1 }) });
+      });
+
+      // Login first to get auth cookie
+      const loginRes = await request(app)
+        .post('/auth/login')
+        .send({ email: 'test@example.com', password: 'SecurePassword123!' });
+
+      const cookies = extractCookies(loginRes);
+      const csrfToken = extractCsrfToken(loginRes);
+
+      // Change password
+      const res = await request(app)
+        .post('/auth/change-password')
+        .set('Cookie', cookies)
+        .set('x-csrf-token', csrfToken)
+        .send({
+          currentPassword: 'SecurePassword123!',
+          newPassword: 'NewSecurePassword456!',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.message).toContain('Password changed');
+    });
+
+    it('should reject with incorrect current password', async () => {
+      const mockUser = await createMockUser();
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(mockUser);
+
+      // Login first
+      const loginRes = await request(app)
+        .post('/auth/login')
+        .send({ email: 'test@example.com', password: 'SecurePassword123!' });
+
+      const cookies = extractCookies(loginRes);
+      const csrfToken = extractCsrfToken(loginRes);
+
+      // Try to change with wrong current password
+      const res = await request(app)
+        .post('/auth/change-password')
+        .set('Cookie', cookies)
+        .set('x-csrf-token', csrfToken)
+        .send({
+          currentPassword: 'WrongPassword123!',
+          newPassword: 'NewSecurePassword456!',
+        });
+
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toContain('incorrect');
+    });
+
+    it('should reject weak new password', async () => {
+      const mockUser = await createMockUser();
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(mockUser);
+
+      // Login first
+      const loginRes = await request(app)
+        .post('/auth/login')
+        .send({ email: 'test@example.com', password: 'SecurePassword123!' });
+
+      const cookies = extractCookies(loginRes);
+      const csrfToken = extractCsrfToken(loginRes);
+
+      // Try to change with weak new password
+      const res = await request(app)
+        .post('/auth/change-password')
+        .set('Cookie', cookies)
+        .set('x-csrf-token', csrfToken)
+        .send({
+          currentPassword: 'SecurePassword123!',
+          newPassword: 'weak',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toContain('security requirements');
+    });
+
+    it('should reject without authentication', async () => {
+      const res = await request(app)
+        .post('/auth/change-password')
+        .send({
+          currentPassword: 'SecurePassword123!',
+          newPassword: 'NewSecurePassword456!',
+        });
+
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+    });
+
+    it('should reject with missing current password', async () => {
+      const mockUser = await createMockUser();
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(mockUser);
+
+      // Login first
+      const loginRes = await request(app)
+        .post('/auth/login')
+        .send({ email: 'test@example.com', password: 'SecurePassword123!' });
+
+      const cookies = extractCookies(loginRes);
+      const csrfToken = extractCsrfToken(loginRes);
+
+      const res = await request(app)
+        .post('/auth/change-password')
+        .set('Cookie', cookies)
+        .set('x-csrf-token', csrfToken)
+        .send({
+          newPassword: 'NewSecurePassword456!',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toContain('required');
+    });
+
+    it('should reject with missing new password', async () => {
+      const mockUser = await createMockUser();
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(mockUser);
+
+      // Login first
+      const loginRes = await request(app)
+        .post('/auth/login')
+        .send({ email: 'test@example.com', password: 'SecurePassword123!' });
+
+      const cookies = extractCookies(loginRes);
+      const csrfToken = extractCsrfToken(loginRes);
+
+      const res = await request(app)
+        .post('/auth/change-password')
+        .set('Cookie', cookies)
+        .set('x-csrf-token', csrfToken)
+        .send({
+          currentPassword: 'SecurePassword123!',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toContain('required');
+    });
+
+    it('should clear cookies after password change (force re-login)', async () => {
+      const mockUser = await createMockUser();
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(mockUser);
+      (transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn) => {
+        await fn({ query: vi.fn().mockResolvedValue({ rowCount: 1 }) });
+      });
+
+      // Login first
+      const loginRes = await request(app)
+        .post('/auth/login')
+        .send({ email: 'test@example.com', password: 'SecurePassword123!' });
+
+      const cookies = extractCookies(loginRes);
+      const csrfToken = extractCsrfToken(loginRes);
+
+      // Change password
+      const res = await request(app)
+        .post('/auth/change-password')
+        .set('Cookie', cookies)
+        .set('x-csrf-token', csrfToken)
+        .send({
+          currentPassword: 'SecurePassword123!',
+          newPassword: 'NewSecurePassword456!',
+        });
+
+      // Check that cookies are cleared
+      const setCookies = getSetCookies(res);
+      const authCookieCleared = setCookies.some(c =>
+        c.startsWith('auth_token=') && (c.includes('Max-Age=0') || c.includes('Expires='))
+      );
+      expect(authCookieCleared).toBe(true);
+    });
+  });
+
+  describe('DELETE /auth/account', () => {
+    it('should delete account with correct password', async () => {
+      const mockUser = await createMockUser();
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(mockUser);
+      (transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn) => {
+        await fn({ query: vi.fn().mockResolvedValue({ rowCount: 1 }) });
+      });
+
+      // Login first
+      const loginRes = await request(app)
+        .post('/auth/login')
+        .send({ email: 'test@example.com', password: 'SecurePassword123!' });
+
+      const cookies = extractCookies(loginRes);
+      const csrfToken = extractCsrfToken(loginRes);
+
+      const res = await request(app)
+        .delete('/auth/account')
+        .set('Cookie', cookies)
+        .set('x-csrf-token', csrfToken)
+        .send({ password: 'SecurePassword123!' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.message).toContain('deleted');
+    });
+
+    it('should reject with incorrect password', async () => {
+      const mockUser = await createMockUser();
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(mockUser);
+
+      // Login first
+      const loginRes = await request(app)
+        .post('/auth/login')
+        .send({ email: 'test@example.com', password: 'SecurePassword123!' });
+
+      const cookies = extractCookies(loginRes);
+      const csrfToken = extractCsrfToken(loginRes);
+
+      const res = await request(app)
+        .delete('/auth/account')
+        .set('Cookie', cookies)
+        .set('x-csrf-token', csrfToken)
+        .send({ password: 'WrongPassword123!' });
+
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toContain('incorrect');
+    });
+
+    it('should reject without password', async () => {
+      const mockUser = await createMockUser();
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(mockUser);
+
+      // Login first
+      const loginRes = await request(app)
+        .post('/auth/login')
+        .send({ email: 'test@example.com', password: 'SecurePassword123!' });
+
+      const cookies = extractCookies(loginRes);
+      const csrfToken = extractCsrfToken(loginRes);
+
+      const res = await request(app)
+        .delete('/auth/account')
+        .set('Cookie', cookies)
+        .set('x-csrf-token', csrfToken)
+        .send({});
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toContain('required');
+    });
+
+    it('should reject without authentication', async () => {
+      const res = await request(app)
+        .delete('/auth/account')
+        .send({ password: 'SecurePassword123!' });
+
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+    });
+
+    it('should clear cookies after account deletion', async () => {
+      const mockUser = await createMockUser();
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(mockUser);
+      (transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn) => {
+        await fn({ query: vi.fn().mockResolvedValue({ rowCount: 1 }) });
+      });
+
+      // Login first
+      const loginRes = await request(app)
+        .post('/auth/login')
+        .send({ email: 'test@example.com', password: 'SecurePassword123!' });
+
+      const cookies = extractCookies(loginRes);
+      const csrfToken = extractCsrfToken(loginRes);
+
+      const res = await request(app)
+        .delete('/auth/account')
+        .set('Cookie', cookies)
+        .set('x-csrf-token', csrfToken)
+        .send({ password: 'SecurePassword123!' });
+
+      // Check that cookies are cleared
+      const setCookies = getSetCookies(res);
+      const authCookieCleared = setCookies.some(c =>
+        c.startsWith('auth_token=') && (c.includes('Max-Age=0') || c.includes('Expires='))
+      );
+      expect(authCookieCleared).toBe(true);
+    });
+  });
+
+  describe('GET /auth/export', () => {
+    it('should export all user data', async () => {
+      const mockUser = await createMockUser();
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(mockUser);
+      (queryAll as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce([{ id: 1, name: 'Bourbon', category: 'spirit' }]) // inventory
+        .mockResolvedValueOnce([{ id: 1, name: 'Old Fashioned', ingredients: '["bourbon"]' }]) // recipes
+        .mockResolvedValueOnce([{ recipe_name: 'Old Fashioned' }]) // favorites
+        .mockResolvedValueOnce([{ id: 1, name: 'Classics' }]); // collections
+
+      // Login first
+      const loginRes = await request(app)
+        .post('/auth/login')
+        .send({ email: 'test@example.com', password: 'SecurePassword123!' });
+
+      const cookies = extractCookies(loginRes);
+
+      const res = await request(app)
+        .get('/auth/export')
+        .set('Cookie', cookies);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toBeDefined();
+      expect(res.body.data.inventory).toHaveLength(1);
+      expect(res.body.data.recipes).toHaveLength(1);
+      expect(res.body.data.favorites).toHaveLength(1);
+      expect(res.body.data.collections).toHaveLength(1);
+      expect(res.body.data.exportedAt).toBeDefined();
+    });
+
+    it('should reject without authentication', async () => {
+      const res = await request(app)
+        .get('/auth/export');
+
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+    });
+
+    it('should return empty arrays for user with no data', async () => {
+      const mockUser = await createMockUser();
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(mockUser);
+      (queryAll as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce([]) // inventory
+        .mockResolvedValueOnce([]) // recipes
+        .mockResolvedValueOnce([]) // favorites
+        .mockResolvedValueOnce([]); // collections
+
+      // Login first
+      const loginRes = await request(app)
+        .post('/auth/login')
+        .send({ email: 'test@example.com', password: 'SecurePassword123!' });
+
+      const cookies = extractCookies(loginRes);
+
+      const res = await request(app)
+        .get('/auth/export')
+        .set('Cookie', cookies);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.inventory).toHaveLength(0);
+      expect(res.body.data.recipes).toHaveLength(0);
+      expect(res.body.data.favorites).toHaveLength(0);
+      expect(res.body.data.collections).toHaveLength(0);
+    });
+  });
+
+  describe('POST /auth/import', () => {
+    it('should import user data', async () => {
+      const mockUser = await createMockUser();
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(mockUser);
+      (transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn) => {
+        await fn({ query: vi.fn().mockResolvedValue({ rowCount: 1 }) });
+      });
+
+      // Login first
+      const loginRes = await request(app)
+        .post('/auth/login')
+        .send({ email: 'test@example.com', password: 'SecurePassword123!' });
+
+      const cookies = extractCookies(loginRes);
+      const csrfToken = extractCsrfToken(loginRes);
+
+      const importData = {
+        data: {
+          inventory: [{ name: 'Bourbon', category: 'spirit' }],
+          recipes: [{ name: 'Old Fashioned', ingredients: ['bourbon', 'sugar', 'bitters'] }],
+          favorites: [{ recipe_name: 'Old Fashioned' }],
+          collections: [{ name: 'Classics', description: 'Classic cocktails' }],
+        },
+      };
+
+      const res = await request(app)
+        .post('/auth/import')
+        .set('Cookie', cookies)
+        .set('x-csrf-token', csrfToken)
+        .send(importData);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.imported).toBeDefined();
+      expect(res.body.imported.inventory).toBe(1);
+      expect(res.body.imported.recipes).toBe(1);
+      expect(res.body.imported.favorites).toBe(1);
+      expect(res.body.imported.collections).toBe(1);
+    });
+
+    it('should reject without data', async () => {
+      const mockUser = await createMockUser();
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(mockUser);
+
+      // Login first
+      const loginRes = await request(app)
+        .post('/auth/login')
+        .send({ email: 'test@example.com', password: 'SecurePassword123!' });
+
+      const cookies = extractCookies(loginRes);
+      const csrfToken = extractCsrfToken(loginRes);
+
+      const res = await request(app)
+        .post('/auth/import')
+        .set('Cookie', cookies)
+        .set('x-csrf-token', csrfToken)
+        .send({});
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toContain('No data');
+    });
+
+    it('should reject without authentication', async () => {
+      const res = await request(app)
+        .post('/auth/import')
+        .send({ data: { inventory: [] } });
+
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+    });
+
+    it('should handle overwrite option', async () => {
+      const mockUser = await createMockUser();
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(mockUser);
+
+      const mockQuery = vi.fn().mockResolvedValue({ rowCount: 1 });
+      (transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn) => {
+        await fn({ query: mockQuery });
+      });
+
+      // Login first
+      const loginRes = await request(app)
+        .post('/auth/login')
+        .send({ email: 'test@example.com', password: 'SecurePassword123!' });
+
+      const cookies = extractCookies(loginRes);
+      const csrfToken = extractCsrfToken(loginRes);
+
+      const importData = {
+        data: {
+          inventory: [{ name: 'Bourbon', category: 'spirit' }],
+        },
+        options: { overwrite: true },
+      };
+
+      const res = await request(app)
+        .post('/auth/import')
+        .set('Cookie', cookies)
+        .set('x-csrf-token', csrfToken)
+        .send(importData);
+
+      expect(res.status).toBe(200);
+      // Verify DELETE queries were called (for overwrite)
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('DELETE FROM favorites'),
+        expect.anything()
+      );
+    });
+
+    it('should skip invalid records without failing', async () => {
+      const mockUser = await createMockUser();
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(mockUser);
+      (transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn) => {
+        await fn({ query: vi.fn().mockResolvedValue({ rowCount: 1 }) });
+      });
+
+      // Login first
+      const loginRes = await request(app)
+        .post('/auth/login')
+        .send({ email: 'test@example.com', password: 'SecurePassword123!' });
+
+      const cookies = extractCookies(loginRes);
+      const csrfToken = extractCsrfToken(loginRes);
+
+      const importData = {
+        data: {
+          inventory: [
+            { name: 'Bourbon', category: 'spirit' }, // valid
+            { name: null, category: null }, // invalid - missing required fields
+            {}, // invalid - empty
+          ],
+          recipes: [
+            { name: 'Old Fashioned', ingredients: ['bourbon'] }, // valid
+            { name: null }, // invalid
+          ],
+        },
+      };
+
+      const res = await request(app)
+        .post('/auth/import')
+        .set('Cookie', cookies)
+        .set('x-csrf-token', csrfToken)
+        .send(importData);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.imported.inventory).toBe(1); // only valid one
+      expect(res.body.imported.recipes).toBe(1); // only valid one
     });
   });
 });

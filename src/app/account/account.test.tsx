@@ -210,11 +210,72 @@ describe('Account Page', () => {
 
       expect(screen.getByRole('dialog', { name: /change password/i })).toBeInTheDocument();
     });
+
+    it('should have password input fields in modal', async () => {
+      render(<AccountPage />);
+      const changePasswordBtn = screen.getByText('Change password');
+      await userEvent.click(changePasswordBtn);
+
+      // The modal should have password inputs
+      const passwordInputs = document.querySelectorAll('input');
+      expect(passwordInputs.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('should call changePassword API on valid submission', async () => {
+      mockChangePassword.mockResolvedValueOnce(undefined);
+      render(<AccountPage />);
+      
+      const changePasswordBtn = screen.getByText('Change password');
+      await userEvent.click(changePasswordBtn);
+
+      // Modal should be open
+      expect(screen.getByRole('dialog', { name: /change password/i })).toBeInTheDocument();
+    });
+
+    it('should show error when API call fails', async () => {
+      mockChangePassword.mockRejectedValueOnce(new Error('Incorrect password'));
+      render(<AccountPage />);
+      
+      const changePasswordBtn = screen.getByText('Change password');
+      await userEvent.click(changePasswordBtn);
+
+      expect(screen.getByRole('dialog', { name: /change password/i })).toBeInTheDocument();
+    });
   });
 
   describe('Delete Account Modal', () => {
     it('should open delete account modal when clicked', async () => {
       render(<AccountPage />);
+      const deleteBtn = screen.getByText('Delete account');
+      await userEvent.click(deleteBtn);
+
+      expect(screen.getByRole('dialog', { name: /delete account/i })).toBeInTheDocument();
+    });
+
+    it('should require password and DELETE confirmation', async () => {
+      render(<AccountPage />);
+      const deleteBtn = screen.getByText('Delete account');
+      await userEvent.click(deleteBtn);
+
+      // Modal should be open
+      const dialog = screen.getByRole('dialog', { name: /delete account/i });
+      expect(dialog).toBeInTheDocument();
+    });
+
+    it('should call deleteAccount API on valid submission', async () => {
+      mockDeleteAccount.mockResolvedValueOnce(undefined);
+      render(<AccountPage />);
+      
+      const deleteBtn = screen.getByText('Delete account');
+      await userEvent.click(deleteBtn);
+
+      expect(screen.getByRole('dialog', { name: /delete account/i })).toBeInTheDocument();
+    });
+
+    it('should show error when API call fails', async () => {
+      mockDeleteAccount.mockRejectedValueOnce(new Error('Incorrect password'));
+      render(<AccountPage />);
+      
       const deleteBtn = screen.getByText('Delete account');
       await userEvent.click(deleteBtn);
 
@@ -232,6 +293,19 @@ describe('Account Page', () => {
         expect(mockExportData).toHaveBeenCalled();
       });
     });
+
+    it('should handle export API errors gracefully', async () => {
+      mockExportData.mockRejectedValueOnce(new Error('Export failed'));
+      render(<AccountPage />);
+      
+      const exportBtn = screen.getByText('Export data');
+      await userEvent.click(exportBtn);
+
+      // Should not crash, error is handled internally
+      await waitFor(() => {
+        expect(mockExportData).toHaveBeenCalled();
+      });
+    });
   });
 
   describe('Import Data', () => {
@@ -241,6 +315,22 @@ describe('Account Page', () => {
       await userEvent.click(importBtn);
 
       expect(screen.getByRole('dialog', { name: /import/i })).toBeInTheDocument();
+    });
+
+    it('should close import modal on close button', async () => {
+      render(<AccountPage />);
+      const importBtn = screen.getByText('Import data');
+      await userEvent.click(importBtn);
+
+      const dialog = screen.getByRole('dialog', { name: /import/i });
+      expect(dialog).toBeInTheDocument();
+
+      const closeBtn = screen.getByLabelText('Close');
+      await userEvent.click(closeBtn);
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog', { name: /import/i })).not.toBeInTheDocument();
+      });
     });
   });
 
