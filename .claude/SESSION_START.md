@@ -5,9 +5,9 @@
 | Field | Value |
 |-------|-------|
 | Version | v1.35.0 |
-| Branch | `postgresql-deployment` |
-| Tests | 1634 total (890 backend, 452 frontend, 292 recipe-molecule) |
-| Last Updated | December 29, 2025 |
+| Branch | `feature/molecule-visual-variety` |
+| Tests | 1640 total (890 backend, 452 frontend, 298 recipe-molecule) |
+| Last Updated | December 30, 2025 |
 
 ---
 

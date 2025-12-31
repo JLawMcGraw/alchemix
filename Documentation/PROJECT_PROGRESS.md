@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2025-12-29 (Session 14)
+Last updated: 2025-12-30 (Session 15)
 
 ---
 
@@ -8,14 +8,14 @@ Last updated: 2025-12-29 (Session 14)
 
 **Version**: v1.35.0
 **Phase**: Deployment Preparation - Code Review Complete
-**Branch**: `postgresql-deployment`
+**Branch**: `feature/molecule-visual-variety`
 **Blockers**: None
 
 **Test Coverage**:
 - Backend: 890 tests (35 test files)
 - Frontend: 452 tests (18 test files)
-- Recipe-Molecule: 292 tests (6 test files)
-- **Total: 1634 tests**
+- Recipe-Molecule: 298 tests (6 test files)
+- **Total: 1640 tests**
 
 **Redesign Progress**:
 - Phase 1-4 (Batch A - Foundation): **Complete**
@@ -34,7 +34,151 @@ Last updated: 2025-12-29 (Session 14)
 
 ---
 
-## Recent Session (2025-12-29): Bar Page Fixes, Modal Restyling & Ingredient Matching
+## Recent Session (2025-12-30): Recipe Molecule Visual Variety & TypeScript Fixes
+
+### Summary
+Major enhancements to recipe-molecule visualization with spirit-family-based rotation, ring formation for equal-amount ingredients, new bond types (wavy, hydrogen), improved chain geometry, and comprehensive test coverage additions. Fixed TypeScript errors across the codebase.
+
+### Work Completed
+
+#### 1. Spirit-Family-Based Orientation Rotation
+Added rotation to molecules based on dominant spirit type, creating visual "families" where cocktails with the same base spirit share similar orientations.
+
+**Spirit Family Rotations**:
+- Whiskey: 0° (classic, foundational)
+- Rum: 60° (tropical tilt)
+- Gin: 120° (botanical angle)
+- Tequila: 180° (inverted, distinct)
+- Vodka: 240° (neutral, subtle shift)
+- Brandy: 300° (refined, slight tilt)
+
+**Files Changed**:
+- `packages/recipe-molecule/src/core/types.ts` - Added `SpiritFamily`, `SPIRIT_FAMILY_KEYWORDS`, `SPIRIT_FAMILY_ROTATION`
+- `packages/recipe-molecule/src/core/layout.ts` - Added `computeMoleculeRotation()`, `getSpiritFamily()`
+- `packages/recipe-molecule/src/adapter.ts` - Integrated rotation into transform pipeline
+- `packages/recipe-molecule/src/components/Molecule.tsx` - Apply rotation transform to SVG group
+- `packages/recipe-molecule/src/components/Node.tsx` - Counter-rotate text to keep labels upright
+
+#### 2. Ring Formation for Equal-Amount Ingredients
+When multiple ingredients of the same type have equal amounts (e.g., 3 citrus juices each 0.5 oz), they now form a ring structure instead of a linear chain.
+
+**Features**:
+- Automatically detects when ring formation is appropriate
+- Creates closed polygon connecting all same-type ingredients
+- Bonds connect to form complete ring
+- Visual distinction for balanced flavor components
+
+**File**: `packages/recipe-molecule/src/core/layout.ts`
+
+#### 3. New Bond Types (Wavy & Hydrogen)
+Added two new bond types for semantic meaning:
+
+**Wavy Bond** (`∿∿∿`):
+- Used for ingredients with no specified amount ("to taste")
+- Represents undefined/variable quantity
+- Like racemic stereochemistry in organic chemistry
+
+**Hydrogen Bond** (`·····`):
+- Used for optional ingredients
+- Light dotted line (thinner, more spaced than dashed)
+- Represents weak/optional connection
+
+**Files Changed**:
+- `packages/recipe-molecule/src/core/types.ts` - Added `'wavy' | 'hydrogen'` to `BondType`
+- `packages/recipe-molecule/src/components/Bond.tsx` - Added `WavyBond` and `HydrogenBond` components
+
+#### 4. Improved Chain Geometry
+Fixed chain angles to use clean 60° increments for perfect hexagonal geometry.
+
+**Changes**:
+- Added `snapToHexAngle()` function that snaps any angle to nearest 60° increment
+- All chain continuation angles now use snapped values
+- Creates consistent honeycomb-like structures
+- Corner preferences compensated for rotation
+
+**File**: `packages/recipe-molecule/src/core/layout.ts`
+
+#### 5. Wider Angles for Terminal Ingredients
+Terminal ingredient types (garnish, bitter, salt, dairy, egg) now branch at wider angles for better visual separation.
+
+**File**: `packages/recipe-molecule/src/core/layout.ts`
+
+#### 6. TypeScript Error Fixes
+Fixed multiple TypeScript errors across the codebase:
+
+**validation.test.ts**:
+- Fixed `process.env.NODE_ENV` read-only assignment errors
+- Changed to use Vitest's `vi.stubEnv()` and `vi.unstubAllEnvs()`
+
+**DeleteConfirmModal usages**:
+- Removed non-existent `itemName` prop from `recipes/page.tsx` (2 instances)
+- Removed non-existent `itemName` prop from `EditBottleModal.tsx`
+- Incorporated item names into `message` prop instead
+
+**BottleCard.test.tsx**:
+- Added missing `created_at` field to mock `InventoryItem` fixture
+
+#### 7. New Test Coverage (+6 tests)
+Added tests for rotation and counter-rotation features:
+
+**Molecule Component Tests**:
+- `applies rotation transform when recipe has rotation`
+- `does not apply rotation transform when rotation is 0`
+- `applies custom style prop`
+
+**Node Component Tests**:
+- `applies counter-rotation transform when rotation is provided`
+- `does not apply counter-rotation when rotation is 0`
+- `applies counter-rotation to non-spirit nodes`
+
+### Commits (14 today)
+```
+c8b77c3 fix: resolve TypeScript errors and add rotation tests
+7a0027e fix(molecule): ensure all angle calculations use snapToHexAngle
+5004a90 fix(molecule): snap chain angles to clean 60° increments for perfect hexagonal bonds
+d76dcd0 fix(molecule): diagonal branch spread for right/left corners instead of down-right
+e0df3e5 fix(molecule): place acids on spirit with horizontal corners for V-shape layouts
+c8191e7 fix(molecule): parse unit-first ingredients like 'Teaspoon sugar' as amount=1
+fc145ff fix(molecule): fix type errors in validation tests
+9f81aa7 fix(molecule): wavy bonds only for ingredients with no amount AND no unit
+9ddb41d fix(molecule): compensate corner preferences for rotation
+69adbd1 feat(molecule): add wavy and hydrogen bond types
+5c492c0 fix(molecule): keep text upright and fix viewbox clipping on rotation
+ccff7a4 feat(molecule): add ring formation for equal-amount same-type ingredients
+ace7ca0 feat(molecule): add wider angles for terminal ingredient types
+08e6a85 feat(molecule): add spirit-family-based orientation rotation
+```
+
+### Files Changed
+```
+packages/recipe-molecule/src/core/types.ts
+packages/recipe-molecule/src/core/layout.ts
+packages/recipe-molecule/src/core/bonds.ts
+packages/recipe-molecule/src/core/parser.ts
+packages/recipe-molecule/src/core/validation.test.ts
+packages/recipe-molecule/src/adapter.ts
+packages/recipe-molecule/src/components/Molecule.tsx
+packages/recipe-molecule/src/components/Molecule.test.tsx
+packages/recipe-molecule/src/components/Node.tsx
+packages/recipe-molecule/src/components/Bond.tsx
+src/app/recipes/page.tsx
+src/components/BottleCard/BottleCard.test.tsx
+src/components/modals/EditBottleModal.tsx
+```
+
+### Test Results
+- **Backend**: 890 tests passing
+- **Frontend**: 452 tests passing
+- **Recipe-Molecule**: 298 tests passing (+6 new)
+- **Total**: 1640 tests (+6 from last session)
+
+### Next Priorities
+- Deploy to production (PostgreSQL Phase 6)
+- Test molecule visual variety with various cocktail types
+
+---
+
+## Previous Session (2025-12-29): Bar Page Fixes, Modal Restyling & Ingredient Matching
 
 ### Summary
 Extensive bug fixes and UX improvements for the My Bar page: fixed 400 errors when adding items, periodic table element filtering, modal styling consistency across the app, shopping list ingredient matching improvements for juice modifiers and Jamaican rum variants, and comprehensive test coverage for all changes.
