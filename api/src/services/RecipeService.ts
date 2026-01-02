@@ -857,18 +857,28 @@ export class RecipeService {
     }> = [];
 
     await transaction(async (client) => {
-      // Create "Classic Cocktails" collection first
-      const collectionResult = await client.query(`
-        INSERT INTO collections (user_id, name, description)
-        VALUES ($1, $2, $3)
-        ON CONFLICT (user_id, name) DO UPDATE SET description = EXCLUDED.description
-        RETURNING id
-      `, [
-        userId,
-        'Classic Cocktails',
-        'The 100+ most popular cocktails to get you started'
-      ]);
-      const collectionId = collectionResult.rows[0].id as number;
+      // Create "Classic Cocktails" collection first (or get existing one)
+      // First try to find existing collection
+      let collectionId: number;
+      const existingCollection = await client.query(
+        'SELECT id FROM collections WHERE user_id = $1 AND name = $2',
+        [userId, 'Classic Cocktails']
+      );
+      
+      if (existingCollection.rows.length > 0) {
+        collectionId = existingCollection.rows[0].id as number;
+      } else {
+        const collectionResult = await client.query(`
+          INSERT INTO collections (user_id, name, description)
+          VALUES ($1, $2, $3)
+          RETURNING id
+        `, [
+          userId,
+          'Classic Cocktails',
+          'The 100+ most popular cocktails to get you started'
+        ]);
+        collectionId = collectionResult.rows[0].id as number;
+      }
 
       for (const recipe of classicRecipes) {
         try {

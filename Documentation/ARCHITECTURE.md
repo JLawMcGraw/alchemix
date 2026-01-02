@@ -1,7 +1,7 @@
 # AlcheMix Architecture
 
-**Version**: v1.35.0
-**Last Updated**: December 29, 2025
+**Version**: v1.36.0
+**Last Updated**: January 2, 2026
 
 This document provides a comprehensive map of the AlcheMix system architecture, including high-level diagrams, component relationships, and data flows.
 
@@ -234,7 +234,11 @@ alchemix/
 │       │   ├── CollectionService.ts
 │       │   ├── FavoriteService.ts
 │       │   ├── MemoryService.ts
-│       │   ├── EmailService.ts
+│       │   ├── email/                 # Modular email service
+│       │   │   ├── index.ts           # Auto-selects provider
+│       │   │   ├── types.ts           # EmailProvider interface
+│       │   │   ├── templates.ts       # HTML email templates
+│       │   │   └── providers/         # Resend, SMTP, Console
 │       │   ├── GlassService.ts
 │       │   ├── ShoppingListService.ts # Craftability calculations
 │       │   └── ClassificationService.ts
@@ -466,7 +470,7 @@ graph TB
         S3[MemoryService]
         S4[CollectionService]
         S5[FavoriteService]
-        S6[EmailService]
+        S6[email/<br/>Resend/SMTP/Console]
         S7[AIService]
         S8[ShoppingListService]
     end
@@ -914,9 +918,9 @@ npm run dev:all          # Start frontend + backend
 npm run type-check       # TypeScript checks (all packages)
 
 # Testing
-cd api && npm test       # Backend tests (886)
-npm test                 # Frontend tests (447)
-cd packages/recipe-molecule && npm test  # Molecule tests (292)
+cd api && npm test       # Backend tests (927)
+npm test                 # Frontend tests (460)
+cd packages/recipe-molecule && npm test  # Molecule tests (298)
 
 # Docker (for MemMachine)
 docker compose -f docker/docker-compose.yml up -d
@@ -968,7 +972,7 @@ docker compose -f docker/docker-compose.yml up -d
                             └─────────────────┘         │ ShoppingListSvc │
                                                         │ AIService ──────│──► Gemini API (fetch)
                                                         │ MemoryService ──│──► MemMachine API
-                                                        │ EmailService ───│──► nodemailer
+                                                        │ email/ ─────────│──► resend/nodemailer
                                                         └─────────────────┘
                                                                 │
                                                                 ▼
@@ -1002,7 +1006,7 @@ docker compose -f docker/docker-compose.yml up -d
 | `services/AIService.ts` | ShoppingListService, data/cocktailIngredients.json | fetch (Gemini API) |
 | `services/ShoppingListService.ts` | database/db | (pure) |
 | `services/MemoryService.ts` | utils/logger | fetch (built-in) |
-| `services/EmailService.ts` | config/validateEnv | nodemailer |
+| `services/email/*` | config/validateEnv | resend, nodemailer |
 | `utils/logger.ts` | - | winston |
 | `database/db.ts` | - | pg (node-postgres) - pure PostgreSQL, no legacy wrappers |
 
@@ -1183,4 +1187,4 @@ Request Flow:
 
 ---
 
-*Last updated: December 29, 2025*
+*Last updated: January 2, 2026*

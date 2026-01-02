@@ -6,7 +6,7 @@
 
 Modern cocktail inventory and recipe management system with AI-powered bartender recommendations. Features a "Molecular Mixology" design system that treats cocktails as chemical formulas and ingredients as periodic table elements.
 
-**Version:** v1.35.0 | **Last Updated:** December 29, 2025
+**Version:** v1.36.0 | **Last Updated:** January 2, 2026
 
 ## Features
 
@@ -91,7 +91,8 @@ FRONTEND_URL=http://localhost:3001
 
 Optional settings for full functionality:
 - `GEMINI_API_KEY` - Enable AI Bartender features
-- `SMTP_*` - Enable email verification and password reset
+- `RESEND_API_KEY` - Enable email verification and password reset (recommended)
+- `SMTP_*` - Alternative email via SMTP (if not using Resend)
 - `MEMMACHINE_API_URL` - Enable semantic recipe search (default: http://localhost:8080)
 
 ### 3. Start Docker Services
@@ -130,7 +131,7 @@ This starts both servers:
 | Backend | Express.js, TypeScript, PostgreSQL (pg driver), JWT |
 | AI | Gemini 3 Flash with SSE streaming (conversations + dashboard) |
 | Infrastructure | Docker, Neo4j 5.23, PostgreSQL 16 (pgvector), MemMachine v2 |
-| Email | Nodemailer (Gmail, SendGrid, Mailgun, Amazon SES) |
+| Email | Resend (recommended) or SMTP via Nodemailer |
 
 ## Project Structure
 
@@ -219,11 +220,15 @@ FRONTEND_URL=http://localhost:3001
 GEMINI_API_KEY=your-gemini-api-key
 
 # Optional - Email (for verification/reset)
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
-SMTP_FROM=AlcheMix <your-email@gmail.com>
+# Option 1: Resend (recommended - modern, simple)
+RESEND_API_KEY=re_your_resend_api_key
+EMAIL_FROM=AlcheMix <noreply@yourdomain.com>
+
+# Option 2: SMTP (alternative)
+# SMTP_HOST=smtp.gmail.com
+# SMTP_PORT=587
+# SMTP_USER=your-email@gmail.com
+# SMTP_PASS=your-app-password
 
 # Optional - MemMachine
 MEMMACHINE_API_URL=http://localhost:8080
@@ -265,10 +270,10 @@ The project has comprehensive test coverage using Vitest:
 
 | Suite | Tests | Description |
 |-------|-------|-------------|
-| Frontend | 447 | API client, store, UI components, page tests, onboarding, utilities |
-| Backend | 886 | Auth, inventory, recipes, collections, favorites, messages, shopping list, middleware, services |
-| Recipe Molecule | 292 | Ingredient parser, classifier, layout engine, formula generator, validation, adapter |
-| **Total** | **1,625** | |
+| Frontend | 460 | API client, store, UI components, page tests, onboarding, utilities |
+| Backend | 927 | Auth, inventory, recipes, collections, favorites, messages, shopping list, middleware, services, email |
+| Recipe Molecule | 298 | Ingredient parser, classifier, layout engine, formula generator, validation, adapter |
+| **Total** | **1,685** | |
 
 ```bash
 # Run all tests

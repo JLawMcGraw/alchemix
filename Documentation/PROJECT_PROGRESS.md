@@ -1,21 +1,21 @@
 # Project Development Progress
 
-Last updated: 2025-12-30 (Session 15)
+Last updated: 2026-01-02 (Session 16)
 
 ---
 
 ## Current Status
 
-**Version**: v1.35.0
-**Phase**: Deployment Preparation - Code Review Complete
+**Version**: v1.36.0
+**Phase**: Deployment Preparation - Email Service Refactored
 **Branch**: `feature/molecule-visual-variety`
 **Blockers**: None
 
 **Test Coverage**:
-- Backend: 890 tests (35 test files)
-- Frontend: 452 tests (18 test files)
+- Backend: 927 tests (35 test files)
+- Frontend: 460 tests (18 test files)
 - Recipe-Molecule: 298 tests (6 test files)
-- **Total: 1640 tests**
+- **Total: 1685 tests**
 
 **Redesign Progress**:
 - Phase 1-4 (Batch A - Foundation): **Complete**
@@ -34,7 +34,100 @@ Last updated: 2025-12-30 (Session 15)
 
 ---
 
-## Recent Session (2025-12-30): Recipe Molecule Visual Variety & TypeScript Fixes
+## Recent Session (2026-01-02): Email Service Refactoring & Onboarding Fixes
+
+### Summary
+Refactored the email service from a monolithic file into a modular provider-based architecture with support for Resend (new), SMTP, and Console fallback. Fixed onboarding flow issues including seed-classics database constraint error and redirect race conditions.
+
+### Work Completed
+
+#### 1. Email Service Refactoring
+Complete architectural overhaul of email functionality:
+
+**New Structure**:
+```
+api/src/services/email/
+├── index.ts           # Main entry, auto-selects provider
+├── types.ts           # EmailProvider interface, EmailOptions type
+├── templates.ts       # Shared HTML email templates
+├── email.test.ts      # Comprehensive tests (37 tests)
+└── providers/
+    ├── index.ts       # Provider exports
+    ├── resend.ts      # Resend API provider (NEW)
+    ├── smtp.ts        # SMTP/Nodemailer provider
+    └── console.ts     # Development fallback
+```
+
+**Provider Priority**:
+1. Resend (if `RESEND_API_KEY` set) - Modern, recommended
+2. SMTP (if `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` set) - Fallback
+3. Console - Development logging fallback
+
+**New Dependency**: `resend@6.6.0`
+
+**Files Changed**:
+- `api/src/services/email/` - New modular structure (6 files)
+- `api/src/routes/auth/password.ts` - Updated import path
+- `api/src/routes/auth/signup.ts` - Updated import path
+- `api/src/routes/auth/verification.ts` - Updated import path
+- `api/src/routes/auth.test.ts` - Updated mock
+- `api/.env.example` - Added Resend configuration docs
+- `api/package.json` - Added resend dependency
+
+#### 2. Seed-Classics Database Constraint Fix
+**Problem**: 500 error on `/api/recipes/seed-classics` - "no unique or exclusion constraint matching the ON CONFLICT specification"
+
+**Root Cause**: The `UNIQUE (user_id, name)` constraint on collections table was missing from the database (existed in schema but not applied).
+
+**Fix**:
+- Changed `seedClassics()` to use check-then-insert pattern instead of `ON CONFLICT`
+- Added missing constraint to database via migration script
+
+**File**: `api/src/services/RecipeService.ts`
+
+#### 3. Onboarding Redirect Race Condition Fix
+**Problem**: Skip button and "Enter AlcheMix" button were bouncing users back to step 1.
+
+**Root Cause**: Race condition between `validateToken()` updating user state and `router.push('/dashboard')` executing.
+
+**Fix**: Added `isRedirecting` state flag to prevent the useEffect from interfering during navigation.
+
+**File**: `src/app/onboarding/page.tsx`
+
+### Files Changed
+```
+api/src/services/email/index.ts (NEW)
+api/src/services/email/types.ts (NEW)
+api/src/services/email/templates.ts (NEW)
+api/src/services/email/email.test.ts (NEW)
+api/src/services/email/providers/index.ts (NEW)
+api/src/services/email/providers/resend.ts (NEW)
+api/src/services/email/providers/smtp.ts (NEW)
+api/src/services/email/providers/console.ts (NEW)
+api/src/services/RecipeService.ts
+api/src/routes/auth/password.ts
+api/src/routes/auth/signup.ts
+api/src/routes/auth/verification.ts
+api/src/routes/auth.test.ts
+api/.env.example
+api/package.json
+src/app/onboarding/page.tsx
+src/app/dashboard/page.tsx (debug cleanup)
+```
+
+### Test Results
+- **Backend**: 927 tests passing (+37 new email tests)
+- **Frontend**: 460 tests passing (+8 from previous)
+- **Recipe-Molecule**: 298 tests passing
+- **Total**: 1685 tests (+45 from last session)
+
+### Next Priorities
+- Deploy to production (PostgreSQL Phase 6)
+- Test email delivery with Resend in production
+
+---
+
+## Previous Session (2025-12-30): Recipe Molecule Visual Variety & TypeScript Fixes
 
 ### Summary
 Major enhancements to recipe-molecule visualization with spirit-family-based rotation, ring formation for equal-amount ingredients, new bond types (wavy, hydrogen), improved chain geometry, and comprehensive test coverage additions. Fixed TypeScript errors across the codebase.

@@ -9,7 +9,7 @@ import bcrypt from 'bcrypt';
 import { queryOne, execute } from '../../database/db';
 import { generateToken, getTokenVersion, generateJTI } from '../../middleware/auth';
 import { validatePassword } from '../../utils/passwordValidator';
-import { emailService } from '../../services/EmailService';
+import { emailService } from '../../services/email';
 import { User } from '../../types';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { generateSecureToken, generateCSRFToken, getAuthCookieOptions, getCSRFCookieOptions } from './utils';

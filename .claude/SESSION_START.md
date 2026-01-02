@@ -4,10 +4,10 @@
 
 | Field | Value |
 |-------|-------|
-| Version | v1.35.0 |
+| Version | v1.36.0 |
 | Branch | `feature/molecule-visual-variety` |
-| Tests | 1640 total (890 backend, 452 frontend, 298 recipe-molecule) |
-| Last Updated | December 30, 2025 |
+| Tests | 1685 total (927 backend, 460 frontend, 298 recipe-molecule) |
+| Last Updated | January 2, 2026 |
 
 ---
 
@@ -85,7 +85,7 @@ alchemix/
 npm run dev:all                 # Frontend (3001) + Backend (3000)
 
 # Testing
-cd api && npm test              # All 890 backend tests
+cd api && npm test              # All 927 backend tests
 cd api && npm run test:unit     # Unit tests only
 cd api && npm run test:routes   # Route tests only
 

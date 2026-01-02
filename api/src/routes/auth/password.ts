@@ -11,7 +11,7 @@ import bcrypt from 'bcrypt';
 import { queryOne, execute, transaction } from '../../database/db';
 import { authMiddleware, getTokenVersion } from '../../middleware/auth';
 import { validatePassword } from '../../utils/passwordValidator';
-import { emailService } from '../../services/EmailService';
+import { emailService } from '../../services/email';
 import { UserRow } from '../../types';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { generateSecureToken, getClearCookieOptions } from './utils';

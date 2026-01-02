@@ -223,6 +223,7 @@ function OnboardingContent() {
   const [animatingOut, setAnimatingOut] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isValidating, setIsValidating] = useState(true);
+  const [isRedirecting, setIsRedirecting] = useState(false); // Prevent useEffect redirect interference
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [classicRecipes, setClassicRecipes] = useState<ClassicRecipe[]>(fallbackRecipes);
   const [resultsPage, setResultsPage] = useState(1);
@@ -274,11 +275,12 @@ function OnboardingContent() {
   }, [isValidating, isAuthenticated, router]);
 
   // Redirect if already onboarded (has_seeded_classics = true) - skip in replay mode
+  // Also skip if we're already in the process of redirecting (handleSkip/handleComplete)
   useEffect(() => {
-    if (!isValidating && user?.has_seeded_classics && !isReplayMode) {
+    if (!isValidating && user?.has_seeded_classics && !isReplayMode && !isRedirecting) {
       router.push('/dashboard');
     }
-  }, [isValidating, user, router, isReplayMode]);
+  }, [isValidating, user, router, isReplayMode, isRedirecting]);
 
   // Calculate makeable recipes based on selection (including custom bottles)
   const makeableRecipes = useMemo(() => {
@@ -458,10 +460,14 @@ function OnboardingContent() {
       return;
     }
 
+    // Set redirecting flag to prevent useEffect from interfering
+    setIsRedirecting(true);
+
     // Seed classic recipes (this also sets has_seeded_classics = true in DB)
     try {
       await recipeApi.seedClassics();
       // Refresh user data to get updated has_seeded_classics flag
+      // Wait for this to complete before navigating
       await validateToken();
     } catch (err) {
       console.error('Failed to seed classic recipes:', err);
@@ -478,6 +484,7 @@ function OnboardingContent() {
 
     if (isSaving) return; // Prevent double-clicks
     setIsSaving(true);
+    setIsRedirecting(true); // Prevent useEffect from interfering
 
     try {
       // 1. Get existing inventory to avoid duplicates
@@ -505,6 +512,7 @@ function OnboardingContent() {
       await recipeApi.seedClassics();
 
       // 5. Refresh user data to get updated has_seeded_classics flag
+      // Wait for this to complete before navigating
       await validateToken();
 
       // 6. Redirect to dashboard

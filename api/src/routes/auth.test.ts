@@ -32,8 +32,9 @@ vi.mock('../utils/tokenBlacklist', () => ({
 }));
 
 // Mock email service
-vi.mock('../services/EmailService', () => ({
+vi.mock('../services/email', () => ({
   emailService: {
+    name: 'Mock',
     sendVerificationEmail: vi.fn().mockResolvedValue(undefined),
     sendPasswordResetEmail: vi.fn().mockResolvedValue(undefined),
     isConfigured: vi.fn().mockReturnValue(false),

@@ -8,7 +8,7 @@
 import { Router, Request, Response } from 'express';
 import { queryOne, execute } from '../../database/db';
 import { authMiddleware } from '../../middleware/auth';
-import { emailService } from '../../services/EmailService';
+import { emailService } from '../../services/email';
 import { UserRow } from '../../types';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { generateSecureToken } from './utils';
