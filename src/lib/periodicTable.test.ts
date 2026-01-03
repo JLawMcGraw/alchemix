@@ -191,11 +191,12 @@ describe('periodicTable utility', () => {
       expect(hasInventoryForElement(ginElement, inventory)).toBe(false);
     });
 
-    it('should return false if matching item is out of stock', () => {
+    it('should return true even if matching item is out of stock (item exists in inventory)', () => {
       const inventory = [
         { name: 'Tanqueray Gin', stock_number: 0 },
       ];
-      expect(hasInventoryForElement(ginElement, inventory)).toBe(false);
+      // Items with stock=0 are still "owned" - they just need restocking
+      expect(hasInventoryForElement(ginElement, inventory)).toBe(true);
     });
 
     it('should treat undefined stock_number as in stock (legacy items)', () => {
@@ -209,20 +210,22 @@ describe('periodicTable utility', () => {
   describe('countInventoryForElement', () => {
     const rumElement = ALL_ELEMENTS.find((el) => el.symbol === 'Rm')!;
 
-    it('should count matching in-stock items', () => {
+    it('should return total stock sum for matching items', () => {
       const inventory = [
         { name: 'Bacardi White Rum', stock_number: 1 },
         { name: 'Dark Rum', stock_number: 2 },
         { name: 'Vodka', stock_number: 1 },
       ];
-      expect(countInventoryForElement(rumElement, inventory)).toBe(2);
+      // Returns sum of stock_number (1 + 2 = 3)
+      expect(countInventoryForElement(rumElement, inventory)).toBe(3);
     });
 
-    it('should not count out-of-stock items', () => {
+    it('should include zero-stock items in count (returns 0 for them)', () => {
       const inventory = [
         { name: 'Bacardi White Rum', stock_number: 1 },
         { name: 'Dark Rum', stock_number: 0 },
       ];
+      // Returns sum: 1 + 0 = 1
       expect(countInventoryForElement(rumElement, inventory)).toBe(1);
     });
 
@@ -249,14 +252,16 @@ describe('periodicTable utility', () => {
       expect(result.map((i) => i.name)).toContain('Titos Vodka');
     });
 
-    it('should not return out-of-stock items', () => {
+    it('should include zero-stock items (they exist in inventory)', () => {
       const inventory = [
         { name: 'Grey Goose Vodka', stock_number: 0 },
         { name: 'Titos Vodka', stock_number: 1 },
       ];
       const result = getInventoryForElement(vodkaElement, inventory);
-      expect(result).toHaveLength(1);
-      expect(result[0].name).toBe('Titos Vodka');
+      // Both items are returned - zero-stock items are still "owned"
+      expect(result).toHaveLength(2);
+      expect(result.map((i) => i.name)).toContain('Grey Goose Vodka');
+      expect(result.map((i) => i.name)).toContain('Titos Vodka');
     });
   });
 
