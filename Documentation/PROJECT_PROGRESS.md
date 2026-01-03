@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2026-01-03 (Session 18)
+Last updated: 2026-01-03 (Session 19)
 
 ---
 
@@ -36,7 +36,41 @@ Last updated: 2026-01-03 (Session 18)
 
 ---
 
-## Recent Session (2026-01-03): Inventory Bug Fixes & Periodic Table UX
+## Recent Session (2026-01-03): ItemDetailModal Bug Fixes
+
+### Summary
+Fixed two bugs in the ItemDetailModal: zero-stock items now correctly display as 0 (instead of defaulting to 1), and the modal now closes after saving changes.
+
+### Work Completed
+
+#### 1. Zero-Stock Display Fix
+**Problem**: When opening an inventory item with 0 stock, the modal displayed quantity as 1 instead of 0. This prevented users from incrementing to 1 and saving.
+
+**Root Cause**: Default value in `useState` and nullish coalescing fallback both used `1`:
+- Initial form state: `quantity: 1`
+- Item load: `quantity: item.stock_number ?? 1`
+
+**Fix**: Changed both defaults to `0`:
+- `quantity: 0` in initial state
+- `quantity: item.stock_number ?? 0` when loading item
+
+#### 2. Modal Close on Save
+**Problem**: After clicking Save, the modal stayed open instead of closing.
+
+**Fix**: Added `onClose()` call after successful save in `handleSave()`.
+
+### Files Changed
+```
+src/components/modals/ItemDetailModal.tsx (MODIFIED - zero-stock default, close on save)
+```
+
+### Next Steps
+- Deploy to production
+- Test zero-stock item workflow end-to-end
+
+---
+
+## Previous Session (2026-01-03): Inventory Bug Fixes & Periodic Table UX
 
 ### Summary
 Fixed multiple inventory and periodic table bugs: word-boundary matching for auto-categorization (prevents "ginger beer" matching "gin"), zero-stock items now display on periodic table with "0" badge, and cleaned up OneDrive sync ghost files.

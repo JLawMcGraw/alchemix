@@ -55,7 +55,7 @@ export function ItemDetailModal({ isOpen, onClose, item, onItemUpdated }: ItemDe
     name: '',
     category: 'spirit',
     type: '',
-    quantity: 1,
+    quantity: 0,
     abv: '',
     origin: '',
     tasting_notes: '',
@@ -86,7 +86,7 @@ export function ItemDetailModal({ isOpen, onClose, item, onItemUpdated }: ItemDe
         name: item.name || '',
         category: item.category || 'spirit',
         type: item.type || '',
-        quantity: item.stock_number ?? 1,
+        quantity: item.stock_number ?? 0,
         abv: item.abv?.toString() || '',
         origin: item.distillery_location || '',
         tasting_notes: combinedNotes,
@@ -191,13 +191,12 @@ export function ItemDetailModal({ isOpen, onClose, item, onItemUpdated }: ItemDe
         periodic_period: formData.periodic_period,
       });
       await fetchItems();
-      setOriginalData(formData);
-      setIsEditMode(false);
       // Notify parent to update the selected item reference
       if (updatedItem && onItemUpdated) {
         onItemUpdated(updatedItem);
       }
       showToast('success', 'Item updated successfully');
+      onClose();
     } catch (error) {
       showToast('error', 'Failed to update item');
       console.error('Failed to update item:', error);
