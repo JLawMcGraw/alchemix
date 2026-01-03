@@ -95,18 +95,16 @@ describe('spirits utility', () => {
         expect(categorizeSpirit(null, 'Del Maguey Mezcal')).toBe('Tequila');
       });
 
-      // Known limitation: "Patron" contains "ron" (Spanish for rum) which matches Rum first
-      // This documents the current substring-based matching behavior
-      it('should be aware of substring matching edge cases', () => {
-        // "Patron" contains "ron" which matches Rum before Tequila is checked
-        // Since Rum is checked before Tequila in the iteration order, "ron" wins
-        expect(categorizeSpirit(null, 'Patron Silver')).toBe('Rum'); // Known limitation
+      // Word boundary matching prevents false positives like "Patron" matching "ron"
+      it('should use word boundary matching to avoid false positives', () => {
+        // "Patron" does NOT match "ron" because "ron" is not a whole word
+        // Without a tequila keyword in the name, it falls back to Other Spirits
+        expect(categorizeSpirit(null, 'Patron Silver')).toBe('Other Spirits');
 
-        // Even with "tequila" in the name, "ron" in "Patron" matches Rum first
-        // This is because the function returns on first match, and Rum is checked before Tequila
-        expect(categorizeSpirit(null, 'Patron Tequila Silver')).toBe('Rum'); // Still matches Rum first
+        // With "tequila" explicitly in the name, it matches correctly
+        expect(categorizeSpirit(null, 'Patron Tequila Silver')).toBe('Tequila');
 
-        // Workaround: use names without "ron" substring, or rely on type field
+        // Standard tequila names work correctly
         expect(categorizeSpirit(null, 'Casamigos Tequila')).toBe('Tequila');
       });
     });
@@ -159,6 +157,11 @@ describe('spirits utility', () => {
       it('should match from type even when name is different', () => {
         expect(categorizeSpirit('Bourbon', 'Makers Mark')).toBe('Whiskey');
         expect(categorizeSpirit('Gin', 'Hendricks')).toBe('Gin');
+      });
+
+      it('should NOT match "ginger beer" to Gin (word boundary)', () => {
+        expect(categorizeSpirit('mixer', 'Ginger Beer')).toBe('Other Spirits');
+        expect(categorizeSpirit('', 'Fever Tree Ginger Beer')).toBe('Other Spirits');
       });
     });
   });
@@ -230,6 +233,18 @@ describe('spirits utility', () => {
       it('should return false for empty type with no name match', () => {
         expect(matchesSpiritCategory(undefined, 'Whiskey', null)).toBe(false);
         expect(matchesSpiritCategory('', 'Gin', '')).toBe(false);
+      });
+    });
+
+    describe('word boundary matching', () => {
+      it('should NOT match "ginger beer" to Gin (word boundary)', () => {
+        expect(matchesSpiritCategory('mixer', 'Gin', 'Ginger Beer')).toBe(false);
+        expect(matchesSpiritCategory('', 'Gin', 'Fever Tree Ginger Beer')).toBe(false);
+      });
+
+      it('should still match actual gin products', () => {
+        expect(matchesSpiritCategory('gin', 'Gin', 'Hendricks Gin')).toBe(true);
+        expect(matchesSpiritCategory('', 'Gin', 'Tanqueray London Dry Gin')).toBe(true);
       });
     });
   });

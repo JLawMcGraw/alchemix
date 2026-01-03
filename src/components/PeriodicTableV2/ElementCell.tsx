@@ -54,6 +54,8 @@ interface ElementCellProps {
   matchedItems: InventoryItem[];
   /** Set of element symbols the user owns in this cell */
   ownedElementSymbols: Set<string>;
+  /** Total stock across all matched items */
+  totalStock: number;
   /** Whether cell is currently expanded */
   isExpanded: boolean;
   /** Callback to expand/collapse cell */
@@ -85,6 +87,7 @@ export default function ElementCell({
   element,
   matchedItems,
   ownedElementSymbols,
+  totalStock,
   isExpanded,
   onExpand,
   onElementSelect,
@@ -150,10 +153,10 @@ export default function ElementCell({
         title={periodInfo.name}
       />
 
-      {/* Count badge - shows how many bottles user has in this category */}
+      {/* Count badge - shows total stock (or 0 if items exist but are out of stock) */}
       {hasItems && (
         <div className={styles.countBadge}>
-          {matchedItems.length}
+          {totalStock}
         </div>
       )}
 

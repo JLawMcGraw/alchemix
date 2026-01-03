@@ -21,6 +21,15 @@ const spiritKeywords: Record<SpiritCategory, string[]> = {
   'Other Spirits': ['other', 'spirit', 'liquor'],
 };
 
+/**
+ * Check if keyword matches at word boundary (prevents "gin" matching "ginger")
+ */
+function isWordMatch(text: string, keyword: string): boolean {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+  return regex.test(text);
+}
+
 export function categorizeSpirit(type?: string | null, name?: string | null): SpiritCategory {
   // Combine type and name for matching (name often contains spirit type)
   const combined = `${type || ''} ${name || ''}`.toLowerCase().trim();
@@ -29,7 +38,7 @@ export function categorizeSpirit(type?: string | null, name?: string | null): Sp
 
   for (const [category, keywords] of Object.entries(spiritKeywords) as Array<[SpiritCategory, string[]]>) {
     if (category === 'Other Spirits') continue; // Check this last
-    if (keywords.some((keyword) => combined.includes(keyword))) {
+    if (keywords.some((keyword) => isWordMatch(combined, keyword))) {
       return category;
     }
   }
@@ -46,13 +55,13 @@ export function matchesSpiritCategory(type: string | undefined, targetCategory: 
     if (!combined) return true;
     const matchesAnyOther = (Object.entries(spiritKeywords) as Array<[SpiritCategory, string[]]>)
       .filter(([category]) => category !== 'Other Spirits')
-      .some(([, keywords]) => keywords.some((keyword) => combined.includes(keyword)));
-    return !matchesAnyOther || spiritKeywords['Other Spirits'].some((keyword) => combined.includes(keyword));
+      .some(([, keywords]) => keywords.some((keyword) => isWordMatch(combined, keyword)));
+    return !matchesAnyOther || spiritKeywords['Other Spirits'].some((keyword) => isWordMatch(combined, keyword));
   }
 
   if (!combined) return false;
   const keywords = spiritKeywords[targetCategory];
-  return keywords.some((keyword) => combined.includes(keyword));
+  return keywords.some((keyword) => isWordMatch(combined, keyword));
 }
 
 export function getSpiritCategories() {

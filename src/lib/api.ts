@@ -291,9 +291,9 @@ export const inventoryApi = {
     return data;
   },
 
-  async backfillPeriodicTags(): Promise<{ success: boolean; updated: number; total: number }> {
+  async backfillPeriodicTags(force: boolean = false): Promise<{ success: boolean; updated: number; total: number }> {
     const { data } = await apiClient.post<{ success: boolean; updated: number; total: number }>(
-      '/api/inventory-items/backfill-periodic-tags'
+      `/api/inventory-items/backfill-periodic-tags${force ? '?force=true' : ''}`
     );
     return data;
   },

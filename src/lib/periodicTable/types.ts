@@ -91,4 +91,6 @@ export interface CellDisplayData {
   count: number;
   isEmpty: boolean;
   ownedElementSymbols: Set<string>;
+  /** Total stock across all matched items (for showing "0" badge when items exist but are out of stock) */
+  totalStock: number;
 }

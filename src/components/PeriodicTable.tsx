@@ -7,6 +7,7 @@ import {
   PERIODIC_SECTIONS,
   GROUP_COLORS,
   countInventoryForElement,
+  hasInventoryForElement,
   type PeriodicElement,
   type ElementGroup,
 } from '@/lib/periodicTable';
@@ -74,6 +75,7 @@ export function PeriodicTable({
 
   // Calculate which elements are highlighted (from filtered items, if provided)
   // If no filteredItems provided, use inventoryItems (no filter active)
+  // Only highlights elements with stock > 0 (elements with 0 stock stay grayed out)
   const highlightedElements = useMemo(() => {
     const itemsToCheck = filteredItems ?? inventoryItems;
     const highlighted = new Set<string>();
@@ -88,17 +90,29 @@ export function PeriodicTable({
     return highlighted;
   }, [filteredItems, inventoryItems]);
 
+  // Calculate which elements have inventory (regardless of stock count)
+  const elementsWithInventory = useMemo(() => {
+    const hasInv = new Set<string>();
+    PERIODIC_SECTIONS.forEach((section) => {
+      section.elements.forEach((element) => {
+        if (hasInventoryForElement(element, inventoryItems)) {
+          hasInv.add(element.symbol);
+        }
+      });
+    });
+    return hasInv;
+  }, [inventoryItems]);
+
   // Filter sections to only show sections with visible elements
   const visibleSections = useMemo(() => {
     return PERIODIC_SECTIONS.map((section) => {
       // Filter elements: show if NOT hidden, OR if user has matching inventory
       const visibleElements = section.elements.filter((element) => {
-        const count = elementCounts.get(element.symbol) || 0;
-        return !element.hidden || count > 0;
+        return !element.hidden || elementsWithInventory.has(element.symbol);
       });
       return { ...section, elements: visibleElements };
     }).filter((section) => section.elements.length > 0);
-  }, [elementCounts]);
+  }, [elementsWithInventory]);
 
   const containerClasses = [
     styles.periodicTable,
@@ -146,12 +160,13 @@ export function PeriodicTable({
             {section.elements.map((element) => {
               const count = elementCounts.get(element.symbol) || 0;
               const isHighlighted = highlightedElements.has(element.symbol);
+              const ownsElement = elementsWithInventory.has(element.symbol);
               return (
                 <ElementCard
                   key={element.symbol}
                   element={element}
                   hasInventory={isHighlighted}
-                  inventoryCount={count}
+                  inventoryCount={ownsElement ? count : undefined}
                   isActive={selectedElement?.symbol === element.symbol}
                   size={compact ? 'sm' : 'md'}
                   onClick={onElementClick}

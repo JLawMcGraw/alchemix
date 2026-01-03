@@ -1,13 +1,13 @@
 # Project Development Progress
 
-Last updated: 2026-01-03 (Session 17)
+Last updated: 2026-01-03 (Session 18)
 
 ---
 
 ## Current Status
 
 **Version**: v1.36.0
-**Phase**: Deployment Preparation - Email Templates & Password Security
+**Phase**: Deployment Preparation - Bug Fixes & UX Polish
 **Branch**: `feature/molecule-visual-variety`
 **Blockers**: None
 
@@ -36,7 +36,98 @@ Last updated: 2026-01-03 (Session 17)
 
 ---
 
-## Recent Session (2026-01-03): Inventory Classification, Email Branding & Password Security
+## Recent Session (2026-01-03): Inventory Bug Fixes & Periodic Table UX
+
+### Summary
+Fixed multiple inventory and periodic table bugs: word-boundary matching for auto-categorization (prevents "ginger beer" matching "gin"), zero-stock items now display on periodic table with "0" badge, and cleaned up OneDrive sync ghost files.
+
+### Work Completed
+
+#### 1. Inventory Auto-Categorization Word Boundary Fix
+**Problem**: Substring matching caused false positives - "ginger beer" matched "gin" and "beer" categories instead of "mixer".
+
+**Solution**: 
+- Added `isWordMatch()` helper using regex word boundaries (`\b`)
+- Moved mixer keywords to check FIRST (before spirits/beer)
+- Converted all `.includes()` to word-boundary matching throughout `autoCategorize()`
+
+**Files Changed**:
+- `api/src/services/InventoryService.ts` - Word boundary matching, mixer priority
+- `api/src/routes/inventoryItems.ts` - Added `force` param to backfill endpoint
+- `src/lib/api.ts` - Updated `backfillPeriodicTags()` to accept force param
+- `src/app/dashboard/page.tsx` - Run both backfills with force=true on load
+
+#### 2. Zero-Stock Items Display Fix (Periodic Table V1)
+**Problem**: Items with `stock_number = 0` didn't appear on periodic table or in element filtering.
+
+**Root Cause**: Multiple places filtering out zero-stock items:
+- `isInStock()` helper returned false for stock <= 0
+- `highlightedElements` only included elements with count > 0
+- Element click filtering excluded items with stock <= 0
+- ElementCard badge only showed when `inventoryCount > 0`
+
+**Solution**:
+- Changed `isInStock()` to `isInInventory()` - returns true for all items
+- Added `getStockCount()` helper to get stock (0 if undefined/negative)
+- `hasInventoryForElement()` - returns true if ANY item exists (regardless of stock)
+- `countInventoryForElement()` - returns total stock sum (can be 0)
+- `highlightedElements` - only highlights elements with stock > 0 (grayed out if 0)
+- `elementsWithInventory` - tracks elements that have items (for badge visibility)
+- ElementCard shows badge when item exists, displays "0" for zero-stock
+- Element filtering includes zero-stock items
+
+**Files Changed**:
+- `src/lib/periodicTable.ts` - `isInInventory()`, `getStockCount()`, updated functions
+- `src/components/PeriodicTable.tsx` - `highlightedElements`, `elementsWithInventory`, badge logic
+- `src/components/ui/ElementCard.tsx` - Show badge when `inventoryCount !== undefined`
+- `src/app/bar/page.tsx` - Removed stock filter from element filtering
+
+#### 3. Periodic Table V2 Zero-Stock Fix
+Applied same fix to V2 periodic table:
+- `ownedElementSymbols` includes items with stock=0
+- Added `totalStock` to `CellDisplayData` type
+- ElementCell shows totalStock in badge
+
+**Files Changed**:
+- `src/lib/periodicTable/engine.ts` - `ownedElementSymbols` logic, `totalStock` calculation
+- `src/lib/periodicTable/types.ts` - Added `totalStock` to `CellDisplayData`
+- `src/components/PeriodicTableV2/ElementCell.tsx` - Uses `totalStock` prop
+- `src/components/PeriodicTableV2/PeriodicTable.tsx` - Passes `totalStock` prop
+
+#### 4. OneDrive Ghost Files Cleanup
+Removed corrupted/orphaned files that OneDrive synced back after previous deletion:
+- `src/components/ui/VerificationBanner.tsx` and `.module.css` (feature removed)
+- `api/src/services/EmailService.ts` and `.test.ts` (superseded by `email/` folder)
+- `api/src/routes/inventory.ts` (superseded by `inventoryItems.ts`)
+
+#### 5. Crème de Violette Hidden
+Changed Crème de Violette to `hidden: true` in periodic table elements - only appears when user has it in inventory.
+
+**File**: `src/lib/periodicTable.ts`
+
+### Files Changed
+```
+api/src/services/InventoryService.ts (MODIFIED - word boundary matching)
+api/src/routes/inventoryItems.ts (MODIFIED - force param)
+src/lib/api.ts (MODIFIED - force param)
+src/app/dashboard/page.tsx (MODIFIED - parallel backfills)
+src/lib/periodicTable.ts (MODIFIED - zero-stock display, hidden element)
+src/components/PeriodicTable.tsx (MODIFIED - highlighting logic)
+src/components/ui/ElementCard.tsx (MODIFIED - badge visibility)
+src/app/bar/page.tsx (MODIFIED - element filtering)
+src/lib/periodicTable/engine.ts (MODIFIED - V2 zero-stock)
+src/lib/periodicTable/types.ts (MODIFIED - totalStock type)
+src/components/PeriodicTableV2/ElementCell.tsx (MODIFIED)
+src/components/PeriodicTableV2/PeriodicTable.tsx (MODIFIED)
+```
+
+### Next Steps
+- Deploy to production
+- Test zero-stock display with various items
+
+---
+
+## Previous Session (2026-01-03): Inventory Classification, Email Branding & Password Security
 
 ### Summary
 Fixed inventory auto-classification for 9 categories on dashboard. Branded email templates to match AlcheMix design system. Added password security features including reuse prevention, change timestamp tracking, and notifications.

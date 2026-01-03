@@ -19,6 +19,15 @@ export const VALID_CATEGORIES = ['spirit', 'liqueur', 'wine', 'beer', 'bitters',
 export type InventoryCategory = typeof VALID_CATEGORIES[number];
 
 /**
+ * Check if keyword matches at word boundary (prevents "gin" matching "ginger")
+ */
+function isWordMatch(text: string, keyword: string): boolean {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+  return regex.test(text);
+}
+
+/**
  * Valid periodic table groups (columns) - What the ingredient DOES
  */
 export const VALID_GROUPS = ['Base', 'Bridge', 'Modifier', 'Sweetener', 'Reagent', 'Catalyst'] as const;
@@ -567,11 +576,25 @@ export class InventoryService {
 
   /**
    * Auto-categorize items based on liquor type, classification, or name
+   * Uses word boundary matching to prevent false positives (e.g., "ginger" matching "gin")
    */
   private autoCategorize(type: string | null, classification: string | null, name: string | null = null): string {
     const combined = `${name || ''} ${type || ''} ${classification || ''}`.toLowerCase();
 
-    // Check liqueurs FIRST (before spirits)
+    // Check mixers FIRST - these exclusions need to be checked before spirits
+    // to prevent "ginger beer" matching "gin" or "beer"
+    const mixerKeywords = [
+      'pineapple juice', 'cranberry juice', 'tomato juice',
+      'tonic', 'tonic water', 'soda', 'cola', 'ginger beer', 'ginger ale',
+      'club soda', 'seltzer', 'sparkling water', 'soda water',
+      'cream', 'milk', 'coconut cream', 'coconut milk', 'root beer'
+    ];
+
+    for (const keyword of mixerKeywords) {
+      if (isWordMatch(combined, keyword)) return 'mixer';
+    }
+
+    // Check liqueurs (before spirits)
     const liqueurKeywords = [
       'liqueur', 'amaro', 'amaretto', 'aperitif', 'aperitivo',
       'creme de', 'crème de', 'curacao', 'curaçao',
@@ -585,10 +608,10 @@ export class InventoryService {
     ];
 
     for (const keyword of liqueurKeywords) {
-      if (combined.includes(keyword)) return 'liqueur';
+      if (isWordMatch(combined, keyword)) return 'liqueur';
     }
 
-    // Check spirits
+    // Check spirits - use word boundary matching to prevent "gin" matching "ginger"
     const spiritKeywords = [
       'whiskey', 'whisky', 'bourbon', 'rye', 'scotch', 'irish whiskey',
       'rum', 'rhum', 'rhum agricole', 'agricole', 'cachaca', 'cachaça',
@@ -599,7 +622,7 @@ export class InventoryService {
     ];
 
     for (const keyword of spiritKeywords) {
-      if (combined.includes(keyword)) return 'spirit';
+      if (isWordMatch(combined, keyword)) return 'spirit';
     }
 
     // Check wine (includes fortified wines and sparkling)
@@ -610,21 +633,17 @@ export class InventoryService {
     ];
 
     for (const keyword of wineKeywords) {
-      if (combined.includes(keyword)) return 'wine';
+      if (isWordMatch(combined, keyword)) return 'wine';
     }
 
-    // Check beer & cider (exclude ginger beer/ale and root beer which are mixers)
+    // Check beer & cider
     const beerKeywords = ['beer', 'ale', 'lager', 'stout', 'ipa', 'cider', 'hard cider', 'perry'];
-    const notBeerKeywords = ['ginger beer', 'ginger ale', 'root beer'];
 
-    const isNotBeer = notBeerKeywords.some(kw => combined.includes(kw));
-    if (!isNotBeer) {
-      for (const keyword of beerKeywords) {
-        if (combined.includes(keyword)) return 'beer';
-      }
+    for (const keyword of beerKeywords) {
+      if (isWordMatch(combined, keyword)) return 'beer';
     }
 
-    // Check bitters (dash-able aromatic bitters) - BEFORE mixers
+    // Check bitters (dash-able aromatic bitters)
     const bittersKeywords = [
       'bitters', 'angostura', 'peychaud', "peychaud's",
       'orange bitters', 'aromatic bitters', 'chocolate bitters',
@@ -635,11 +654,11 @@ export class InventoryService {
     ];
 
     for (const keyword of bittersKeywords) {
-      if (combined.includes(keyword)) return 'bitters';
+      if (isWordMatch(combined, keyword)) return 'bitters';
     }
 
     // Check syrups
-    if (!combined.includes('liqueur') && combined.includes('falernum')) {
+    if (!isWordMatch(combined, 'liqueur') && isWordMatch(combined, 'falernum')) {
       return 'syrup';
     }
 
@@ -649,19 +668,7 @@ export class InventoryService {
     ];
 
     for (const keyword of syrupKeywords) {
-      if (combined.includes(keyword)) return 'syrup';
-    }
-
-    // Check mixers (sodas, tropical juices, dairy - NOT citrus or bitters)
-    const mixerKeywords = [
-      'pineapple juice', 'cranberry juice', 'tomato juice',
-      'tonic', 'tonic water', 'soda', 'cola', 'ginger beer', 'ginger ale',
-      'club soda', 'seltzer', 'sparkling water', 'soda water',
-      'cream', 'milk', 'coconut cream', 'coconut milk'
-    ];
-
-    for (const keyword of mixerKeywords) {
-      if (combined.includes(keyword)) return 'mixer';
+      if (isWordMatch(combined, keyword)) return 'syrup';
     }
 
     // Check garnishes (fruits, herbs, picks - NOT salts/spices)
@@ -673,7 +680,7 @@ export class InventoryService {
     ];
 
     for (const keyword of garnishKeywords) {
-      if (combined.includes(keyword)) return 'garnish';
+      if (isWordMatch(combined, keyword)) return 'garnish';
     }
 
     // Check pantry items (salts, spices, acids, citrus)
@@ -694,7 +701,7 @@ export class InventoryService {
     ];
 
     for (const keyword of pantryKeywords) {
-      if (combined.includes(keyword)) return 'pantry';
+      if (isWordMatch(combined, keyword)) return 'pantry';
     }
 
     // Default to pantry for unrecognized items
@@ -837,6 +844,10 @@ export class InventoryService {
     if (/\b(ginger juice|cucumber|tomato juice|celery juice)\b/.test(text)) {
       return { group: 'Reagent', period: 'Botanic' };
     }
+    // Carbonated mixers - Group 5: Reagent, Period 6: Botanic
+    if (/\b(ginger beer|ginger ale|tonic|tonic water|soda water|club soda|seltzer)\b/.test(text)) {
+      return { group: 'Reagent', period: 'Botanic' };
+    }
     // Generic juice check
     if (/\b(juice)\b/.test(text)) {
       return { group: 'Reagent', period: 'Fruit' };
@@ -894,16 +905,17 @@ export class InventoryService {
   }
 
   /**
-   * Backfill periodic tags for all items missing them
+   * Backfill periodic tags for all items
+   * If force=true, re-classifies ALL items (not just ones with NULL tags)
    * Returns count of items updated
    * Uses bulk UPDATE with CASE statements to avoid N+1 queries
    */
-  async backfillPeriodicTags(userId: number): Promise<{ updated: number; total: number }> {
-    // Get all items without periodic tags for this user
+  async backfillPeriodicTags(userId: number, force: boolean = false): Promise<{ updated: number; total: number }> {
+    // Get items to update - either all items (force) or just those missing tags
     const items = await queryAll<InventoryItem>(`
       SELECT * FROM inventory_items
       WHERE user_id = $1
-      AND (periodic_group IS NULL OR periodic_period IS NULL)
+      ${force ? '' : 'AND (periodic_group IS NULL OR periodic_period IS NULL)'}
     `, [userId]);
 
     const total = items.length;

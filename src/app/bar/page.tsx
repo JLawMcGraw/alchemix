@@ -182,14 +182,9 @@ function BarPageContent() {
 
     // Filter by periodic table element if selected
     // Uses whole-word matching to prevent false positives (e.g., "ginger beer" matching "gin")
+    // Includes items with stock = 0 (they exist in inventory, just need restocking)
     if (selectedElement) {
-      items = items.filter(item => {
-        // Only show items that are in stock
-        if (item.stock_number !== undefined && item.stock_number <= 0) {
-          return false;
-        }
-        return itemMatchesElement(item, selectedElement);
-      });
+      items = items.filter(item => itemMatchesElement(item, selectedElement));
     }
 
     // Filter by spirit type if set

@@ -294,10 +294,14 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!isAuthenticated || isValidating) return;
 
-    // Backfill categories first, then get updated counts
+    // Backfill categories and periodic tags, then get updated counts
     const loadCategoryCounts = async () => {
       try {
-        await inventoryApi.backfillCategories();
+        // Run both backfills in parallel with force=true to re-classify all items
+        await Promise.all([
+          inventoryApi.backfillCategories(),
+          inventoryApi.backfillPeriodicTags(true),
+        ]);
       } catch {
         // Backfill failed, continue to get counts anyway
       }

@@ -167,6 +167,7 @@ export default function PeriodicTable({
                   element={displayData?.displayElement || displayData?.element || null}
                   matchedItems={displayData?.matchedItems || []}
                   ownedElementSymbols={displayData?.ownedElementSymbols || new Set()}
+                  totalStock={displayData?.totalStock ?? 0}
                   isExpanded={isExpanded}
                   onExpand={() => handleCellClick(group, period)}
                   onElementSelect={handleElementSelect}

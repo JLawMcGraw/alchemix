@@ -63,7 +63,7 @@ export function ElementCard({
     >
       <span className={styles.atomicNumber}>{element.atomicNumber.toString().padStart(2, '0')}</span>
 
-      {inventoryCount !== undefined && inventoryCount > 0 && (
+      {inventoryCount !== undefined && (
         <span className={styles.count}>{inventoryCount}</span>
       )}
 

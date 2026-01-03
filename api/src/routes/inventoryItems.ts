@@ -315,11 +315,15 @@ router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
 /**
  * POST /api/inventory-items/backfill-periodic-tags - Backfill Periodic Tags
  *
- * Auto-classifies all inventory items missing periodic_group and periodic_period tags.
+ * Auto-classifies inventory items missing periodic_group and periodic_period tags.
  * Uses the Periodic Table of Mixology V2 classification logic.
+ *
+ * Query params:
+ * - force=true: Re-classify ALL items, not just ones missing tags
  */
 router.post('/backfill-periodic-tags', asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.userId;
+  const force = req.query.force === 'true';
 
   if (!userId) {
     return res.status(401).json({
@@ -328,7 +332,7 @@ router.post('/backfill-periodic-tags', asyncHandler(async (req: Request, res: Re
     });
   }
 
-  const result = await inventoryService.backfillPeriodicTags(userId);
+  const result = await inventoryService.backfillPeriodicTags(userId, force);
 
   res.json({
     success: true,

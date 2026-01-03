@@ -328,7 +328,7 @@ export function getCellDisplayData(
   const primaryElement = getPrimaryElement(group, period);
 
   if (elements.length === 0) {
-    return { element: null, displayElement: null, matchedItems: [], count: 0, isEmpty: true, ownedElementSymbols: new Set() };
+    return { element: null, displayElement: null, matchedItems: [], count: 0, isEmpty: true, ownedElementSymbols: new Set(), totalStock: 0 };
   }
 
   const elementMatchMap = new Map<string, InventoryItem[]>();
@@ -355,14 +355,11 @@ export function getCellDisplayData(
   const allMatchedItems: InventoryItem[] = [];
   const ownedElementSymbols = new Set<string>();
 
-  // Helper to check if item is in stock
-  const isInStock = (item: InventoryItem) =>
-    item.stock_number !== null && item.stock_number !== undefined && item.stock_number > 0;
-
   elementMatchMap.forEach((items, symbol) => {
     allMatchedItems.push(...items);
-    // Only mark as owned if at least one item is in stock
-    if (items.some(isInStock)) {
+    // Mark as owned if ANY inventory item exists for this element (regardless of stock)
+    // This ensures items with stock=0 still show as "owned" in the UI
+    if (items.length > 0) {
       ownedElementSymbols.add(symbol);
     }
   });
@@ -396,6 +393,12 @@ export function getCellDisplayData(
     displayElement = primaryElement || elements[0];
   }
 
+  // Calculate total stock across all matched items
+  const totalStock = allMatchedItems.reduce((sum, item) => {
+    const stock = item.stock_number ?? 0;
+    return sum + (typeof stock === 'number' ? stock : 0);
+  }, 0);
+
   return {
     element: primaryElement || elements[0],
     displayElement,
@@ -403,16 +406,26 @@ export function getCellDisplayData(
     count: allMatchedItems.length,
     isEmpty: allMatchedItems.length === 0,
     ownedElementSymbols,
+    totalStock,
   };
 }
 
 /**
- * Auto-detect periodic tags for an item
+ * Get periodic tags for an item - uses saved values if present, otherwise auto-detects
  */
 export function getPeriodicTags(item: Partial<InventoryItem>): {
   group: PeriodicGroup;
   period: PeriodicPeriod;
 } {
+  // Use saved values if available
+  if (item.periodic_group && item.periodic_period) {
+    return {
+      group: item.periodic_group,
+      period: item.periodic_period,
+    };
+  }
+
+  // Auto-detect as fallback
   const classification = classifyInventoryItem(item as InventoryItem);
 
   const groupName = GROUPS[classification.group].name as PeriodicGroup;

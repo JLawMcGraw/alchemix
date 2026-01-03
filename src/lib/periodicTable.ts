@@ -102,7 +102,7 @@ export const PERIODIC_SECTIONS: ElementSection[] = [
       { symbol: 'El', name: 'Elderflower', group: 'sugar', atomicNumber: 28, keywords: ['elderflower', 'st germain', 'st. germain', 'elderflower liqueur'] },
       { symbol: 'Cs', name: 'Crème de Cassis', group: 'sugar', atomicNumber: 29, keywords: ['cassis', 'creme de cassis', 'crème de cassis', 'blackcurrant liqueur'] },
       { symbol: 'Co', name: 'Crème de Cacao', group: 'sugar', atomicNumber: 30, keywords: ['cacao', 'creme de cacao', 'crème de cacao', 'chocolate liqueur'] },
-      { symbol: 'Cv', name: 'Crème de Violette', group: 'sugar', atomicNumber: 31, keywords: ['violette', 'creme de violette', 'crème de violette', 'violet liqueur'] },
+      { symbol: 'Cv', name: 'Crème de Violette', group: 'sugar', atomicNumber: 31, keywords: ['violette', 'creme de violette', 'crème de violette', 'violet liqueur'], hidden: true },
       { symbol: 'Mn', name: 'Crème de Menthe', group: 'sugar', atomicNumber: 32, keywords: ['menthe', 'creme de menthe', 'crème de menthe', 'mint liqueur'] },
       { symbol: 'Ct', name: 'Chartreuse', group: 'sugar', atomicNumber: 33, keywords: ['chartreuse', 'green chartreuse', 'yellow chartreuse'] },
       // Hidden (appear when user adds matching inventory)
@@ -285,12 +285,23 @@ export function getElementsByGroup(group: ElementGroup): PeriodicElement[] {
 }
 
 /**
- * Helper to check if an item is in stock
+ * Helper to check if an item exists in inventory (regardless of stock level)
+ * Items with stock_number = 0 are still "owned" - they just need restocking
  */
-function isInStock(item: { stock_number?: number }): boolean {
-  // If stock_number is undefined, assume it's in stock (legacy items)
-  // If stock_number is 0 or negative, it's out of stock
-  return item.stock_number === undefined || item.stock_number > 0;
+function isInInventory(item: { stock_number?: number }): boolean {
+  // All items in inventory are considered "owned" regardless of stock
+  // This ensures zero-stock items still appear on the periodic table
+  return true;
+}
+
+/**
+ * Get the stock count for an item (0 if undefined or negative)
+ */
+function getStockCount(item: { stock_number?: number }): number {
+  if (item.stock_number === undefined || item.stock_number < 0) {
+    return 0;
+  }
+  return item.stock_number;
 }
 
 /**
@@ -353,8 +364,8 @@ export function hasInventoryForElement(
   inventoryItems: Array<{ name: string; type?: string; stock_number?: number }>
 ): boolean {
   return inventoryItems.some((item) => {
-    // Skip items that are out of stock
-    if (!isInStock(item)) {
+    // Include all items in inventory (even with stock = 0)
+    if (!isInInventory(item)) {
       return false;
     }
     return itemMatchesElement(item, element);
@@ -362,31 +373,34 @@ export function hasInventoryForElement(
 }
 
 /**
- * Count inventory items for an element category (only counts in-stock items)
+ * Count total stock for an element category
+ * Returns sum of stock_number for all matching items (0 if items exist but are out of stock)
  */
 export function countInventoryForElement(
   element: PeriodicElement,
   inventoryItems: Array<{ name: string; type?: string; stock_number?: number }>
 ): number {
-  return inventoryItems.filter((item) => {
-    // Skip items that are out of stock
-    if (!isInStock(item)) {
-      return false;
-    }
-    return itemMatchesElement(item, element);
-  }).length;
+  return inventoryItems
+    .filter((item) => {
+      // Include all items in inventory (even with stock = 0)
+      if (!isInInventory(item)) {
+        return false;
+      }
+      return itemMatchesElement(item, element);
+    })
+    .reduce((sum, item) => sum + getStockCount(item), 0);
 }
 
 /**
- * Get all inventory items that match an element (only in-stock items)
+ * Get all inventory items that match an element (includes zero-stock items)
  */
 export function getInventoryForElement(
   element: PeriodicElement,
   inventoryItems: Array<{ name: string; type?: string; stock_number?: number }>
 ): Array<{ name: string; type?: string; stock_number?: number }> {
   return inventoryItems.filter((item) => {
-    // Skip items that are out of stock
-    if (!isInStock(item)) {
+    // Include all items in inventory (even with stock = 0)
+    if (!isInInventory(item)) {
       return false;
     }
     return itemMatchesElement(item, element);
