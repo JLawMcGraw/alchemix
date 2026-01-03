@@ -26,6 +26,7 @@ export interface UserRow {
   reset_token_expires: string | null;
   token_version: number;
   has_seeded_classics: boolean; // Onboarding flag
+  password_changed_at: string | null; // Last password change timestamp
   created_at: string;
 }
 

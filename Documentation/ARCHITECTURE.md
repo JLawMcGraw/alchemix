@@ -1,7 +1,7 @@
 # AlcheMix Architecture
 
 **Version**: v1.36.0
-**Last Updated**: January 2, 2026
+**Last Updated**: January 3, 2026
 
 This document provides a comprehensive map of the AlcheMix system architecture, including high-level diagrams, component relationships, and data flows.
 
@@ -235,10 +235,10 @@ alchemix/
 │       │   ├── FavoriteService.ts
 │       │   ├── MemoryService.ts
 │       │   ├── email/                 # Modular email service
-│       │   │   ├── index.ts           # Auto-selects provider
+│       │   │   ├── index.ts           # Auto-selects provider (Resend > SMTP > Console)
 │       │   │   ├── types.ts           # EmailProvider interface
-│       │   │   ├── templates.ts       # HTML email templates
-│       │   │   └── providers/         # Resend, SMTP, Console
+│       │   │   ├── templates.ts       # Branded HTML templates (AlcheMix styling)
+│       │   │   └── providers/         # Resend, SMTP, Console fallback
 │       │   ├── GlassService.ts
 │       │   ├── ShoppingListService.ts # Craftability calculations
 │       │   └── ClassificationService.ts
@@ -533,6 +533,7 @@ erDiagram
         datetime verification_token_expires
         string reset_token
         datetime reset_token_expires
+        datetime password_changed_at
         datetime created_at
     }
 
@@ -680,6 +681,11 @@ sequenceDiagram
 - **Rate Limiting**: Per-user request limits
 - **CSRF Protection**: SameSite cookie attribute
 - **Password Hashing**: bcrypt with 10 rounds
+- **Password Security**:
+  - Reuse prevention (new password must differ from current)
+  - `password_changed_at` timestamp tracking
+  - Email notification on password change
+  - Session invalidation across all devices on password change
 
 ---
 
@@ -918,7 +924,7 @@ npm run dev:all          # Start frontend + backend
 npm run type-check       # TypeScript checks (all packages)
 
 # Testing
-cd api && npm test       # Backend tests (927)
+cd api && npm test       # Backend tests (948)
 npm test                 # Frontend tests (460)
 cd packages/recipe-molecule && npm test  # Molecule tests (298)
 
@@ -997,8 +1003,8 @@ docker compose -f docker/docker-compose.yml up -d
 | `middleware/requestId.ts` | - | crypto (built-in) |
 | `middleware/requestLogger.ts` | utils/logger | (pure) |
 | `middleware/userRateLimit.ts` | - | (pure, in-memory) |
-| `routes/auth/*` | services/EmailService, database/db | bcryptjs, jsonwebtoken |
-| `routes/inventoryItems.ts` | services/InventoryService | (pure) |
+| `routes/auth/*` | services/email, database/db | bcryptjs, jsonwebtoken - includes change-password with reuse prevention |
+| `routes/inventoryItems.ts` | services/InventoryService | (pure) - includes backfill-categories for auto-classification |
 | `routes/recipes.ts` | services/RecipeService | (pure) - supports search/mastery filtering, bulk-move |
 | `routes/messages.ts` | services/AIService, MemoryService | (pure) |
 | `services/InventoryService.ts` | database/db | (pure) |
@@ -1006,7 +1012,7 @@ docker compose -f docker/docker-compose.yml up -d
 | `services/AIService.ts` | ShoppingListService, data/cocktailIngredients.json | fetch (Gemini API) |
 | `services/ShoppingListService.ts` | database/db | (pure) |
 | `services/MemoryService.ts` | utils/logger | fetch (built-in) |
-| `services/email/*` | config/validateEnv | resend, nodemailer |
+| `services/email/*` | config/validateEnv | resend, nodemailer - sendVerification, sendPasswordReset, sendPasswordChanged |
 | `utils/logger.ts` | - | winston |
 | `database/db.ts` | - | pg (node-postgres) - pure PostgreSQL, no legacy wrappers |
 
@@ -1187,4 +1193,4 @@ Request Flow:
 
 ---
 
-*Last updated: January 2, 2026*
+*Last updated: January 3, 2026*

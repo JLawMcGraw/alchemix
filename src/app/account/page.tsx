@@ -336,7 +336,15 @@ export default function AccountPage() {
               >
                 <div className={styles.rowBtnContent}>
                   <div className={styles.rowBtnTitle}>Change password</div>
-                  <div className={styles.rowBtnSubtitle}>Last changed: Never</div>
+                  <div className={styles.rowBtnSubtitle}>
+                    Last changed: {user?.password_changed_at
+                      ? new Date(user.password_changed_at).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })
+                      : 'Never'}
+                  </div>
                 </div>
                 <ChevronRight size={16} className={styles.rowBtnIcon} />
               </button>

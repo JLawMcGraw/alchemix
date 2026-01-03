@@ -763,12 +763,12 @@ describe('Inventory Items Routes', () => {
     });
 
     it('should handle large batch of items', async () => {
+      // Create items with type='vodka' but category='pantry' so they'll get recategorized to 'spirit'
       const manyItems = Array.from({ length: 100 }, (_, i) =>
-        createMockItem({ id: i + 1, name: `Item ${i + 1}`, category: 'pantry' })
+        createMockItem({ id: i + 1, name: `Vodka ${i + 1}`, type: 'vodka', category: 'pantry' })
       );
 
       (queryAll as ReturnType<typeof vi.fn>).mockResolvedValueOnce(manyItems);
-      (execute as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ rowCount: 100 });
 
       const res = await request(app).post('/api/inventory-items/backfill-categories');
 

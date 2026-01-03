@@ -10,6 +10,7 @@
 
 import { queryOne, queryAll, execute, transaction } from '../database/db';
 import { InventoryItem, PeriodicGroup, PeriodicPeriod } from '../types';
+import { logger } from '../utils/logger';
 
 /**
  * Valid inventory categories
@@ -945,7 +946,6 @@ export class InventoryService {
   /**
    * Backfill categories for all items
    * Re-runs autoCategorize() on all items and updates their category
-   * Uses bulk UPDATE with CASE statements to avoid N+1 queries
    */
   async backfillCategories(userId: number): Promise<{ updated: number; total: number }> {
     // Get all items for this user
@@ -959,32 +959,47 @@ export class InventoryService {
       return { updated: 0, total: 0 };
     }
 
-    // Build bulk update with CASE statements
-    const updates: { id: number; category: string }[] = [];
+    let updated = 0;
     for (const item of items) {
       const category = this.autoCategorize(item.type ?? null, item.spirit_classification ?? null, item.name ?? null);
-      updates.push({ id: item.id, category });
+
+      // Validate category is valid
+      if (!VALID_CATEGORIES.includes(category as InventoryCategory)) {
+        logger.error('Invalid category from autoCategorize', {
+          category,
+          itemId: item.id,
+          name: item.name,
+          type: item.type,
+          classification: item.spirit_classification
+        });
+        continue;
+      }
+
+      // Skip if category hasn't changed
+      if (item.category === category) {
+        continue;
+      }
+
+      try {
+        await execute(`
+          UPDATE inventory_items
+          SET category = $1
+          WHERE id = $2 AND user_id = $3
+        `, [category, item.id, userId]);
+        updated++;
+        logger.debug('Updated item category', { itemId: item.id, name: item.name, oldCategory: item.category, newCategory: category });
+      } catch (err) {
+        logger.error('Failed to update item category', {
+          itemId: item.id,
+          name: item.name,
+          oldCategory: item.category,
+          newCategory: category,
+          error: err instanceof Error ? err.message : String(err)
+        });
+      }
     }
 
-    // Build parameterized bulk UPDATE query
-    const categoryCases = updates.map((u, i) => `WHEN $${i * 2 + 2} THEN $${i * 2 + 3}`).join(' ');
-
-    // Flatten params: [userId, id1, category1, id2, category2, ...]
-    const params: (number | string)[] = [userId];
-    for (const u of updates) {
-      params.push(u.id, u.category);
-    }
-
-    // Create placeholders for IN clause
-    const idPlaceholders = updates.map((_, i) => `$${i * 2 + 2}`).join(', ');
-
-    await execute(`
-      UPDATE inventory_items
-      SET category = CASE id ${categoryCases} END
-      WHERE user_id = $1 AND id IN (${idPlaceholders})
-    `, params);
-
-    return { updated: total, total };
+    return { updated, total };
   }
 
   /**

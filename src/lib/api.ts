@@ -297,6 +297,13 @@ export const inventoryApi = {
     );
     return data;
   },
+
+  async backfillCategories(): Promise<{ success: boolean; updated: number; total: number }> {
+    const { data } = await apiClient.post<{ success: boolean; updated: number; total: number }>(
+      '/api/inventory-items/backfill-categories'
+    );
+    return data;
+  },
 };
 
 // Recipe API

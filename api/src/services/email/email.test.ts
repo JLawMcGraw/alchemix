@@ -88,7 +88,7 @@ describe('Email Service', () => {
         'EMAIL (no provider configured - logging to console)',
         expect.objectContaining({
           to: 'test@example.com',
-          subject: 'Verify your AlcheMix email address',
+          subject: 'Activate Your AlcheMix Account',
         })
       );
     });
@@ -105,7 +105,24 @@ describe('Email Service', () => {
         'EMAIL (no provider configured - logging to console)',
         expect.objectContaining({
           to: 'test@example.com',
-          subject: 'Reset your AlcheMix password',
+          subject: 'Reset Your AlcheMix Password',
+        })
+      );
+    });
+
+    it('should log password changed notification without throwing', async () => {
+      const { ConsoleProvider } = await import('./providers/console');
+      const provider = new ConsoleProvider();
+
+      await expect(
+        provider.sendPasswordChangedNotification('test@example.com')
+      ).resolves.not.toThrow();
+
+      expect(mockInfo).toHaveBeenCalledWith(
+        'EMAIL (no provider configured - logging to console)',
+        expect.objectContaining({
+          to: 'test@example.com',
+          subject: 'Your AlcheMix Password Was Changed',
         })
       );
     });
@@ -195,6 +212,19 @@ describe('Email Service', () => {
       ).resolves.not.toThrow();
     });
 
+    it('should send password changed notification when configured', async () => {
+      process.env.SMTP_HOST = 'smtp.test.com';
+      process.env.SMTP_USER = 'user@test.com';
+      process.env.SMTP_PASS = 'password';
+
+      const { SmtpProvider } = await import('./providers/smtp');
+      const provider = new SmtpProvider();
+
+      await expect(
+        provider.sendPasswordChangedNotification('test@example.com')
+      ).resolves.not.toThrow();
+    });
+
     it('should throw when not configured and trying to send', async () => {
       const { SmtpProvider } = await import('./providers/smtp');
       const provider = new SmtpProvider();
@@ -245,6 +275,17 @@ describe('Email Service', () => {
 
       await expect(
         provider.sendPasswordResetEmail('test@example.com', 'token123')
+      ).resolves.not.toThrow();
+    });
+
+    it('should send password changed notification when configured', async () => {
+      process.env.RESEND_API_KEY = 're_test_key';
+
+      const { ResendProvider } = await import('./providers/resend');
+      const provider = new ResendProvider();
+
+      await expect(
+        provider.sendPasswordChangedNotification('test@example.com')
       ).resolves.not.toThrow();
     });
 
@@ -331,25 +372,49 @@ describe('Email Service', () => {
     it('should use correct subject for verification email', async () => {
       const { getVerificationEmailContent } = await import('./templates');
       const { subject } = getVerificationEmailContent('token');
-      expect(subject).toBe('Verify your AlcheMix email address');
+      expect(subject).toBe('Activate Your AlcheMix Account');
     });
 
     it('should use correct subject for password reset email', async () => {
       const { getPasswordResetEmailContent } = await import('./templates');
       const { subject } = getPasswordResetEmailContent('token');
-      expect(subject).toBe('Reset your AlcheMix password');
+      expect(subject).toBe('Reset Your AlcheMix Password');
     });
 
-    it('should include security tip in password reset email', async () => {
+    it('should include logout notice in password reset email', async () => {
       const { getPasswordResetEmailContent } = await import('./templates');
       const { html } = getPasswordResetEmailContent('token');
-      expect(html).toContain('Security tip');
+      expect(html).toContain("logged out of all devices");
     });
 
     it('should include welcome message in verification email', async () => {
       const { getVerificationEmailContent } = await import('./templates');
       const { html } = getVerificationEmailContent('token');
-      expect(html).toContain('Welcome to AlcheMix');
+      expect(html).toContain('Welcome to the Lab');
+    });
+
+    it('should use correct subject for password changed email', async () => {
+      const { getPasswordChangedEmailContent } = await import('./templates');
+      const { subject } = getPasswordChangedEmailContent();
+      expect(subject).toBe('Your AlcheMix Password Was Changed');
+    });
+
+    it('should include AlcheMix branding in password changed email', async () => {
+      const { getPasswordChangedEmailContent } = await import('./templates');
+      const { html } = getPasswordChangedEmailContent();
+      expect(html).toContain('AlcheMix');
+    });
+
+    it('should include security warning in password changed email', async () => {
+      const { getPasswordChangedEmailContent } = await import('./templates');
+      const { html } = getPasswordChangedEmailContent();
+      expect(html).toContain("Didn't make this change");
+    });
+
+    it('should include session logout notice in password changed email', async () => {
+      const { getPasswordChangedEmailContent } = await import('./templates');
+      const { html } = getPasswordChangedEmailContent();
+      expect(html).toContain('logged out of all devices');
     });
   });
 

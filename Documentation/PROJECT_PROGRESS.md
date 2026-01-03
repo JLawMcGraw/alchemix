@@ -1,13 +1,13 @@
 # Project Development Progress
 
-Last updated: 2026-01-02 (Session 16)
+Last updated: 2026-01-03 (Session 17)
 
 ---
 
 ## Current Status
 
 **Version**: v1.36.0
-**Phase**: Deployment Preparation - Email Service Refactored
+**Phase**: Deployment Preparation - Email Templates & Password Security
 **Branch**: `feature/molecule-visual-variety`
 **Blockers**: None
 
@@ -29,12 +29,130 @@ Last updated: 2026-01-02 (Session 16)
 - Code Review Polish: **Complete** (Accessibility, dark mode, CSS variables)
 - Pre-Deployment Code Review: **Complete** (All high/medium priority items fixed)
 - Recipe-Molecule Polish: **Complete** (Ingredient classification, formula tooltips, visual refinements)
+- Email Templates: **Complete** (Branded design matching TopNav)
+- Inventory Auto-Classification: **Complete** (9 categories with backfill)
 
 **PostgreSQL Migration**: **Complete** (Phase 1-5 done, Phase 6 Deploy pending)
 
 ---
 
-## Recent Session (2026-01-02): Email Service Refactoring & Onboarding Fixes
+## Recent Session (2026-01-03): Inventory Classification, Email Branding & Password Security
+
+### Summary
+Fixed inventory auto-classification for 9 categories on dashboard. Branded email templates to match AlcheMix design system. Added password security features including reuse prevention, change timestamp tracking, and notifications.
+
+### Work Completed
+
+#### 1. Inventory Auto-Classification Fix
+Fixed the backfill-categories feature that auto-classifies inventory items into 9 categories (spirit, liqueur, wine, beer, bitters, mixer, syrup, garnish, pantry).
+
+**Problem**: 500 error on `/api/inventory-items/backfill-categories` - database CHECK constraint violation
+
+**Root Cause**: Database CHECK constraint was outdated - allowed 'other' but not 'bitters' or 'pantry'
+
+**Fix**:
+- Updated database constraint via migration script
+- Added `backfillCategories()` API method to frontend
+- Added call on dashboard page load with proper error handling
+
+**Files Changed**:
+- `src/lib/api.ts` - Added `backfillCategories()` method
+- `src/app/dashboard/page.tsx` - Added backfill call on load
+- Database: Updated `inventory_items_category_check` constraint
+
+#### 2. Email Template Branding
+Complete visual redesign of all email templates to match TopNav/login page styling:
+
+- **Header**: Molecule dots (4 colored nodes) + "ALCHEMIX" wordmark + "Molecular Mixology OS" tagline
+- **Background**: Grid pattern (32px) matching login page
+- **Typography**: Inria Sans for headings, system fonts for body
+- **Buttons**: Dark slate (#1E293B), uppercase, 8px border radius
+- **Layout**: 520px max-width card with 12px border radius
+
+**Templates Updated**:
+- Verification email ("Welcome to the Lab")
+- Password reset email ("Reset Your Password")
+- Password changed notification ("Password Changed")
+
+**Files Changed**:
+- `api/src/services/email/templates.ts` - Complete redesign
+- `api/.env` - Updated `FRONTEND_URL` to production domain
+
+#### 3. Password Security Enhancements
+
+**Password Reuse Prevention**:
+- Added bcrypt comparison check before allowing password change
+- Returns error if new password matches current password
+
+**Password Change Timestamp**:
+- Added `password_changed_at` column to users table
+- Updated login and account endpoints to return timestamp
+- Account page now shows "Last changed: [date]" dynamically
+
+**Password Change Notification Email**:
+- New email template with security warning
+- Sent automatically after password change
+- Added `sendPasswordChangedNotification()` to all email providers
+
+**Files Changed**:
+- `api/src/routes/auth/password.ts` - Reuse check, timestamp, email notification
+- `api/src/routes/auth/login.ts` - Added `password_changed_at` to SELECT
+- `api/src/routes/auth/account.ts` - Added `password_changed_at` to SELECT
+- `api/src/services/email/types.ts` - Added interface method
+- `api/src/services/email/providers/*.ts` - Implemented new method
+- `packages/types/src/database.ts` - Added `password_changed_at` to UserRow
+- `packages/types/src/domain.ts` - Added `password_changed_at` to User
+- `src/app/account/page.tsx` - Dynamic password change date display
+
+#### 4. Login Page Enhancement
+- Added "Forgot your password?" link below login form
+- Styled to match design system
+
+**Files Changed**:
+- `src/app/login/page.tsx` - Added forgot password link
+- `src/app/login/login.module.css` - Link styles
+
+#### 5. Shopping List Duplicate Key Fix
+Fixed React warning about duplicate keys when recipes share the same name (e.g., multiple "Mai Tai" recipes).
+
+**Fix**: Added index to key: `key={\`${recipe}-${idx}\`}`
+
+**File**: `src/app/shopping-list/page.tsx`
+
+#### 6. Test Email Script
+Created utility script for testing email templates:
+- `api/scripts/send-test-email.ts` - Send verification, reset, or changed emails
+
+### Files Changed
+```
+api/src/services/email/templates.ts (MODIFIED - Complete redesign)
+api/src/services/email/types.ts (MODIFIED)
+api/src/services/email/providers/resend.ts (MODIFIED)
+api/src/services/email/providers/smtp.ts (MODIFIED)
+api/src/services/email/providers/console.ts (MODIFIED)
+api/src/routes/auth/password.ts (MODIFIED)
+api/src/routes/auth/login.ts (MODIFIED)
+api/src/routes/auth/account.ts (MODIFIED)
+api/scripts/send-test-email.ts (NEW)
+api/.env (MODIFIED - FRONTEND_URL)
+packages/types/src/database.ts (MODIFIED)
+packages/types/src/domain.ts (MODIFIED)
+src/lib/api.ts (MODIFIED)
+src/app/dashboard/page.tsx (MODIFIED)
+src/app/login/page.tsx (MODIFIED)
+src/app/login/login.module.css (MODIFIED)
+src/app/account/page.tsx (MODIFIED)
+src/app/shopping-list/page.tsx (MODIFIED)
+Database: inventory_items_category_check constraint updated
+```
+
+### Next Steps
+- Deploy to production
+- Verify emails render correctly across email clients (Gmail, Outlook, Apple Mail)
+
+---
+
+## Previous Session (2026-01-02): Email Service Refactoring & Onboarding Fixes
 
 ### Summary
 Refactored the email service from a monolithic file into a modular provider-based architecture with support for Resend (new), SMTP, and Console fallback. Fixed onboarding flow issues including seed-classics database constraint error and redirect race conditions.

@@ -6,13 +6,13 @@
 
 Modern cocktail inventory and recipe management system with AI-powered bartender recommendations. Features a "Molecular Mixology" design system that treats cocktails as chemical formulas and ingredients as periodic table elements.
 
-**Version:** v1.36.0 | **Last Updated:** January 2, 2026
+**Version:** v1.36.0 | **Last Updated:** January 3, 2026
 
 ## Features
 
 ### Core Features
 - **Onboarding Flow** - 3-step first-time user experience: welcome, quick-add bottles via periodic table elements, preview makeable cocktails with 20 seeded classics
-- **My Bar** - Category-organized inventory with 9 tabs, card grid layout, CSV import, periodic tags
+- **My Bar** - Category-organized inventory with 9 tabs (auto-classification), card grid layout, CSV import, periodic tags
 - **Periodic Table of Mixology** - 90+ elements organized by function (Group) and origin, with hidden elements that appear when you add matching inventory. Click any element to filter your bar.
 - **Recipe Management** - Full CRUD, collections/folders, bulk operations, CSV import, spirit detection, Favorites tab
 - **Recipe Molecule Visualization** - Chemical bond-style molecular diagrams with 80+ classified ingredients, interactive formula tooltips, and Instagram Story export (1080×1920)
@@ -34,6 +34,8 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 - **Account Settings** - Change password, delete account, data export/import
 - **Email Verification** - Secure signup flow with verification tokens
 - **Password Reset** - Secure reset flow with email delivery
+- **Password Security** - Reuse prevention, change timestamp tracking, email notifications on change
+- **Branded Emails** - AlcheMix-branded templates for verification, reset, and security notifications
 
 ## Prerequisites
 

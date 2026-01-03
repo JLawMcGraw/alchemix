@@ -231,6 +231,15 @@ router.post('/change-password', authMiddleware, asyncHandler(async (req: Request
     });
   }
 
+  // Prevent password reuse
+  const isSamePassword = await bcrypt.compare(newPassword, user.password_hash!);
+  if (isSamePassword) {
+    return res.status(400).json({
+      success: false,
+      error: 'New password must be different from your current password'
+    });
+  }
+
   // Validate new password strength
   const passwordValidation = validatePassword(newPassword);
   if (!passwordValidation.isValid) {
@@ -244,9 +253,12 @@ router.post('/change-password', authMiddleware, asyncHandler(async (req: Request
   // Hash new password
   const password_hash = await bcrypt.hash(newPassword, 10);
 
-  // Atomic transaction: Update password and increment token_version
+  // Atomic transaction: Update password, set changed timestamp, and increment token_version
   await transaction(async (client) => {
-    await client.query('UPDATE users SET password_hash = $1 WHERE id = $2', [password_hash, userId]);
+    await client.query(
+      'UPDATE users SET password_hash = $1, password_changed_at = NOW() WHERE id = $2',
+      [password_hash, userId]
+    );
 
     // Increment token version to invalidate all existing sessions
     const currentVersion = await getTokenVersion(userId);
@@ -255,6 +267,17 @@ router.post('/change-password', authMiddleware, asyncHandler(async (req: Request
 
     logger.info('Password changed', { userId, oldVersion: currentVersion, newVersion, action: 'change_password' });
   });
+
+  // Send password changed notification email
+  try {
+    await emailService.sendPasswordChangedNotification(user.email);
+  } catch (emailError) {
+    // Log but don't fail the request if email fails
+    logger.error('Failed to send password change notification email', {
+      userId,
+      error: emailError instanceof Error ? emailError.message : String(emailError)
+    });
+  }
 
   // Clear cookies to force re-login
   res.clearCookie('auth_token', getClearCookieOptions());

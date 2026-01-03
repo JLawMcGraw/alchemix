@@ -126,11 +126,14 @@ function BarPageContent() {
       const loadItems = async () => {
         try {
           await fetchItems(currentPage, 50, activeCategory);
-          // Backfill periodic tags for items that don't have them
+          // Backfill periodic tags and categories for items that need them
           if (!hasInitiallyLoaded) {
-            const result = await inventoryApi.backfillPeriodicTags();
-            if (result.updated > 0) {
-              // Refetch to get updated tags
+            const [tagsResult, categoriesResult] = await Promise.all([
+              inventoryApi.backfillPeriodicTags(),
+              inventoryApi.backfillCategories(),
+            ]);
+            if (tagsResult.updated > 0 || categoriesResult.updated > 0) {
+              // Refetch to get updated data
               await fetchItems(currentPage, 50, activeCategory);
             }
           }

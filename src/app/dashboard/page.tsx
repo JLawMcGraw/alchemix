@@ -294,9 +294,21 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!isAuthenticated || isValidating) return;
 
-    inventoryApi.getCategoryCounts()
-      .then(setCategoryCounts)
-      .catch(console.error);
+    // Backfill categories first, then get updated counts
+    const loadCategoryCounts = async () => {
+      try {
+        await inventoryApi.backfillCategories();
+      } catch {
+        // Backfill failed, continue to get counts anyway
+      }
+      try {
+        const counts = await inventoryApi.getCategoryCounts();
+        setCategoryCounts(counts);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    loadCategoryCounts();
     fetchRecipes().catch(console.error);
     fetchFavorites().catch(console.error);
     fetchCollections().catch(console.error);

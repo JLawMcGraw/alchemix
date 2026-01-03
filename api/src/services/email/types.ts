@@ -38,6 +38,12 @@ export interface EmailProvider {
   sendPasswordResetEmail(to: string, token: string): Promise<void>;
 
   /**
+   * Send password changed notification email
+   * @param to - Recipient email address
+   */
+  sendPasswordChangedNotification(to: string): Promise<void>;
+
+  /**
    * Check if provider is properly configured
    */
   isConfigured(): boolean;

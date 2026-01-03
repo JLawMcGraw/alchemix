@@ -345,6 +345,12 @@ export default function LoginPage() {
           <button type="submit" className={`${styles.btnPrimary} ${styles.btnFull}`} disabled={loading}>
             {loading ? 'Loading...' : isSignup ? 'Create Account' : 'Log In'}
           </button>
+
+          {!isSignup && (
+            <div className={styles.forgotPassword}>
+              <a href="/forgot-password">Forgot your password?</a>
+            </div>
+          )}
         </form>
 
             <div className={styles.modalFooter}>

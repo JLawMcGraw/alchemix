@@ -869,6 +869,69 @@ describe('Auth Routes', () => {
       );
       expect(authCookieCleared).toBe(true);
     });
+
+    it('should reject password reuse (new password same as current)', async () => {
+      const mockUser = await createMockUser();
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(mockUser);
+
+      // Login first
+      const loginRes = await request(app)
+        .post('/auth/login')
+        .send({ email: 'test@example.com', password: 'SecurePassword123!' });
+
+      const cookies = extractCookies(loginRes);
+      const csrfToken = extractCsrfToken(loginRes);
+
+      // Try to change to same password
+      const res = await request(app)
+        .post('/auth/change-password')
+        .set('Cookie', cookies)
+        .set('x-csrf-token', csrfToken)
+        .send({
+          currentPassword: 'SecurePassword123!',
+          newPassword: 'SecurePassword123!', // Same as current
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toContain('different');
+    });
+
+    it('should update password_changed_at timestamp', async () => {
+      const mockUser = await createMockUser();
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValue(mockUser);
+
+      const mockQuery = vi.fn().mockResolvedValue({ rowCount: 1 });
+      (transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn) => {
+        await fn({ query: mockQuery });
+      });
+
+      // Login first
+      const loginRes = await request(app)
+        .post('/auth/login')
+        .send({ email: 'test@example.com', password: 'SecurePassword123!' });
+
+      const cookies = extractCookies(loginRes);
+      const csrfToken = extractCsrfToken(loginRes);
+
+      // Change password
+      await request(app)
+        .post('/auth/change-password')
+        .set('Cookie', cookies)
+        .set('x-csrf-token', csrfToken)
+        .send({
+          currentPassword: 'SecurePassword123!',
+          newPassword: 'NewSecurePassword456!',
+        });
+
+      // Verify the transaction included password_changed_at update
+      expect(mockQuery).toHaveBeenCalled();
+      const calls = mockQuery.mock.calls;
+      const passwordUpdateCall = calls.find((call: unknown[]) =>
+        typeof call[0] === 'string' && call[0].includes('password_changed_at')
+      );
+      expect(passwordUpdateCall).toBeDefined();
+    });
   });
 
   describe('DELETE /auth/account', () => {

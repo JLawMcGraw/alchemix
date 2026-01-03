@@ -10,7 +10,7 @@
  */
 
 import { EmailProvider } from '../types';
-import { getVerificationEmailContent, getPasswordResetEmailContent, redactForLogging } from '../templates';
+import { getVerificationEmailContent, getPasswordResetEmailContent, getPasswordChangedEmailContent, redactForLogging } from '../templates';
 import { logger } from '../../../utils/logger';
 
 export class ConsoleProvider implements EmailProvider {
@@ -31,6 +31,11 @@ export class ConsoleProvider implements EmailProvider {
 
   async sendPasswordResetEmail(to: string, token: string): Promise<void> {
     const { subject, html } = getPasswordResetEmailContent(token);
+    this.logEmail(to, subject, html);
+  }
+
+  async sendPasswordChangedNotification(to: string): Promise<void> {
+    const { subject, html } = getPasswordChangedEmailContent();
     this.logEmail(to, subject, html);
   }
 

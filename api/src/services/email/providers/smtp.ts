@@ -19,7 +19,7 @@
 
 import nodemailer from 'nodemailer';
 import { EmailProvider } from '../types';
-import { getVerificationEmailContent, getPasswordResetEmailContent } from '../templates';
+import { getVerificationEmailContent, getPasswordResetEmailContent, getPasswordChangedEmailContent } from '../templates';
 import { logger } from '../../../utils/logger';
 
 export class SmtpProvider implements EmailProvider {
@@ -76,6 +76,11 @@ export class SmtpProvider implements EmailProvider {
 
   async sendPasswordResetEmail(to: string, token: string): Promise<void> {
     const { subject, html } = getPasswordResetEmailContent(token);
+    await this.sendEmail(to, subject, html);
+  }
+
+  async sendPasswordChangedNotification(to: string): Promise<void> {
+    const { subject, html } = getPasswordChangedEmailContent();
     await this.sendEmail(to, subject, html);
   }
 

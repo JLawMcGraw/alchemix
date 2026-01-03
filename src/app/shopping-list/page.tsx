@@ -308,9 +308,9 @@ export default function ShoppingListPage() {
                     </p>
                     {topPick.recipes.length > 0 && (
                       <div className={styles.recipeChips}>
-                        {topPick.recipes.map((recipe) => (
+                        {topPick.recipes.map((recipe, idx) => (
                           <button
-                            key={recipe}
+                            key={`${recipe}-${idx}`}
                             className={styles.recipeChip}
                             onClick={() => handleRecipeClick(recipe)}
                           >
@@ -374,9 +374,9 @@ export default function ShoppingListPage() {
                             <div className={styles.expandedRecipes}>
                               <p className={styles.expandedLabel}>Unlocks these recipes:</p>
                               <div className={styles.recipeChips}>
-                                {rec.recipes.map((recipe) => (
+                                {rec.recipes.map((recipe, idx) => (
                                   <button
-                                    key={recipe}
+                                    key={`${recipe}-${idx}`}
                                     className={styles.recipeChip}
                                     onClick={() => handleRecipeClick(recipe)}
                                   >

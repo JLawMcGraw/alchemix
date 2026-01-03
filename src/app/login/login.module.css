@@ -455,6 +455,23 @@
   margin-bottom: 16px;
 }
 
+/* Forgot Password Link */
+.forgotPassword {
+  text-align: center;
+  margin-top: 16px;
+}
+
+.forgotPassword a {
+  color: var(--fg-secondary);
+  font-size: 13px;
+  text-decoration: none;
+  transition: color 150ms;
+}
+
+.forgotPassword a:hover {
+  color: var(--bond-agave);
+}
+
 /* === RESPONSIVE === */
 @media (max-width: 900px) {
   .nav {
