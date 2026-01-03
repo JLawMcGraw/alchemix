@@ -339,6 +339,32 @@ router.post('/backfill-periodic-tags', asyncHandler(async (req: Request, res: Re
 }));
 
 /**
+ * POST /api/inventory-items/backfill-categories - Backfill Categories
+ *
+ * Re-runs auto-categorization on all inventory items.
+ * Updates category field (spirit, liqueur, bitters, mixer, syrup, garnish, pantry, etc.)
+ */
+router.post('/backfill-categories', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      error: 'Authentication required'
+    });
+  }
+
+  const result = await inventoryService.backfillCategories(userId);
+
+  res.json({
+    success: true,
+    message: `Successfully re-categorized ${result.updated} of ${result.total} items`,
+    updated: result.updated,
+    total: result.total
+  });
+}));
+
+/**
  * POST /api/inventory-items/import - CSV Import
  */
 router.post('/import', upload.single('file'), asyncHandler(async (req: Request, res: Response) => {

@@ -943,6 +943,51 @@ export class InventoryService {
   }
 
   /**
+   * Backfill categories for all items
+   * Re-runs autoCategorize() on all items and updates their category
+   * Uses bulk UPDATE with CASE statements to avoid N+1 queries
+   */
+  async backfillCategories(userId: number): Promise<{ updated: number; total: number }> {
+    // Get all items for this user
+    const items = await queryAll<InventoryItem>(`
+      SELECT * FROM inventory_items
+      WHERE user_id = $1
+    `, [userId]);
+
+    const total = items.length;
+    if (total === 0) {
+      return { updated: 0, total: 0 };
+    }
+
+    // Build bulk update with CASE statements
+    const updates: { id: number; category: string }[] = [];
+    for (const item of items) {
+      const category = this.autoCategorize(item.type ?? null, item.spirit_classification ?? null, item.name ?? null);
+      updates.push({ id: item.id, category });
+    }
+
+    // Build parameterized bulk UPDATE query
+    const categoryCases = updates.map((u, i) => `WHEN $${i * 2 + 2} THEN $${i * 2 + 3}`).join(' ');
+
+    // Flatten params: [userId, id1, category1, id2, category2, ...]
+    const params: (number | string)[] = [userId];
+    for (const u of updates) {
+      params.push(u.id, u.category);
+    }
+
+    // Create placeholders for IN clause
+    const idPlaceholders = updates.map((_, i) => `$${i * 2 + 2}`).join(', ');
+
+    await execute(`
+      UPDATE inventory_items
+      SET category = CASE id ${categoryCases} END
+      WHERE user_id = $1 AND id IN (${idPlaceholders})
+    `, params);
+
+    return { updated: total, total };
+  }
+
+  /**
    * Check if a CSV row is completely empty
    *
    * Returns true if all values in the record are empty, null, undefined,

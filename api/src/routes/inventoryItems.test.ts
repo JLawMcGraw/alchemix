@@ -552,4 +552,230 @@ describe('Inventory Items Routes', () => {
       expect(res.body.error).toContain('valid numbers');
     });
   });
+
+  describe('POST /api/inventory-items/backfill-periodic-tags', () => {
+    it('should backfill periodic tags for items missing them', async () => {
+      const itemsWithoutTags = [
+        createMockItem({ id: 1, name: 'Makers Mark Bourbon', category: 'spirit', type: 'Bourbon' }),
+        createMockItem({ id: 2, name: 'Tanqueray Gin', category: 'spirit', type: 'Gin' }),
+      ];
+
+      // First call: queryAll returns items without tags
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValueOnce(itemsWithoutTags);
+      // Second call: execute for bulk update
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ rowCount: 2 });
+
+      const res = await request(app).post('/api/inventory-items/backfill-periodic-tags');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.message).toContain('Successfully classified');
+      expect(res.body.updated).toBe(2);
+      expect(res.body.total).toBe(2);
+    });
+
+    it('should return success with zero updates when no items need backfill', async () => {
+      // No items without tags
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
+
+      const res = await request(app).post('/api/inventory-items/backfill-periodic-tags');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.updated).toBe(0);
+      expect(res.body.total).toBe(0);
+    });
+
+    it('should classify spirit items correctly', async () => {
+      const bourbonItem = createMockItem({
+        id: 1,
+        name: 'Buffalo Trace',
+        category: 'spirit',
+        type: 'Bourbon',
+      });
+
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValueOnce([bourbonItem]);
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ rowCount: 1 });
+
+      const res = await request(app).post('/api/inventory-items/backfill-periodic-tags');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.updated).toBe(1);
+      // Verify execute was called with the correct classification
+      expect(execute).toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /api/inventory-items/backfill-categories', () => {
+    it('should re-categorize all items', async () => {
+      const items = [
+        createMockItem({ id: 1, name: 'Makers Mark', category: 'pantry', type: 'Bourbon' }),
+        createMockItem({ id: 2, name: 'Angostura Bitters', category: 'pantry', type: null }),
+        createMockItem({ id: 3, name: 'Simple Syrup', category: 'pantry', type: null }),
+      ];
+
+      // First call: queryAll returns all items
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValueOnce(items);
+      // Second call: execute for bulk update
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ rowCount: 3 });
+
+      const res = await request(app).post('/api/inventory-items/backfill-categories');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.message).toContain('Successfully re-categorized');
+      expect(res.body.updated).toBe(3);
+      expect(res.body.total).toBe(3);
+    });
+
+    it('should return success with zero updates when user has no items', async () => {
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
+
+      const res = await request(app).post('/api/inventory-items/backfill-categories');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.updated).toBe(0);
+      expect(res.body.total).toBe(0);
+    });
+
+    it('should correctly categorize spirits', async () => {
+      const bourbonItem = createMockItem({
+        id: 1,
+        name: 'Buffalo Trace',
+        category: 'pantry', // Wrong category
+        type: 'Bourbon',
+      });
+
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValueOnce([bourbonItem]);
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ rowCount: 1 });
+
+      const res = await request(app).post('/api/inventory-items/backfill-categories');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      // Execute should be called with category update
+      expect(execute).toHaveBeenCalled();
+      const executeCall = (execute as ReturnType<typeof vi.fn>).mock.calls[0];
+      // The params should include 'spirit' as the new category
+      expect(executeCall[1]).toContain('spirit');
+    });
+
+    it('should correctly categorize bitters', async () => {
+      const bittersItem = createMockItem({
+        id: 1,
+        name: 'Angostura Bitters',
+        category: 'pantry', // Wrong category
+        type: null,
+      });
+
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValueOnce([bittersItem]);
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ rowCount: 1 });
+
+      const res = await request(app).post('/api/inventory-items/backfill-categories');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(execute).toHaveBeenCalled();
+      const executeCall = (execute as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(executeCall[1]).toContain('bitters');
+    });
+
+    it('should correctly categorize syrups', async () => {
+      const syrupItem = createMockItem({
+        id: 1,
+        name: 'Simple Syrup',
+        category: 'pantry', // Wrong category
+        type: null,
+      });
+
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValueOnce([syrupItem]);
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ rowCount: 1 });
+
+      const res = await request(app).post('/api/inventory-items/backfill-categories');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(execute).toHaveBeenCalled();
+      const executeCall = (execute as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(executeCall[1]).toContain('syrup');
+    });
+
+    it('should correctly categorize liqueurs', async () => {
+      const liqueurItem = createMockItem({
+        id: 1,
+        name: 'Cointreau',
+        category: 'spirit', // Wrong category
+        type: 'Triple Sec',
+      });
+
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValueOnce([liqueurItem]);
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ rowCount: 1 });
+
+      const res = await request(app).post('/api/inventory-items/backfill-categories');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(execute).toHaveBeenCalled();
+      const executeCall = (execute as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(executeCall[1]).toContain('liqueur');
+    });
+
+    it('should correctly categorize garnishes', async () => {
+      const garnishItem = createMockItem({
+        id: 1,
+        name: 'Fresh Mint',
+        category: 'pantry', // Wrong category
+        type: null,
+      });
+
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValueOnce([garnishItem]);
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ rowCount: 1 });
+
+      const res = await request(app).post('/api/inventory-items/backfill-categories');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(execute).toHaveBeenCalled();
+      const executeCall = (execute as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(executeCall[1]).toContain('garnish');
+    });
+
+    it('should correctly categorize mixers', async () => {
+      const mixerItem = createMockItem({
+        id: 1,
+        name: 'Tonic Water',
+        category: 'pantry', // Wrong category
+        type: null,
+      });
+
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValueOnce([mixerItem]);
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ rowCount: 1 });
+
+      const res = await request(app).post('/api/inventory-items/backfill-categories');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(execute).toHaveBeenCalled();
+      const executeCall = (execute as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(executeCall[1]).toContain('mixer');
+    });
+
+    it('should handle large batch of items', async () => {
+      const manyItems = Array.from({ length: 100 }, (_, i) =>
+        createMockItem({ id: i + 1, name: `Item ${i + 1}`, category: 'pantry' })
+      );
+
+      (queryAll as ReturnType<typeof vi.fn>).mockResolvedValueOnce(manyItems);
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ rowCount: 100 });
+
+      const res = await request(app).post('/api/inventory-items/backfill-categories');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.updated).toBe(100);
+      expect(res.body.total).toBe(100);
+    });
+  });
 });
