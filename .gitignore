@@ -46,3 +46,6 @@ docker-credential-ecr-login
 # Docker
 /docker/.env
 .env.docker
+
+# Claude verification screenshots
+.claude/screenshots/
