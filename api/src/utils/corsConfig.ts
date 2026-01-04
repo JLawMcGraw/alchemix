@@ -23,6 +23,7 @@
 
 import { CorsOptions, CorsOptionsDelegate } from 'cors';
 import { Request } from 'express';
+import { logger } from './logger';
 
 /**
  * Allowed Origins List
@@ -99,14 +100,14 @@ export const corsOptions: CorsOptions = {
     if (!origin) {
       // In production, always require an origin header for security
       if (process.env.NODE_ENV === 'production') {
-        console.warn('⚠️  CORS: Rejected request with no origin header (production mode)');
+        logger.warn('CORS: Rejected request with no origin header (production mode)');
         return callback(new Error('Origin header required in production'));
       }
 
       // In development, allow for easier testing with known dev tools
       // Note: We can't access req.headers here directly, so we allow in dev mode
       // The auth middleware provides additional protection
-      console.log('✓ CORS: Allowed request with no origin header (development mode)');
+      logger.debug('CORS: Allowed request with no origin header (development mode)');
       return callback(null, true);
     }
 
@@ -116,13 +117,15 @@ export const corsOptions: CorsOptions = {
      * Compare the request origin against our whitelist.
      */
     if (allowedOrigins.indexOf(origin) !== -1) {
-      // Origin is allowed - proceed with request
-      console.log(`✓ CORS: Allowed request from ${origin}`);
+      // Origin is allowed - proceed with request (debug level to reduce noise)
+      logger.debug('CORS: Allowed request', { origin });
       callback(null, true);
     } else {
       // Origin is not allowed - block request
-      console.warn(`❌ CORS: Blocked request from unauthorized origin: ${origin}`);
-      console.warn(`   Allowed origins: ${allowedOrigins.join(', ')}`);
+      logger.warn('CORS: Blocked request from unauthorized origin', {
+        origin,
+        allowedOrigins
+      });
       callback(new Error('Not allowed by CORS'));
     }
   },
