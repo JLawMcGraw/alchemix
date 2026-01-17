@@ -540,8 +540,8 @@ function BarPageContent() {
           }, {} as Record<SpiritCategory, number>);
 
           const sortedSpirits = Object.entries(spiritCounts)
-            .sort(([, a], [, b]) => b - a)
-            .slice(0, 6);
+            .sort(([, a], [, b]) => (b as number) - (a as number))
+            .slice(0, 6) as [string, number][];
 
           const handleSpiritClick = (spiritType: string) => {
             setActiveCategory('spirit');

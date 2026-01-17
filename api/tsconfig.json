@@ -4,15 +4,19 @@
     "module": "commonjs",
     "lib": ["ES2022"],
     "outDir": "./dist",
-    "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "moduleResolution": "node",
-    "types": ["node"]
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@alchemix/types": ["../packages/types/src/index.ts"],
+      "@alchemix/types/*": ["../packages/types/src/*"]
+    }
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "../packages/types/src/**/*"],
   "exclude": ["node_modules", "dist", "src/**/*.test.ts", "src/tests/**/*"]
 }

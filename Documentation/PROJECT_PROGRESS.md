@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2026-01-03 (Session 19)
+Last updated: 2026-01-16 (Session 20)
 
 ---
 
@@ -12,10 +12,10 @@ Last updated: 2026-01-03 (Session 19)
 **Blockers**: None
 
 **Test Coverage**:
-- Backend: 927 tests (35 test files)
+- Backend: 948 tests (35 test files)
 - Frontend: 460 tests (18 test files)
 - Recipe-Molecule: 298 tests (6 test files)
-- **Total: 1685 tests**
+- **Total: 1706 tests**
 
 **Redesign Progress**:
 - Phase 1-4 (Batch A - Foundation): **Complete**
@@ -36,7 +36,52 @@ Last updated: 2026-01-03 (Session 19)
 
 ---
 
-## Recent Session (2026-01-03): ItemDetailModal Bug Fixes
+## Recent Session (2026-01-16): Inventory Sync & Type Error Fixes
+
+### Summary
+Fixed inventory-to-shopping-list synchronization bug where updating item quantities didn't refresh craftable counts, added passion fruit synonym matching, and resolved all pre-existing TypeScript type errors across the codebase.
+
+### Work Completed
+
+#### 1. Dashboard Inventory Sync Fix
+**Problem**: Updating inventory (e.g., passion fruit syrup from 0 to 1) didn't update the craftable recipe count on dashboard because it didn't watch `inventoryVersion`.
+
+**Solution**: Added `inventoryVersion` to dashboard's store subscription and a new useEffect to re-fetch shopping list data and category counts when inventory changes.
+
+#### 2. Passion Fruit Synonym Matching
+**Problem**: "passionfruit syrup" (one word) in inventory didn't match recipes calling for "passion fruit syrup" (two words).
+
+**Solution**: Added comprehensive passion fruit synonyms to ShoppingListService covering syrup, juice, puree, and liqueur variants.
+
+#### 3. TypeScript Type Error Fixes
+**Problem**: 23 pre-existing type errors across multiple files.
+
+**Fixes**:
+- Added `@alchemix/types` path mapping to both frontend and API tsconfigs
+- Fixed `Object.entries` sort callback types in bar/page.tsx
+- Added explicit type annotations to map/filter callbacks in RecipeDetailModal.tsx
+- Replaced interface extension with explicit properties in onboarding/page.tsx
+- Fixed implicit `any` parameters in shopping-list/page.tsx
+
+### Files Changed
+```
+src/app/dashboard/page.tsx (MODIFIED - inventoryVersion sync)
+api/src/services/ShoppingListService.ts (MODIFIED - passion fruit synonyms)
+tsconfig.json (MODIFIED - @alchemix/types path)
+api/tsconfig.json (MODIFIED - @alchemix/types path, include types package)
+src/app/bar/page.tsx (MODIFIED - type fixes)
+src/app/shopping-list/page.tsx (MODIFIED - type fixes)
+src/app/onboarding/page.tsx (MODIFIED - type fixes)
+src/components/modals/RecipeDetailModal.tsx (MODIFIED - type fixes)
+```
+
+### Next Steps
+- Test passion fruit matching after server restart
+- Deploy to production
+
+---
+
+## Previous Session (2026-01-03): ItemDetailModal Bug Fixes
 
 ### Summary
 Fixed two bugs in the ItemDetailModal: zero-stock items now correctly display as 0 (instead of defaulting to 1), and the modal now closes after saving changes.

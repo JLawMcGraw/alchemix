@@ -145,7 +145,7 @@ export function RecipeDetailModal({
     try {
       // Filter out empty ingredients before saving
       const filteredIngredients = Array.isArray(editedRecipe.ingredients)
-        ? editedRecipe.ingredients.filter(ing => ing.trim())
+        ? editedRecipe.ingredients.filter((ing: string) => ing.trim())
         : [];
 
       await updateRecipe(recipe.id, {
@@ -260,7 +260,7 @@ export function RecipeDetailModal({
     if (editedRecipe.ingredients.length === 1) return; // Keep at least one
     setEditedRecipe({
       ...editedRecipe,
-      ingredients: editedRecipe.ingredients.filter((_, i) => i !== index)
+      ingredients: editedRecipe.ingredients.filter((_: string, i: number) => i !== index)
     });
   };
 
@@ -722,7 +722,7 @@ export function RecipeDetailModal({
             <h3 className={styles.sectionTitle}>Ingredients</h3>
             {isEditMode ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {Array.isArray(editedRecipe.ingredients) && editedRecipe.ingredients.map((ingredient, index) => (
+                {Array.isArray(editedRecipe.ingredients) && editedRecipe.ingredients.map((ingredient: string, index: number) => (
                   <div key={index} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <input
                       type="text"
@@ -763,7 +763,7 @@ export function RecipeDetailModal({
               <>
                 {ingredientsArray.length > 0 ? (
                   <ul className={styles.ingredientsList}>
-                    {ingredientsArray.map((ingredient, index) => {
+                    {ingredientsArray.map((ingredient: string, index: number) => {
                       const parsed = parseIngredient(ingredient);
                       const classified = classifyIngredient(parsed);
                       const cssVar = TYPE_TO_CSS_VAR[classified.type];
@@ -829,7 +829,7 @@ export function RecipeDetailModal({
             const balanceCounts = { spirit: 0, bitter: 0, sweet: 0, acid: 0 };
             let totalVolume = 0;
 
-            ingredientsArray.forEach((ingredient) => {
+            ingredientsArray.forEach((ingredient: string) => {
               const parsed = parseIngredient(ingredient);
               const classified = classifyIngredient(parsed);
               // Convert to oz equivalents for consistent comparison
@@ -933,7 +933,7 @@ export function RecipeDetailModal({
             <section className={styles.section}>
               <h3 className={styles.sectionTitle}>Missing Ingredients</h3>
               <ul className={styles.missingList}>
-                {recipe.missing.map((item, index) => (
+                {recipe.missing.map((item: string, index: number) => (
                   <li key={index} className={styles.missingItem}>
                     {item}
                   </li>

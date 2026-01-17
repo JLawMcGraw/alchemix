@@ -209,6 +209,7 @@ export default function DashboardPage() {
     dashboardInsight,
     isDashboardInsightLoading,
     shoppingListStats,
+    inventoryVersion,
     fetchRecipes,
     fetchFavorites,
     fetchCollections,
@@ -320,6 +321,19 @@ export default function DashboardPage() {
     fetchShoppingList().catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, isValidating]);
+
+  // Re-fetch shopping list and category counts when inventory changes
+  useEffect(() => {
+    if (!isAuthenticated || isValidating) return;
+    // Skip on initial mount (handled by effect above)
+    if (inventoryVersion === 0) return;
+
+    fetchShoppingList().catch(console.error);
+    // Also refresh category counts
+    inventoryApi.getCategoryCounts()
+      .then(setCategoryCounts)
+      .catch(console.error);
+  }, [inventoryVersion, isAuthenticated, isValidating, fetchShoppingList]);
 
   // Calculate total items
   const totalItems = useMemo(() => {

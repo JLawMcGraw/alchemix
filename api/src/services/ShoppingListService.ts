@@ -216,7 +216,19 @@ const SYNONYMS: Record<string, string[]> = {
   'grapefruit juice': ['grapefruit', 'fresh grapefruit juice', 'fresh grapefruit'],
   'grapefruit': ['grapefruit juice', 'fresh grapefruit juice', 'fresh grapefruit'],
   'fresh grapefruit juice': ['grapefruit juice', 'grapefruit', 'fresh grapefruit'],
-  'fresh grapefruit': ['grapefruit juice', 'grapefruit', 'fresh grapefruit juice']
+  'fresh grapefruit': ['grapefruit juice', 'grapefruit', 'fresh grapefruit juice'],
+
+  // Passion fruit variants (one word vs two words)
+  'passion fruit syrup': ['passionfruit syrup', 'passion fruit'],
+  'passionfruit syrup': ['passion fruit syrup', 'passionfruit'],
+  'passion fruit': ['passionfruit', 'passion fruit syrup', 'passionfruit syrup'],
+  'passionfruit': ['passion fruit', 'passion fruit syrup', 'passionfruit syrup'],
+  'passion fruit juice': ['passionfruit juice', 'passion fruit puree', 'passionfruit puree'],
+  'passionfruit juice': ['passion fruit juice', 'passion fruit puree', 'passionfruit puree'],
+  'passion fruit puree': ['passionfruit puree', 'passion fruit juice', 'passionfruit juice'],
+  'passionfruit puree': ['passion fruit puree', 'passion fruit juice', 'passionfruit juice'],
+  'passion fruit liqueur': ['passionfruit liqueur'],
+  'passionfruit liqueur': ['passion fruit liqueur']
 };
 
 /**

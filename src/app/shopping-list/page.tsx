@@ -81,7 +81,7 @@ export default function ShoppingListPage() {
         id: index + 1,
         name: suggestion.ingredient
           .split(' ')
-          .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
           .join(' '),
         unlocks: suggestion.unlocks,
         recipes: recipesForIngredient,

@@ -7,7 +7,7 @@
 | Version | v1.36.0 |
 | Branch | `feature/molecule-visual-variety` |
 | Tests | 1706 total (948 backend, 460 frontend, 298 recipe-molecule) |
-| Last Updated | January 3, 2026 |
+| Last Updated | January 16, 2026 |
 
 ---
 
