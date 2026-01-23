@@ -205,9 +205,9 @@ export default function AIPage() {
 
   // Normalize apostrophes (all variants to straight ')
   // Using Unicode escapes to prevent editor corruption
-  // Covers: U+0027 ' | U+2018 ' | U+2019 ' | U+0060 ` | U+02BC ʼ | U+02BB ʻ | etc.
+  // Covers: U+0027 ' | U+2018 ' | U+2019 ' | U+0060 ` | U+00B4 ´ | U+02BC ʼ | U+02BB ʻ | etc.
   const normalizeApostrophes = (text: string): string =>
-    text.replace(/[\u0027\u2018\u2019\u0060\u02BC\u02BB\u055A\u05F3\uA78C\uFF07]/g, "'");
+    text.replace(/[\u0027\u2018\u2019\u0060\u00B4\u02BC\u02BB\u055A\u05F3\uA78C\uFF07]/g, "'");
 
   // Helper to match recipe names - prioritizes exact match, then careful fuzzy matching
   const fuzzyRecipeMatch = (aiName: string, dbName: string): boolean => {
@@ -389,10 +389,11 @@ export default function AIPage() {
 
     // Wrap all linkable recipe names with markers
     // Helper to create regex pattern that matches any apostrophe variant
+    // Includes: U+0027 ' | U+2018 ' | U+2019 ' | U+0060 ` | U+00B4 ´ | U+02BC ʼ | U+02BB ʻ | etc.
     const escapeForRegex = (name: string): string => {
       return name
         .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        .replace(/[\u0027\u2018\u2019\u0060\u02BC\u02BB\u055A\u05F3\uA78C\uFF07]/g, "[\u0027\u2018\u2019\u0060\u02BC\u02BB\u055A\u05F3\uA78C\uFF07]");
+        .replace(/[\u0027\u2018\u2019\u0060\u00B4\u02BC\u02BB\u055A\u05F3\uA78C\uFF07]/g, "[\u0027\u2018\u2019\u0060\u00B4\u02BC\u02BB\u055A\u05F3\uA78C\uFF07]");
     };
 
     // Sort by length (longest first) to prevent partial matches

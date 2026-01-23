@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2026-01-16 (Session 20)
+Last updated: 2026-01-23 (Session 21)
 
 ---
 
@@ -36,7 +36,50 @@ Last updated: 2026-01-16 (Session 20)
 
 ---
 
-## Recent Session (2026-01-16): Inventory Sync & Type Error Fixes
+## Recent Session (2026-01-23): AI Bartender & Inventory Sync Fixes
+
+### Summary
+Fixed three bugs: recipe names with apostrophes not linking in AI Bartender, craftable counts not updating after inventory changes, and orange juice matching orange liqueur incorrectly.
+
+### Work Completed
+
+#### 1. AI Bartender Recipe Linking Fix
+**Problem**: Recipe names containing apostrophes (e.g., "Sidewinder's Fang") weren't converting to clickable links when the AI Bartender recommended them.
+
+**Root Cause**: The acute accent character (`´` U+00B4) was missing from the apostrophe normalization.
+
+**Solution**:
+- Added U+00B4 (acute accent) to `normalizeApostrophes()` function
+- Added U+00B4 to `escapeForRegex()` character class for consistent matching
+
+#### 2. Inventory Craftable Count Sync Fix
+**Problem**: Setting an item's stock to 0 didn't update the craftable recipe count on the dashboard.
+
+**Root Cause**: ItemDetailModal didn't refresh shopping list stats after saving.
+
+**Solution**: Added explicit `fetchShoppingList()` calls after both save and delete operations in ItemDetailModal.
+
+#### 3. Orange Juice False Positive Fix
+**Problem**: Recipes requiring "fresh orange juice" were showing as craftable when user only had "orange liqueur" (not actual orange juice).
+
+**Root Cause**: The synonym "orange" was too generic - it matched "orange liqueur" as a substitute for orange juice.
+
+**Solution**: Removed "orange" as a standalone synonym. Updated orange juice synonyms to use specific forms: "oranges", "fresh orange juice", "fresh orange", "oj".
+
+### Files Changed
+```
+src/app/ai/page.tsx (MODIFIED - apostrophe handling)
+src/components/modals/ItemDetailModal.tsx (MODIFIED - fetchShoppingList after save/delete)
+api/src/services/ShoppingListService.ts (MODIFIED - orange juice synonyms)
+```
+
+### Next Steps
+- Deploy to production
+- Monitor for other ingredient matching false positives
+
+---
+
+## Previous Session (2026-01-16): Inventory Sync & Type Error Fixes
 
 ### Summary
 Fixed inventory-to-shopping-list synchronization bug where updating item quantities didn't refresh craftable counts, added passion fruit synonym matching, and resolved all pre-existing TypeScript type errors across the codebase.

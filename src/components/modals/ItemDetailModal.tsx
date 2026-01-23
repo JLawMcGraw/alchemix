@@ -47,7 +47,7 @@ export function ItemDetailModal({ isOpen, onClose, item, onItemUpdated }: ItemDe
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const { updateItem, deleteItem, fetchItems } = useStore();
+  const { updateItem, deleteItem, fetchItems, fetchShoppingList } = useStore();
   const { showToast } = useToast();
 
   // Form state
@@ -191,6 +191,8 @@ export function ItemDetailModal({ isOpen, onClose, item, onItemUpdated }: ItemDe
         periodic_period: formData.periodic_period,
       });
       await fetchItems();
+      // Refresh shopping list stats so craftable counts update
+      fetchShoppingList().catch(console.error);
       // Notify parent to update the selected item reference
       if (updatedItem && onItemUpdated) {
         onItemUpdated(updatedItem);
@@ -211,6 +213,8 @@ export function ItemDetailModal({ isOpen, onClose, item, onItemUpdated }: ItemDe
     try {
       await deleteItem(item.id);
       await fetchItems();
+      // Refresh shopping list stats so craftable counts update
+      fetchShoppingList().catch(console.error);
       showToast('success', 'Item deleted successfully');
       onClose();
     } catch (error) {
