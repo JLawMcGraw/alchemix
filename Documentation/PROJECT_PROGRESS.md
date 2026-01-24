@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2026-01-23 (Session 21)
+Last updated: 2026-01-23 (Session 22)
 
 ---
 
@@ -36,7 +36,43 @@ Last updated: 2026-01-23 (Session 21)
 
 ---
 
-## Recent Session (2026-01-23): AI Bartender & Inventory Sync Fixes
+## Recent Session (2026-01-23): Recipe Linking & Conversational AI
+
+### Summary
+Fixed recipe linking for apostrophe variants and trailing suffixes, and updated AI bartender to be more conversational for vague requests instead of immediately dumping recipes.
+
+### Work Completed
+
+#### 1. Apostrophe Duplicate Filtering Fix
+**Problem**: Recipes like "Sidewinder's Fang" with different apostrophe characters (U+2019 vs U+0027) were filtering each other out, leaving zero linkable recipes.
+
+**Root Cause**: The substring collision filter used `includes()` which returns true for equal strings - so duplicate recipes filtered each other out.
+
+**Solution**: Added length check to only filter when one recipe is **strictly longer** than another.
+
+#### 2. Trailing Suffix Matching
+**Problem**: "South Pacific Punch New" wouldn't link when AI said "South Pacific Punch".
+
+**Solution**: Added logic to strip common suffixes (New, Old, Original, Classic, #2, etc.) before matching.
+
+#### 3. Conversational AI Bartender
+**Problem**: AI immediately dumped recipe recommendations even for vague requests like "looking for options tonight".
+
+**Solution**: Added CONVERSATIONAL FLOW section to AI prompt with guidelines to ask clarifying questions for vague requests, examples of vague vs specific requests, and updated recommendation rules.
+
+### Files Changed
+```
+src/app/ai/page.tsx (MODIFIED - apostrophe filtering fix, trailing suffix matching)
+api/src/services/AIService.ts (MODIFIED - conversational flow guidelines in AI prompt)
+```
+
+### Next Steps
+- Test conversational AI with vague queries
+- Monitor for other recipe linking edge cases
+
+---
+
+## Previous Session (2026-01-23): AI Bartender & Inventory Sync Fixes
 
 ### Summary
 Fixed three bugs: recipe names with apostrophes not linking in AI Bartender, craftable counts not updating after inventory changes, and orange juice matching orange liqueur incorrectly.

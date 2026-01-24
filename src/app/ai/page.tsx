@@ -291,6 +291,10 @@ export default function AIPage() {
 
     const { explanation, recommendations } = parseAIResponse(message.content);
 
+    // Strip markdown bold markers for cleaner recipe matching
+    // We'll render links without the bold, which is cleaner anyway
+    const cleanExplanation = explanation.replace(/\*\*/g, '');
+
     // Build a set of all linkable recipe names (from RECOMMENDATIONS + scanning text)
     const linkableRecipes = new Set<string>();
 
@@ -309,19 +313,38 @@ export default function AIPage() {
     });
 
     // Also scan explanation for recipe names from user's database
-    const normalizedExplanation = normalizeApostrophes(explanation).toLowerCase();
+    const normalizedExplanation = normalizeApostrophes(cleanExplanation).toLowerCase();
+
     recipesArray.forEach((recipe) => {
       const normalizedName = normalizeApostrophes(recipe.name).toLowerCase();
 
-      // Check if recipe name appears in the text (word boundary check)
-      // Make apostrophe matching flexible - replace any apostrophe with a pattern that matches all variants
+      // Simple substring check first (most reliable)
+      if (normalizedExplanation.includes(normalizedName)) {
+        linkableRecipes.add(recipe.name);
+        return;
+      }
+
+      // Check with trailing suffixes stripped (e.g., "South Pacific Punch New" -> "South Pacific Punch")
+      // Common suffixes: " New", " #2", " #3", " Old", " Original", " Modern", " Classic"
+      const baseName = normalizedName
+        .replace(/\s+(new|old|original|modern|classic|revised|updated)$/i, '')
+        .replace(/\s+#\d+$/i, '')
+        .trim();
+
+      if (baseName !== normalizedName && normalizedExplanation.includes(baseName)) {
+        linkableRecipes.add(recipe.name);
+        return;
+      }
+
+      // Fallback: Check with regex for word boundary (handles edge cases)
       const escapedName = normalizedName
         .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        .replace(/'/g, "[\\u0027\\u2018\\u2019\\u0060\\u00B4\\u02BC\\u02BB]?"); // Make apostrophe optional/flexible
+        .replace(/'/g, "[\\u0027\\u2018\\u2019\\u0060\\u00B4\\u02BC\\u02BB]?");
       const nameRegex = new RegExp(`(?:^|[^\\w])${escapedName}(?:[^\\w]|$)`, 'i');
+
       if (nameRegex.test(normalizedExplanation)) {
         linkableRecipes.add(recipe.name);
-        return; // Found exact match, no need for fuzzy matching
+        return;
       }
 
       // Fuzzy matching for parenthetical variations
@@ -353,21 +376,22 @@ export default function AIPage() {
     });
 
     if (linkableRecipes.size === 0) {
-      return <div className={styles.messageText}>{message.content}</div>;
+      return <div className={styles.messageText}>{cleanExplanation}</div>;
     }
 
     // CRITICAL FIX: Filter out substring collisions ONLY when the substring appears
     // in the actual AI response as part of a longer name
     // If we have both "Navy Grog" and "Grog", remove "Grog" only if "Navy Grog" appears in text
     // But keep "Scorpion" even if "Scorpion Bowl" exists, if only "Scorpion" is mentioned
-    const normalizedText = normalizeApostrophes(explanation).toLowerCase();
+    const normalizedText = normalizeApostrophes(cleanExplanation).toLowerCase();
     const filteredRecipes = Array.from(linkableRecipes).filter((name) => {
       const lowerName = normalizeApostrophes(name).toLowerCase();
       // Find other recipes that contain this one as a substring
+      // Must be STRICTLY longer, not equal length (handles duplicate recipes with different apostrophes)
       const longerRecipes = Array.from(linkableRecipes).filter((other) => {
         if (other === name) return false;
         const lowerOther = normalizeApostrophes(other).toLowerCase();
-        return lowerOther.includes(lowerName);
+        return lowerOther.length > lowerName.length && lowerOther.includes(lowerName);
       });
       // Only filter out if the LONGER recipe actually appears in the text
       // If "Scorpion" is in text but "Scorpion Bowl" is NOT, keep "Scorpion"
@@ -382,10 +406,10 @@ export default function AIPage() {
     });
 
     if (filteredRecipes.length === 0) {
-      return <div className={styles.messageText}>{message.content}</div>;
+      return <div className={styles.messageText}>{cleanExplanation}</div>;
     }
 
-    let displayText = explanation;
+    let displayText = cleanExplanation;
 
     // Wrap all linkable recipe names with markers
     // Helper to create regex pattern that matches any apostrophe variant
