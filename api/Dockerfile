@@ -3,6 +3,9 @@
 # =============================================================================
 # Production-ready Docker image with security best practices
 #
+# Build context must be the REPO ROOT (not api/), so that
+# packages/types/ is available for the shared type declarations.
+#
 # Features:
 # - Multi-stage build (smaller final image)
 # - Non-root user (security)
@@ -15,9 +18,9 @@
 # - production: Minimal runtime image
 # - test: For running tests in CI
 #
-# Build: docker build -t alchemix-api:prod --target production .
+# Build: docker build -t alchemix-api:prod --target production -f api/Dockerfile .
 # Run:   docker run -p 3000:3000 alchemix-api:prod
-# Test:  docker build -t alchemix-api:test --target test . && docker run alchemix-api:test
+# Test:  docker build -t alchemix-api:test --target test -f api/Dockerfile . && docker run alchemix-api:test
 # =============================================================================
 
 # =============================================================================
@@ -30,14 +33,18 @@ WORKDIR /app
 # Add build metadata
 LABEL stage=builder
 
+# Build shared types package first
+COPY packages/types/ /packages/types/
+RUN cd /packages/types && npx tsc
+
 # Copy package files for dependency installation
-COPY package*.json ./
+COPY api/package*.json ./
 
 # Install all dependencies (including devDependencies for build)
 RUN npm ci
 
-# Copy source code
-COPY . .
+# Copy API source code
+COPY api/ .
 
 # Build TypeScript to JavaScript
 RUN npm run build
@@ -58,7 +65,7 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 api
 
 # Copy package files
-COPY --chown=api:nodejs package*.json ./
+COPY --chown=api:nodejs api/package*.json ./
 
 # Install production dependencies only
 RUN npm ci --omit=dev && npm cache clean --force
@@ -75,10 +82,10 @@ ENV PORT=3000
 
 # Add OCI image metadata
 LABEL org.opencontainers.image.title="AlcheMix API"
-LABEL org.opencontainers.image.version="1.22.0"
+LABEL org.opencontainers.image.version="1.36.0"
 LABEL org.opencontainers.image.description="AlcheMix Express API Backend"
 LABEL org.opencontainers.image.vendor="AlcheMix"
-LABEL org.opencontainers.image.source="https://github.com/yourusername/alchemix"
+LABEL org.opencontainers.image.source="https://github.com/JLawMcGraw/alchemix"
 LABEL org.opencontainers.image.licenses="MIT"
 
 # Switch to non-root user
@@ -106,13 +113,13 @@ FROM node:20-alpine AS test
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY api/package*.json ./
 
 # Install all dependencies including devDependencies
 RUN npm ci
 
 # Copy all source code and test files
-COPY . .
+COPY api/ .
 
 # Run tests by default
 CMD ["npm", "test"]

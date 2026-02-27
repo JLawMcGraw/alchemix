@@ -170,6 +170,9 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: http://localhost:3000
 
+      - name: Build shared types
+        run: cd packages/types && npx tsc
+
       - name: Build backend
         run: cd api && npm run build
 
@@ -179,7 +182,7 @@ jobs:
       - name: Build API Docker image
         uses: docker/build-push-action@v6
         with:
-          context: ./api
+          context: .
           file: ./api/Dockerfile
           target: production
           push: false
