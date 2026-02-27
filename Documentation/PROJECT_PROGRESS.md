@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2026-01-23 (Session 22)
+Last updated: 2026-02-26 (Session 23)
 
 ---
 
@@ -36,7 +36,62 @@ Last updated: 2026-01-23 (Session 22)
 
 ---
 
-## Recent Session (2026-01-23): Recipe Linking & Conversational AI
+## Recent Session (2026-02-26): Code Review Improvements
+
+### Summary
+Implemented 7 code review improvements across type safety, error handling, build configuration, and maintainability. Extracted 234-line recipe-linking function into dedicated module.
+
+### Work Completed
+
+#### 1. Build Configuration Fix (tsconfig.json)
+**Problem**: `rootDir` removal caused `tsc` output to nest as `dist/api/src/server.js` instead of `dist/server.js`, breaking Dockerfile and package.json start script.
+**Solution**: Created `tsconfig.build.json` with `rootDir: "./src"` pointing at compiled type declarations. Dev `tsconfig.json` kept as-is for type-checking. Added build script to types package.
+
+#### 2. Type Safety Improvements
+**Problem**: Multiple `as number` and `as [string, number][]` casts in bar/page.tsx; duplicated interface in onboarding/page.tsx.
+**Solution**: Consolidated to single `Object.entries()` cast; replaced `CustomBottleDisplay` with `extends InventoryItemInput`.
+
+#### 3. Toast Feedback for Silent Failures
+**Problem**: `fetchShoppingList().catch(console.error)` swallowed errors silently in ItemDetailModal and dashboard.
+**Solution**: Replaced with `.catch(() => showToast('info', 'Shopping list may need a refresh'))` for user-facing feedback. Kept `console.error` for initial page load.
+
+#### 4. Winston Logger Migration
+**Problem**: ~15 `console.log/warn/error` calls in bootstrap code (env.ts, validateEnv.ts).
+**Solution**: Imported Winston logger and replaced all console calls. Updated test to spy on `logger.warn` instead of `console.warn`.
+
+#### 5. Recipe Linker Extraction
+**Problem**: `renderMessageContent` in ai/page.tsx was 234 lines mixing pure logic with React rendering.
+**Solution**: Extracted 6 pure functions into `src/lib/recipeLinker.ts`: `normalizeApostrophes`, `escapeForRegex`, `fuzzyRecipeMatch`, `findLinkableRecipes`, `filterSubstringCollisions`, `markRecipeNames`. Component function shrunk to ~45 lines.
+
+#### 6. Bold Text Preservation
+**Problem**: `replace(/\*\*/g, '')` stripped ALL markdown bold markers, losing AI formatting.
+**Solution**: Added `renderBoldText` helper that splits on `**` pairs and wraps in `<strong>` tags. Bold preserved when no recipe links found; stripped only for regex matching phase.
+
+### Files Changed
+```
+api/tsconfig.build.json (NEW - production build config with rootDir)
+api/package.json (MODIFIED - build uses tsconfig.build.json)
+api/src/config/env.ts (MODIFIED - console.* → logger.*)
+api/src/config/validateEnv.ts (MODIFIED - console.* → logger.*)
+api/src/config/validateEnv.test.ts (MODIFIED - spy on logger instead of console)
+packages/types/package.json (MODIFIED - added build script)
+packages/types/dist/ (NEW - compiled type declarations)
+src/lib/recipeLinker.ts (NEW - extracted recipe linking logic)
+src/app/ai/page.tsx (MODIFIED - uses recipeLinker, bold preservation)
+src/app/bar/page.tsx (MODIFIED - consolidated type assertion)
+src/app/dashboard/page.tsx (MODIFIED - toast feedback, showToast dep)
+src/app/onboarding/page.tsx (MODIFIED - extends InventoryItemInput)
+src/components/modals/ItemDetailModal.tsx (MODIFIED - toast feedback)
+```
+
+### Next Steps
+- Test AI bartender recipe links with bold text preserved
+- Merge feature branch to main and push
+- Verify Docker build still works with tsconfig.build.json
+
+---
+
+## Previous Session (2026-01-23): Recipe Linking & Conversational AI
 
 ### Summary
 Fixed recipe linking for apostrophe variants and trailing suffixes, and updated AI bartender to be more conversational for vague requests instead of immediately dumping recipes.

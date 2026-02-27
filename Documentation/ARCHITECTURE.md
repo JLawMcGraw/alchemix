@@ -1,7 +1,7 @@
 # AlcheMix Architecture
 
 **Version**: v1.36.0
-**Last Updated**: January 3, 2026
+**Last Updated**: February 26, 2026
 
 This document provides a comprehensive map of the AlcheMix system architecture, including high-level diagrams, component relationships, and data flows.
 
@@ -200,6 +200,7 @@ alchemix/
 │   │   ├── colors.ts            # Shared color constants
 │   │   ├── utils.ts             # Shared utilities (parseIngredients)
 │   │   ├── formatters.ts        # Data formatters
+│   │   ├── recipeLinker.ts     # Recipe name matching & linking logic
 │   │   └── passwordPolicy.ts    # Password validation
 │   │
 │   ├── hooks/                    # Custom React Hooks
@@ -994,8 +995,8 @@ docker compose -f docker/docker-compose.yml up -d
 | Module | Depends On | External Packages |
 |--------|-----------|-------------------|
 | `server.ts` | config/*, middleware/*, routes/* | express, cors, helmet, cookie-parser |
-| `config/env.ts` | - | dotenv |
-| `config/validateEnv.ts` | - | (pure) |
+| `config/env.ts` | utils/logger | dotenv |
+| `config/validateEnv.ts` | utils/logger | (pure) |
 | `config/rateLimiter.ts` | - | express-rate-limit |
 | `middleware/auth.ts` | database/db, utils/tokenBlacklist | jsonwebtoken |
 | `middleware/csrf.ts` | - | (pure) |
@@ -1095,7 +1096,8 @@ packages/recipe-molecule/
 └── src/export.ts ────────────► (PNG/SVG export with options)
 
 packages/types/
-└── src/*.ts ─────────────────► (pure TypeScript types)
+├── src/*.ts ─────────────────► (pure TypeScript types)
+└── dist/*.d.ts ─────────────► (compiled declarations for API build)
 ```
 
 ### External Service Dependencies
@@ -1193,4 +1195,4 @@ Request Flow:
 
 ---
 
-*Last updated: January 3, 2026*
+*Last updated: February 26, 2026*
