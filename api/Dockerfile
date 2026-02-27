@@ -35,7 +35,7 @@ LABEL stage=builder
 
 # Build shared types package first
 COPY packages/types/ /packages/types/
-RUN cd /packages/types && npx tsc
+RUN cd /packages/types && npm install && npx tsc
 
 # Copy package files for dependency installation
 COPY api/package*.json ./
