@@ -9,5 +9,4 @@ yarn-error.log*
 .DS_Store
 coverage
 api/dist
-src/
 build
