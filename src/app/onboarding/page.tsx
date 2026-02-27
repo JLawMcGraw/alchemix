@@ -167,15 +167,7 @@ function getQuickAddElements(): PeriodicElement[] {
 }
 
 // Custom bottle with element display info (must be outside component to avoid React issues)
-// Note: Explicitly defining properties instead of extending InventoryItemInput to avoid path resolution issues
-interface CustomBottleDisplay {
-  // From InventoryItemInput
-  name: string;
-  category: InventoryCategory;
-  type?: string;
-  periodic_group?: PeriodicGroup | null;
-  periodic_period?: PeriodicPeriod | null;
-  // Display-specific
+interface CustomBottleDisplay extends InventoryItemInput {
   symbol: string;
   group: ElementGroup;
   atomicNumber: number;

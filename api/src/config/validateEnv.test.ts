@@ -290,14 +290,15 @@ describe('validateEnv', () => {
       process.env.SMTP_HOST = 'smtp.example.com';
       // Missing other SMTP variables
 
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const { logger } = await import('../utils/logger');
+      const loggerSpy = vi.spyOn(logger, 'warn').mockImplementation(() => logger);
 
       const { validateEnv } = await import('./validateEnv');
       validateEnv();
 
       // Should not throw, just warn
-      expect(consoleSpy).toHaveBeenCalled();
-      consoleSpy.mockRestore();
+      expect(loggerSpy).toHaveBeenCalled();
+      loggerSpy.mockRestore();
     });
   });
 

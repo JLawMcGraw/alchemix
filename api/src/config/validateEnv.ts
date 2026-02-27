@@ -10,6 +10,8 @@
  * @date December 2025
  */
 
+import { logger } from '../utils/logger';
+
 /**
  * Validated configuration interface
  */
@@ -154,15 +156,15 @@ export function validateEnv(): Config {
       '',
     ].join('\n');
 
-    console.error(errorMessage);
+    logger.error(errorMessage);
     throw new Error(`Environment validation failed: ${errors.join('; ')}`);
   }
 
   // ============ Log Warnings ============
   if (warnings.length > 0 && NODE_ENV !== 'test') {
-    console.warn('\n⚠️  Environment Warnings:');
-    warnings.forEach(w => console.warn(`   ${w}`));
-    console.warn('');
+    logger.warn('Environment Warnings:');
+    warnings.forEach(w => logger.warn(w));
+
   }
 
   // ============ Return Validated Config ============

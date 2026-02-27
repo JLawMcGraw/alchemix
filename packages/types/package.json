@@ -12,6 +12,7 @@
     "./database": "./src/database.ts"
   },
   "scripts": {
+    "build": "tsc",
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {

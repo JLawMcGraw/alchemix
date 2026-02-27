@@ -192,7 +192,7 @@ export function ItemDetailModal({ isOpen, onClose, item, onItemUpdated }: ItemDe
       });
       await fetchItems();
       // Refresh shopping list stats so craftable counts update
-      fetchShoppingList().catch(console.error);
+      fetchShoppingList().catch(() => showToast('info', 'Shopping list may need a refresh'));
       // Notify parent to update the selected item reference
       if (updatedItem && onItemUpdated) {
         onItemUpdated(updatedItem);
@@ -214,7 +214,7 @@ export function ItemDetailModal({ isOpen, onClose, item, onItemUpdated }: ItemDe
       await deleteItem(item.id);
       await fetchItems();
       // Refresh shopping list stats so craftable counts update
-      fetchShoppingList().catch(console.error);
+      fetchShoppingList().catch(() => showToast('info', 'Shopping list may need a refresh'));
       showToast('success', 'Item deleted successfully');
       onClose();
     } catch (error) {

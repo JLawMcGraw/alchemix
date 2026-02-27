@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "paths": {
+      "@alchemix/types": ["../packages/types/dist/index.d.ts"],
+      "@alchemix/types/*": ["../packages/types/dist/*"]
+    }
+  },
+  "include": ["src/**/*"]
+}

@@ -328,12 +328,12 @@ export default function DashboardPage() {
     // Skip on initial mount (handled by effect above)
     if (inventoryVersion === 0) return;
 
-    fetchShoppingList().catch(console.error);
+    fetchShoppingList().catch(() => showToast('info', 'Shopping list may need a refresh'));
     // Also refresh category counts
     inventoryApi.getCategoryCounts()
       .then(setCategoryCounts)
-      .catch(console.error);
-  }, [inventoryVersion, isAuthenticated, isValidating, fetchShoppingList]);
+      .catch(() => showToast('info', 'Shopping list may need a refresh'));
+  }, [inventoryVersion, isAuthenticated, isValidating, fetchShoppingList, showToast]);
 
   // Calculate total items
   const totalItems = useMemo(() => {
