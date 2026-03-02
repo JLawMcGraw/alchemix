@@ -34,7 +34,7 @@
     "@alchemix/types": "file:../packages/types",
     "bcrypt": "^5.1.1",
     "cookie-parser": "^1.4.7",
-    "cors": "^2.8.5",
+    "cors": "^2.8.6",
     "csv-parse": "^6.1.0",
     "dotenv": "^16.3.1",
     "express": "^4.22.1",
