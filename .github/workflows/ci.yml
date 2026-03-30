@@ -104,7 +104,7 @@ jobs:
           NODE_ENV: test
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         if: always()
         with:
           directory: ./api/coverage
@@ -134,7 +134,7 @@ jobs:
         run: npm test -- --passWithNoTests
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         if: always()
         with:
           directory: ./coverage
