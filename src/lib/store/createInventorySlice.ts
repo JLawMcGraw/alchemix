@@ -34,7 +34,7 @@ export interface InventorySlice {
 
   // Actions
   fetchItems: (page?: number, limit?: number, category?: InventoryCategory | 'all') => Promise<void>;
-  addItem: (item: InventoryItemInput) => Promise<void>;
+  addItem: (item: InventoryItemInput) => Promise<InventoryItem>;
   updateItem: (id: number, item: Partial<InventoryItemInput>) => Promise<InventoryItem>;
   deleteItem: (id: number) => Promise<void>;
   setLoading: (isLoading: boolean) => void;
@@ -102,6 +102,7 @@ export const createInventorySlice: StateCreator<
         isLoading: false,
         inventoryVersion: state.inventoryVersion + 1,
       }));
+      return newItem;
     } catch (error) {
       const errorMessage = getErrorMessage(error, 'Failed to add inventory item');
       set({ error: errorMessage, isLoading: false });

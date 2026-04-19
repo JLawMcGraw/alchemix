@@ -211,6 +211,74 @@
   padding: 8px 0;
 }
 
+/* Photo Upload */
+.photoPreview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.photoImage {
+  width: 60px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: var(--radius, 4px);
+  border: 1px solid var(--color-border-default, #E2E8F0);
+}
+
+.photoActions {
+  display: flex;
+  gap: 8px;
+}
+
+.photoBtn {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  border: 1px solid var(--color-border-default, #CBD5E1);
+  border-radius: var(--radius, 4px);
+  background: transparent;
+  color: var(--fg-primary, #1E293B);
+  cursor: pointer;
+}
+
+.photoBtn:hover {
+  background: var(--bg-elevated, #F1F5F9);
+}
+
+.photoBtnDanger {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  border: 1px solid var(--color-error, #EF4444);
+  border-radius: var(--radius, 4px);
+  background: transparent;
+  color: var(--color-error, #EF4444);
+  cursor: pointer;
+}
+
+.photoBtnDanger:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.uploadBtn {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  border: 2px dashed var(--color-border-default, #CBD5E1);
+  border-radius: var(--radius, 4px);
+  background: transparent;
+  color: var(--color-text-muted, #94A3B8);
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+}
+
+.uploadBtn:hover {
+  border-color: var(--bond-agave, #0D9488);
+  color: var(--bond-agave, #0D9488);
+}
+
 /* Details Toggle */
 .detailsToggle {
   display: flex;
@@ -502,6 +570,29 @@
 :global([data-theme="dark"]) .quantityValue {
   border-color: var(--border-hairline, #334155);
   color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .photoImage {
+  border-color: var(--border-hairline, #334155);
+}
+
+:global([data-theme="dark"]) .photoBtn {
+  border-color: var(--border-hairline, #475569);
+  color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .uploadBtn {
+  border-color: var(--border-hairline, #475569);
+  color: var(--fg-secondary, #64748B);
+}
+
+:global([data-theme="dark"]) .uploadBtn:hover {
+  border-color: var(--bond-agave, #14B8A6);
+  color: var(--bond-agave, #14B8A6);
+}
+
+:global([data-theme="dark"]) .photoBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 :global([data-theme="dark"]) .detailsToggle {

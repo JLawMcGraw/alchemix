@@ -423,53 +423,55 @@ export function ItemDetailModal({ isOpen, onClose, item, onItemUpdated }: ItemDe
           </div>
         </div>
 
-        {/* Photo Section */}
-        <div className={styles.photoSection}>
-          <div className={styles.sectionLabel}>Photo</div>
-          {imageUrl ? (
-            <div className={styles.photoPreview}>
-              <img
-                src={imageUrl}
-                alt={item?.name || 'Bottle'}
-                className={styles.photoImage}
-              />
-              {isEditMode && (
-                <div className={styles.photoActions}>
-                  <button
-                    type="button"
-                    className={styles.photoBtn}
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    Change
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.photoBtnDanger}
-                    onClick={handleRemoveImage}
-                  >
-                    Remove
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : isEditMode ? (
-            <button
-              type="button"
-              className={styles.uploadBtn}
-              onClick={() => fileInputRef.current?.click()}
-              disabled={!item?.id}
-            >
-              Add Photo
-            </button>
-          ) : null}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            style={{ display: 'none' }}
-            onChange={handleImageSelect}
-          />
-        </div>
+        {/* Photo Section - only show if there's an image or we're in edit mode */}
+        {(imageUrl || isEditMode) && (
+          <div className={styles.photoSection}>
+            <div className={styles.sectionLabel}>Photo</div>
+            {imageUrl ? (
+              <div className={styles.photoPreview}>
+                <img
+                  src={imageUrl}
+                  alt={item?.name || 'Bottle'}
+                  className={styles.photoImage}
+                />
+                {isEditMode && (
+                  <div className={styles.photoActions}>
+                    <button
+                      type="button"
+                      className={styles.photoBtn}
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      Change
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.photoBtnDanger}
+                      onClick={handleRemoveImage}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                className={styles.uploadBtn}
+                onClick={() => fileInputRef.current?.click()}
+                disabled={!item?.id}
+              >
+                Add Photo
+              </button>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              style={{ display: 'none' }}
+              onChange={handleImageSelect}
+            />
+          </div>
+        )}
 
         {/* Content */}
         <div className={styles.content} ref={contentRef}>

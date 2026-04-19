@@ -87,6 +87,19 @@ src/components/modals/ItemDetailModal.module.css (MODIFIED - photo section style
 src/lib/api.ts (MODIFIED - uploadItemImage, deleteItemImage functions)
 ```
 
+#### 5. AddBottleModal Photo Upload & Type Field
+**Problem**: AddBottleModal had no photo upload capability and was missing a Type field entirely. After adding items, the ItemDetailModal showed blank details.
+**Solution**: Added photo upload to AddBottleModal with local preview, upload-on-submit flow (create item → get ID → upload photo → refresh store). Added missing Type field to main form. Changed `addItem` store method to return `InventoryItem` (was `void`) so the modal can get the created item's ID. Hidden photo section in ItemDetailModal when no image and not in edit mode. Fixed stale closure in doClose via ref, added dark-mode hover fix for photo buttons, added console.warn for failed photo uploads.
+
+### Additional Files Changed
+```
+src/components/modals/AddBottleModal.tsx (MODIFIED - photo upload, Type field, store import)
+src/components/modals/AddBottleModal.module.css (MODIFIED - photo styles + dark mode)
+src/components/modals/ItemDetailModal.tsx (MODIFIED - conditional photo section)
+src/lib/store/createInventorySlice.ts (MODIFIED - addItem returns InventoryItem)
+src/app/bar/page.tsx (MODIFIED - handleAddItem returns InventoryItem)
+```
+
 ### Next Steps
 - Test AI bartender end-to-end with Claude API key
 - Upload bottle photos for full inventory

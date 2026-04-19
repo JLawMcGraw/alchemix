@@ -276,15 +276,16 @@ function BarPageContent() {
     }
   };
 
-  const handleAddItem = async (item: InventoryItemInput) => {
+  const handleAddItem = async (item: InventoryItemInput): Promise<InventoryItem> => {
     try {
-      await addItem(item);
+      const newItem = await addItem(item);
       // Refresh category counts and all items for periodic table
       const counts = await inventoryApi.getCategoryCounts();
       setCategoryCounts(counts);
       const { items: allItems } = await inventoryApi.getAll({ page: 1, limit: 500 });
       setAllItemsForPeriodicTable(allItems);
       showToast('success', 'Item added successfully');
+      return newItem;
     } catch (error) {
       showToast('error', 'Failed to add item');
       throw error;

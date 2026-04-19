@@ -4,14 +4,16 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, ChevronDown, ChevronUp, AlertCircle, Plus, Minus } from 'lucide-react';
 import { SuccessCheckmark } from '@/components/ui';
 import { ConfirmModal } from './ConfirmModal';
-import type { InventoryCategory, InventoryItemInput, PeriodicGroup, PeriodicPeriod } from '@/types';
+import { inventoryApi } from '@/lib/api';
+import { useStore } from '@/lib/store';
+import type { InventoryCategory, InventoryItem, InventoryItemInput, PeriodicGroup, PeriodicPeriod } from '@/types';
 import { getPeriodicTags, PERIODIC_GROUPS, PERIODIC_PERIODS } from '@/lib/periodicTableV2';
 import styles from './AddBottleModal.module.css';
 
 interface AddBottleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (item: InventoryItemInput) => Promise<void>;
+  onAdd: (item: InventoryItemInput) => Promise<InventoryItem | void>;
   /** Pre-fill form data when adding from periodic table element */
   preFill?: {
     name: string;
@@ -73,6 +75,7 @@ const CATEGORIES: { value: InventoryCategory; label: string }[] = [
 ];
 
 export function AddBottleModal({ isOpen, onClose, onAdd, preFill }: AddBottleModalProps) {
+  const { fetchItems } = useStore();
   const [formData, setFormData] = useState<FormState>(createInitialFormState());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,12 +84,23 @@ export function AddBottleModal({ isOpen, onClose, onAdd, preFill }: AddBottleMod
   const [showDetails, setShowDetails] = useState(false);
   const [addAnother, setAddAnother] = useState(false);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
+  const [pendingImage, setPendingImage] = useState<{ file: File; previewUrl: string } | null>(null);
 
   const modalRef = useRef<HTMLDivElement>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingImageUrlRef = useRef<string | null>(null);
+
+  // Keep ref in sync with pending image preview URL for cleanup in doClose
+  useEffect(() => {
+    pendingImageUrlRef.current = pendingImage?.previewUrl ?? null;
+  }, [pendingImage]);
 
   // Actually close the modal and reset state
   const doClose = useCallback(() => {
+    if (pendingImageUrlRef.current) {
+      URL.revokeObjectURL(pendingImageUrlRef.current);
+    }
     setFormData(createInitialFormState());
     setError(null);
     setLoading(false);
@@ -95,6 +109,7 @@ export function AddBottleModal({ isOpen, onClose, onAdd, preFill }: AddBottleMod
     setShowDetails(false);
     setAddAnother(false);
     setShowConfirmClose(false);
+    setPendingImage(null);
     onClose();
   }, [onClose]);
 
@@ -199,6 +214,24 @@ export function AddBottleModal({ isOpen, onClose, onAdd, preFill }: AddBottleMod
     handleChange('stock_number', newValue);
   };
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (pendingImage?.previewUrl) {
+      URL.revokeObjectURL(pendingImage.previewUrl);
+    }
+    setPendingImage({ file, previewUrl: URL.createObjectURL(file) });
+    setIsDirty(true);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleRemoveImage = () => {
+    if (pendingImage?.previewUrl) {
+      URL.revokeObjectURL(pendingImage.previewUrl);
+    }
+    setPendingImage(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -230,7 +263,24 @@ export function AddBottleModal({ isOpen, onClose, onAdd, preFill }: AddBottleMod
         periodic_period: formData.periodic_period,
       };
 
-      await onAdd(item);
+      const createdItem = await onAdd(item);
+
+      // Upload photo if one was selected and item was created on server
+      if (pendingImage && createdItem?.id) {
+        try {
+          await inventoryApi.uploadItemImage(createdItem.id, pendingImage.file);
+          // Refresh items so the store has the updated image_path
+          await fetchItems();
+        } catch {
+          // Item was created successfully, photo upload failed — not critical
+          console.warn('Photo upload failed for item', createdItem.id);
+        }
+      }
+
+      if (pendingImage?.previewUrl) {
+        URL.revokeObjectURL(pendingImage.previewUrl);
+      }
+      setPendingImage(null);
       setIsDirty(false);
 
       if (addAnother) {
@@ -320,6 +370,18 @@ export function AddBottleModal({ isOpen, onClose, onAdd, preFill }: AddBottleMod
                 </div>
               </div>
 
+              {/* Type */}
+              <div className={styles.fieldGroup}>
+                <label className={styles.label}>Type</label>
+                <input
+                  type="text"
+                  className={styles.input}
+                  value={formData.type}
+                  onChange={(e) => handleChange('type', e.target.value)}
+                  placeholder="e.g., Bourbon, London Dry, Reposado"
+                />
+              </div>
+
               {/* Quantity Stepper */}
               <div className={styles.fieldGroup}>
                 <label className={styles.label}>Quantity</label>
@@ -343,6 +405,51 @@ export function AddBottleModal({ isOpen, onClose, onAdd, preFill }: AddBottleMod
                     <Plus size={16} />
                   </button>
                 </div>
+              </div>
+
+              {/* Bottle Photo */}
+              <div className={styles.fieldGroup}>
+                <label className={styles.label}>Photo</label>
+                {pendingImage ? (
+                  <div className={styles.photoPreview}>
+                    <img
+                      src={pendingImage.previewUrl}
+                      alt="Bottle preview"
+                      className={styles.photoImage}
+                    />
+                    <div className={styles.photoActions}>
+                      <button
+                        type="button"
+                        className={styles.photoBtn}
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        Change
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.photoBtnDanger}
+                        onClick={handleRemoveImage}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className={styles.uploadBtn}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Add Photo
+                  </button>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  style={{ display: 'none' }}
+                  onChange={handleImageSelect}
+                />
               </div>
 
               {/* Expandable Details Section */}
