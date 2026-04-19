@@ -23,6 +23,8 @@
 
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import { parse } from 'csv-parse/sync';
 import { authMiddleware } from '../middleware/auth';
 import { validateNumber } from '../utils/inputValidator';
@@ -45,6 +47,36 @@ const upload = multer({
       cb(null, true);
     } else {
       cb(new Error('Only CSV files are allowed'));
+    }
+  },
+});
+
+/**
+ * Multer Configuration for Image Uploads
+ */
+const imageUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const userId = (req as any).user?.userId;
+      const dir = path.join(process.cwd(), 'uploads', 'bottles', `user_${userId}`);
+      fs.mkdirSync(dir, { recursive: true });
+      cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname).toLowerCase();
+      const itemId = req.params.id;
+      cb(null, `item_${itemId}${ext}`);
+    },
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
+    const allowedExts = ['.jpg', '.jpeg', '.png', '.webp'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedExts.includes(ext) && allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only JPG, PNG, and WebP images are allowed'));
     }
   },
 });
@@ -216,6 +248,64 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
     success: true,
     data: updatedItem
   });
+}));
+
+/**
+ * POST /api/inventory-items/:id/image - Upload Bottle Photo
+ */
+router.post('/:id/image', imageUpload.single('image'), asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  const itemId = parseInt(req.params.id);
+
+  if (!userId) {
+    return res.status(401).json({ success: false, error: 'Authentication required' });
+  }
+  if (isNaN(itemId) || itemId <= 0) {
+    return res.status(400).json({ success: false, error: 'Invalid item ID' });
+  }
+  if (!req.file) {
+    return res.status(400).json({ success: false, error: 'No image file provided' });
+  }
+
+  // Clean up old image if it has a different extension (prevents orphaned files)
+  const existingPath = await inventoryService.getImagePath(itemId, userId);
+  const relativePath = `uploads/bottles/user_${userId}/item_${itemId}${path.extname(req.file.originalname).toLowerCase()}`;
+  if (existingPath && existingPath !== relativePath) {
+    const fullPath = path.join(process.cwd(), existingPath);
+    if (fs.existsSync(fullPath)) {
+      fs.unlinkSync(fullPath);
+    }
+  }
+
+  await inventoryService.updateImagePath(itemId, userId, relativePath);
+
+  res.json({ success: true, data: { image_path: relativePath } });
+}));
+
+/**
+ * DELETE /api/inventory-items/:id/image - Delete Bottle Photo
+ */
+router.delete('/:id/image', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  const itemId = parseInt(req.params.id);
+
+  if (!userId) {
+    return res.status(401).json({ success: false, error: 'Authentication required' });
+  }
+  if (isNaN(itemId) || itemId <= 0) {
+    return res.status(400).json({ success: false, error: 'Invalid item ID' });
+  }
+
+  const currentPath = await inventoryService.getImagePath(itemId, userId);
+  if (currentPath) {
+    const fullPath = path.join(process.cwd(), currentPath);
+    if (fs.existsSync(fullPath)) {
+      fs.unlinkSync(fullPath);
+    }
+  }
+
+  await inventoryService.updateImagePath(itemId, userId, null);
+  res.json({ success: true });
 }));
 
 /**

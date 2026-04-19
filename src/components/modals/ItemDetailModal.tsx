@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { inventoryApi } from '@/lib/api';
 import { X, Pencil, Plus, Minus } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { useToast } from '@/components/ui';
@@ -43,9 +44,12 @@ const CATEGORIES: { value: InventoryCategory; label: string }[] = [
 export function ItemDetailModal({ isOpen, onClose, item, onItemUpdated }: ItemDetailModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [pendingImage, setPendingImage] = useState<{ file: File; previewUrl: string } | null>(null);
+  const [pendingImageRemove, setPendingImageRemove] = useState(false);
 
   const { updateItem, deleteItem, fetchItems, fetchShoppingList } = useStore();
   const { showToast } = useToast();
@@ -97,18 +101,26 @@ export function ItemDetailModal({ isOpen, onClose, item, onItemUpdated }: ItemDe
       setOriginalData(data);
       setIsEditMode(false);
       setShowDeleteConfirm(false);
+      // Clean up any pending image preview URL
+      if (pendingImage?.previewUrl) {
+        URL.revokeObjectURL(pendingImage.previewUrl);
+      }
+      setPendingImage(null);
+      setPendingImageRemove(false);
 
       if (contentRef.current) {
         contentRef.current.scrollTop = 0;
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item, isOpen]);
 
   // Track unsaved changes
   const hasUnsavedChanges = useMemo(() => {
+    if (pendingImage || pendingImageRemove) return true;
     if (!originalData) return false;
     return JSON.stringify(formData) !== JSON.stringify(originalData);
-  }, [formData, originalData]);
+  }, [formData, originalData, pendingImage, pendingImageRemove]);
 
   const handleCancel = useCallback(() => {
     if (hasUnsavedChanges) {
@@ -117,8 +129,14 @@ export function ItemDetailModal({ isOpen, onClose, item, onItemUpdated }: ItemDe
     if (originalData) {
       setFormData(originalData);
     }
+    // Clear pending image changes
+    if (pendingImage?.previewUrl) {
+      URL.revokeObjectURL(pendingImage.previewUrl);
+    }
+    setPendingImage(null);
+    setPendingImageRemove(false);
     setIsEditMode(false);
-  }, [hasUnsavedChanges, originalData]);
+  }, [hasUnsavedChanges, originalData, pendingImage]);
 
   const handleClose = useCallback(() => {
     if (hasUnsavedChanges) {
@@ -190,6 +208,21 @@ export function ItemDetailModal({ isOpen, onClose, item, onItemUpdated }: ItemDe
         periodic_group: formData.periodic_group,
         periodic_period: formData.periodic_period,
       });
+
+      // Handle pending image changes
+      if (pendingImageRemove) {
+        await inventoryApi.deleteItemImage(item.id);
+      } else if (pendingImage) {
+        await inventoryApi.uploadItemImage(item.id, pendingImage.file);
+      }
+
+      // Clean up preview URL
+      if (pendingImage?.previewUrl) {
+        URL.revokeObjectURL(pendingImage.previewUrl);
+      }
+      setPendingImage(null);
+      setPendingImageRemove(false);
+
       await fetchItems();
       // Refresh shopping list stats so craftable counts update
       fetchShoppingList().catch(() => showToast('info', 'Shopping list may need a refresh'));
@@ -220,6 +253,40 @@ export function ItemDetailModal({ isOpen, onClose, item, onItemUpdated }: ItemDe
     } catch (error) {
       showToast('error', 'Failed to delete item');
       console.error('Failed to delete item:', error);
+    }
+  };
+
+  // Determine which image to show: pending preview > existing > none
+  const imageUrl = pendingImageRemove
+    ? null
+    : pendingImage
+      ? pendingImage.previewUrl
+      : item?.image_path
+        ? `/${item.image_path}`
+        : null;
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Clean up old preview URL
+    if (pendingImage?.previewUrl) {
+      URL.revokeObjectURL(pendingImage.previewUrl);
+    }
+
+    setPendingImage({ file, previewUrl: URL.createObjectURL(file) });
+    setPendingImageRemove(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleRemoveImage = () => {
+    if (pendingImage?.previewUrl) {
+      URL.revokeObjectURL(pendingImage.previewUrl);
+    }
+    setPendingImage(null);
+    // Only mark for server deletion if there's an existing image
+    if (item?.image_path) {
+      setPendingImageRemove(true);
     }
   };
 
@@ -354,6 +421,54 @@ export function ItemDetailModal({ isOpen, onClose, item, onItemUpdated }: ItemDe
               <Plus size={16} />
             </button>
           </div>
+        </div>
+
+        {/* Photo Section */}
+        <div className={styles.photoSection}>
+          <div className={styles.sectionLabel}>Photo</div>
+          {imageUrl ? (
+            <div className={styles.photoPreview}>
+              <img
+                src={imageUrl}
+                alt={item?.name || 'Bottle'}
+                className={styles.photoImage}
+              />
+              {isEditMode && (
+                <div className={styles.photoActions}>
+                  <button
+                    type="button"
+                    className={styles.photoBtn}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Change
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.photoBtnDanger}
+                    onClick={handleRemoveImage}
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : isEditMode ? (
+            <button
+              type="button"
+              className={styles.uploadBtn}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={!item?.id}
+            >
+              Add Photo
+            </button>
+          ) : null}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            style={{ display: 'none' }}
+            onChange={handleImageSelect}
+          />
         </div>
 
         {/* Content */}

@@ -8,16 +8,16 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 
 ![AlcheMix Login](public/login%20screenshot.png)
 
-**Version:** v1.36.0 | **Tests:** 1,706
+**Version:** v1.37.0 | **Tests:** 1,716
 
 ## Features
 
-- **My Bar** - Category-organized inventory with 9 tabs, auto-classification, CSV import, periodic table tags
+- **My Bar** - Category-organized inventory with 9 tabs, auto-classification, CSV import, bottle photo upload
 - **Periodic Table of Mixology** - 90+ elements organized by function and origin, with hidden elements that appear as you add inventory
 - **Recipe Management** - Collections, bulk operations, CSV import, spirit detection, favorites
 - **Recipe Molecule Visualization** - Chemical bond-style molecular diagrams with 80+ classified ingredients and Instagram Story export
 - **Smart Shopping List** - Near-miss algorithm, ingredient recommendations, recipe buckets
-- **AI Bartender** - Gemini-powered with SSE streaming, hybrid search (PostgreSQL + MemMachine), concept expansion
+- **AI Bartender** - Claude-powered (Sonnet 4.6) with SSE streaming, hybrid search (PostgreSQL + MemMachine), concept expansion
 - **Dashboard** - Lab overview with bar composition, recipe mastery stats, AI insights
 - **Onboarding** - 3-step first-time flow: welcome, quick-add bottles, preview makeable cocktails
 - **Dark Mode** - Full theme support (light/dark/system) with persistence
@@ -29,7 +29,7 @@ Modern cocktail inventory and recipe management system with AI-powered bartender
 |-------|------------|
 | Frontend | Next.js 14, TypeScript, Zustand, CSS Modules |
 | Backend | Express.js, TypeScript, PostgreSQL (pg), JWT |
-| AI | Gemini 3 Flash with SSE streaming |
+| AI | Claude Sonnet 4.6 (@anthropic-ai/sdk) with SSE streaming |
 | Infrastructure | Docker, Neo4j 5.23, PostgreSQL 16, MemMachine v2 |
 | Email | Resend (recommended) or SMTP via Nodemailer |
 
@@ -63,7 +63,7 @@ DATABASE_URL=postgresql://memmachine:memmachinepassword@localhost:5432/alchemix
 FRONTEND_URL=http://localhost:3001
 
 # Optional
-GEMINI_API_KEY=your-gemini-key          # AI Bartender
+ANTHROPIC_API_KEY=your-anthropic-key     # AI Bartender
 RESEND_API_KEY=re_your_key              # Email verification/reset
 MEMMACHINE_API_URL=http://localhost:8080 # Semantic search
 ```
@@ -129,10 +129,10 @@ cd api && npm run build         # Backend build
 
 | Suite | Tests |
 |-------|-------|
-| Frontend | 460 |
-| Backend | 948 |
+| Frontend | 466 |
+| Backend | 952 |
 | Recipe Molecule | 298 |
-| **Total** | **1,706** |
+| **Total** | **1,716** |
 
 ```bash
 npm test                                          # Frontend
@@ -162,7 +162,7 @@ cd packages/recipe-molecule && npm test           # Molecule
 
 **Email verification not working** - Without Resend/SMTP configured, verification links are logged to the terminal.
 
-**AI Bartender errors** - Check `GEMINI_API_KEY` is set in `api/.env`.
+**AI Bartender errors** - Check `ANTHROPIC_API_KEY` is set in `api/.env`.
 
 For more details, see `Documentation/DEV_NOTES.md` or [open an issue](https://github.com/JLawMcGraw/alchemix/issues).
 

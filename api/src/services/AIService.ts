@@ -1,7 +1,7 @@
 /**
  * AI Service
  *
- * Handles AI prompt building, context assembly, and Gemini API interactions.
+ * Handles AI prompt building, context assembly, and Claude API interactions.
  * Extracted from messages.ts for better separation of concerns.
  *
  * Responsibilities:
@@ -10,10 +10,11 @@
  * - Sanitize context and conversation history
  * - Detect prompt injection attempts
  * - Filter sensitive output
- * - Call Gemini 3 Pro API for conversations
- * - Call Gemini 3 Flash API for dashboard insights
+ * - Call Claude Sonnet 4.6 API for conversations
+ * - Call Claude Sonnet 4.6 API for dashboard insights
  */
 
+import Anthropic from '@anthropic-ai/sdk';
 import { queryOne, queryAll } from '../database/db';
 import { sanitizeString } from '../utils/inputValidator';
 import { memoryService } from './MemoryService';
@@ -249,6 +250,17 @@ const INGREDIENT_KEYWORDS = [
 ];
 
 class AIService {
+  /**
+   * Create an Anthropic client instance with the configured API key.
+   */
+  private getClient(): Anthropic {
+    const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+    if (!apiKey || apiKey === 'your-api-key-here') {
+      throw new Error('AI service is not configured');
+    }
+    return new Anthropic({ apiKey });
+  }
+
   /**
    * Detect specific ingredient mentions in user's query
    * Returns array of detected ingredients (longest matches first to handle "allspice dram" vs "dram")
@@ -2203,176 +2215,106 @@ ${hasRecipes ? `End with: RECOMMENDATIONS: Recipe Name 1, Recipe Name 2
   }
 
   /**
-   * Send message to Gemini 3 Pro API
+   * Send message to Claude Sonnet 4.6 API
    */
   async sendMessage(
     userId: number,
     message: string,
     history: { role: 'user' | 'assistant'; content: string }[] = []
   ): Promise<{ response: string; usage?: Record<string, number> }> {
-    const apiKey = process.env.GEMINI_API_KEY?.trim();
-    if (!apiKey || apiKey === 'your-api-key-here') {
-      throw new Error('AI service is not configured');
-    }
-
+    const client = this.getClient();
     const systemPrompt = await this.buildContextAwarePrompt(userId, message, history);
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 90000);
+    const staticText = systemPrompt[0]?.text || '';
+    const dynamicText = systemPrompt[1]?.text || '';
+    const totalPromptChars = staticText.length + dynamicText.length;
+
+    logger.info('AI Prompt Size', {
+      staticChars: staticText.length,
+      dynamicChars: dynamicText.length,
+      totalChars: totalPromptChars,
+      estimatedTokens: Math.ceil(totalPromptChars / 4)
+    });
+
+    logger.info('AI Prompt Dynamic Preview', {
+      preview: dynamicText.substring(0, 1000)
+    });
+
+    const messages: Anthropic.MessageParam[] = [
+      ...history.map(msg => ({
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content,
+      })),
+      { role: 'user' as const, content: message },
+    ];
 
     try {
-      // Log prompt size for cost debugging
-      const staticText = systemPrompt[0]?.text || '';
-      const dynamicText = systemPrompt[1]?.text || '';
-      const totalPromptChars = staticText.length + dynamicText.length;
-      logger.info('AI Prompt Size', {
-        staticChars: staticText.length,
-        dynamicChars: dynamicText.length,
-        totalChars: totalPromptChars,
-        estimatedTokens: Math.ceil(totalPromptChars / 4)
-      });
-
-      // Log a snippet of the dynamic content to verify search results
-      logger.info('AI Prompt Dynamic Preview', {
-        preview: dynamicText.substring(0, 1000)
-      });
-
-      // Convert history to Gemini format (assistant -> model)
-      const geminiHistory = history.map(msg => ({
-        role: msg.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: msg.content }]
-      }));
-
-      // Build Gemini request
-      // Safety settings allow cocktail names like "Porn Star Martini", "Sex on the Beach" to pass through
-      const geminiRequest = {
-        system_instruction: {
-          parts: [{ text: staticText + '\n\n' + dynamicText }]
-        },
-        contents: [
-          ...geminiHistory,
-          { role: 'user', parts: [{ text: message }] }
-        ],
-        generationConfig: {
-          temperature: 1.0,  // Gemini 3 works best at temperature 1.0
-          maxOutputTokens: 8192,  // Flash needs less headroom than Pro
-          topP: 0.95,
-          topK: 40
-        },
-        safetySettings: [
-          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-        ]
-      };
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey
+      const response = await client.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 8192,
+        system: [
+          {
+            type: 'text' as const,
+            text: staticText,
+            cache_control: { type: 'ephemeral' as const },
           },
-          body: JSON.stringify(geminiRequest),
-          signal: controller.signal,
+          {
+            type: 'text' as const,
+            text: dynamicText,
+          },
+        ],
+        messages,
+      });
+
+      let aiMessage = '';
+      for (const block of response.content) {
+        if (block.type === 'text') {
+          aiMessage += block.text;
         }
-      );
-
-      if (!response.ok) {
-        const errorBody = await response.text();
-        logger.error('Gemini API error', { status: response.status, body: errorBody });
-        throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
       }
-
-      const data = await response.json() as {
-        candidates?: Array<{
-          content?: {
-            parts?: Array<{ text?: string }>;
-          };
-          finishReason?: string;
-          safetyRatings?: Array<{ category: string; probability: string; blocked?: boolean }>;
-        }>;
-        usageMetadata?: {
-          promptTokenCount?: number;
-          candidatesTokenCount?: number;
-          totalTokenCount?: number;
-        };
-        promptFeedback?: {
-          blockReason?: string;
-          safetyRatings?: Array<{ category: string; probability: string }>;
-        };
-      };
-      clearTimeout(timeoutId);
-
-      // Handle empty responses with graceful fallbacks
-      const candidate = data.candidates?.[0];
-      let aiMessage = candidate?.content?.parts?.[0]?.text;
 
       if (!aiMessage) {
-        logger.error('Gemini returned empty response', {
-          hasCandidate: !!candidate,
-          finishReason: candidate?.finishReason,
-          safetyRatings: candidate?.safetyRatings,
-          promptFeedback: data.promptFeedback,
-          fullResponse: JSON.stringify(data).substring(0, 1000)
+        logger.error('Claude returned empty response', {
+          stopReason: response.stop_reason,
         });
-
-        // Provide graceful fallback messages based on the reason
-        if (candidate?.finishReason === 'MAX_TOKENS') {
-          aiMessage = "I got a bit carried away thinking about that! Could you try a more specific question? For example: \"What can I make with bourbon?\" or \"Suggest a refreshing summer cocktail.\"";
-        } else if (candidate?.finishReason === 'SAFETY') {
-          aiMessage = "I couldn't process that request. What cocktails are you interested in exploring today?";
-        } else if (data.promptFeedback?.blockReason) {
-          aiMessage = "I had trouble with that request. Try asking about specific cocktails or spirits you'd like to explore.";
-        } else {
-          aiMessage = "I'm having a moment - could you rephrase that? Try asking about a specific spirit or what you're in the mood for.";
-        }
-      }
-      const usageMetadata = data.usageMetadata;
-
-      // Log usage
-      const inputTokens = usageMetadata?.promptTokenCount || 0;
-      const outputTokens = usageMetadata?.candidatesTokenCount || 0;
-      
-      if (usageMetadata) {
-        logger.info('AI Cost', {
-          userId,
-          provider: 'gemini',
-          inputTokens,
-          outputTokens,
-          totalTokens: usageMetadata.totalTokenCount || 0
-        });
+        aiMessage = "I'm having a moment - could you rephrase that? Try asking about a specific spirit or what you're in the mood for.";
       }
 
-      // Log full diagnostic for debugging prompt/response quality
+      const inputTokens = response.usage.input_tokens;
+      const outputTokens = response.usage.output_tokens;
+
+      logger.info('AI Cost', {
+        userId,
+        provider: 'claude',
+        inputTokens,
+        outputTokens,
+        totalTokens: inputTokens + outputTokens,
+      });
+
       logAIDiagnostic({
         userId,
         userQuery: message,
         systemPrompt: staticText + '\n\n' + dynamicText,
         systemPromptTokens: inputTokens,
         aiResponse: aiMessage,
-        outputTokens
+        outputTokens,
       });
 
-      // Store conversation turn
       await memoryService.storeConversationTurn(userId, message, aiMessage);
 
-      // Convert Gemini usage to our format
-      const usage = usageMetadata ? {
-        input_tokens: usageMetadata.promptTokenCount || 0,
-        output_tokens: usageMetadata.candidatesTokenCount || 0
-      } : undefined;
-
-      return { response: aiMessage, usage };
-    } finally {
-      clearTimeout(timeoutId);
+      return {
+        response: aiMessage,
+        usage: { input_tokens: inputTokens, output_tokens: outputTokens },
+      };
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Claude API error', { error: errMsg });
+      throw new Error(`Claude API error: ${errMsg}`);
     }
   }
 
   /**
-   * Send message to Gemini API with streaming response
+   * Send message to Claude API with streaming response
    * Yields text chunks as they arrive from the API
    */
   async *sendMessageStream(
@@ -2380,209 +2322,93 @@ ${hasRecipes ? `End with: RECOMMENDATIONS: Recipe Name 1, Recipe Name 2
     message: string,
     history: { role: 'user' | 'assistant'; content: string }[] = []
   ): AsyncGenerator<string, void, unknown> {
-    const apiKey = process.env.GEMINI_API_KEY?.trim();
-    if (!apiKey || apiKey === 'your-api-key-here') {
-      throw new Error('AI service is not configured');
-    }
-
+    const client = this.getClient();
     const systemPrompt = await this.buildContextAwarePrompt(userId, message, history);
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 90000);
+    const staticText = systemPrompt[0]?.text || '';
+    const dynamicText = systemPrompt[1]?.text || '';
 
-    try {
-      const staticText = systemPrompt[0]?.text || '';
-      const dynamicText = systemPrompt[1]?.text || '';
+    const messages: Anthropic.MessageParam[] = [
+      ...history.map(msg => ({
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content,
+      })),
+      { role: 'user' as const, content: message },
+    ];
 
-      // Convert history to Gemini format
-      const geminiHistory = history.map(msg => ({
-        role: msg.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: msg.content }]
-      }));
+    let fullResponse = '';
 
-      const geminiRequest = {
-        system_instruction: {
-          parts: [{ text: staticText + '\n\n' + dynamicText }]
-        },
-        contents: [
-          ...geminiHistory,
-          { role: 'user', parts: [{ text: message }] }
-        ],
-        generationConfig: {
-          temperature: 1.0,
-          maxOutputTokens: 8192,
-          topP: 0.95,
-          topK: 40
-        },
-        safetySettings: [
-          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-        ]
-      };
-
-      // Use streamGenerateContent endpoint
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:streamGenerateContent?alt=sse`,
+    const stream = client.messages.stream({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 8192,
+      system: [
         {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey
-          },
-          body: JSON.stringify(geminiRequest),
-          signal: controller.signal,
-        }
-      );
+          type: 'text' as const,
+          text: staticText,
+          cache_control: { type: 'ephemeral' as const },
+        },
+        {
+          type: 'text' as const,
+          text: dynamicText,
+        },
+      ],
+      messages,
+    });
 
-      if (!response.ok) {
-        const errorBody = await response.text();
-        logger.error('Gemini streaming API error', { status: response.status, body: errorBody });
-        throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
+    for await (const event of stream) {
+      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+        fullResponse += event.delta.text;
+        yield event.delta.text;
       }
+    }
 
-      if (!response.body) {
-        throw new Error('No response body for streaming');
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let fullResponse = '';
-      let chunkIndex = 0;
-
-      logger.info('Starting to read Gemini stream');
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          logger.info('Gemini stream complete', { totalChunks: chunkIndex });
-          break;
-        }
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const jsonStr = line.slice(6).trim();
-            if (jsonStr && jsonStr !== '[DONE]') {
-              try {
-                const data = JSON.parse(jsonStr);
-                const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (text) {
-                  chunkIndex++;
-                  fullResponse += text;
-                  yield text;
-                }
-              } catch {
-                // Skip malformed JSON chunks
-              }
-            }
-          }
-        }
-      }
-
-      // Store conversation after streaming completes
-      if (fullResponse) {
-        await memoryService.storeConversationTurn(userId, message, fullResponse);
-      }
-
-    } finally {
-      clearTimeout(timeoutId);
+    if (fullResponse) {
+      await memoryService.storeConversationTurn(userId, message, fullResponse);
     }
   }
 
   /**
-   * Get dashboard insight using Gemini 3 Flash (faster, cheaper for quick insights)
+   * Get dashboard insight using Claude Sonnet 4.6
    */
   async getDashboardInsight(userId: number): Promise<{ greeting: string; insight: string }> {
-    const apiKey = process.env.GEMINI_API_KEY?.trim();
-    if (!apiKey || apiKey === 'your-api-key-here') {
-      throw new Error('AI service is not configured');
-    }
-
+    const client = this.getClient();
     const systemPrompt = await this.buildDashboardInsightPrompt(userId);
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const systemText = systemPrompt.map(p => p.text).join('\n\n');
 
     let aiResponse = '{}';
 
     try {
-      // Combine system prompt parts into single instruction
-      const systemText = systemPrompt.map(p => p.text).join('\n\n');
-
-      // Safety settings allow cocktail names like "Porn Star Martini", "Sex on the Beach" to pass through
-      const geminiRequest = {
-        system_instruction: {
-          parts: [{ text: systemText }]
-        },
-        contents: [
-          { role: 'user', parts: [{ text: 'Generate the dashboard greeting and insight now. Return ONLY valid JSON.' }] }
-        ],
-        generationConfig: {
-          temperature: 1.0,
-          maxOutputTokens: 4096,  // Gemini 3 Flash uses thinking tokens that count against this limit
-          topP: 0.95,
-          topK: 40,
-          responseMimeType: 'application/json'
-        },
-        safetySettings: [
-          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-        ]
-      };
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey
+      const response = await client.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4096,
+        system: systemText,
+        messages: [
+          {
+            role: 'user',
+            content: 'Generate the dashboard greeting and insight now. Return ONLY valid JSON.',
           },
-          body: JSON.stringify(geminiRequest),
-          signal: controller.signal,
+        ],
+      });
+
+      for (const block of response.content) {
+        if (block.type === 'text') {
+          aiResponse = block.text;
+          break;
         }
-      );
-
-      if (!response.ok) {
-        const errorBody = await response.text();
-        logger.error('Gemini API error (dashboard)', { status: response.status, body: errorBody });
-        throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
       }
 
-      const data = await response.json() as {
-        candidates?: Array<{
-          content?: {
-            parts?: Array<{ text?: string }>;
-          };
-        }>;
-        usageMetadata?: {
-          promptTokenCount?: number;
-          candidatesTokenCount?: number;
-          totalTokenCount?: number;
-        };
-      };
-      aiResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-
-      // Log usage
-      if (data.usageMetadata) {
-        logger.info('Dashboard AI Cost', {
-          userId,
-          provider: 'gemini',
-          inputTokens: data.usageMetadata.promptTokenCount || 0,
-          outputTokens: data.usageMetadata.candidatesTokenCount || 0
-        });
-      }
-    } finally {
-      clearTimeout(timeoutId);
+      logger.info('Dashboard AI Cost', {
+        userId,
+        provider: 'claude',
+        inputTokens: response.usage.input_tokens,
+        outputTokens: response.usage.output_tokens,
+      });
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Claude API error (dashboard)', { error: errMsg });
+      throw new Error(`Claude API error: ${errMsg}`);
     }
 
-    // Parse response
     try {
       const cleanedResponse = aiResponse.replace(/```json\n?|\n?```/g, '').trim();
       const parsed = JSON.parse(cleanedResponse);
@@ -2594,7 +2420,7 @@ ${hasRecipes ? `End with: RECOMMENDATIONS: Recipe Name 1, Recipe Name 2
       logger.error('Failed to parse AI response', { aiResponse });
       return {
         greeting: 'Ready for your next experiment?',
-        insight: 'Check your inventory and explore new recipes to discover what you can create today.'
+        insight: 'Check your inventory and explore new recipes to discover what you can create today.',
       };
     }
   }

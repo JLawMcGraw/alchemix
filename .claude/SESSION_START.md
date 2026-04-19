@@ -4,10 +4,10 @@
 
 | Field | Value |
 |-------|-------|
-| Version | v1.36.0 |
-| Branch | `feature/molecule-visual-variety` |
-| Tests | 1706 total (948 backend, 460 frontend, 298 recipe-molecule) |
-| Last Updated | January 23, 2026 |
+| Version | v1.37.0 |
+| Branch | `main` |
+| Tests | 1716 total (952 backend, 466 frontend, 298 recipe-molecule) |
+| Last Updated | April 19, 2026 |
 
 ---
 
@@ -29,7 +29,7 @@ A full-stack cocktail inventory and recipe management app with AI-powered barten
 |-------|------------|
 | Frontend | Next.js 14, TypeScript, Zustand, CSS Modules |
 | Backend | Express.js, TypeScript, PostgreSQL (pg driver) |
-| AI | Gemini 3 Flash (conversations + dashboard) with SSE streaming |
+| AI | Claude Sonnet 4.6 (conversations + dashboard) with SSE streaming |
 | Memory | MemMachine (Neo4j vector store) + PostgreSQL hybrid search |
 | Auth | JWT + bcrypt, token blacklist, database-backed versioning |
 | Molecule Viz | `@alchemix/recipe-molecule` (custom d3-force SVG) |

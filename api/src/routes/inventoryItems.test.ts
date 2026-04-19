@@ -46,7 +46,25 @@ vi.mock('../utils/logger', () => ({
   logSecurityEvent: vi.fn(),
 }));
 
+// Mock fs for image delete tests
+vi.mock('fs', async () => {
+  const actual = await vi.importActual<typeof import('fs')>('fs');
+  return {
+    ...actual,
+    default: {
+      ...actual,
+      existsSync: vi.fn(() => true),
+      unlinkSync: vi.fn(),
+      mkdirSync: vi.fn(),
+    },
+    existsSync: vi.fn(() => true),
+    unlinkSync: vi.fn(),
+    mkdirSync: vi.fn(),
+  };
+});
+
 import { queryOne, queryAll, execute } from '../database/db';
+import fs from 'fs';
 
 // Helper to create mock inventory item
 const createMockItem = (overrides: Partial<{
@@ -604,6 +622,51 @@ describe('Inventory Items Routes', () => {
       expect(res.body.updated).toBe(1);
       // Verify execute was called with the correct classification
       expect(execute).toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /api/inventory-items/:id/image', () => {
+    it('should return 400 for invalid item ID', async () => {
+      const res = await request(app).post('/api/inventory-items/abc/image');
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toBe('Invalid item ID');
+    });
+
+    it('should return 400 when no file is provided', async () => {
+      const res = await request(app).post('/api/inventory-items/1/image');
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toBe('No image file provided');
+    });
+  });
+
+  describe('DELETE /api/inventory-items/:id/image', () => {
+    it('should return 400 for invalid item ID', async () => {
+      const res = await request(app).delete('/api/inventory-items/abc/image');
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toBe('Invalid item ID');
+    });
+
+    it('should delete image successfully', async () => {
+      // Mock getImagePath: queryOne returns existing image path
+      (queryOne as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ image_path: 'uploads/bottles/user_1/item_1.jpg' });
+      // Mock updateImagePath: execute succeeds
+      (execute as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ rows: [], rowCount: 1 });
+      // Mock fs calls
+      (fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(true);
+      (fs.unlinkSync as ReturnType<typeof vi.fn>).mockReturnValue(undefined);
+
+      const res = await request(app).delete('/api/inventory-items/1/image');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ success: true });
+      expect(fs.existsSync).toHaveBeenCalled();
+      expect(fs.unlinkSync).toHaveBeenCalled();
     });
   });
 

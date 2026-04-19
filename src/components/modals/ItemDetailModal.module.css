@@ -690,6 +690,96 @@
   opacity: 0.6;
 }
 
+/* Photo Section */
+.photoSection {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--color-border-default, #E2E8F0);
+}
+
+.sectionLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted, #94A3B8);
+  margin-bottom: 10px;
+}
+
+.photoPreview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.photoImage {
+  width: 280px;
+  height: 380px;
+  object-fit: cover;
+  border-radius: var(--radius, 4px);
+  border: 1px solid var(--color-border-default, #E2E8F0);
+}
+
+.photoActions {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+}
+
+.photoBtn {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-family: var(--font-mono);
+  border: 1px solid var(--color-border-default, #CBD5E1);
+  border-radius: var(--radius, 4px);
+  background: transparent;
+  color: var(--fg-primary, #1E293B);
+  cursor: pointer;
+}
+
+.photoBtn:hover {
+  background: var(--bg-elevated, #F1F5F9);
+}
+
+.photoBtnDanger {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-family: var(--font-mono);
+  border: 1px solid var(--color-error, #EF4444);
+  border-radius: var(--radius, 4px);
+  background: transparent;
+  color: var(--color-error, #EF4444);
+  cursor: pointer;
+}
+
+.photoBtnDanger:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.uploadBtn {
+  padding: 10px 16px;
+  font-size: 13px;
+  font-family: var(--font-mono);
+  border: 2px dashed var(--color-border-default, #CBD5E1);
+  border-radius: var(--radius, 4px);
+  background: transparent;
+  color: var(--color-text-muted, #94A3B8);
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+}
+
+.uploadBtn:hover {
+  border-color: var(--bond-agave, #0D9488);
+  color: var(--bond-agave, #0D9488);
+}
+
+.uploadBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Dark Mode */
 :global([data-theme="dark"]) .modal {
   background: var(--bg-elevated, #1E293B);
@@ -914,6 +1004,33 @@
 
 :global([data-theme="dark"]) .saveBtnActive:hover:not(:disabled) {
   background: #2DD4BF;
+}
+
+:global([data-theme="dark"]) .photoSection {
+  border-bottom-color: var(--border-hairline, #334155);
+}
+
+:global([data-theme="dark"]) .photoImage {
+  border-color: var(--border-hairline, #334155);
+}
+
+:global([data-theme="dark"]) .photoBtn {
+  border-color: var(--border-hairline, #475569);
+  color: var(--fg-primary, #F1F5F9);
+}
+
+:global([data-theme="dark"]) .photoBtn:hover {
+  background: var(--bg-paper, #0F172A);
+}
+
+:global([data-theme="dark"]) .uploadBtn {
+  border-color: var(--border-hairline, #475569);
+  color: var(--fg-secondary, #64748B);
+}
+
+:global([data-theme="dark"]) .uploadBtn:hover {
+  border-color: var(--bond-agave, #14B8A6);
+  color: var(--bond-agave, #14B8A6);
 }
 
 /* Responsive */

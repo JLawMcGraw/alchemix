@@ -3,21 +3,6 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { BottleCard } from './BottleCard';
 import type { InventoryItem } from '@/types';
 
-// Mock useTheme hook
-vi.mock('@/hooks/useTheme', () => ({
-  useTheme: () => ({ isDarkMode: false }),
-}));
-
-// Mock getPeriodicTags
-vi.mock('@/lib/periodicTableV2', () => ({
-  getPeriodicTags: (item: InventoryItem) => {
-    if (item.category === 'spirit') {
-      return { group: 'Base', period: 'Grain' };
-    }
-    return { group: null, period: null };
-  },
-}));
-
 describe('BottleCard', () => {
   const mockItem: InventoryItem = {
     id: 1,
@@ -59,10 +44,22 @@ describe('BottleCard', () => {
       expect(screen.getByText('Kentucky, USA')).toBeInTheDocument();
     });
 
-    it('should render periodic tags for spirits', () => {
+    it('should render location in header', () => {
       render(<BottleCard item={mockItem} />);
-      expect(screen.getByText('Base')).toBeInTheDocument();
-      expect(screen.getByText('Grain')).toBeInTheDocument();
+      expect(screen.getByText('Kentucky, USA')).toBeInTheDocument();
+    });
+
+    it('should render bottle image when image_path is set', () => {
+      const itemWithImage = { ...mockItem, image_path: 'uploads/bottles/user_1/item_1.jpg' };
+      render(<BottleCard item={itemWithImage} />);
+      const img = screen.getByRole('img');
+      expect(img).toBeInTheDocument();
+      expect(img).toHaveAttribute('src', '/uploads/bottles/user_1/item_1.jpg');
+    });
+
+    it('should not render bottle image when image_path is not set', () => {
+      render(<BottleCard item={mockItem} />);
+      expect(screen.queryByRole('img')).not.toBeInTheDocument();
     });
 
     it('should not render type if not provided', () => {
@@ -80,7 +77,7 @@ describe('BottleCard', () => {
     it('should not render location if not provided', () => {
       const itemWithoutLocation = { ...mockItem, distillery_location: undefined };
       render(<BottleCard item={itemWithoutLocation} />);
-      expect(screen.queryByText('Location:')).not.toBeInTheDocument();
+      expect(screen.queryByText('Kentucky, USA')).not.toBeInTheDocument();
     });
   });
 

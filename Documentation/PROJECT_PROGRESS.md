@@ -1,21 +1,21 @@
 # Project Development Progress
 
-Last updated: 2026-02-26 (Session 23)
+Last updated: 2026-04-19 (Session 24)
 
 ---
 
 ## Current Status
 
-**Version**: v1.36.0
-**Phase**: Deployment Preparation - Bug Fixes & UX Polish
-**Branch**: `feature/molecule-visual-variety`
+**Version**: v1.37.0
+**Phase**: Personal Use Redesign
+**Branch**: `main`
 **Blockers**: None
 
 **Test Coverage**:
-- Backend: 948 tests (35 test files)
-- Frontend: 460 tests (18 test files)
+- Backend: 952 tests (35 test files)
+- Frontend: 466 tests (18 test files)
 - Recipe-Molecule: 298 tests (6 test files)
-- **Total: 1706 tests**
+- **Total: 1716 tests**
 
 **Redesign Progress**:
 - Phase 1-4 (Batch A - Foundation): **Complete**
@@ -36,7 +36,65 @@ Last updated: 2026-02-26 (Session 23)
 
 ---
 
-## Recent Session (2026-02-26): Code Review Improvements
+## Recent Session (2026-04-19): Personal Use Redesign — Claude API, Bottle Photos, BottleCard Cleanup
+
+### Summary
+Migrated AI bartender from Gemini to Claude Sonnet 4.6, added bottle photo upload with two-column BottleCard layout, and removed periodic tags from card face (shown in modal only).
+
+### Work Completed
+
+#### 1. Claude API Migration
+**Problem**: AI bartender used Gemini 3 Flash via raw fetch calls. Switching to personal use with Claude API.
+**Solution**: Installed `@anthropic-ai/sdk`, rewrote `sendMessage()`, `sendMessageStream()`, and `getDashboardInsight()` in AIService.ts to use Anthropic SDK with `claude-sonnet-4-6`. Replaced `GEMINI_API_KEY` with `ANTHROPIC_API_KEY` across env config, validation, and error messages. System prompt and streaming architecture preserved.
+
+#### 2. Bottle Photo Upload
+**Problem**: No way to add bottle images to inventory items.
+**Solution**: Added `image_path TEXT` column to `inventory_items`, multer-based upload route (`POST /:id/image`) with MIME+extension validation, delete route (`DELETE /:id/image`), static file serving with CORP header override, and Next.js rewrite proxy for same-origin image loading. Frontend: two-column BottleCard grid (details left, fixed-size image right), photo upload/preview/delete in ItemDetailModal with save-on-click flow (preview locally, upload on Save). `object-fit: cover` used for closer crop in modal.
+
+#### 3. BottleCard Layout Redesign
+**Problem**: Periodic tags cluttered the card; location text overflowed.
+**Solution**: Removed periodic tag badges from BottleCard (still visible in ItemDetailModal view mode). Moved distillery location to small subtitle text under bottle name in header. Type and ABV remain as horizontal detail rows in card body.
+
+#### 4. Tests & Documentation
+**Problem**: Tests referenced removed periodic tags; no tests for image routes.
+**Solution**: Updated BottleCard tests (removed tag test, added image/location tests — 26 total). Added 4 inventory route tests for image upload/delete. Updated ARCHITECTURE.md (Gemini→Claude across all diagrams and text, added image_path to schema). Updated README.md (Claude references, ANTHROPIC_API_KEY, test counts).
+
+### Files Changed
+```
+.gitignore (MODIFIED - added api/uploads/)
+next.config.js (MODIFIED - added /uploads rewrite proxy)
+README.md (MODIFIED - Claude references, test counts, version bump)
+Documentation/ARCHITECTURE.md (MODIFIED - Gemini→Claude, image_path in schema)
+docs/plans/2026-04-19-personal-use-redesign.md (NEW - design document)
+docs/plans/2026-04-19-personal-use-redesign-implementation.md (NEW - implementation plan)
+api/.env.example (MODIFIED - ANTHROPIC_API_KEY)
+api/package.json (MODIFIED - @anthropic-ai/sdk dependency)
+api/src/config/validateEnv.ts (MODIFIED - ANTHROPIC_API_KEY config)
+api/src/config/validateEnv.test.ts (MODIFIED - updated API key test)
+api/src/database/schema.sql (MODIFIED - added image_path column)
+api/src/routes/inventoryItems.ts (MODIFIED - image upload/delete routes)
+api/src/routes/inventoryItems.test.ts (MODIFIED - 4 new image route tests)
+api/src/routes/messages.ts (MODIFIED - error message update)
+api/src/server.ts (MODIFIED - static file serving with CORP header, path import)
+api/src/services/AIService.ts (MODIFIED - full Claude API rewrite)
+api/src/services/InventoryService.ts (MODIFIED - updateImagePath, getImagePath)
+packages/types/src/domain.ts (MODIFIED - image_path field)
+src/components/BottleCard/BottleCard.tsx (MODIFIED - two-column layout, image, location in header)
+src/components/BottleCard/BottleCard.module.css (MODIFIED - grid layout, image column, location style)
+src/components/BottleCard/BottleCard.test.tsx (MODIFIED - updated for new layout)
+src/components/modals/ItemDetailModal.tsx (MODIFIED - photo upload with save flow)
+src/components/modals/ItemDetailModal.module.css (MODIFIED - photo section styles)
+src/lib/api.ts (MODIFIED - uploadItemImage, deleteItemImage functions)
+```
+
+### Next Steps
+- Test AI bartender end-to-end with Claude API key
+- Upload bottle photos for full inventory
+- Deploy to production
+
+---
+
+## Previous Session (2026-02-26): Code Review Improvements
 
 ### Summary
 Implemented 7 code review improvements across type safety, error handling, build configuration, and maintainability. Extracted 234-line recipe-linking function into dedicated module.

@@ -49,7 +49,7 @@ graph TB
     end
 
     subgraph External["External Services"]
-        Gemini[Gemini AI API]
+        Claude[Claude AI API]
         MemMachine[MemMachine<br/>Semantic Memory]
         Neo4j[(Neo4j<br/>Vector Store)]
     end
@@ -62,7 +62,7 @@ graph TB
     Routes --> Middleware
     Middleware --> Services
     Services --> DB
-    Services -->|AI Requests| Gemini
+    Services -->|AI Requests| Claude
     Services -->|Memory Ops| MemMachine
     MemMachine --> Neo4j
 ```
@@ -81,7 +81,7 @@ graph TB
 | | TypeScript | Type safety |
 | | pg (node-postgres) | PostgreSQL database driver |
 | **Database** | PostgreSQL 16 | Relational database |
-| **AI** | Gemini 3 Flash + SSE Streaming | AI bartender recommendations |
+| **AI** | Claude Sonnet 4.6 + SSE Streaming | AI bartender recommendations |
 | **Memory** | PostgreSQL + MemMachine v2 | Hybrid search (exact + semantic) |
 | | Neo4j 5.23 | Vector embeddings storage |
 | **Auth** | JWT | Token-based authentication |
@@ -481,7 +481,7 @@ graph TB
     end
 
     subgraph External
-        Gemini[Gemini API]
+        Claude[Claude API]
         MM[MemMachine]
     end
 
@@ -498,7 +498,7 @@ graph TB
     S5 --> DB
     S8 --> DB
 
-    S7 --> Gemini
+    S7 --> Claude
     S7 --> S3
     S7 --> S8
     S3 --> MM
@@ -557,6 +557,7 @@ erDiagram
         string tasting_notes
         string periodic_group
         string periodic_period
+        string image_path
         datetime created_at
     }
 
@@ -764,7 +765,7 @@ sequenceDiagram
 
 ## External Integrations
 
-### Gemini AI Integration (with SSE Streaming)
+### Claude AI Integration (with SSE Streaming)
 
 ```mermaid
 graph LR
@@ -774,9 +775,9 @@ graph LR
         CocktailData[cocktailIngredients.json]
     end
 
-    subgraph GeminiAPI["Gemini API"]
-        Models[Gemini 3 Flash]
-        Stream[streamGenerateContent?alt=sse]
+    subgraph ClaudeAPI["Claude API"]
+        Models[Claude Sonnet 4.6]
+        Stream[messages.stream]
     end
 
     subgraph Context["Context Building"]
@@ -794,7 +795,7 @@ graph LR
 ```
 
 **Streaming Implementation:**
-- Backend uses `streamGenerateContent?alt=sse` endpoint
+- Backend uses `@anthropic-ai/sdk` `messages.stream()` method
 - Express sends chunks via Server-Sent Events (SSE)
 - Headers: `Content-Type: text/event-stream`, `X-Accel-Buffering: no`
 - Frontend uses `fetch` with `ReadableStream` to parse chunks

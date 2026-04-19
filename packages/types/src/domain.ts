@@ -86,6 +86,7 @@ export interface InventoryItemInput {
   tasting_notes?: string;
   periodic_group?: PeriodicGroup | null;
   periodic_period?: PeriodicPeriod | null;
+  image_path?: string | null;
 }
 
 /**

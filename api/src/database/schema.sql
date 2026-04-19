@@ -81,6 +81,9 @@ CREATE TABLE IF NOT EXISTS inventory_items (
   periodic_group TEXT CHECK (periodic_group IN ('Base', 'Bridge', 'Modifier', 'Sweetener', 'Reagent', 'Catalyst')),
   periodic_period TEXT CHECK (periodic_period IN ('Agave', 'Cane', 'Grain', 'Grape', 'Fruit', 'Botanic')),
 
+  -- Bottle photo
+  image_path TEXT,
+
   created_at TIMESTAMP DEFAULT NOW()
 );
 

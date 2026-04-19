@@ -44,6 +44,7 @@ import './config/env';
 import { config } from './config/validateEnv';
 
 // Now import modules that depend on environment variables
+import path from 'path';
 import express, { Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -429,6 +430,13 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
  * The optional secret enables signed cookies for additional integrity verification.
  */
 app.use(cookieParser(process.env.COOKIE_SECRET || process.env.JWT_SECRET));
+
+// Serve uploaded files (bottle photos, etc.)
+// Override Helmet's Cross-Origin-Resource-Policy for uploads so the frontend can load images cross-origin
+app.use('/uploads', (req, res, next) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  next();
+}, express.static(path.join(process.cwd(), 'uploads')));
 
 /**
  * Health Check Routes (Kubernetes/Docker Compatible)

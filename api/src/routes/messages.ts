@@ -186,10 +186,10 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
     if (errorMessage.includes('not configured')) {
-      logger.error('GEMINI_API_KEY not configured or still using placeholder value');
+      logger.error('ANTHROPIC_API_KEY not configured or still using placeholder value');
       return res.status(503).json({
         success: false,
-        error: 'AI service is not configured. Please update GEMINI_API_KEY on the API server.'
+        error: 'AI service is not configured. Please set ANTHROPIC_API_KEY on the API server.'
       });
     }
 
@@ -327,7 +327,7 @@ router.get('/dashboard-insight', asyncHandler(async (req: Request, res: Response
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
     if (errorMessage.includes('not configured')) {
-      logger.error('GEMINI_API_KEY not configured');
+      logger.error('ANTHROPIC_API_KEY not configured');
       return res.status(503).json({
         success: false,
         error: 'AI service is not configured'

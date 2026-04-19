@@ -26,7 +26,7 @@ export interface Config {
 
   // Optional - AI Services
   OPENAI_API_KEY?: string;
-  GEMINI_API_KEY?: string;
+  ANTHROPIC_API_KEY?: string;
 
   // Optional - MemMachine
   MEMMACHINE_API_URL?: string;
@@ -98,10 +98,10 @@ export function validateEnv(): Config {
 
   // AI Services
   const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+  const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
-  if (!GEMINI_API_KEY && NODE_ENV === 'production') {
-    warnings.push('GEMINI_API_KEY not set - AI bartender will be disabled');
+  if (!ANTHROPIC_API_KEY && NODE_ENV === 'production') {
+    warnings.push('ANTHROPIC_API_KEY not set - AI bartender will be disabled');
   }
 
   // MemMachine
@@ -174,7 +174,7 @@ export function validateEnv(): Config {
     PORT,
     DATABASE_URL,
     OPENAI_API_KEY,
-    GEMINI_API_KEY,
+    ANTHROPIC_API_KEY,
     MEMMACHINE_API_URL,
     MEMMACHINE_ENABLED,
     FRONTEND_URL,

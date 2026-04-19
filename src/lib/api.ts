@@ -304,6 +304,44 @@ export const inventoryApi = {
     );
     return data;
   },
+
+  async uploadItemImage(itemId: number, file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append('image', file);
+    const csrfToken = getCSRFToken();
+
+    const response = await fetch(`${API_BASE_URL}/api/inventory-items/${itemId}/image`, {
+      method: 'POST',
+      body: formData,
+      credentials: 'include',
+      headers: {
+        ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to upload image');
+    }
+
+    const data = await response.json();
+    return data.data.image_path;
+  },
+
+  async deleteItemImage(itemId: number): Promise<void> {
+    const csrfToken = getCSRFToken();
+
+    const response = await fetch(`${API_BASE_URL}/api/inventory-items/${itemId}/image`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: {
+        ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to delete image');
+    }
+  },
 };
 
 // Recipe API

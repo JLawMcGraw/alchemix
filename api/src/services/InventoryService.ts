@@ -1015,6 +1015,27 @@ export class InventoryService {
   }
 
   /**
+   * Update the image_path for an inventory item
+   */
+  async updateImagePath(itemId: number, userId: number, imagePath: string | null): Promise<void> {
+    await execute(
+      'UPDATE inventory_items SET image_path = $1 WHERE id = $2 AND user_id = $3',
+      [imagePath, itemId, userId]
+    );
+  }
+
+  /**
+   * Get the image_path for an inventory item
+   */
+  async getImagePath(itemId: number, userId: number): Promise<string | null> {
+    const result = await queryOne<{ image_path: string | null }>(
+      'SELECT image_path FROM inventory_items WHERE id = $1 AND user_id = $2',
+      [itemId, userId]
+    );
+    return result?.image_path || null;
+  }
+
+  /**
    * Check if a CSV row is completely empty
    *
    * Returns true if all values in the record are empty, null, undefined,
