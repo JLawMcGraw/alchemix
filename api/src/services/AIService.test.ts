@@ -6,6 +6,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { aiService } from './AIService';
+import * as memoryServiceModule from './MemoryService';
 
 describe('AIService', () => {
   const testUserId = 7777;
@@ -280,6 +281,35 @@ describe('AIService', () => {
         const result = aiService.detectSensitiveOutput(response);
         expect(result.detected).toBe(false);
       }
+    });
+  });
+
+  describe('buildContextAwarePrompt cross-session dedup', () => {
+    it('should NOT query MemMachine chat history for already-recommended dedup', async () => {
+      // Arrange - mock the DB queries to return minimal data
+      vi.mock('../database/db', () => ({
+        queryAll: vi.fn().mockResolvedValue([]),
+        queryOne: vi.fn().mockResolvedValue(null),
+      }));
+
+      const queryUserChatHistorySpy = vi.spyOn(
+        memoryServiceModule.memoryService,
+        'queryUserChatHistory'
+      ).mockResolvedValue({ episodic: [], semantic: [] });
+
+      vi.spyOn(
+        memoryServiceModule.memoryService,
+        'getEnhancedContext'
+      ).mockResolvedValue({ userContext: null, chatContext: null });
+
+      // Act
+      await aiService.buildContextAwarePrompt(1, 'something with rum', []);
+
+      // Assert
+      expect(queryUserChatHistorySpy).not.toHaveBeenCalledWith(
+        expect.anything(),
+        expect.stringContaining('CRAFTABLE')
+      );
     });
   });
 });

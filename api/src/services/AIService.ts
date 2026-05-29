@@ -1007,90 +1007,6 @@ class AIService {
   }
 
   /**
-   * Extract recommended recipes from MemMachine chat history (cross-session memory)
-   * This prevents recommending the same recipes across multiple conversations
-   */
-  private extractRecommendedFromMemMachineHistory(
-    chatHistory: Array<{ content: string }>,
-    recipes: Array<{ name?: string }>
-  ): Set<string> {
-    const recommended = new Set<string>();
-
-    // Build lookup map with all recipes
-    const recipeNameMap = new Map<string, string>();
-    for (const recipe of recipes) {
-      if (recipe.name) {
-        recipeNameMap.set(recipe.name.toLowerCase(), recipe.name);
-      }
-    }
-
-    // Helper for fuzzy matching
-    const findMatchingRecipe = (text: string): string | null => {
-      const cleaned = text.toLowerCase().trim()
-        .replace(/\*\*/g, '')
-        .replace(/^(the|a)\s+/i, '')
-        .replace(/\s*#\d+$/i, '')
-        .trim();
-
-      if (recipeNameMap.has(cleaned)) {
-        return recipeNameMap.get(cleaned)!;
-      }
-
-      for (const [lowerName, originalName] of recipeNameMap.entries()) {
-        const strippedDbName = lowerName.replace(/^(sc|classic|traditional|original|the|a)\s+/i, '').trim();
-        if (cleaned === strippedDbName ||
-            cleaned.includes(lowerName) ||
-            lowerName.includes(cleaned) ||
-            cleaned.includes(strippedDbName) ||
-            strippedDbName.includes(cleaned)) {
-          return originalName;
-        }
-      }
-      return null;
-    };
-
-    for (const episode of chatHistory) {
-      // MemMachine stores as "Assistant: <response>" - check if it's an assistant message
-      if (!episode.content || !episode.content.startsWith('Assistant:')) continue;
-
-      const content = episode.content;
-
-      // Extract from RECOMMENDATIONS: line
-      const recMatch = content.match(/RECOMMENDATIONS:\s*(.+)/i);
-      if (recMatch) {
-        const recList = recMatch[1].split(',').map(r => r.trim());
-        for (const rec of recList) {
-          const match = findMatchingRecipe(rec);
-          if (match) recommended.add(match);
-        }
-      }
-
-      // Extract bold text mentions (**Recipe Name**)
-      const boldMatches = content.matchAll(/\*\*([^*]+)\*\*/g);
-      for (const match of boldMatches) {
-        const found = findMatchingRecipe(match[1]);
-        if (found) recommended.add(found);
-      }
-
-      // Extract dash-formatted mentions (- **Name** — or - Name —)
-      const dashMatches = content.matchAll(/[-•]\s*\**([^—\n*]+)\**\s*[—-]/g);
-      for (const match of dashMatches) {
-        const found = findMatchingRecipe(match[1]);
-        if (found) recommended.add(found);
-      }
-    }
-
-    if (recommended.size > 0) {
-      logger.info('[AI-DIVERSITY] Found previously recommended recipes from MemMachine history', {
-        count: recommended.size,
-        recipes: Array.from(recommended).slice(0, 10) // Log first 10
-      });
-    }
-
-    return recommended;
-  }
-
-  /**
    * Build dashboard insight prompt
    */
   async buildDashboardInsightPrompt(userId: number): Promise<ContentBlock[]> {
@@ -1308,48 +1224,13 @@ IMPORTANT:
       .map((name) => `- ${name}`)
       .join('\n');
 
-    // Step 0: Build alreadyRecommended from BOTH current conversation AND MemMachine history
+    // Build alreadyRecommended from current conversation only
     const alreadyRecommended = this.extractAlreadyRecommendedRecipes(conversationHistory, recipes);
 
-    // Query MemMachine chat history to get cross-session recommendations
-    // This prevents recommending the same recipes across multiple conversations
-    try {
-      // Use broader query to find past AI responses - any cocktail-related conversation
-      const chatHistory = await memoryService.queryUserChatHistory(
-        userId,
-        'cocktail recipe drink tonight make CRAFTABLE recommended'
-      );
-
-      logger.info('[AI-DIVERSITY] MemMachine chat history query result', {
-        episodicCount: chatHistory.episodic?.length || 0,
-        semanticCount: chatHistory.semantic?.length || 0,
-        sampleEpisodic: chatHistory.episodic?.slice(0, 2).map(e => ({
-          contentPreview: e.content?.substring(0, 100),
-          startsWithAssistant: e.content?.startsWith('Assistant:')
-        }))
-      });
-
-      if (chatHistory.episodic && chatHistory.episodic.length > 0) {
-        const memMachineRecommended = this.extractRecommendedFromMemMachineHistory(
-          chatHistory.episodic,
-          recipes
-        );
-        // Merge MemMachine recommendations into alreadyRecommended
-        for (const recipeName of memMachineRecommended) {
-          alreadyRecommended.add(recipeName);
-        }
-        logger.info('[AI-DIVERSITY] Merged cross-session recommendations', {
-          fromCurrentConvo: alreadyRecommended.size - memMachineRecommended.size,
-          fromMemMachine: memMachineRecommended.size,
-          total: alreadyRecommended.size,
-          sampleRecipes: Array.from(alreadyRecommended).slice(0, 10)
-        });
-      } else {
-        logger.info('[AI-DIVERSITY] No MemMachine chat history found - this is normal for new users or if MemMachine is empty');
-      }
-    } catch (error) {
-      logger.warn('[AI-DIVERSITY] Failed to query MemMachine chat history', {
-        error: error instanceof Error ? error.message : 'Unknown'
+    if (alreadyRecommended.size > 0) {
+      logger.info('[AI-DIVERSITY] Recipes already recommended this conversation', {
+        count: alreadyRecommended.size,
+        recipes: Array.from(alreadyRecommended).slice(0, 10)
       });
     }
 
