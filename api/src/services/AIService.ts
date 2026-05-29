@@ -1246,7 +1246,11 @@ IMPORTANT:
           logger.warn('MemMachine unavailable', { error: err.message });
           return null;
         });
-      const userBottlesPromise = shoppingListService.getUserBottles(userId);
+      const userBottlesPromise = shoppingListService.getUserBottles(userId)
+        .catch((err: Error) => {
+          logger.warn('[AI-SEARCH] getUserBottles failed, defaulting to empty', { error: err.message });
+          return [] as Awaited<ReturnType<typeof shoppingListService.getUserBottles>>;
+        });
 
       const lowerMessage = userMessage.toLowerCase();
       const conceptRecipes: RecipeRecord[] = [];
