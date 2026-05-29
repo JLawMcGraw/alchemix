@@ -305,11 +305,8 @@ describe('AIService', () => {
       // Act
       await aiService.buildContextAwarePrompt(1, 'something with rum', []);
 
-      // Assert
-      expect(queryUserChatHistorySpy).not.toHaveBeenCalledWith(
-        expect.anything(),
-        expect.stringContaining('CRAFTABLE')
-      );
+      // Assert - queryUserChatHistory should not be called at all for dedup
+      expect(queryUserChatHistorySpy).not.toHaveBeenCalled();
     });
   });
 });
