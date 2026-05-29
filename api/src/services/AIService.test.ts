@@ -309,6 +309,44 @@ describe('AIService', () => {
       expect(queryUserChatHistorySpy).not.toHaveBeenCalled();
     });
   });
+
+  describe('buildContextAwarePrompt recipe cap', () => {
+    it('should pass maxRecipes=20 allowing more than 10 candidates through to Claude', async () => {
+      // Build 25 fake recipes all calling for 'rum'
+      const manyRecipes = Array.from({ length: 25 }, (_, i) => ({
+        id: i + 1,
+        user_id: 1,
+        name: `Test Recipe ${i + 1}`,
+        category: 'Sour',
+        spirit_type: 'rum',
+        ingredients: JSON.stringify(['rum', 'lime juice', 'sugar']),
+        memmachine_uid: null,
+      }));
+
+      const dbModule = await import('../database/db');
+      vi.spyOn(dbModule, 'queryAll').mockImplementation((sql: string) => {
+        if (sql.includes('FROM recipes')) return Promise.resolve(manyRecipes);
+        if (sql.includes('FROM inventory_items')) return Promise.resolve([
+          { id: 1, user_id: 1, name: 'Plantation 3 Stars', type: 'Rum', stock_number: 1 }
+        ]);
+        return Promise.resolve([]);
+      });
+      vi.spyOn(dbModule, 'queryOne').mockResolvedValue(null);
+
+      vi.spyOn(
+        memoryServiceModule.memoryService,
+        'getEnhancedContext'
+      ).mockResolvedValue({ userContext: null, chatContext: null });
+
+      const [, dynamicBlock] = await aiService.buildContextAwarePrompt(1, 'rum cocktails', []);
+
+      // Find "Total allowed: N" in the dynamic block and assert N > 10
+      const match = dynamicBlock.text.match(/Total allowed: (\d+)/);
+      const count = match ? parseInt(match[1], 10) : 0;
+
+      expect(count).toBeGreaterThan(10);
+    });
+  });
 });
 
 describe('Query Expansion', () => {

@@ -1472,7 +1472,7 @@ IMPORTANT:
       // When user is flexible, include recipes with up to 4 missing ingredients
       // Pass specificIngredientsList for relevance scoring (prioritize recipes with green chartreuse over generic gin matches)
       let { formatted, craftableCount, nearMissCount, missingCount, processedRecipes, spiritMismatchCount, previouslyRecommendedIncluded } =
-        this.processRecipesWithCraftability(ingredientRecipes, userBottles, alreadyRecommended, 10, requiredSpiritType, true, userIsFlexible, 4, specificIngredientsList);
+        this.processRecipesWithCraftability(ingredientRecipes, userBottles, alreadyRecommended, 20, requiredSpiritType, true, userIsFlexible, 4, specificIngredientsList);
 
       logger.info('[AI-SEARCH] First pass results (new recipes only)', {
         recipesFound: ingredientRecipes.length,
@@ -1608,7 +1608,7 @@ IMPORTANT:
             additionalRecipes,
             userBottles,
             new Set([...alreadyRecommended, ...processedRecipes]),
-            10 - processedRecipes.length, // Fill up to 10 total
+            20 - processedRecipes.length, // Fill up to 20 total
             requiredSpiritType, // Apply same spirit constraint to broader search
             true, // Skip already recommended in first pass
             userIsFlexible,
