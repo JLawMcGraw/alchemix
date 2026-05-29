@@ -6,8 +6,8 @@
 |-------|-------|
 | Version | v1.37.0 |
 | Branch | `main` |
-| Tests | 1716 total (952 backend, 466 frontend, 298 recipe-molecule) |
-| Last Updated | April 19, 2026 |
+| Tests | 1721 total (957 backend, 466 frontend, 298 recipe-molecule) |
+| Last Updated | May 29, 2026 |
 
 ---
 

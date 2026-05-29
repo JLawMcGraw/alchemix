@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2026-04-19 (Session 24)
+Last updated: 2026-05-29 (Session 25)
 
 ---
 
@@ -12,10 +12,10 @@ Last updated: 2026-04-19 (Session 24)
 **Blockers**: None
 
 **Test Coverage**:
-- Backend: 952 tests (35 test files)
+- Backend: 957 tests (35 test files)
 - Frontend: 466 tests (18 test files)
 - Recipe-Molecule: 298 tests (6 test files)
-- **Total: 1716 tests**
+- **Total: 1721 tests**
 
 **Redesign Progress**:
 - Phase 1-4 (Batch A - Foundation): **Complete**
@@ -33,6 +33,52 @@ Last updated: 2026-04-19 (Session 24)
 - Inventory Auto-Classification: **Complete** (9 categories with backfill)
 
 **PostgreSQL Migration**: **Complete** (Phase 1-5 done, Phase 6 Deploy pending)
+
+---
+
+## Recent Session (2026-05-29): AI Bartender Pipeline Improvements
+
+### Summary
+Diagnosed and fixed four architectural problems in the AI bartender pipeline: over-aggressive cross-session recipe dedup, a too-small recipe candidate cap, sequential search calls, and an overly verbose system prompt. Also fixed a pre-existing test isolation issue and corrected stale Gemini references in ARCHITECTURE.md.
+
+### Work Completed
+
+#### 1. Removed Cross-Session Recipe Dedup
+**Problem**: `AIService` queried MemMachine chat history on every request to build a cross-session "already recommended" set using fragile regex matching against markdown in past AI responses. For active users this could shrink the candidate pool to near-zero before Claude saw any options.
+**Solution**: Deleted `extractRecommendedFromMemMachineHistory` method (~83 lines) and the 44-line dedup block in `buildContextAwarePrompt`. Within-conversation dedup via `extractAlreadyRecommendedRecipes` kept intact.
+
+#### 2. Increased Candidate Recipe Cap 10 → 20
+**Problem**: `processRecipesWithCraftability` was capped at 10 recipes, so the pipeline's curatorial failures were invisible to Claude — 3 candidates out of 10 meant Claude had 3 choices.
+**Solution**: Changed `maxRecipes` from 10 to 20 in the first-pass call and the broader-search fill.
+
+#### 3. Parallelized MemMachine + getUserBottles
+**Problem**: `getEnhancedContext` (MemMachine) and `getUserBottles` ran sequentially after all ingredient DB queries, adding ~500–2000ms to every response.
+**Solution**: Both launched as promises at the top of the `userMessage` block with `.catch()` handlers for graceful degradation, then awaited after the ingredient queries complete.
+
+#### 4. Condensed System Prompt
+**Problem**: "ZERO INGREDIENT NAMES" rule appeared in 6 formulations across the prompt; a FINAL VERIFICATION self-check block asked Claude to scan its own output for forbidden words (unreliable, wastes tokens).
+**Solution**: Removed FINAL VERIFICATION block; replaced the 35-line absolute rule with a 14-line `HOW TO DESCRIBE COCKTAILS` section. Rule slightly relaxed: 1–2 key ingredients allowed when they directly explain why a recipe matches the query.
+
+#### 5. Test Isolation Fix
+**Problem**: `vi.mock` inside test bodies mixed with `vi.spyOn` without teardown caused test interference after `afterEach(vi.restoreAllMocks)` was added.
+**Solution**: Converted all DB mocks in the new tests to use `vi.spyOn` consistently; added `afterEach(() => vi.restoreAllMocks())` to outer describe block.
+
+#### 6. ARCHITECTURE.md Cleanup
+**Problem**: Six places still referenced "Gemini API" — directory comment, sequence diagram, dependency map, dependency table, infrastructure diagram.
+**Solution**: Updated all six to reflect Claude Sonnet 4.6 / Anthropic SDK.
+
+### Files Changed
+```
+docs/plans/2026-05-29-ai-bartender-pipeline-improvements.md (NEW - implementation plan)
+api/src/services/AIService.ts (MODIFIED - dedup removal, cap bump, parallelization, prompt condensation)
+api/src/services/AIService.test.ts (MODIFIED - new tests, isolation fixes)
+Documentation/ARCHITECTURE.md (MODIFIED - Gemini → Claude references)
+```
+
+### Next Steps
+- Test AI bartender end-to-end: verify responses are more natural after prompt condensation
+- Upload bottle photos for full inventory
+- Deploy to production
 
 ---
 
