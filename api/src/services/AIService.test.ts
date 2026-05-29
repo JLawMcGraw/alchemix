@@ -11,6 +11,10 @@ import * as memoryServiceModule from './MemoryService';
 describe('AIService', () => {
   const testUserId = 7777;
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   describe('sanitizeContextField', () => {
     it('should return empty string for non-string values', () => {
       expect(aiService.sanitizeContextField(null, 'test', testUserId)).toBe('');
@@ -287,10 +291,9 @@ describe('AIService', () => {
   describe('buildContextAwarePrompt cross-session dedup', () => {
     it('should NOT query MemMachine chat history for already-recommended dedup', async () => {
       // Arrange - mock the DB queries to return minimal data
-      vi.mock('../database/db', () => ({
-        queryAll: vi.fn().mockResolvedValue([]),
-        queryOne: vi.fn().mockResolvedValue(null),
-      }));
+      const dbModule = await import('../database/db');
+      vi.spyOn(dbModule, 'queryAll').mockResolvedValue([]);
+      vi.spyOn(dbModule, 'queryOne').mockResolvedValue(null);
 
       const queryUserChatHistorySpy = vi.spyOn(
         memoryServiceModule.memoryService,
