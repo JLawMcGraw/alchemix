@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { aiService } from './AIService';
 import * as memoryServiceModule from './MemoryService';
+import * as shoppingListServiceModule from './ShoppingListService';
 
 describe('AIService', () => {
   const testUserId = 7777;
@@ -348,6 +349,59 @@ describe('AIService', () => {
       const count = match ? parseInt(match[1], 10) : 0;
 
       expect(count).toBeGreaterThan(10);
+    });
+  });
+  describe('buildContextAwarePrompt parallelism', () => {
+    it('should call getEnhancedContext even when it rejects, and still return a 2-element result', async () => {
+      vi.spyOn(memoryServiceModule.memoryService, 'getEnhancedContext')
+        .mockRejectedValue(new Error('MemMachine down'));
+
+      const dbModule = await import('../database/db');
+      vi.spyOn(dbModule, 'queryAll').mockResolvedValue([]);
+      vi.spyOn(dbModule, 'queryOne').mockResolvedValue(null);
+
+      // Should not throw even though MemMachine fails
+      const result = await aiService.buildContextAwarePrompt(1, 'rum cocktails', []);
+      expect(result).toHaveLength(2);
+      expect(result[0].text).toBeTruthy();
+    });
+
+    it('should call getEnhancedContext and getUserBottles before ingredient DB queries resolve', async () => {
+      let memMachineCallTime = 0;
+      let getUserBottlesCallTime = 0;
+
+      vi.spyOn(memoryServiceModule.memoryService, 'getEnhancedContext')
+        .mockImplementation(async () => {
+          memMachineCallTime = Date.now();
+          return { userContext: null, chatContext: null };
+        });
+
+      vi.spyOn(shoppingListServiceModule.shoppingListService, 'getUserBottles')
+        .mockImplementation(async () => {
+          getUserBottlesCallTime = Date.now();
+          return [];
+        });
+
+      const dbModule = await import('../database/db');
+      vi.spyOn(dbModule, 'queryAll').mockImplementation(async (sql: string) => {
+        if ((sql as string).includes('LOWER(ingredients) LIKE')) {
+          // Simulate a slow ingredient query
+          await new Promise(r => setTimeout(r, 50));
+          return [];
+        }
+        return [];
+      });
+      vi.spyOn(dbModule, 'queryOne').mockResolvedValue(null);
+
+      const startTime = Date.now();
+      await aiService.buildContextAwarePrompt(1, 'rum cocktails', []);
+
+      // Both should have been called
+      expect(memMachineCallTime).toBeGreaterThan(0);
+      expect(getUserBottlesCallTime).toBeGreaterThan(0);
+      // And both should have started within the first 30ms (before slow DB queries finish)
+      expect(memMachineCallTime - startTime).toBeLessThan(30);
+      expect(getUserBottlesCallTime - startTime).toBeLessThan(30);
     });
   });
 });

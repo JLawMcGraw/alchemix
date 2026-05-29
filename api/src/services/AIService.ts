@@ -1239,6 +1239,15 @@ IMPORTANT:
     let ingredientMatchContext = '';
 
     if (userMessage && userMessage.trim().length > 0) {
+      // Start MemMachine and getUserBottles immediately — independent of ingredient detection
+      const expandedQuery = expandSearchQuery(userMessage);
+      const memMachinePromise = memoryService.getEnhancedContext(userId, expandedQuery)
+        .catch((err: Error) => {
+          logger.warn('MemMachine unavailable', { error: err.message });
+          return null;
+        });
+      const userBottlesPromise = shoppingListService.getUserBottles(userId);
+
       const lowerMessage = userMessage.toLowerCase();
       const conceptRecipes: RecipeRecord[] = [];
       const matchedConcepts: string[] = [];
@@ -1355,8 +1364,8 @@ IMPORTANT:
           ? `**User asked about: ${detectedIngredients.join(', ')}**`
           : '';
 
-      // Get user's bottles for craftability check
-      const userBottles = await shoppingListService.getUserBottles(userId);
+      // Get user's bottles for craftability check — await the already-in-flight promise
+      const userBottles = await userBottlesPromise;
 
       // Step 2c: Detect mentioned bottles and extract spirit type for filtering
       // This prevents recommending bourbon cocktails when user asks about rum
@@ -1661,79 +1670,87 @@ IMPORTANT:
         }
       }
 
-      // Step 4: Also get MemMachine semantic results (for general context)
+      // Step 4: Await MemMachine results (already running in parallel with DB queries)
       try {
-        // Expand query with cocktail ingredients for better semantic search
-        let expandedQuery = expandSearchQuery(userMessage);
+        // Enrich query with bottle tasting notes if detected (avoids duplicate DB call)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let memMachineResult: { userContext: any; chatContext: any } | null;
 
-        // Reuse the bottle detection from step 2c (avoid duplicate DB query)
         if (mentionedBottlesForSpirit.length > 0) {
-          // Add tasting notes to semantic query for flavor profile matching
           const tastingContext = mentionedBottlesForSpirit
-            .filter(b => b.tastingNotes) // Only bottles with tasting notes
+            .filter(b => b.tastingNotes)
             .map(b => `${b.name} flavor profile: ${b.tastingNotes}`)
             .join('. ');
+
           if (tastingContext) {
-            expandedQuery = `${expandedQuery}. ${tastingContext}`;
-            logger.info('[AI-SEARCH] Enriched query with bottle tasting notes', {
+            const enrichedQuery = `${expandedQuery}. ${tastingContext}`;
+            logger.info('[AI-SEARCH] Re-querying MemMachine with enriched tasting notes', {
               bottles: mentionedBottlesForSpirit.map(b => b.name),
-              expandedQueryLength: expandedQuery.length
+            });
+            memMachineResult = await memoryService.getEnhancedContext(userId, enrichedQuery)
+              .catch(() => null);
+          } else {
+            memMachineResult = await memMachinePromise;
+          }
+        } else {
+          memMachineResult = await memMachinePromise;
+        }
+
+        if (!memMachineResult) {
+          logger.info('MemMachine: No results or unavailable');
+        } else {
+          const { userContext, chatContext } = memMachineResult;
+
+          logger.info('MemMachine: Results received', {
+            hasUserContext: !!userContext,
+            episodicCount: userContext?.episodic?.length || 0,
+            semanticCount: userContext?.semantic?.length || 0,
+            hasChatContext: !!chatContext,
+            chatEpisodicCount: chatContext?.episodic?.length || 0
+          });
+
+          // Add recipe search results (with spirit type filtering)
+          if (userContext) {
+            const formattedContext = await memoryService.formatContextForPrompt(
+              userContext,
+              userId,
+              true,
+              10,
+              alreadyRecommended,
+              requiredSpiritType  // Pass spirit constraint to filter MemMachine results
+            );
+            memoryContext += formattedContext;
+            logger.info('MemMachine: Formatted context for AI', {
+              contextLength: formattedContext.length,
+              spiritConstraint: requiredSpiritType,
+              contextPreview: formattedContext.substring(0, 500)
             });
           }
-        }
 
-        logger.info('MemMachine: Querying enhanced context', { userId, query: userMessage.substring(0, 100), expanded: expandedQuery !== userMessage });
-        const { userContext, chatContext } = await memoryService.getEnhancedContext(userId, expandedQuery);
+          // Add chat history/preferences
+          if (chatContext && chatContext.episodic && chatContext.episodic.length > 0) {
+            memoryContext += '\n\n## 💬 CONVERSATION HISTORY & USER PREFERENCES\n';
+            memoryContext += 'The user has mentioned these things in past conversations:\n';
 
-        logger.info('MemMachine: Results received', {
-          hasUserContext: !!userContext,
-          episodicCount: userContext?.episodic?.length || 0,
-          semanticCount: userContext?.semantic?.length || 0,
-          hasChatContext: !!chatContext,
-          chatEpisodicCount: chatContext?.episodic?.length || 0
-        });
+            // Deduplicate and limit chat context
+            const seenContent = new Set<string>();
+            const relevantChats = chatContext.episodic
+              .filter((ep: { content?: string }) => {
+                // Skip if we've seen similar content
+                const key = ep.content?.substring(0, 100);
+                if (!key || seenContent.has(key)) return false;
+                seenContent.add(key);
+                return true;
+              })
+              .slice(0, 5); // Top 5 most relevant
 
-        // Add recipe search results (with spirit type filtering)
-        if (userContext) {
-          const formattedContext = await memoryService.formatContextForPrompt(
-            userContext,
-            userId,
-            true,
-            10,
-            alreadyRecommended,
-            requiredSpiritType  // Pass spirit constraint to filter MemMachine results
-          );
-          memoryContext += formattedContext;
-          logger.info('MemMachine: Formatted context for AI', {
-            contextLength: formattedContext.length,
-            spiritConstraint: requiredSpiritType,
-            contextPreview: formattedContext.substring(0, 500)
-          });
-        }
+            relevantChats.forEach((ep: { content?: string }) => {
+              memoryContext += `- ${ep.content}\n`;
+            });
 
-        // Add chat history/preferences
-        if (chatContext && chatContext.episodic && chatContext.episodic.length > 0) {
-          memoryContext += '\n\n## 💬 CONVERSATION HISTORY & USER PREFERENCES\n';
-          memoryContext += 'The user has mentioned these things in past conversations:\n';
-
-          // Deduplicate and limit chat context
-          const seenContent = new Set<string>();
-          const relevantChats = chatContext.episodic
-            .filter(ep => {
-              // Skip if we've seen similar content
-              const key = ep.content?.substring(0, 100);
-              if (!key || seenContent.has(key)) return false;
-              seenContent.add(key);
-              return true;
-            })
-            .slice(0, 5); // Top 5 most relevant
-
-          relevantChats.forEach(ep => {
-            memoryContext += `- ${ep.content}\n`;
-          });
-
-          memoryContext += '\n**Use this context to personalize recommendations.**\n';
-          logger.debug('MemMachine: Added chat history to prompt', { episodeCount: relevantChats.length });
+            memoryContext += '\n**Use this context to personalize recommendations.**\n';
+            logger.debug('MemMachine: Added chat history to prompt', { episodeCount: relevantChats.length });
+          }
         }
       } catch (error) {
         logger.warn('MemMachine unavailable', { error: error instanceof Error ? error.message : 'Unknown error' });
