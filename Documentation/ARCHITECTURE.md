@@ -229,7 +229,7 @@ alchemix/
 │       │   ├── glasses.ts
 │       │   └── classifications.ts
 │       ├── services/            # Business Logic
-│       │   ├── AIService.ts           # Gemini AI integration
+│       │   ├── AIService.ts           # Claude AI integration
 │       │   ├── InventoryService.ts
 │       │   ├── RecipeService.ts
 │       │   ├── CollectionService.ts
@@ -730,7 +730,7 @@ sequenceDiagram
     participant AISvc as AIService
     participant DB as PostgreSQL
     participant MM as MemMachine
-    participant Gemini as Gemini API
+    participant Claude as Claude API
 
     UI->>Store: sendMessageStream(text)
     Store->>API: aiApi.sendMessageStream(message, history)
@@ -746,10 +746,10 @@ sequenceDiagram
     AISvc->>AISvc: Merge & deduplicate results
     AISvc->>AISvc: Compute craftability markers
     AISvc->>AISvc: Build context prompt
-    AISvc->>Gemini: streamGenerateContent (SSE)
+    AISvc->>Claude: messages.stream (SSE)
 
     loop SSE Stream
-        Gemini-->>AISvc: Text chunk
+        Claude-->>AISvc: Text chunk
         AISvc-->>Route: Yield chunk
         Route-->>API: SSE event: {text: "..."}
         API-->>Store: Append to streamingMessage
@@ -978,7 +978,7 @@ docker compose -f docker/docker-compose.yml up -d
                             │ AppError.ts     │         │ GlassService    │
                             │ index.ts        │         │ ClassificationS │
                             └─────────────────┘         │ ShoppingListSvc │
-                                                        │ AIService ──────│──► Gemini API (fetch)
+                                                        │ AIService ──────│──► Claude API (Anthropic SDK)
                                                         │ MemoryService ──│──► MemMachine API
                                                         │ email/ ─────────│──► resend/nodemailer
                                                         └─────────────────┘
@@ -1011,7 +1011,7 @@ docker compose -f docker/docker-compose.yml up -d
 | `routes/messages.ts` | services/AIService, MemoryService | (pure) |
 | `services/InventoryService.ts` | database/db | (pure) |
 | `services/RecipeService.ts` | database/db, MemoryService | (pure) - server-side search, bulkMove |
-| `services/AIService.ts` | ShoppingListService, data/cocktailIngredients.json | fetch (Gemini API) |
+| `services/AIService.ts` | ShoppingListService, data/cocktailIngredients.json | @anthropic-ai/sdk (Claude API) |
 | `services/ShoppingListService.ts` | database/db | (pure) |
 | `services/MemoryService.ts` | utils/logger | fetch (built-in) |
 | `services/email/*` | config/validateEnv | resend, nodemailer - sendVerification, sendPasswordReset, sendPasswordChanged |
@@ -1110,10 +1110,10 @@ packages/types/
                 │                    │                    │
                 ▼                    ▼                    ▼
         ┌───────────────┐   ┌───────────────┐   ┌───────────────┐
-        │  PostgreSQL   │   │  MemMachine   │   │  Gemini API   │
-        │   (Docker)    │   │  (Docker)     │   │   (Google)    │
+        │  PostgreSQL   │   │  MemMachine   │   │  Claude API   │
+        │   (Docker)    │   │  (Docker)     │   │ (Anthropic)   │
         ├───────────────┤   ├───────────────┤   ├───────────────┤
-        │ Users         │   │ POST /store   │   │ Flash (SSE)   │
+        │ Users         │   │ POST /store   │   │ Sonnet 4.6    │
         │ Inventory     │   │ POST /query   │   │ Streaming     │
         │ Recipes       │   │ DELETE /mem   │   │ max_tokens:   │
         │ Collections   │   │               │   │ 8192          │
