@@ -351,6 +351,21 @@ describe('AIService', () => {
       expect(count).toBeGreaterThan(10);
     });
   });
+  describe('buildContextAwarePrompt system prompt content', () => {
+    it('should not contain FINAL VERIFICATION self-check in built prompts', async () => {
+      const dbModule = await import('../database/db');
+      vi.spyOn(dbModule, 'queryAll').mockResolvedValue([]);
+      vi.spyOn(dbModule, 'queryOne').mockResolvedValue(null);
+      vi.spyOn(memoryServiceModule.memoryService, 'getEnhancedContext')
+        .mockResolvedValue({ userContext: null, chatContext: null });
+
+      const [staticBlock, dynamicBlock] = await aiService.buildContextAwarePrompt(1, '', []);
+      expect(staticBlock.text).not.toContain('FINAL VERIFICATION');
+      expect(dynamicBlock.text).not.toContain('FINAL VERIFICATION');
+      expect(staticBlock.text).not.toContain('ABSOLUTE RULE');
+    });
+  });
+
   describe('buildContextAwarePrompt parallelism', () => {
     it('should call getEnhancedContext even when it rejects, and still return a 2-element result', async () => {
       vi.spyOn(memoryServiceModule.memoryService, 'getEnhancedContext')
