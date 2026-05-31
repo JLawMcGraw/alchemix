@@ -449,6 +449,51 @@ describe('AIService', () => {
       expect(getUserBottlesCallTime - startTime).toBeLessThan(30);
     });
   });
+
+  describe('buildContextAwarePrompt tiered search classification', () => {
+    it('should search for spirit_classification style tokens in tier 1 when bottle is mentioned', async () => {
+      const dbModule = await import('../database/db');
+      const ingredientSearchParams: string[] = [];
+
+      vi.spyOn(dbModule, 'queryAll').mockImplementation(async (sql: string, params?: unknown[]) => {
+        // Capture params from ingredient LIKE searches (tier 1/2/3 recipe searches)
+        if ((sql as string).includes('LOWER(') && (sql as string).includes('LIKE') && params) {
+          for (const p of params) {
+            if (typeof p === 'string' && p.startsWith('%')) {
+              ingredientSearchParams.push(p);
+            }
+          }
+        }
+        // Return the Hampden bottle for both the bottle-detection query and inventory query
+        if ((sql as string).includes('FROM inventory_items')) {
+          return [{
+            id: 1,
+            user_id: 1,
+            name: 'Hampden Estate',
+            tasting_notes: null,
+            type: 'Rum',
+            distillery_location: 'Jamaica',
+            category: 'spirit',
+            spirit_classification: 'Jamaican Pot Still High Ester Rum',
+            profile_nose: null,
+            palate: null,
+            finish: null,
+            stock_number: 1,
+            abv: '46'
+          }];
+        }
+        return [];
+      });
+      vi.spyOn(dbModule, 'queryOne').mockResolvedValue(null);
+      vi.spyOn(memoryServiceModule.memoryService, 'getEnhancedContext')
+        .mockResolvedValue({ userContext: null, chatContext: null });
+
+      await aiService.buildContextAwarePrompt(1, 'what can I make with Hampden', []);
+
+      // Tier 1 should have searched for 'jamaican' from the classification string
+      expect(ingredientSearchParams.some(p => p.includes('jamaican'))).toBe(true);
+    });
+  });
 });
 
 describe('Query Expansion', () => {

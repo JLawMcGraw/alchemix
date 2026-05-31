@@ -463,6 +463,7 @@ class AIService {
     name: string;
     tastingNotes: string;
     spiritType: string | null;
+    spiritClassification: string | null;
     distilleryLocation: string | null;
     category: string | null;
   }>> {
@@ -474,10 +475,11 @@ class AIService {
         name: string;
         tasting_notes: string | null;
         type: string | null;
+        spirit_classification: string | null;
         distillery_location: string | null;
         category: string | null;
       }>(`
-        SELECT name, tasting_notes, type, distillery_location, category
+        SELECT name, tasting_notes, type, spirit_classification, distillery_location, category
         FROM inventory_items
         WHERE user_id = $1 AND stock_number > 0
       `, [userId]);
@@ -486,6 +488,7 @@ class AIService {
         name: string;
         tastingNotes: string;
         spiritType: string | null;
+        spiritClassification: string | null;
         distilleryLocation: string | null;
         category: string | null;
       }> = [];
@@ -503,12 +506,14 @@ class AIService {
             name: bottle.name,
             tastingNotes: bottle.tasting_notes || '',
             spiritType: bottle.type,
+            spiritClassification: bottle.spirit_classification,
             distilleryLocation: bottle.distillery_location,
             category: bottle.category
           });
           logger.info('[AI-SEARCH] Found mentioned bottle', {
             bottleName: bottle.name,
             spiritType: bottle.type,
+            spiritClassification: bottle.spirit_classification,
             distilleryLocation: bottle.distillery_location,
             hasTastingNotes: !!bottle.tasting_notes
           });
@@ -1414,6 +1419,35 @@ IMPORTANT:
           logger.info('[AI-SEARCH] Tier 1 (exact type) results', {
             spiritType: firstBottle.spiritType,
             count: tier1Recipes.length
+          });
+        }
+
+        // TIER 1b: Search for style tokens from spirit_classification
+        // e.g. "Jamaican Pot Still High Ester Rum" → searches "jamaican", "agricole", "overproof"
+        if (firstBottle.spiritClassification) {
+          const classificationSkipWords = new Set([
+            'white', 'dark', 'light', 'aged', 'gold', 'year', 'old', 'extra', 'reserve',
+            'rum', 'gin', 'vodka', 'whiskey', 'whisky', 'tequila', 'mezcal', 'brandy',
+            'cognac', 'bourbon', 'scotch', 'single', 'blended', 'malt', 'grain',
+            'pot', 'still', 'column', 'continuous', 'high', 'ester', 'proof'
+          ]);
+          const classificationTerms = firstBottle.spiritClassification.toLowerCase().split(/[\s,\-\/]+/);
+
+          for (const term of classificationTerms) {
+            if (term.length < 5 || classificationSkipWords.has(term)) continue;
+            // Avoid re-searching terms already covered by spiritType tokenisation
+            if (firstBottle.spiritType && firstBottle.spiritType.toLowerCase().includes(term)) continue;
+
+            const matches = await this.queryRecipesWithIngredient(userId, term);
+            for (const recipe of matches) {
+              if (!tier1Recipes.some(r => r.id === recipe.id)) {
+                tier1Recipes.push(recipe);
+              }
+            }
+          }
+          logger.info('[AI-SEARCH] Tier 1b (classification style) results', {
+            spiritClassification: firstBottle.spiritClassification,
+            tier1TotalAfter: tier1Recipes.length
           });
         }
 
