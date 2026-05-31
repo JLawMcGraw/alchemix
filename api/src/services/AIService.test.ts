@@ -364,6 +364,36 @@ describe('AIService', () => {
       expect(dynamicBlock.text).not.toContain('FINAL VERIFICATION');
       expect(staticBlock.text).not.toContain('ABSOLUTE RULE');
     });
+
+    it('should include spirit_classification and tasting notes in bar stock context', async () => {
+      const dbModule = await import('../database/db');
+      vi.spyOn(dbModule, 'queryAll').mockImplementation(async (sql: string) => {
+        // Return one bottle with classification + tasting data for the inventory query
+        if ((sql as string).includes('FROM inventory_items') && (sql as string).includes('ORDER BY name LIMIT')) {
+          return [{
+            id: 1,
+            user_id: 1,
+            name: 'Hampden Estate',
+            type: 'Rum',
+            spirit_classification: 'Jamaican Pot Still High Ester',
+            abv: '46',
+            profile_nose: 'funky overripe banana',
+            palate: 'earthy intense',
+            finish: 'long complex',
+            stock_number: 1
+          }];
+        }
+        return [];
+      });
+      vi.spyOn(dbModule, 'queryOne').mockResolvedValue(null);
+      vi.spyOn(memoryServiceModule.memoryService, 'getEnhancedContext')
+        .mockResolvedValue({ userContext: null, chatContext: null });
+
+      const [, dynamicBlock] = await aiService.buildContextAwarePrompt(1, '', []);
+
+      expect(dynamicBlock.text).toContain('Jamaican Pot Still High Ester');
+      expect(dynamicBlock.text).toContain('funky overripe banana');
+    });
   });
 
   describe('buildContextAwarePrompt parallelism', () => {

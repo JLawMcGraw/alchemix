@@ -93,11 +93,11 @@ interface InventoryItemRecord {
   user_id: number;
   name: string;
   type?: string;
-  'Detailed Spirit Classification'?: string;
+  spirit_classification?: string;
   abv?: string;
-  'Profile (Nose)'?: string;
-  Palate?: string;
-  Finish?: string;
+  profile_nose?: string;
+  palate?: string;
+  finish?: string;
   stock_number?: number;
 }
 
@@ -1158,11 +1158,11 @@ IMPORTANT:
         const name = this.sanitizeContextField(bottle.name, 'bottle.name', userId);
         if (!name) return null;
         const type = this.sanitizeContextField(bottle.type, 'bottle.type', userId);
-        const classification = this.sanitizeContextField(bottle['Detailed Spirit Classification'], 'bottle.classification', userId);
+        const classification = this.sanitizeContextField(bottle.spirit_classification, 'bottle.classification', userId);
         const abv = this.sanitizeContextField(bottle.abv, 'bottle.abv', userId);
-        const profile = this.sanitizeContextField(bottle['Profile (Nose)'], 'bottle.profile', userId);
-        const palate = this.sanitizeContextField(bottle.Palate, 'bottle.palate', userId);
-        const finish = this.sanitizeContextField(bottle.Finish, 'bottle.finish', userId);
+        const profile = this.sanitizeContextField(bottle.profile_nose, 'bottle.profile', userId);
+        const palate = this.sanitizeContextField(bottle.palate, 'bottle.palate', userId);
+        const finish = this.sanitizeContextField(bottle.finish, 'bottle.finish', userId);
 
         let line = `- ${name}`;
         if (type) line += ` [${type}]`;
