@@ -394,6 +394,19 @@ describe('AIService', () => {
       expect(dynamicBlock.text).toContain('Jamaican Pot Still High Ester');
       expect(dynamicBlock.text).toContain('funky overripe banana');
     });
+
+    it('should contain style-mismatch guidance in the spirit substitution rule', async () => {
+      const dbModule = await import('../database/db');
+      vi.spyOn(dbModule, 'queryAll').mockResolvedValue([]);
+      vi.spyOn(dbModule, 'queryOne').mockResolvedValue(null);
+      vi.spyOn(memoryServiceModule.memoryService, 'getEnhancedContext')
+        .mockResolvedValue({ userContext: null, chatContext: null });
+
+      const [staticBlock] = await aiService.buildContextAwarePrompt(1, '', []);
+
+      expect(staticBlock.text).toContain('STYLE MATTERS');
+      expect(staticBlock.text).toContain('stay silent');
+    });
   });
 
   describe('buildContextAwarePrompt parallelism', () => {

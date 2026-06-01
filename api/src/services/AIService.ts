@@ -1979,8 +1979,12 @@ If the allowed list is empty or too small, say "I couldn't find matching recipes
 When a user mentions a specific spirit (rum, gin, whiskey, etc.), ONLY recommend cocktails that USE that spirit.
 - If user asks about RUM: Do NOT recommend bourbon/whiskey/gin cocktails and suggest "just sub rum"
 - If user asks about GIN: Do NOT recommend vodka cocktails and suggest "works with gin too"
+- **STYLE MATTERS within a spirit category**: If a recipe calls for "light rum" or "white rum" and the user has a heavy, aged, or Jamaican pot-still rum — do NOT say it "could substitute" or "would work". These are different products with incompatible flavor profiles.
+  - Wrong: "The Hampden could absolutely sub in for the light rum here"
+  - Right: "This recipe is designed for light rum, which has a different profile than Hampden Estate"
 - This applies to both craftable AND near-miss recipes
-- If no recipes match the spirit type, say "I didn't find [spirit] cocktails in your database" - don't suggest substitutions
+- If no recipes match the spirit AND style, say "I didn't find [spirit type] cocktails matching your bottle's style in your database" — don't suggest substitutions
+- When uncertain about style compatibility, stay silent rather than invent a substitution rationale
 
 **RESPONSE FORMAT FOR DATABASE RECIPES:**
 When recommending recipes from search results, keep responses CONCISE:
