@@ -1424,6 +1424,7 @@ IMPORTANT:
 
         // TIER 1b: Search for style tokens from spirit_classification
         // e.g. "Jamaican Pot Still High Ester Rum" → searches "jamaican", "agricole", "overproof"
+        const tier1bSearchedTerms = new Set<string>();
         if (firstBottle.spiritClassification) {
           const classificationSkipWords = new Set([
             'white', 'dark', 'light', 'aged', 'gold', 'year', 'old', 'extra', 'reserve',
@@ -1434,11 +1435,12 @@ IMPORTANT:
           const classificationTerms = firstBottle.spiritClassification.toLowerCase().split(/[\s,\-\/]+/);
 
           for (const term of classificationTerms) {
-            if (term.length < 5 || classificationSkipWords.has(term)) continue;
+            if (term.length < 5 || classificationSkipWords.has(term)) continue; // 5+ avoids short tokens already in skipWords
             // Avoid re-searching terms already covered by spiritType tokenisation
             if (firstBottle.spiritType && firstBottle.spiritType.toLowerCase().includes(term)) continue;
 
             const matches = await this.queryRecipesWithIngredient(userId, term);
+            tier1bSearchedTerms.add(term);
             for (const recipe of matches) {
               if (!tier1Recipes.some(r => r.id === recipe.id)) {
                 tier1Recipes.push(recipe);
@@ -1461,6 +1463,7 @@ IMPORTANT:
 
           for (const term of locationTerms) {
             if (term.length < 4) continue;
+            if (tier1bSearchedTerms.has(term)) continue;
             // Only search if it's a significant spirit-producing region
             if (significantLocations.some(loc => loc.includes(term) || term.includes(loc))) {
               const matches = await this.queryRecipesWithIngredient(userId, term);
