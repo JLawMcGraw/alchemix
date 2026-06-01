@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2026-05-29 (Session 25)
+Last updated: 2026-05-31 (Session 26)
 
 ---
 
@@ -12,10 +12,10 @@ Last updated: 2026-05-29 (Session 25)
 **Blockers**: None
 
 **Test Coverage**:
-- Backend: 957 tests (35 test files)
+- Backend: 960 tests (35 test files)
 - Frontend: 466 tests (18 test files)
 - Recipe-Molecule: 298 tests (6 test files)
-- **Total: 1721 tests**
+- **Total: 1724 tests**
 
 **Redesign Progress**:
 - Phase 1-4 (Batch A - Foundation): **Complete**
@@ -33,6 +33,39 @@ Last updated: 2026-05-29 (Session 25)
 - Inventory Auto-Classification: **Complete** (9 categories with backfill)
 
 **PostgreSQL Migration**: **Complete** (Phase 1-5 done, Phase 6 Deploy pending)
+
+---
+
+## Recent Session (2026-05-31): AI Spirit Style Awareness
+
+### Summary
+Diagnosed and fixed three layered bugs causing Claude to hallucinate spirit substitution advice. A silent field-name mismatch in `InventoryItemRecord` was stripping all classification and tasting-note data from the AI context; fixed that, enriched the tiered recipe search with style tokens, and strengthened the substitution rule.
+
+### Work Completed
+
+#### 1. Fixed InventoryItemRecord Field Name Mismatch
+**Problem**: `InventoryItemRecord` used legacy display-name keys (`'Detailed Spirit Classification'`, `'Profile (Nose)'`, `Palate`, `Finish`) that never matched the actual snake_case PostgreSQL column names. Claude received `- Hampden Estate [Rum]` instead of `- Hampden Estate [Rum] (Jamaican Pot Still High Ester) 46% | Nose: funky overripe banana`.
+**Solution**: Updated interface to `spirit_classification`, `profile_nose`, `palate`, `finish` and fixed the five corresponding field accesses in `buildContextAwarePrompt`.
+
+#### 2. Added spirit_classification to Bottle Detection and Tier 1b Search
+**Problem**: `detectBottleMentionsWithNotes` did not fetch `spirit_classification`, so the tiered recipe search never tokenised style terms like "jamaican" or "agricole" from the classification string.
+**Solution**: Added `spirit_classification` to the SQL SELECT and return type. Added a Tier 1b block that tokenises classification style terms and searches recipe ingredients for them (deduped against Tier 2 location queries via `tier1bSearchedTerms` set).
+
+#### 3. Strengthened SPIRIT SUBSTITUTION RULE
+**Problem**: The existing rule forbade cross-spirit substitutions but said nothing about same-spirit style mismatches. Claude said "Hampden could absolutely sub in for the light rum here" even though Jamaican pot-still rum ≠ light rum.
+**Solution**: Added "STYLE MATTERS within a spirit category" guidance with a concrete Wrong/Right example and a "stay silent when uncertain" instruction.
+
+### Files Changed
+```
+docs/plans/2026-05-31-ai-spirit-style-awareness.md (NEW - implementation plan)
+api/src/services/AIService.ts (MODIFIED - field names, tiered search, substitution rule)
+api/src/services/AIService.test.ts (MODIFIED - 3 new TDD tests)
+```
+
+### Next Steps
+- Smoke test the AI bartender: ask about Hampden Estate, verify no light-rum substitution hallucinations
+- Upload bottle photos for full inventory
+- Deploy to production (Phase 6)
 
 ---
 
