@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2026-05-31 (Session 26)
+Last updated: 2026-05-31 (Session 27)
 
 ---
 
@@ -33,6 +33,41 @@ Last updated: 2026-05-31 (Session 26)
 - Inventory Auto-Classification: **Complete** (9 categories with backfill)
 
 **PostgreSQL Migration**: **Complete** (Phase 1-5 done, Phase 6 Deploy pending)
+
+---
+
+## Recent Session (2026-05-31): MemMachine Kill Switch & Test Infrastructure Fixes
+
+### Summary
+Disabled MemMachine (OpenAI $9.98/month, 79.9M input tokens) with a proper kill switch wired to `MEMMACHINE_ENABLED` env var. Fixed two test infrastructure bugs uncovered in the process: a Winston file-transport conflict on Windows and a subtle async race condition in the auth export test.
+
+### Work Completed
+
+#### 1. MemMachine Kill Switch (MEMMACHINE_ENABLED)
+**Problem**: MemMachine was burning ~80M tokens/month with OpenAI (neo4j vector store for AI memory). The `MEMMACHINE_ENABLED` env var existed in `validateEnv.ts` but was never checked by `MemoryService`.
+**Solution**: Added `enabled` field and `isEnabled()` getter to `MemoryService`. All 12 public HTTP methods now early-return safe no-op values when disabled. Singleton init reads `MEMMACHINE_ENABLED` env var (defaults to `false`). Added `isEnabled()` to `IMemoryService` interface in `RecipeService.ts` and updated mocks.
+
+#### 2. Winston File Transport Fix (EPERM in Tests)
+**Problem**: `logger.ts` always created file transports (`error.log`, `combined.log`), causing `EPERM: operation not permitted` / `write after end` errors when the dev server held the log files open while tests ran concurrently on Windows.
+**Solution**: Added `const isTest = process.env.NODE_ENV === 'test'` guard — file transports are skipped entirely in test mode. Also removed the `aiDiagnosticLogger` (unused after MemMachine disable).
+
+#### 3. Auth Export Test Regression (Async Race Fix)
+**Problem**: After adding the kill switch, `auth.test.ts`'s "should export all user data" test started failing — `collections` returned `[]` instead of 1 item. Root cause: `login.ts` fires `recipeService.syncMemMachine()` as fire-and-forget. With MemMachine enabled, `syncMemMachine` calls `deleteAllRecipeMemories()` first (slow HTTP fetch), so its `queryAll` runs after the export handler finishes. With MemMachine disabled, `deleteAllRecipeMemories()` returns instantly, so `syncMemMachine`'s `queryAll` raced the export handler's mock queue and consumed the 4th `mockResolvedValueOnce` value (`collections`).
+**Solution**: Added early-return to `syncMemMachine` — if `!this.memoryService.isEnabled()`, return `{cleared: true, recipesInDB: 0, ...}` immediately without querying the DB.
+
+### Files Changed
+```
+api/src/services/MemoryService.ts      (MODIFIED - kill switch, isEnabled() getter)
+api/src/services/MemoryService.test.ts (MODIFIED - enabled: true in beforeEach)
+api/src/services/RecipeService.ts      (MODIFIED - isEnabled() in IMemoryService interface + syncMemMachine guard)
+api/src/services/RecipeService.test.ts (MODIFIED - isEnabled mock)
+api/src/utils/logger.ts                (MODIFIED - skip file transports in test)
+```
+
+### Next Steps
+- Smoke test the AI bartender: Hampden Estate substitution fix from previous session
+- Set MEMMACHINE_ENABLED=false in .env and docker configs
+- Deploy to production (Phase 6)
 
 ---
 

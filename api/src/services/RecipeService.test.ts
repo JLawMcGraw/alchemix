@@ -46,6 +46,7 @@ import { Recipe } from '../types';
  */
 function createMockMemoryService(): IMemoryService {
   return {
+    isEnabled: vi.fn().mockReturnValue(true),
     storeUserRecipe: vi.fn().mockResolvedValue('mock-uid'),
     storeUserRecipesBatch: vi.fn().mockResolvedValue({ success: 0, failed: 0, uidResults: [] }),
     deleteUserRecipe: vi.fn().mockResolvedValue(undefined),

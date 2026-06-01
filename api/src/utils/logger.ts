@@ -125,6 +125,8 @@ const productionFormat = winston.format.combine(
 /**
  * Main logger instance
  */
+const isTest = process.env.NODE_ENV === 'test';
+
 export const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
   format: productionFormat,
@@ -132,16 +134,15 @@ export const logger = winston.createLogger({
     service: 'alchemix-api',
     environment: process.env.NODE_ENV || 'development'
   },
-  transports: [
-    // Error logs - separate file for critical issues
+  // Skip file transports in test — avoids EPERM/stream conflicts when the dev
+  // server holds the log file open while tests run concurrently.
+  transports: isTest ? [] : [
     new winston.transports.File({
       filename: path.join(logsDir, 'error.log'),
       level: 'error',
       maxsize: 5242880, // 5MB
       maxFiles: 5,
     }),
-
-    // Combined logs - all log levels
     new winston.transports.File({
       filename: path.join(logsDir, 'combined.log'),
       maxsize: 5242880, // 5MB

@@ -18,6 +18,7 @@ import { logger } from '../utils/logger';
  * MemoryService interface for dependency injection
  */
 export interface IMemoryService {
+  isEnabled(): boolean;
   storeUserRecipe(userId: number, recipe: { name: string; ingredients: string[] | string; instructions?: string; glass?: string; category?: string }): Promise<string | null>;
   storeUserRecipesBatch(userId: number, recipes: Array<{ name: string; ingredients: string[] | string; instructions?: string; glass?: string; category?: string }>): Promise<{ success: number; failed: number; uidResults: Array<{ name: string; uid: string | null }> }>;
   deleteUserRecipe(userId: number, recipeName: string): Promise<void>;
@@ -683,6 +684,10 @@ export class RecipeService {
    * Sync MemMachine with database
    */
   async syncMemMachine(userId: number): Promise<SyncStats> {
+    if (!this.memoryService.isEnabled()) {
+      return { cleared: true, recipesInDB: 0, uploaded: 0, failed: 0 };
+    }
+
     // Clear MemMachine
     const cleared = await this.memoryService.deleteAllRecipeMemories(userId);
 

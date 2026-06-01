@@ -59,6 +59,7 @@ describe('MemoryService', () => {
     memoryService = new MemoryService({
       baseURL: 'http://localhost:8080',
       timeout: 5000,
+      enabled: true,
     });
 
     // Default successful response

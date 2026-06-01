@@ -70,6 +70,7 @@ function isHttpError(error: unknown): error is HttpError {
 export interface MemoryServiceConfig {
   baseURL: string;
   timeout?: number;
+  enabled?: boolean; // if omitted, reads MEMMACHINE_ENABLED env var (default: false)
 }
 
 /**
@@ -99,11 +100,17 @@ export interface CollectionData {
 export class MemoryService {
   private baseURL: string;
   private timeout: number;
+  private readonly enabled: boolean;
   private projectCache: Set<string> = new Set(); // Cache of created projects
 
   constructor(config: MemoryServiceConfig) {
     this.baseURL = config.baseURL;
     this.timeout = config.timeout || 120000; // 120 seconds for batch operations
+    this.enabled = config.enabled ?? (process.env.MEMMACHINE_ENABLED === 'true');
+  }
+
+  isEnabled(): boolean {
+    return this.enabled;
   }
 
   /**
@@ -305,6 +312,7 @@ export class MemoryService {
    * @returns UID of the created episode (or null if storage failed)
    */
   async storeUserRecipe(userId: number, recipe: RecipeData): Promise<string | null> {
+    if (!this.enabled) return null;
     try {
       const projectId = await this.ensureProjectExists(userId, 'recipes');
       const recipeText = this.formatRecipeForStorage(recipe);
@@ -364,6 +372,7 @@ export class MemoryService {
     errors: string[];
     uidResults: Array<{ name: string; uid: string | null }>; // UIDs in same order as input recipes
   }> {
+    if (!this.enabled) return { success: 0, failed: 0, errors: [], uidResults: recipes.map(r => ({ name: r.name, uid: null })) };
     // Batch settings - send multiple recipes in ONE API request
     const batchSize = 20; // Recipes per single API call
     const delayBetweenBatches = 500;
@@ -475,6 +484,7 @@ export class MemoryService {
    * @throws Error if API call fails
    */
   async queryUserProfile(userId: number, query: string): Promise<NormalizedSearchResult> {
+    if (!this.enabled) return { episodic: [], semantic: [] };
     try {
       const projectId = buildRecipeProjectId(userId);
 
@@ -538,6 +548,7 @@ export class MemoryService {
    * @param aiResponse - AI bartender's response
    */
   async storeConversationTurn(userId: number, userMessage: string, aiResponse: string): Promise<void> {
+    if (!this.enabled) return;
     try {
       // Use unified chat project (no date suffix) for persistent memory
       const projectId = `user_${userId}_chat`;
@@ -592,6 +603,7 @@ export class MemoryService {
    * @returns True if deletion succeeded, false otherwise
    */
   async deleteUserRecipeByUid(userId: number, uid: string, recipeName?: string): Promise<boolean> {
+    if (!this.enabled) return true;
     try {
       const projectId = buildRecipeProjectId(userId);
 
@@ -628,6 +640,7 @@ export class MemoryService {
    * @param recipeName - Name of recipe to delete
    */
   async deleteUserRecipe(userId: number, recipeName: string): Promise<void> {
+    if (!this.enabled) return;
     logger.info('MemMachine: Legacy recipe deleted from AlcheMix (no UID)', { userId, recipeName });
   }
 
@@ -642,6 +655,7 @@ export class MemoryService {
    * @returns Object with success/failure counts
    */
   async deleteUserRecipesBatch(userId: number, uids: string[]): Promise<{ success: number; failed: number }> {
+    if (!this.enabled) return { success: 0, failed: 0 };
     const batchSize = 10;
     const delayBetweenBatches = 500;
     let successCount = 0;
@@ -710,6 +724,7 @@ export class MemoryService {
    * @returns True if deletion succeeded, false otherwise
    */
   async deleteAllRecipeMemories(userId: number): Promise<boolean> {
+    if (!this.enabled) return true;
     try {
       const projectId = buildRecipeProjectId(userId);
 
@@ -753,6 +768,7 @@ export class MemoryService {
    * @param collection - Collection object with name and description
    */
   async storeUserCollection(userId: number, collection: CollectionData): Promise<void> {
+    if (!this.enabled) return;
     try {
       const projectId = await this.ensureProjectExists(userId, 'recipes');
 
@@ -793,6 +809,7 @@ export class MemoryService {
    * @returns Relevant conversation snippets
    */
   async queryUserChatHistory(userId: number, query: string): Promise<NormalizedSearchResult> {
+    if (!this.enabled) return { episodic: [], semantic: [] };
     try {
       // Use unified chat project (no date suffix) for persistent memory
       const projectId = `user_${userId}_chat`;
@@ -842,6 +859,7 @@ export class MemoryService {
     userContext: NormalizedSearchResult | null;
     chatContext: NormalizedSearchResult | null;
   }> {
+    if (!this.enabled) return { userContext: null, chatContext: null };
     try {
       // Query user's recipes
       const userContext = await this.queryUserProfile(userId, query);
@@ -1122,6 +1140,7 @@ export class MemoryService {
    * @returns true if service is healthy, false otherwise
    */
   async healthCheck(): Promise<boolean> {
+    if (!this.enabled) return false;
     try {
       const response = await this.get<{ status: string }>('/api/v2/health');
       return response.status === 'healthy';
@@ -1135,9 +1154,11 @@ export class MemoryService {
  * Singleton instance for application-wide use
  */
 const memMachineURL = process.env.MEMMACHINE_API_URL || 'http://localhost:8080';
-logger.info('MemMachine Service initialized (v2 API)', { url: memMachineURL });
+const memMachineEnabled = process.env.MEMMACHINE_ENABLED === 'true';
+logger.info('MemMachine Service initialized (v2 API)', { url: memMachineURL, enabled: memMachineEnabled });
 
 export const memoryService = new MemoryService({
   baseURL: memMachineURL,
-  timeout: 120000, // 120 seconds for batch operations
+  timeout: 120000,
+  enabled: memMachineEnabled,
 });
