@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2026-05-31 (Session 27)
+Last updated: 2026-06-02 (Session 28)
 
 ---
 
@@ -33,6 +33,45 @@ Last updated: 2026-05-31 (Session 27)
 - Inventory Auto-Classification: **Complete** (9 categories with backfill)
 
 **PostgreSQL Migration**: **Complete** (Phase 1-5 done, Phase 6 Deploy pending)
+
+---
+
+## Recent Session (2026-06-02): AI Bartender Prompt Fixes
+
+### Summary
+Reviewed a live Alambique Serrano conversation and identified 5 prompt logic failures. Fixed all 5 in the AIService system prompt: recipe hallucination, inventory self-assessment without markers, over-apologetic "already suggested" behaviour, proactive style disclaimers, and excessive clarifying questions.
+
+### Work Completed
+
+#### 1. Recipe Hallucination Fix (Ti Punch)
+**Problem**: When the ALLOWED RECIPE LIST was sparse, Claude invented recipes from training data (Ti Punch). The fallback instruction "say I couldn't find matching recipes" was too soft — Claude treated it as an embarrassing failure state and invented instead.
+**Solution**: Replaced the soft fallback with a hard mandate: "Do NOT invent recipes. Say this exact phrase: 'I couldn't find [style] recipes in your database.'" Added "Inventing a recipe not in the allowed list is a critical failure, even if it seems helpful."
+
+#### 2. Inventory Self-Assessment Without Markers
+**Problem**: The rule "don't scan BAR STOCK yourself" only applied when craftability markers existed. Invented recipes have no markers, so Claude fell back to self-evaluating inventory (e.g. "you'd just need to grab a lime" for the invented Ti Punch).
+**Solution**: Added explicit rule: "If there is no craftability marker for a recipe — including any recipe you invent or recall from training data — you cannot evaluate inventory for it. Stop."
+
+#### 3. "Already Suggested" Over-Apology
+**Problem**: When daiquiris appeared in the `ALREADY SUGGESTED` list, Claude apologised for "recycling recommendations" in a follow-up turn — even though they were still the correct answer.
+**Solution**: Updated the `ALREADY SUGGESTED` section to add: "If the user's follow-up confirms or narrows a prior recommendation, re-confirm it confidently. Re-confirming the right answer is not recycling."
+
+#### 4. Proactive Style Disclaimers
+**Problem**: The "STYLE MATTERS — stay silent" rule was misread as "warn the user about style limitations before showing results."
+**Solution**: Replaced with explicit omission instruction: "DO NOT add disclaimers or style-mismatch warnings before showing results. Silently omit non-matching recipes. If the user asks why certain recipes aren't appearing, explain then."
+
+#### 5. Excessive Clarifying Questions
+**Problem**: After a specific bottle was named, Claude still asked about style before surfacing results — two sequential clarifications before any recommendation.
+**Solution**: Added ONE CLARIFYING QUESTION LIMIT: "Once a specific bottle or spirit is named, ask AT MOST ONE follow-up question before showing recommendations."
+
+### Files Changed
+```
+api/src/services/AIService.ts      (MODIFIED - 5 prompt fixes)
+api/src/services/AIService.test.ts (MODIFIED - updated style-mismatch assertion)
+```
+
+### Next Steps
+- Smoke test: repeat the Alambique Serrano "spirit-forward" conversation to verify fixes
+- Deploy to production (Phase 6)
 
 ---
 

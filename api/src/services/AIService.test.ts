@@ -405,7 +405,7 @@ describe('AIService', () => {
       const [staticBlock] = await aiService.buildContextAwarePrompt(1, '', []);
 
       expect(staticBlock.text).toContain('STYLE MATTERS');
-      expect(staticBlock.text).toContain('stay silent');
+      expect(staticBlock.text).toContain('DO NOT add disclaimers or style-mismatch warnings');
     });
   });
 
