@@ -47,6 +47,17 @@ describe('ShoppingListService', () => {
       expect(shoppingListService.parseIngredientName('3/4 oz Lime Juice')).toBe('lime juice');
     });
 
+    it('should not corrupt ingredients starting with "l" when fraction has no space before unit', () => {
+      // Regression: "½ lime" → NFKD → "1/2 lime" — the optional "l" unit was matching the leading
+      // "l" of "lime", producing "ime" instead of "lime"
+      expect(shoppingListService.parseIngredientName('½ lime')).toBe('lime');
+      expect(shoppingListService.parseIngredientName('1/2 lime')).toBe('lime');
+      expect(shoppingListService.parseIngredientName('1/2 lemon')).toBe('lemon');
+      expect(shoppingListService.parseIngredientName('3/4 lime juice')).toBe('lime juice');
+      // Unit with space should still be stripped correctly
+      expect(shoppingListService.parseIngredientName('1/2 l lime juice')).toBe('lime juice');
+    });
+
     it('should handle dashes in measurements', () => {
       // Angostura is kept as it's a distinct bitters type (not just a brand)
       expect(shoppingListService.parseIngredientName('2 dashes Angostura Bitters')).toBe('angostura bitters');

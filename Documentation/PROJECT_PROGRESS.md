@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2026-06-02 (Session 28)
+Last updated: 2026-06-03 (Session 29)
 
 ---
 
@@ -33,6 +33,42 @@ Last updated: 2026-06-02 (Session 28)
 - Inventory Auto-Classification: **Complete** (9 categories with backfill)
 
 **PostgreSQL Migration**: **Complete** (Phase 1-5 done, Phase 6 Deploy pending)
+
+---
+
+## Recent Session (2026-06-03): AI Bartender Ingredient Matching Fixes
+
+### Summary
+Diagnosed three bugs causing Ti Punch to be misclassified as near-miss (lime not recognized), traced the root cause to a Unicode normalization + regex interaction in `parseIngredientName`, and added two prompt fixes for spirit embellishment and post-pushback behavior.
+
+### Work Completed
+
+#### 1. `parseIngredientName` Regex Bug ("½ lime" → "ime")
+**Problem**: The ingredient `"½ lime"` (stored in Ti Punch) was parsed to `"ime"`. NFKD normalization converts `½` → `"1/2"`, giving `"1/2 lime"`. The fraction-stripping regex used `\s*(unit)?` with an optional, zero-space-tolerant unit group — the `l` (liter) alternative matched the leading `"l"` of `"lime"`, leaving `"ime"`. This meant Ti Punch was always flagged near-miss even when the user had lime.
+**Solution**: Changed both fraction regexes from `\s*(unit)?` to `(\s+ unit\b)?` — space required before unit, word boundary after. Added regression test covering `"½ lime"`, `"1/2 lime"`, `"1/2 lemon"`, `"3/4 lime juice"`, and `"1/2 l lime juice"`.
+
+#### 2. "lime disc" / "lime wedge" / "lime slice" Synonym Gap
+**Problem**: Ti' Punch uses `"lime disc"` (a disc of lime squeezed directly into the glass). The matcher treated it as a 2-token ingredient requiring both `"lime"` AND `"disc"` to match in inventory — failing even when the user had lime juice.
+**Solution**: Added `lime disc`, `lime wedge`, `lime slice` to `SYNONYMS` with bidirectional mappings to `lime`, `lime juice`, `fresh lime juice`, `fresh lime`.
+
+#### 3. Prompt: Spirit Description Embellishment
+**Problem**: AI called the Alambique Serrano "Guatemalan agricole-style rum" — a hallucinated characterization not present in BAR STOCK. The AI was filling in from training data rather than sticking to what the inventory record showed.
+**Solution**: Added prompt rule: when describing a user's bottle, use ONLY what BAR STOCK shows. Never add regional, production, or style attributes from training data.
+
+#### 4. Prompt: Abandoning After User Pushback
+**Problem**: After the user said Hurricane and Spindrift were multi-rum blends (not single-spirit showcases), the AI said "the search results don't surface a great single-spirit showcase" and asked permission to re-search — even though Ti Punch was already in the ALLOWED LIST as a near-miss.
+**Solution**: Added prompt rule: when user provides corrective feedback on recommendations, immediately scan the ALLOWED LIST for matching options and present them. Never ask permission to search; just filter and show.
+
+### Files Changed
+```
+api/src/services/ShoppingListService.ts      (MODIFIED - regex fix, lime disc synonyms)
+api/src/services/ShoppingListService.test.ts (MODIFIED - regression test for ½ lime)
+api/src/services/AIService.ts                (MODIFIED - 2 prompt fixes)
+```
+
+### Next Steps
+- Smoke test: repeat the Alambique Serrano "spirit-forward" conversation to verify Ti Punch now shows as ✅ CRAFTABLE
+- Deploy to production (Phase 6)
 
 ---
 

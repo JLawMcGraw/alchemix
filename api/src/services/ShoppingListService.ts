@@ -201,10 +201,14 @@ const SYNONYMS: Record<string, string[]> = {
   'extra dry vermouth': ['dry vermouth', 'white vermouth', 'french vermouth'],
 
   // Citrus juice shortcuts
-  'lime juice': ['lime', 'fresh lime juice', 'fresh lime'],
-  'lime': ['lime juice', 'fresh lime juice', 'fresh lime'],
-  'fresh lime juice': ['lime juice', 'lime', 'fresh lime'],
-  'fresh lime': ['lime juice', 'lime', 'fresh lime juice'],
+  'lime juice': ['lime', 'fresh lime juice', 'fresh lime', 'lime disc', 'lime wedge', 'lime slice'],
+  'lime': ['lime juice', 'fresh lime juice', 'fresh lime', 'lime disc', 'lime wedge', 'lime slice'],
+  'fresh lime juice': ['lime juice', 'lime', 'fresh lime', 'lime disc', 'lime wedge', 'lime slice'],
+  'fresh lime': ['lime juice', 'lime', 'fresh lime juice', 'lime disc', 'lime wedge', 'lime slice'],
+  // Lime preparations (Ti Punch style) — all resolve to having fresh lime
+  'lime disc': ['lime', 'lime juice', 'fresh lime juice', 'fresh lime', 'lime wedge', 'lime slice'],
+  'lime wedge': ['lime', 'lime juice', 'fresh lime juice', 'fresh lime', 'lime disc', 'lime slice'],
+  'lime slice': ['lime', 'lime juice', 'fresh lime juice', 'fresh lime', 'lime disc', 'lime wedge'],
   'lemon juice': ['lemon', 'fresh lemon juice', 'fresh lemon'],
   'lemon': ['lemon juice', 'fresh lemon juice', 'fresh lemon'],
   'fresh lemon juice': ['lemon juice', 'lemon', 'fresh lemon'],
@@ -348,9 +352,11 @@ class ShoppingListService {
     normalized = normalized.normalize('NFKD').replace(/\u2044/g, '/');
 
     // Remove measurements and numbers
-    normalized = normalized.replace(/^\d+\s+\d+\s*\/\s*\d+\s*(ounces?|oz|ml|cl|l|tsp|tbsp|cups?)?/i, '').trim();
-    normalized = normalized.replace(/^\d+\s*\/\s*\d+\s*(ounces?|oz|ml|cl|l|tsp|tbsp|cups?)?/i, '').trim();
-    normalized = normalized.replace(/^\d+\s*(ounces?|oz|ml|cl|l|tsp|tbsp|cups?)\s*\([^)]+\)\s*/i, '').trim();
+    // Note: unit group requires \s+ separator + \b to prevent "l" from matching the leading "l" in "lime", "lemon", etc.
+    // e.g. "½ lime" → NFKD → "1/2 lime" — without \b, the optional "l" unit grabs "l" from "lime" → "ime"
+    normalized = normalized.replace(/^\d+\s+\d+\s*\/\s*\d+(\s+(ounces?|oz|ml|cl|l|tsp|tbsp|cups?)\b)?/i, '').trim();
+    normalized = normalized.replace(/^\d+\s*\/\s*\d+(\s+(ounces?|oz|ml|cl|l|tsp|tbsp|cups?)\b)?/i, '').trim();
+    normalized = normalized.replace(/^\d+\s*(ounces?|oz|ml|cl|l\b|tsp|tbsp|cups?)\s*\([^)]+\)\s*/i, '').trim();
     normalized = normalized.replace(/^\d+\s+(to|or|-)\s+\d+\s*/i, '').trim();
     normalized = normalized.replace(/^\d+\.?\d*\s*(ounces?|oz|ml|cl|liters?|l|tsp|tbsp|cups?|dashes|dash)\b/i, '').trim();
     normalized = normalized.replace(/^[\d\s]+/, '').trim();
