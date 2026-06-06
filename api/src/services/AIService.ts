@@ -919,6 +919,56 @@ class AIService {
     return [...new Set(broaderTerms)];
   }
 
+  private async getRandomCraftableSample(
+    userId: number,
+    userBottles: { name: string; liquorType: string | null; detailedClassification: string | null }[],
+    excludeNames: Set<string>,
+    limit: number = 20
+  ): Promise<{ formatted: string; processedRecipes: string[]; craftableCount: number; nearMissCount: number }> {
+    try {
+      const randomRecipes = await queryAll<RecipeRecord>(`
+        SELECT id, user_id, name, category, ingredients, memmachine_uid
+        FROM recipes
+        WHERE user_id = $1
+        ORDER BY RANDOM()
+        LIMIT 150
+      `, [userId]);
+
+      logger.info('[AI-EXPLORE] Random sample fetched', {
+        total: randomRecipes.length,
+        excluded: excludeNames.size,
+      });
+
+      const result = this.processRecipesWithCraftability(
+        randomRecipes,
+        userBottles,
+        excludeNames,
+        limit,
+        null,  // no spirit type constraint for explore mode
+        true,  // skipAlreadyRecommended — excludeNames handles the exclusion
+        false,
+        4,
+        []
+      );
+
+      logger.info('[AI-EXPLORE] Random sample processed', {
+        craftable: result.craftableCount,
+        nearMiss: result.nearMissCount,
+        total: result.processedRecipes.length,
+      });
+
+      return {
+        formatted: result.formatted,
+        processedRecipes: result.processedRecipes,
+        craftableCount: result.craftableCount,
+        nearMissCount: result.nearMissCount,
+      };
+    } catch (error) {
+      logger.warn('[AI-EXPLORE] Random sample failed', { error });
+      return { formatted: '', processedRecipes: [], craftableCount: 0, nearMissCount: 0 };
+    }
+  }
+
   /**
    * Sanitize conversation history entries
    */

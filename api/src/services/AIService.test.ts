@@ -541,6 +541,70 @@ describe('AIService', () => {
       expect((aiService as any).detectExploreIntent("I want whiskey sours")).toBe(false);
     });
   });
+
+  describe('getRandomCraftableSample', () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    it('should return empty result when DB returns no recipes', async () => {
+      const dbModule = await import('../database/db');
+      vi.spyOn(dbModule, 'queryAll').mockResolvedValue([]);
+
+      const result = await (aiService as any).getRandomCraftableSample(1, [], new Set(), 10);
+
+      expect(result.processedRecipes).toHaveLength(0);
+      expect(result.craftableCount).toBe(0);
+      expect(result.nearMissCount).toBe(0);
+      expect(result.formatted).toBe('');
+    });
+
+    it('should exclude names in the excludeNames set', async () => {
+      const dbModule = await import('../database/db');
+      const shoppingModule = await import('./ShoppingListService');
+
+      const recipes = [
+        { id: 1, user_id: 1, name: 'Daiquiri', category: 'Sour', ingredients: JSON.stringify(['rum', 'lime']), memmachine_uid: null },
+        { id: 2, user_id: 1, name: 'Mojito', category: 'Highball', ingredients: JSON.stringify(['rum', 'mint', 'lime']), memmachine_uid: null },
+      ];
+
+      vi.spyOn(dbModule, 'queryAll').mockResolvedValue(recipes);
+      vi.spyOn(shoppingModule.shoppingListService, 'isCraftable').mockReturnValue(true);
+      vi.spyOn(shoppingModule.shoppingListService, 'findMissingIngredients').mockReturnValue([]);
+
+      const excludeNames = new Set(['Daiquiri']);
+      const result = await (aiService as any).getRandomCraftableSample(1, [{ name: 'Rum', liquorType: 'rum', detailedClassification: null }], excludeNames, 10);
+
+      expect(result.processedRecipes).not.toContain('Daiquiri');
+      expect(result.processedRecipes).toContain('Mojito');
+    });
+
+    it('should not return more recipes than the limit', async () => {
+      const dbModule = await import('../database/db');
+      const shoppingModule = await import('./ShoppingListService');
+
+      const recipes = Array.from({ length: 30 }, (_, i) => ({
+        id: i + 1, user_id: 1, name: `Recipe ${i + 1}`, category: 'Sour',
+        ingredients: JSON.stringify(['rum', 'lime']), memmachine_uid: null,
+      }));
+
+      vi.spyOn(dbModule, 'queryAll').mockResolvedValue(recipes);
+      vi.spyOn(shoppingModule.shoppingListService, 'isCraftable').mockReturnValue(true);
+      vi.spyOn(shoppingModule.shoppingListService, 'findMissingIngredients').mockReturnValue([]);
+
+      const result = await (aiService as any).getRandomCraftableSample(1, [{ name: 'Rum', liquorType: 'rum', detailedClassification: null }], new Set(), 5);
+
+      expect(result.processedRecipes.length).toBeLessThanOrEqual(5);
+    });
+
+    it('should handle DB errors gracefully and return empty result', async () => {
+      const dbModule = await import('../database/db');
+      vi.spyOn(dbModule, 'queryAll').mockRejectedValue(new Error('DB connection failed'));
+
+      const result = await (aiService as any).getRandomCraftableSample(1, [], new Set(), 10);
+
+      expect(result.processedRecipes).toHaveLength(0);
+      expect(result.formatted).toBe('');
+    });
+  });
 });
 
 describe('Query Expansion', () => {
