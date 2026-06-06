@@ -507,6 +507,40 @@ describe('AIService', () => {
       expect(ingredientSearchParams.some(p => p.includes('jamaican'))).toBe(true);
     });
   });
+
+  describe('detectExploreIntent', () => {
+    it('should detect "haven\'t tried" phrasing', () => {
+      expect((aiService as any).detectExploreIntent("what haven't I tried?")).toBe(true);
+      expect((aiService as any).detectExploreIntent("I haven't made many of these")).toBe(true);
+      expect((aiService as any).detectExploreIntent("recipes I haven't had before")).toBe(true);
+    });
+
+    it('should detect "something new/different" phrasing', () => {
+      expect((aiService as any).detectExploreIntent("show me something new")).toBe(true);
+      expect((aiService as any).detectExploreIntent("I want something different")).toBe(true);
+      expect((aiService as any).detectExploreIntent("anything fresh tonight")).toBe(true);
+    });
+
+    it('should detect "more options / what else" phrasing', () => {
+      expect((aiService as any).detectExploreIntent("what else can I make?")).toBe(true);
+      expect((aiService as any).detectExploreIntent("show me more options")).toBe(true);
+      expect((aiService as any).detectExploreIntent("any other suggestions?")).toBe(true);
+      expect((aiService as any).detectExploreIntent("there must be more I haven't had")).toBe(true);
+    });
+
+    it('should detect surprise / exploration phrasing', () => {
+      expect((aiService as any).detectExploreIntent("surprise me")).toBe(true);
+      expect((aiService as any).detectExploreIntent("more ideas please")).toBe(true);
+      expect((aiService as any).detectExploreIntent("keep going")).toBe(true);
+    });
+
+    it('should NOT detect specific ingredient requests', () => {
+      expect((aiService as any).detectExploreIntent("show me something with rum")).toBe(false);
+      expect((aiService as any).detectExploreIntent("what tiki drinks can I make")).toBe(false);
+      expect((aiService as any).detectExploreIntent("give me a daiquiri")).toBe(false);
+      expect((aiService as any).detectExploreIntent("I want whiskey sours")).toBe(false);
+    });
+  });
 });
 
 describe('Query Expansion', () => {

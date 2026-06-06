@@ -340,6 +340,50 @@ class AIService {
   }
 
   /**
+   * Detect if user wants to explore new/random recipes rather than a specific ingredient request.
+   * Returns true when the query signals variety, surprise, or "what haven't I tried?" intent.
+   */
+  private detectExploreIntent(query: string): boolean {
+    const lowerQuery = query.toLowerCase();
+
+    const explorePatterns = [
+      /haven'?t\s+(tried|made|had|seen|done)/i,
+      /something\s+(new|different|else|fresh)/i,
+      /anything\s+(new|different|else|fresh)/i,
+      /what\s+else/i,
+      /show\s+me\s+more/i,
+      /more\s+options/i,
+      /more\s+suggestions/i,
+      /more\s+ideas/i,
+      /more\s+recipes/i,
+      /other\s+options/i,
+      /any\s+other/i,
+      /what\s+other/i,
+      /surprise\s+me/i,
+      /never\s+(tried|made|had)/i,
+      /what\s+haven'?t\s+i/i,
+      /new\s+to\s+me/i,
+      /fresh\s+options/i,
+      /anything\s+else/i,
+      /there\s+must\s+be\s+more/i,
+      /keep\s+going/i,
+      /what\s+more/i,
+    ];
+
+    for (const pattern of explorePatterns) {
+      if (pattern.test(lowerQuery)) {
+        logger.info('[AI-EXPLORE] Detected explore intent', {
+          pattern: pattern.toString(),
+          query: lowerQuery.substring(0, 100),
+        });
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
    * Query SQLite for recipes by cocktail name
    * Used when concept matches (e.g., "spirit-forward") expand to specific cocktail names
    */
