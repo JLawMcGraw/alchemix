@@ -867,6 +867,36 @@ describe('AIService', () => {
       expect(dynamicBlock.text).toContain('• Explore Recipe 1');
       expect(dynamicBlock.text).not.toContain('• Deep Cut Daiquiri');
     });
+
+    it('should inherit the spirit constraint when the explore query names scotch (normalizes to whiskey)', async () => {
+      // "show me more scotch drinks" fires explore intent AND names a base spirit:
+      // the random sample MUST keep the whiskey constraint, so a gin-only recipe
+      // in the sample must be filtered out by recipeMatchesSpiritConstraint.
+      const mixedExploreRecipes = [
+        {
+          id: 201, user_id: 1, name: 'Explore Rob Roy', category: 'Spirit-Forward',
+          ingredients: JSON.stringify(['scotch', 'sweet vermouth', 'angostura bitters']), memmachine_uid: null,
+        },
+        {
+          id: 202, user_id: 1, name: 'Explore Penicillin', category: 'Sour',
+          ingredients: JSON.stringify(['blended scotch whisky', 'lemon juice', 'honey syrup']), memmachine_uid: null,
+        },
+        {
+          id: 203, user_id: 1, name: 'Explore Highball', category: 'Highball',
+          ingredients: JSON.stringify(['whiskey', 'soda water']), memmachine_uid: null,
+        },
+        {
+          id: 204, user_id: 1, name: 'Explore Gimlet', category: 'Sour',
+          ingredients: JSON.stringify(['gin', 'lime juice', 'simple syrup']), memmachine_uid: null,
+        },
+      ];
+      await mockCommon({ keywordRecipes: [], exploreRecipes: mixedExploreRecipes });
+
+      const [, dynamicBlock] = await aiService.buildContextAwarePrompt(1, 'show me more scotch drinks', []);
+
+      expect(dynamicBlock.text).toContain('Explore Rob Roy');
+      expect(dynamicBlock.text).not.toContain('Explore Gimlet');
+    });
   });
 });
 

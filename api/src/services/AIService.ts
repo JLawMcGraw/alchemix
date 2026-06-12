@@ -1893,7 +1893,7 @@ IMPORTANT:
       // fires explore intent too — the sample MUST keep the user's spirit constraint,
       // either from a mentioned bottle (requiredSpiritType) or a base spirit named
       // in the query. Never sample unconstrained when the user named a spirit.
-      const EXPLORE_BASE_SPIRITS = ['rum', 'gin', 'vodka', 'whiskey', 'bourbon', 'tequila', 'mezcal', 'brandy', 'cognac'];
+      const EXPLORE_BASE_SPIRITS = ['rum', 'gin', 'vodka', 'whiskey', 'bourbon', 'rye', 'scotch', 'tequila', 'mezcal', 'brandy', 'cognac'];
       const detectedBaseSpirit = detectedIngredients.find(i => EXPLORE_BASE_SPIRITS.includes(i.toLowerCase())) ?? null;
       const exploreSpiritConstraint = requiredSpiritType ?? (detectedBaseSpirit ? this.normalizeSpiritType(detectedBaseSpirit) : null);
       const isPureExplore = exploreIntent && detectedIngredients.length === 0 && matchedConcepts.length === 0 && !requiredSpiritType;
