@@ -1126,6 +1126,11 @@ class AIService {
     // Returns ALL matching DB names: the downstream skip check is an exact
     // Set.has(recipe.name), so every variant ('Daiquiri' AND 'SC Daiquiri')
     // must enter the set or variants leak past the exclusion.
+    // Deliberate recall-over-precision trade-off: a bolded base name like
+    // **Daiquiri** also sweeps distinct recipes sharing the base name
+    // ('Hemingway Daiquiri'). Accepted because exclusion is per-conversation
+    // and the relaxed re-pass / second pass re-offers swept recipes with the
+    // 🔄 marker rather than starving results.
     const findMatchingRecipes = (text: string): string[] => {
       const cleaned = text.toLowerCase().trim()
         .replace(/\*\*/g, '')  // Remove bold markers
@@ -1139,13 +1144,20 @@ class AIService {
         matches.add(recipeNameMap.get(cleaned)!);
       }
 
+      // Substring containment only applies to tokens of >= 5 chars: short
+      // tokens (e.g. 'sour', 'rum') are emphasis words far more often than
+      // recipe references, and substring matching on them would sweep entire
+      // categories into the exclusion set.
+      const allowSubstring = cleaned.length >= 5;
+
       for (const [lowerName, originalName] of recipeNameMap.entries()) {
         const strippedDbName = lowerName.replace(/^(sc|classic|traditional|original|the|a)\s+/i, '').trim();
         if (cleaned === strippedDbName ||
-            cleaned.includes(lowerName) ||
-            lowerName.includes(cleaned) ||
-            cleaned.includes(strippedDbName) ||
-            strippedDbName.includes(cleaned)) {
+            (allowSubstring &&
+              (cleaned.includes(lowerName) ||
+               lowerName.includes(cleaned) ||
+               cleaned.includes(strippedDbName) ||
+               strippedDbName.includes(cleaned)))) {
           matches.add(originalName);
         }
       }

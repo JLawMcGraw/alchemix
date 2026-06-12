@@ -732,6 +732,17 @@ describe('AIService', () => {
       expect(result.has('SC Daiquiri')).toBe(true);
       expect(result.has('Martini')).toBe(false);
     });
+
+    it('should not sweep recipes via substring match on short bolded emphasis words', () => {
+      const history = [
+        { role: 'assistant' as const, content: 'These are all great **sour** options for your bar!' },
+      ];
+      const recipes = [{ name: 'Whiskey Sour' }, { name: 'Pisco Sour' }, { name: 'Amaretto Sour' }, { name: 'Daiquiri' }];
+
+      const result = (aiService as any).extractAlreadyRecommendedRecipes(history, recipes);
+
+      expect(result.size).toBe(0);
+    });
   });
 });
 
