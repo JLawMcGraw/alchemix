@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2026-06-03 (Session 29)
+Last updated: 2026-06-12 (Session 30)
 
 ---
 
@@ -12,10 +12,10 @@ Last updated: 2026-06-03 (Session 29)
 **Blockers**: None
 
 **Test Coverage**:
-- Backend: 960 tests (35 test files)
+- Backend: 985 tests (35 test files)
 - Frontend: 466 tests (18 test files)
 - Recipe-Molecule: 298 tests (6 test files)
-- **Total: 1724 tests**
+- **Total: 1749 tests**
 
 **Redesign Progress**:
 - Phase 1-4 (Batch A - Foundation): **Complete**
@@ -33,6 +33,48 @@ Last updated: 2026-06-03 (Session 29)
 - Inventory Auto-Classification: **Complete** (9 categories with backfill)
 
 **PostgreSQL Migration**: **Complete** (Phase 1-5 done, Phase 6 Deploy pending)
+
+---
+
+## Recent Session (2026-06-12): AI Explore Fallback — Code Review, Fixes & Wiring
+
+### Summary
+Ran a full multi-agent code review of the June 5 explore-mode commits (`detectExploreIntent` / `getRandomCraftableSample`), which found the feature was dead code plus 9 latent bugs. Fixed all 10 findings and wired the explore fallback into `buildContextAwarePrompt` — "what haven't I tried?" / "surprise me" now surfaces random craftable recipes with inherited spirit constraints.
+
+### Work Completed
+
+#### 1. Code Review (10 findings)
+**Problem**: The two explore-mode methods had zero production callers, and review found: explore patterns over-matching constrained queries, ❌ MISSING backfill in the "craftable sample", curly apostrophes defeating `/haven'?t/` patterns, the exclusion set capped at 500 alphabetical rows, fuzzy-extract vs exact-check asymmetry, swallowed DB errors, no relaxed re-pass, and a cleanup bundle (positional-arg debt, 3rd SQL copy, dead pattern).
+**Solution**: 8-task plan (`docs/plans/2026-06-12-explore-fallback-review-fixes.md`) executed via subagent-driven development with per-task code review.
+
+#### 2. Shared Infrastructure Fixes
+**Problem**: Three regex-loop detectors and three copies of the recipes SELECT; 9-positional-arg `processRecipesWithCraftability` signature.
+**Solution**: `matchesAnyPattern` helper (with U+2018/U+2019 apostrophe normalization), module-level pattern constants, `RECIPE_COLUMNS` + `queryRandomRecipes` helper, options-object refactor with new `includeMissingInOutput` policy (default preserves old behavior).
+
+#### 3. getRandomCraftableSample Contract Fixes
+**Problem**: Hardcoded null spirit constraint, MISSING-recipe backfill, error indistinguishable from empty library, return type dropped accounting fields.
+**Solution**: `requiredSpiritType` param, `includeMissingInOutput: false`, `ok` flag, full `CraftabilityResult` return, relaxed 🔄 re-pass capped by both MIN_GOOD and the caller's limit.
+
+#### 4. Exclusion-Set Fixes
+**Problem**: 500-row alphabetical cap let recipes past row 500 repeat; fuzzy extraction added only the first matching variant; the all-variants change unbounded short-token substring sweeps (**sour**).
+**Solution**: Uncapped name-only query (gated on assistant turns), `findMatchingRecipes` returns all variants, ≥5-char guard on substring rules.
+
+#### 5. Wiring (Step 3d in buildContextAwarePrompt)
+**Problem**: Feature was never integrated.
+**Solution**: Fires on explore intent OR <3 good results; inherits spirit constraint from bottle mentions or a named base spirit (incl. rye/scotch → whiskey); dedupes against prior passes; degraded-mode "RECIPE SEARCH UNAVAILABLE" note on DB failure; 🎲 EXPLORE RESULTS header for pure-explore responses.
+
+### Files Changed
+```
+api/src/services/AIService.ts          (MODIFIED - all fixes + wiring)
+api/src/services/AIService.test.ts     (MODIFIED - 24 net new tests, 961 → 985 backend)
+docs/plans/2026-06-12-explore-fallback-review-fixes.md (NEW - 8-task plan, committed)
+docs/plans/2026-06-05-ai-explore-fallback.md           (COMMITTED - superseded note added)
+```
+
+### Next Steps
+- Smoke test in the running app (see plan Task 8 Step 2): "what haven't I tried?", curly-apostrophe variant, "show me more rum drinks" (must stay rum-only), repeated "surprise me" exhaustion, and "give me a daiquiri" regression check
+- Push the 13 unpushed commits on main after smoke test
+- Deploy to production (Phase 6)
 
 ---
 

@@ -6,8 +6,8 @@
 |-------|-------|
 | Version | v1.37.0 |
 | Branch | `main` |
-| Tests | 1725 total (961 backend, 466 frontend, 298 recipe-molecule) |
-| Last Updated | June 3, 2026 |
+| Tests | 1749 total (985 backend, 466 frontend, 298 recipe-molecule) |
+| Last Updated | June 12, 2026 |
 
 ---
 
@@ -85,7 +85,7 @@ alchemix/
 npm run dev:all                 # Frontend (3001) + Backend (3000)
 
 # Testing
-cd api && npm test              # All 960 backend tests
+cd api && npm test              # All 985 backend tests
 cd api && npm run test:unit     # Unit tests only
 cd api && npm run test:routes   # Route tests only
 
