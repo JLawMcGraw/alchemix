@@ -303,6 +303,9 @@ const EXPLORE_PATTERNS: RegExp[] = [
   /keep\s+going/i,
 ];
 
+/** Column list shared by every recipes SELECT in this service (matches RecipeRecord). */
+const RECIPE_COLUMNS = 'id, user_id, name, category, ingredients, memmachine_uid';
+
 class AIService {
   /**
    * Create an Anthropic client instance with the configured API key.
@@ -389,7 +392,7 @@ class AIService {
       const searchPattern = `%${cocktailName.toLowerCase()}%`;
 
       const recipes = await queryAll<RecipeRecord>(`
-        SELECT id, user_id, name, category, ingredients, memmachine_uid
+        SELECT ${RECIPE_COLUMNS}
         FROM recipes
         WHERE user_id = $1 AND LOWER(name) LIKE $2
         ORDER BY RANDOM()
@@ -427,7 +430,7 @@ class AIService {
 
       // Search for ingredient in the ingredients JSON field
       const recipes = await queryAll<RecipeRecord>(`
-        SELECT id, user_id, name, category, ingredients, memmachine_uid
+        SELECT ${RECIPE_COLUMNS}
         FROM recipes
         WHERE user_id = $1 AND LOWER(ingredients) LIKE $2
         ORDER BY RANDOM()
@@ -454,6 +457,21 @@ class AIService {
       });
       return [];
     }
+  }
+
+  /**
+   * Fetch a random sample of the user's recipes (explore mode).
+   * Throws on DB failure — the caller is responsible for error handling
+   * so it can distinguish "DB down" from "user has no recipes".
+   */
+  private async queryRandomRecipes(userId: number, limit: number): Promise<RecipeRecord[]> {
+    return queryAll<RecipeRecord>(`
+      SELECT ${RECIPE_COLUMNS}
+      FROM recipes
+      WHERE user_id = $1
+      ORDER BY RANDOM()
+      LIMIT $2
+    `, [userId, limit]);
   }
 
   /**
@@ -923,13 +941,7 @@ class AIService {
     limit: number = 20
   ): Promise<{ formatted: string; processedRecipes: string[]; craftableCount: number; nearMissCount: number }> {
     try {
-      const randomRecipes = await queryAll<RecipeRecord>(`
-        SELECT id, user_id, name, category, ingredients, memmachine_uid
-        FROM recipes
-        WHERE user_id = $1
-        ORDER BY RANDOM()
-        LIMIT 150
-      `, [userId]);
+      const randomRecipes = await this.queryRandomRecipes(userId, 150);
 
       logger.info('[AI-EXPLORE] Random sample fetched', {
         total: randomRecipes.length,

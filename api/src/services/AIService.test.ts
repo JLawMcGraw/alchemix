@@ -618,6 +618,23 @@ describe('AIService', () => {
       expect(result.formatted).toBe('');
     });
   });
+
+  describe('queryRandomRecipes', () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    it('should query random recipes for the user with the given limit', async () => {
+      const dbModule = await import('../database/db');
+      const spy = vi.spyOn(dbModule, 'queryAll').mockResolvedValue([]);
+
+      await (aiService as any).queryRandomRecipes(7, 150);
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      const [sql, params] = spy.mock.calls[0];
+      expect(sql).toContain('ORDER BY RANDOM()');
+      expect(sql).toContain('LIMIT $2');
+      expect(params).toEqual([7, 150]);
+    });
+  });
 });
 
 describe('Query Expansion', () => {
