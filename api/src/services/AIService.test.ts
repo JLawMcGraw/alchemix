@@ -568,26 +568,79 @@ describe('AIService', () => {
       expect(result.craftableCount).toBe(0);
       expect(result.nearMissCount).toBe(0);
       expect(result.formatted).toBe('');
+      expect(result.ok).toBe(true);
     });
 
-    it('should exclude names in the excludeNames set', async () => {
+    it('should exclude names in the excludeNames set when enough fresh recipes exist', async () => {
+      const dbModule = await import('../database/db');
+      const shoppingModule = await import('./ShoppingListService');
+
+      const recipes = ['Daiquiri', 'Mojito', 'Mai Tai', 'Ti Punch'].map((name, i) => ({
+        id: i + 1, user_id: 1, name, category: 'Sour',
+        ingredients: JSON.stringify(['rum', 'lime']), memmachine_uid: null,
+      }));
+
+      vi.spyOn(dbModule, 'queryAll').mockResolvedValue(recipes);
+      vi.spyOn(shoppingModule.shoppingListService, 'isCraftable').mockReturnValue(true);
+      vi.spyOn(shoppingModule.shoppingListService, 'findMissingIngredients').mockReturnValue([]);
+
+      const result = await (aiService as any).getRandomCraftableSample(1, [{ name: 'Rum', liquorType: 'rum', detailedClassification: null }], new Set(['Daiquiri']), 10);
+
+      expect(result.processedRecipes).not.toContain('Daiquiri');
+      expect(result.processedRecipes).toEqual(expect.arrayContaining(['Mojito', 'Mai Tai', 'Ti Punch']));
+      expect(result.previouslyRecommendedIncluded).toHaveLength(0);
+    });
+
+    it('should re-offer previously recommended recipes with 🔄 accounting when fewer than 3 fresh results exist', async () => {
+      const dbModule = await import('../database/db');
+      const shoppingModule = await import('./ShoppingListService');
+
+      // 3 craftable recipes, 2 already recommended → only 1 fresh → relaxed pass fires
+      const recipes = ['Daiquiri', 'Mojito', 'Mai Tai'].map((name, i) => ({
+        id: i + 1, user_id: 1, name, category: 'Sour',
+        ingredients: JSON.stringify(['rum', 'lime']), memmachine_uid: null,
+      }));
+
+      vi.spyOn(dbModule, 'queryAll').mockResolvedValue(recipes);
+      vi.spyOn(shoppingModule.shoppingListService, 'isCraftable').mockReturnValue(true);
+      vi.spyOn(shoppingModule.shoppingListService, 'findMissingIngredients').mockReturnValue([]);
+
+      const result = await (aiService as any).getRandomCraftableSample(
+        1,
+        [{ name: 'Rum', liquorType: 'rum', detailedClassification: null }],
+        new Set(['Daiquiri', 'Mojito']),
+        10
+      );
+
+      // Fresh recipe always present; excluded ones return only via the relaxed pass with accounting
+      expect(result.processedRecipes).toContain('Mai Tai');
+      expect(result.previouslyRecommendedIncluded.length).toBeGreaterThan(0);
+      expect(result.formatted).toContain('🔄');
+    });
+
+    it('should respect a spirit type constraint when provided', async () => {
       const dbModule = await import('../database/db');
       const shoppingModule = await import('./ShoppingListService');
 
       const recipes = [
-        { id: 1, user_id: 1, name: 'Daiquiri', category: 'Sour', ingredients: JSON.stringify(['rum', 'lime']), memmachine_uid: null },
-        { id: 2, user_id: 1, name: 'Mojito', category: 'Highball', ingredients: JSON.stringify(['rum', 'mint', 'lime']), memmachine_uid: null },
+        { id: 1, user_id: 1, name: 'Daiquiri', category: 'Sour', ingredients: JSON.stringify(['white rum', 'lime juice', 'sugar']), memmachine_uid: null },
+        { id: 2, user_id: 1, name: 'Martini', category: 'Stirred', ingredients: JSON.stringify(['gin', 'dry vermouth']), memmachine_uid: null },
       ];
 
       vi.spyOn(dbModule, 'queryAll').mockResolvedValue(recipes);
       vi.spyOn(shoppingModule.shoppingListService, 'isCraftable').mockReturnValue(true);
       vi.spyOn(shoppingModule.shoppingListService, 'findMissingIngredients').mockReturnValue([]);
 
-      const excludeNames = new Set(['Daiquiri']);
-      const result = await (aiService as any).getRandomCraftableSample(1, [{ name: 'Rum', liquorType: 'rum', detailedClassification: null }], excludeNames, 10);
+      const result = await (aiService as any).getRandomCraftableSample(
+        1,
+        [{ name: 'Rum', liquorType: 'rum', detailedClassification: null }],
+        new Set(),
+        10,
+        'rum' // requiredSpiritType
+      );
 
-      expect(result.processedRecipes).not.toContain('Daiquiri');
-      expect(result.processedRecipes).toContain('Mojito');
+      expect(result.processedRecipes).toContain('Daiquiri');
+      expect(result.processedRecipes).not.toContain('Martini');
     });
 
     it('should not return more recipes than the limit', async () => {
@@ -608,7 +661,7 @@ describe('AIService', () => {
       expect(result.processedRecipes.length).toBeLessThanOrEqual(5);
     });
 
-    it('should handle DB errors gracefully and return empty result', async () => {
+    it('should handle DB errors gracefully and return empty result with ok=false', async () => {
       const dbModule = await import('../database/db');
       vi.spyOn(dbModule, 'queryAll').mockRejectedValue(new Error('DB connection failed'));
 
@@ -616,6 +669,7 @@ describe('AIService', () => {
 
       expect(result.processedRecipes).toHaveLength(0);
       expect(result.formatted).toBe('');
+      expect(result.ok).toBe(false);
     });
 
     it('should omit recipes with 2+ missing ingredients entirely (no ❌ MISSING backfill)', async () => {
@@ -652,6 +706,8 @@ describe('AIService', () => {
 
       expect(spy).toHaveBeenCalledTimes(1);
       const [sql, params] = spy.mock.calls[0];
+      expect(sql).toContain('FROM recipes');
+      expect(sql).toContain('WHERE user_id = $1');
       expect(sql).toContain('ORDER BY RANDOM()');
       expect(sql).toContain('LIMIT $2');
       expect(params).toEqual([7, 150]);

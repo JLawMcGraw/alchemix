@@ -324,6 +324,8 @@ interface CraftabilityOptions {
    * entirely instead of backfilling after craftable/near-miss (default true,
    * which preserves the historical behavior). Explore mode passes false so a
    * "craftable sample" never contains ❌ MISSING recipes.
+   * Only applies when includeMissingRecipes is false (the flexible-user branch
+   * already filters by maxMissingIngredients).
    */
   includeMissingInOutput?: boolean;
 }
@@ -970,40 +972,74 @@ class AIService {
     return [...new Set(broaderTerms)];
   }
 
+  /**
+   * Explore mode: fetch a random sample of the user's recipes and return only
+   * craftable / near-miss ones, excluding names already shown this conversation.
+   * If fewer than 3 fresh results exist, a relaxed re-pass re-offers previously
+   * recommended recipes with the 🔄 marker (mirrors the keyword path's second pass).
+   * Returns ok=false on DB failure so the caller can distinguish "DB down" from
+   * "user has no recipes".
+   */
   private async getRandomCraftableSample(
     userId: number,
     userBottles: { name: string; liquorType: string | null; detailedClassification: string | null }[],
     excludeNames: Set<string>,
-    limit: number = 20
-  ): Promise<{ formatted: string; processedRecipes: string[]; craftableCount: number; nearMissCount: number }> {
+    limit: number = 20,
+    requiredSpiritType: string | null = null
+  ): Promise<CraftabilityResult & { ok: boolean }> {
     try {
       const randomRecipes = await this.queryRandomRecipes(userId, 150);
 
-      logger.info('[AI-EXPLORE] Random sample fetched', {
+      logger.debug('[AI-EXPLORE] Random sample fetched', {
         total: randomRecipes.length,
         excluded: excludeNames.size,
       });
 
       const result = this.processRecipesWithCraftability(randomRecipes, userBottles, excludeNames, {
         maxRecipes: limit,
+        requiredSpiritType,
         includeMissingInOutput: false,
       });
 
-      logger.info('[AI-EXPLORE] Random sample processed', {
+      // Relaxed re-pass: when nearly everything craftable was already recommended,
+      // re-offer prior recipes (🔄 marker) instead of returning an empty explore list.
+      const MIN_GOOD = 3;
+      const goodCount = result.craftableCount + result.nearMissCount;
+      if (goodCount < MIN_GOOD && excludeNames.size > 0) {
+        const remaining = randomRecipes.filter(r => !result.processedRecipes.includes(r.name));
+        const relaxed = this.processRecipesWithCraftability(remaining, userBottles, excludeNames, {
+          maxRecipes: MIN_GOOD - goodCount,
+          requiredSpiritType,
+          skipAlreadyRecommended: false,
+          includeMissingInOutput: false,
+        });
+        result.formatted += relaxed.formatted;
+        result.craftableCount += relaxed.craftableCount;
+        result.nearMissCount += relaxed.nearMissCount;
+        result.processedRecipes.push(...relaxed.processedRecipes);
+        result.previouslyRecommendedIncluded.push(...relaxed.previouslyRecommendedIncluded);
+      }
+
+      logger.debug('[AI-EXPLORE] Random sample processed', {
         craftable: result.craftableCount,
         nearMiss: result.nearMissCount,
         total: result.processedRecipes.length,
+        reOffered: result.previouslyRecommendedIncluded.length,
       });
 
-      return {
-        formatted: result.formatted,
-        processedRecipes: result.processedRecipes,
-        craftableCount: result.craftableCount,
-        nearMissCount: result.nearMissCount,
-      };
+      return { ...result, ok: true };
     } catch (error) {
       logger.warn('[AI-EXPLORE] Random sample failed', { error });
-      return { formatted: '', processedRecipes: [], craftableCount: 0, nearMissCount: 0 };
+      return {
+        formatted: '',
+        processedRecipes: [],
+        craftableCount: 0,
+        nearMissCount: 0,
+        missingCount: 0,
+        spiritMismatchCount: 0,
+        previouslyRecommendedIncluded: [],
+        ok: false,
+      };
     }
   }
 
