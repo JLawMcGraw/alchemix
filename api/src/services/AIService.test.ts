@@ -544,6 +544,8 @@ describe('AIService', () => {
     it('should detect explore intent with curly apostrophes (mobile smart punctuation)', () => {
       expect((aiService as any).detectExploreIntent('what haven’t I tried?')).toBe(true);
       expect((aiService as any).detectExploreIntent('I haven’t made many of these')).toBe(true);
+      // The flexibility detector shares the same normalization helper
+      expect((aiService as any).detectIngredientFlexibility('I don’t care about missing ingredients')).toBe(true);
     });
 
     it('should still detect explore phrasing on spirit-constrained follow-ups (constraint is handled by the caller)', () => {

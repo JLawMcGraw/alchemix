@@ -281,7 +281,7 @@ const FLEXIBILITY_PATTERNS: RegExp[] = [
 
 /**
  * Patterns signaling variety/explore intent ("what haven't I tried?").
- * Consolidated from 21 to 12 patterns with identical coverage; the dead
+ * Consolidated from 21 to 13 patterns with identical coverage; the dead
  * /anything\s+else/ entry (subsumed by /(?:some|any)thing\s+.../) was removed.
  * NOTE: these intentionally fire on constrained follow-ups like "show me more
  * rum drinks" — the caller (buildContextAwarePrompt Step 3d) inherits the
