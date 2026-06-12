@@ -306,6 +306,38 @@ const EXPLORE_PATTERNS: RegExp[] = [
 /** Column list shared by every recipes SELECT in this service (matches RecipeRecord). */
 const RECIPE_COLUMNS = 'id, user_id, name, category, ingredients, memmachine_uid';
 
+interface CraftabilityOptions {
+  /** Max recipes in the formatted output (default 10) */
+  maxRecipes?: number;
+  /** Skip recipes whose base spirit doesn't match (default null = no constraint) */
+  requiredSpiritType?: string | null;
+  /** Skip recipes in the alreadyRecommended set (default true; false = relaxed pass) */
+  skipAlreadyRecommended?: boolean;
+  /** Include recipes with 2+ missing ingredients, relevance-sorted (flexible users; default false) */
+  includeMissingRecipes?: boolean;
+  /** Cap on missing ingredients when includeMissingRecipes is true (default 4) */
+  maxMissingIngredients?: number;
+  /** Specific/rare ingredients to prioritize for relevance scoring (default []) */
+  specificIngredients?: string[];
+  /**
+   * When false, recipes with 2+ missing ingredients are omitted from the output
+   * entirely instead of backfilling after craftable/near-miss (default true,
+   * which preserves the historical behavior). Explore mode passes false so a
+   * "craftable sample" never contains ❌ MISSING recipes.
+   */
+  includeMissingInOutput?: boolean;
+}
+
+type CraftabilityResult = {
+  formatted: string;
+  craftableCount: number;
+  nearMissCount: number;
+  processedRecipes: string[];
+  spiritMismatchCount: number;
+  previouslyRecommendedIncluded: string[];
+  missingCount: number;
+};
+
 class AIService {
   /**
    * Create an Anthropic client instance with the configured API key.
@@ -671,23 +703,23 @@ class AIService {
    * Prioritizes craftable recipes but adds variety through shuffling
    * Filters out recipes that don't match the required spirit type (if specified)
    *
-   * @param skipAlreadyRecommended - If true, filters out already recommended recipes (default: true)
-   *                                 Set to false for the "relaxed" second pass
-   * @param includeMissingRecipes - If true, includes recipes with 2+ missing ingredients (for flexible users)
-   * @param maxMissingIngredients - Maximum missing ingredients to include when includeMissingRecipes is true (default: 4)
-   * @param specificIngredients - Specific/rare ingredients to prioritize (e.g., "green chartreuse", "maraschino")
+   * Behavior knobs are documented on {@link CraftabilityOptions}.
    */
   private processRecipesWithCraftability(
     recipes: RecipeRecord[],
     userBottles: { name: string; liquorType: string | null; detailedClassification: string | null }[],
     alreadyRecommended: Set<string>,
-    maxRecipes: number = 10,
-    requiredSpiritType: string | null = null,
-    skipAlreadyRecommended: boolean = true,
-    includeMissingRecipes: boolean = false,
-    maxMissingIngredients: number = 4,
-    specificIngredients: string[] = []
-  ): { formatted: string; craftableCount: number; nearMissCount: number; processedRecipes: string[]; spiritMismatchCount: number; previouslyRecommendedIncluded: string[]; missingCount: number } {
+    options: CraftabilityOptions = {}
+  ): CraftabilityResult {
+    const {
+      maxRecipes = 10,
+      requiredSpiritType = null,
+      skipAlreadyRecommended = true,
+      includeMissingRecipes = false,
+      maxMissingIngredients = 4,
+      specificIngredients = [],
+      includeMissingInOutput = true,
+    } = options;
     let formatted = '';
     let craftableCount = 0;
     let nearMissCount = 0;
@@ -849,8 +881,12 @@ class AIService {
         specificIngredients
       });
     } else {
-      // Normal order: craftable first, then near-miss, then missing
-      sortedRecipes = [...craftableRecipes, ...nearMissRecipes, ...missingRecipes];
+      // Normal order: craftable first, then near-miss, then missing.
+      // Explore mode (includeMissingInOutput=false) omits missing entirely —
+      // a "craftable sample" must not backfill with ❌ MISSING recipes.
+      sortedRecipes = includeMissingInOutput
+        ? [...craftableRecipes, ...nearMissRecipes, ...missingRecipes]
+        : [...craftableRecipes, ...nearMissRecipes];
     }
 
     logger.info('[AI-DIVERSITY] Recipe distribution', {
@@ -948,17 +984,10 @@ class AIService {
         excluded: excludeNames.size,
       });
 
-      const result = this.processRecipesWithCraftability(
-        randomRecipes,
-        userBottles,
-        excludeNames,
-        limit,
-        null,  // no spirit type constraint for explore mode
-        true,  // skipAlreadyRecommended — excludeNames handles the exclusion
-        false,
-        4,
-        []
-      );
+      const result = this.processRecipesWithCraftability(randomRecipes, userBottles, excludeNames, {
+        maxRecipes: limit,
+        includeMissingInOutput: false,
+      });
 
       logger.info('[AI-EXPLORE] Random sample processed', {
         craftable: result.craftableCount,
@@ -1625,7 +1654,12 @@ IMPORTANT:
       // When user is flexible, include recipes with up to 4 missing ingredients
       // Pass specificIngredientsList for relevance scoring (prioritize recipes with green chartreuse over generic gin matches)
       let { formatted, craftableCount, nearMissCount, missingCount, processedRecipes, spiritMismatchCount, previouslyRecommendedIncluded } =
-        this.processRecipesWithCraftability(ingredientRecipes, userBottles, alreadyRecommended, 20, requiredSpiritType, true, userIsFlexible, 4, specificIngredientsList);
+        this.processRecipesWithCraftability(ingredientRecipes, userBottles, alreadyRecommended, {
+          maxRecipes: 20,
+          requiredSpiritType,
+          includeMissingRecipes: userIsFlexible,
+          specificIngredients: specificIngredientsList,
+        });
 
       logger.info('[AI-SEARCH] First pass results (new recipes only)', {
         recipesFound: ingredientRecipes.length,
@@ -1652,17 +1686,13 @@ IMPORTANT:
         });
 
         // SECOND PASS: Include previously recommended recipes to fill gaps
-        const secondPassResult = this.processRecipesWithCraftability(
-          ingredientRecipes,
-          userBottles,
-          alreadyRecommended,
-          MIN_GOOD_RECOMMENDATIONS - goodRecommendationsCount, // Only fill the gap
+        const secondPassResult = this.processRecipesWithCraftability(ingredientRecipes, userBottles, alreadyRecommended, {
+          maxRecipes: MIN_GOOD_RECOMMENDATIONS - goodRecommendationsCount, // Only fill the gap
           requiredSpiritType,
-          false, // Don't skip already recommended
-          userIsFlexible,
-          4,
-          specificIngredientsList
-        );
+          skipAlreadyRecommended: false, // Re-offer previously recommended (🔄 marker)
+          includeMissingRecipes: userIsFlexible,
+          specificIngredients: specificIngredientsList,
+        });
 
         // Only add recipes we haven't already processed
         const newRecipesFromSecondPass = secondPassResult.processedRecipes.filter(
@@ -1761,12 +1791,12 @@ IMPORTANT:
             additionalRecipes,
             userBottles,
             new Set([...alreadyRecommended, ...processedRecipes]),
-            20 - processedRecipes.length, // Fill up to 20 total
-            requiredSpiritType, // Apply same spirit constraint to broader search
-            true, // Skip already recommended in first pass
-            userIsFlexible,
-            4,
-            specificIngredientsList
+            {
+              maxRecipes: 20 - processedRecipes.length, // Fill up to 20 total
+              requiredSpiritType, // Apply same spirit constraint to broader search
+              includeMissingRecipes: userIsFlexible,
+              specificIngredients: specificIngredientsList,
+            }
           );
 
           // Append to results

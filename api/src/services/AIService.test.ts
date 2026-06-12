@@ -617,6 +617,28 @@ describe('AIService', () => {
       expect(result.processedRecipes).toHaveLength(0);
       expect(result.formatted).toBe('');
     });
+
+    it('should omit recipes with 2+ missing ingredients entirely (no ❌ MISSING backfill)', async () => {
+      const dbModule = await import('../database/db');
+      const shoppingModule = await import('./ShoppingListService');
+
+      const recipes = [
+        { id: 1, user_id: 1, name: 'Craftable One', category: 'Sour', ingredients: JSON.stringify(['rum', 'lime']), memmachine_uid: null },
+        { id: 2, user_id: 1, name: 'Missing Many', category: 'Tiki', ingredients: JSON.stringify(['rum', 'orgeat', 'falernum', 'allspice dram', 'absinthe']), memmachine_uid: null },
+      ];
+
+      vi.spyOn(dbModule, 'queryAll').mockResolvedValue(recipes);
+      vi.spyOn(shoppingModule.shoppingListService, 'isCraftable').mockImplementation(
+        (_ings: string[], _bottles: unknown, name?: string) => name === 'Craftable One'
+      );
+      vi.spyOn(shoppingModule.shoppingListService, 'findMissingIngredients').mockReturnValue(['orgeat', 'falernum', 'allspice dram', 'absinthe']);
+
+      const result = await (aiService as any).getRandomCraftableSample(1, [{ name: 'Rum', liquorType: 'rum', detailedClassification: null }], new Set(), 10);
+
+      expect(result.processedRecipes).toContain('Craftable One');
+      expect(result.processedRecipes).not.toContain('Missing Many');
+      expect(result.formatted).not.toContain('❌');
+    });
   });
 
   describe('queryRandomRecipes', () => {
