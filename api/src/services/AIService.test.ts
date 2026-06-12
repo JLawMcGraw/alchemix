@@ -763,6 +763,7 @@ describe('AIService', () => {
       const queryAllSpy = vi.spyOn(dbModule, 'queryAll').mockImplementation(async (sql: string) => {
         if (sql.includes('FROM inventory_items')) return inventory;
         if (sql.includes('FROM favorites')) return [];
+        // SQL shape comes from queryRandomRecipes (AIService.ts) — update this discriminator if that query changes
         if (sql.includes('ORDER BY RANDOM()') && sql.includes('LIMIT $2')) return opts.exploreRecipes ?? [];
         if (sql.includes('FROM recipes')) return opts.keywordRecipes ?? [];
         return [];
@@ -896,6 +897,15 @@ describe('AIService', () => {
 
       expect(dynamicBlock.text).toContain('Explore Rob Roy');
       expect(dynamicBlock.text).not.toContain('Explore Gimlet');
+    });
+
+    it('should label pure-explore results as EXPLORE RESULTS, not MATCHED RECIPES', async () => {
+      await mockCommon({ exploreRecipes });
+
+      const [, dynamicBlock] = await aiService.buildContextAwarePrompt(1, 'surprise me', []);
+
+      expect(dynamicBlock.text).toContain('EXPLORE RESULTS');
+      expect(dynamicBlock.text).not.toContain('MATCHED RECIPES (PRIORITIZE THESE)');
     });
   });
 });

@@ -1946,9 +1946,18 @@ IMPORTANT:
 
       // Step 3c: Format final context
       if (formatted.length > 0) {
-        ingredientMatchContext = `\n\n## 🎯 MATCHED RECIPES (PRIORITIZE THESE)\n`;
-        ingredientMatchContext += `${searchDescription}\n`;
-        ingredientMatchContext += `These recipes match the user's request:\n`;
+        // Known limitation (deliberate): when explore merely supplements a specific query
+        // (isPureExplore=false), its recipes appear under MATCHED RECIPES — acceptable
+        // because they are spirit-constrained since the Step 3d wiring.
+        const sectionHeader = isPureExplore
+          ? `## 🎲 EXPLORE RESULTS (random craftable selection)`
+          : `## 🎯 MATCHED RECIPES (PRIORITIZE THESE)`;
+        const sectionIntro = isPureExplore
+          ? `The user wants variety or something new. These are randomly sampled craftable recipes from their full collection:\n`
+          : `${searchDescription}\nThese recipes match the user's request:\n`;
+
+        ingredientMatchContext = `\n\n${sectionHeader}\n`;
+        ingredientMatchContext += sectionIntro;
         ingredientMatchContext += `⚠️ **NOTE: Ingredients below are what RECIPES REQUIRE, not what user HAS. Check BAR STOCK at end of prompt for user's actual bottles.**\n\n`;
         ingredientMatchContext += formatted;
 
