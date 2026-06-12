@@ -249,6 +249,60 @@ const INGREDIENT_KEYWORDS = [
   'absinthe', 'pernod', 'vermouth', 'dry vermouth', 'sweet vermouth'
 ];
 
+/**
+ * Patterns signaling the user is flexible about missing ingredients.
+ * Tested via matchesAnyPattern (apostrophes normalized, /i flags).
+ */
+const FLEXIBILITY_PATTERNS: RegExp[] = [
+  // Explicit statements about not caring
+  /doesn'?t?\s+matter.*(?:missing|ingredient|have)/i,
+  /don'?t\s+care.*(?:missing|ingredient|have)/i,
+  /(?:missing|ingredient).*doesn'?t?\s+matter/i,
+  /(?:missing|ingredient).*don'?t\s+care/i,
+  // Willingness to shop/buy
+  /willing\s+to\s+(?:shop|buy|get|pick\s*up)/i,
+  /can\s+(?:shop|buy|get|pick\s*up)/i,
+  /i'?ll\s+(?:shop|buy|get|pick\s*up)/i,
+  /happy\s+to\s+(?:shop|buy|get)/i,
+  // Even if missing
+  /even\s+if.*(?:missing|don'?t\s+have|need\s+to\s+buy)/i,
+  // Show me everything / all options
+  /show\s+(?:me\s+)?(?:all|every)/i,
+  /all\s+(?:options|recipes|suggestions)/i,
+  /what\s+(?:else|other)/i,
+  // Aspirational / future buying
+  /what\s+(?:should|could)\s+i\s+(?:buy|get|pick\s*up)/i,
+  /what.*(?:buy|shop\s+for|add\s+to)/i,
+  /shopping\s+list/i,
+  // Direct requests for unavailable recipes
+  /recipes?\s+i\s+can'?t\s+make/i,
+  /what\s+(?:am\s+i|i'?m)\s+missing/i
+];
+
+/**
+ * Patterns signaling variety/explore intent ("what haven't I tried?").
+ * Consolidated from 21 to 12 patterns with identical coverage; the dead
+ * /anything\s+else/ entry (subsumed by /(?:some|any)thing\s+.../) was removed.
+ * NOTE: these intentionally fire on constrained follow-ups like "show me more
+ * rum drinks" — the caller (buildContextAwarePrompt Step 3d) inherits the
+ * spirit constraint rather than this detector trying to be clever.
+ */
+const EXPLORE_PATTERNS: RegExp[] = [
+  /haven'?t\s+(tried|made|had|seen|done)/i,
+  /never\s+(tried|made|had)/i,
+  /(?:some|any)thing\s+(new|different|else|fresh)/i,
+  /what\s+(else|other|more|haven'?t\s+i)/i,
+  /show\s+me\s+more/i,
+  /more\s+(options|suggestions|ideas|recipes)/i,
+  /other\s+options/i,
+  /any\s+other/i,
+  /surprise\s+me/i,
+  /new\s+to\s+me/i,
+  /fresh\s+options/i,
+  /there\s+must\s+be\s+more/i,
+  /keep\s+going/i,
+];
+
 class AIService {
   /**
    * Create an Anthropic client instance with the configured API key.
@@ -289,98 +343,41 @@ class AIService {
   }
 
   /**
-   * Detect if user is flexible about missing ingredients
-   * Returns true if user indicates they're willing to shop or don't care about missing ingredients
+   * Test a query against a pattern list with smart-punctuation normalization.
+   * Curly apostrophes (U+2018/U+2019, the default on iOS/Android keyboards)
+   * are normalized to ASCII so /haven'?t/-style patterns match phone input.
+   * All patterns carry the /i flag, so no lowercasing is needed.
    */
-  private detectIngredientFlexibility(query: string): boolean {
-    const lowerQuery = query.toLowerCase();
-    
-    const flexibilityPatterns = [
-      // Explicit statements about not caring
-      /doesn'?t?\s+matter.*(?:missing|ingredient|have)/i,
-      /don'?t\s+care.*(?:missing|ingredient|have)/i,
-      /(?:missing|ingredient).*doesn'?t?\s+matter/i,
-      /(?:missing|ingredient).*don'?t\s+care/i,
-      
-      // Willingness to shop/buy
-      /willing\s+to\s+(?:shop|buy|get|pick\s*up)/i,
-      /can\s+(?:shop|buy|get|pick\s*up)/i,
-      /i'?ll\s+(?:shop|buy|get|pick\s*up)/i,
-      /happy\s+to\s+(?:shop|buy|get)/i,
-      
-      // Even if missing
-      /even\s+if.*(?:missing|don'?t\s+have|need\s+to\s+buy)/i,
-      
-      // Show me everything / all options
-      /show\s+(?:me\s+)?(?:all|every)/i,
-      /all\s+(?:options|recipes|suggestions)/i,
-      /what\s+(?:else|other)/i,
-      
-      // Aspirational / future buying
-      /what\s+(?:should|could)\s+i\s+(?:buy|get|pick\s*up)/i,
-      /what.*(?:buy|shop\s+for|add\s+to)/i,
-      /shopping\s+list/i,
-      
-      // Direct requests for unavailable recipes
-      /recipes?\s+i\s+can'?t\s+make/i,
-      /what\s+(?:am\s+i|i'?m)\s+missing/i
-    ];
-    
-    for (const pattern of flexibilityPatterns) {
-      if (pattern.test(lowerQuery)) {
-        logger.info('[AI-SEARCH] Detected ingredient flexibility in query', {
-          query: lowerQuery.substring(0, 100),
-          matchedPattern: pattern.toString()
+  private matchesAnyPattern(query: string, patterns: RegExp[], logTag: string): boolean {
+    const normalized = query.replace(/[‘’]/g, "'");
+    for (const pattern of patterns) {
+      if (pattern.test(normalized)) {
+        logger.info(`${logTag} Pattern matched`, {
+          pattern: pattern.toString(),
+          query: query.substring(0, 100),
         });
         return true;
       }
     }
-    
     return false;
+  }
+
+  /**
+   * Detect if user is flexible about missing ingredients
+   * Returns true if user indicates they're willing to shop or don't care about missing ingredients
+   */
+  private detectIngredientFlexibility(query: string): boolean {
+    return this.matchesAnyPattern(query, FLEXIBILITY_PATTERNS, '[AI-SEARCH]');
   }
 
   /**
    * Detect if user wants to explore new/random recipes rather than a specific ingredient request.
    * Returns true when the query signals variety, surprise, or "what haven't I tried?" intent.
+   * May also fire on constrained follow-ups ("show me more rum drinks") — the caller
+   * is responsible for inheriting the constraint (see buildContextAwarePrompt Step 3d).
    */
   private detectExploreIntent(query: string): boolean {
-    const lowerQuery = query.toLowerCase();
-
-    const explorePatterns = [
-      /haven'?t\s+(tried|made|had|seen|done)/i,
-      /something\s+(new|different|else|fresh)/i,
-      /anything\s+(new|different|else|fresh)/i,
-      /what\s+else/i,
-      /show\s+me\s+more/i,
-      /more\s+options/i,
-      /more\s+suggestions/i,
-      /more\s+ideas/i,
-      /more\s+recipes/i,
-      /other\s+options/i,
-      /any\s+other/i,
-      /what\s+other/i,
-      /surprise\s+me/i,
-      /never\s+(tried|made|had)/i,
-      /what\s+haven'?t\s+i/i,
-      /new\s+to\s+me/i,
-      /fresh\s+options/i,
-      /anything\s+else/i,
-      /there\s+must\s+be\s+more/i,
-      /keep\s+going/i,
-      /what\s+more/i,
-    ];
-
-    for (const pattern of explorePatterns) {
-      if (pattern.test(lowerQuery)) {
-        logger.info('[AI-EXPLORE] Detected explore intent', {
-          pattern: pattern.toString(),
-          query: lowerQuery.substring(0, 100),
-        });
-        return true;
-      }
-    }
-
-    return false;
+    return this.matchesAnyPattern(query, EXPLORE_PATTERNS, '[AI-EXPLORE]');
   }
 
   /**

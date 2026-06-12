@@ -540,6 +540,17 @@ describe('AIService', () => {
       expect((aiService as any).detectExploreIntent("give me a daiquiri")).toBe(false);
       expect((aiService as any).detectExploreIntent("I want whiskey sours")).toBe(false);
     });
+
+    it('should detect explore intent with curly apostrophes (mobile smart punctuation)', () => {
+      expect((aiService as any).detectExploreIntent('what haven’t I tried?')).toBe(true);
+      expect((aiService as any).detectExploreIntent('I haven’t made many of these')).toBe(true);
+    });
+
+    it('should still detect explore phrasing on spirit-constrained follow-ups (constraint is handled by the caller)', () => {
+      // These intentionally return true — the wiring inherits the spirit constraint (see Task 6)
+      expect((aiService as any).detectExploreIntent('show me more rum drinks')).toBe(true);
+      expect((aiService as any).detectExploreIntent('any other daiquiri variations?')).toBe(true);
+    });
   });
 
   describe('getRandomCraftableSample', () => {
