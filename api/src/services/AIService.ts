@@ -1946,9 +1946,17 @@ IMPORTANT:
 
       // Step 3c: Format final context
       if (formatted.length > 0) {
-        // Known limitation (deliberate): when explore merely supplements a specific query
-        // (isPureExplore=false), its recipes appear under MATCHED RECIPES — acceptable
-        // because they are spirit-constrained since the Step 3d wiring.
+        // Known limitation (deliberate): the section header is chosen from isPureExplore
+        // alone, so it can mislabel in BOTH directions:
+        //   (a) explore recipes supplementing a specific query (isPureExplore=false)
+        //       appear under MATCHED RECIPES — acceptable because they are
+        //       spirit-constrained since the Step 3d wiring;
+        //   (b) the reverse: Step 2b potential-term matches can appear under
+        //       EXPLORE RESULTS on pure-explore queries, and needsMoreRecipes-only
+        //       triggers (no explore phrase) render pure random samples under MATCHED.
+        // Both are benign-direction labeling imprecision. If header accuracy ever
+        // matters, the exact fix is a provenance flag set wherever `formatted` is
+        // populated, rather than inferring from isPureExplore here.
         const sectionHeader = isPureExplore
           ? `## 🎲 EXPLORE RESULTS (random craftable selection)`
           : `## 🎯 MATCHED RECIPES (PRIORITIZE THESE)`;
