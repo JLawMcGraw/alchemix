@@ -1341,10 +1341,10 @@ IMPORTANT:
     // UNCAPPED: the explore fallback samples the full table, so the exclusion
     // set must cover every recipe — the MAX_RECIPES cap above only bounds the
     // prompt's recipe display list. Names are tiny; this is cheap even at 10k rows.
-    const recipeNames = await queryAll<{ name: string }>(
-      'SELECT name FROM recipes WHERE user_id = $1',
-      [userId]
-    );
+    // Skipped when no assistant turns exist — the extractor returns an empty set anyway.
+    const recipeNames = conversationHistory.some(e => e.role === 'assistant')
+      ? await queryAll<{ name: string }>('SELECT name FROM recipes WHERE user_id = $1', [userId])
+      : [];
 
     const favorites = await queryAll<FavoriteRecord>(
       'SELECT * FROM favorites WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2',
@@ -1440,6 +1440,7 @@ IMPORTANT:
     if (userMessage && userMessage.trim().length > 0) {
       // Start MemMachine and getUserBottles immediately — independent of ingredient detection
       const expandedQuery = expandSearchQuery(userMessage);
+      const exploreIntent = this.detectExploreIntent(userMessage);
       const memMachinePromise = memoryService.getEnhancedContext(userId, expandedQuery)
         .catch((err: Error) => {
           logger.warn('MemMachine unavailable', { error: err.message });
@@ -1877,6 +1878,72 @@ IMPORTANT:
         }
       }
 
+      // Step 3d: EXPLORE FALLBACK
+      // Fires when the user asked for variety ("surprise me", "what else?") OR when
+      // every prior pass together produced fewer than 3 good results. Samples random
+      // recipes from the FULL table (not just the keyword matches) and appends only
+      // craftable/near-miss ones.
+      //
+      // Precedence note: queries like "what else can I make?" also fire
+      // detectIngredientFlexibility. Flexibility governs the keyword passes above
+      // (includeMissingRecipes); explore only appends afterwards, with constraints
+      // inherited and already-shown recipes excluded, so both firing is harmless.
+      //
+      // Constraint inheritance: a constrained follow-up ("show me more rum drinks")
+      // fires explore intent too — the sample MUST keep the user's spirit constraint,
+      // either from a mentioned bottle (requiredSpiritType) or a base spirit named
+      // in the query. Never sample unconstrained when the user named a spirit.
+      const EXPLORE_BASE_SPIRITS = ['rum', 'gin', 'vodka', 'whiskey', 'bourbon', 'tequila', 'mezcal', 'brandy', 'cognac'];
+      const detectedBaseSpirit = detectedIngredients.find(i => EXPLORE_BASE_SPIRITS.includes(i.toLowerCase())) ?? null;
+      const exploreSpiritConstraint = requiredSpiritType ?? (detectedBaseSpirit ? this.normalizeSpiritType(detectedBaseSpirit) : null);
+      const isPureExplore = exploreIntent && detectedIngredients.length === 0 && matchedConcepts.length === 0 && !requiredSpiritType;
+      const needsMoreRecipes = craftableCount + nearMissCount < 3;
+      let exploreFailed = false;
+
+      if (exploreIntent || needsMoreRecipes) {
+        logger.info('[AI-EXPLORE] Running explore fallback', {
+          reason: exploreIntent ? 'explore intent detected' : 'insufficient results from prior passes',
+          existingCount: processedRecipes.length,
+          spiritConstraint: exploreSpiritConstraint,
+          isPureExplore,
+        });
+
+        const exploreExcluded = new Set([...alreadyRecommended, ...processedRecipes]);
+        const exploreLimit = Math.max(20 - processedRecipes.length, 5);
+
+        const exploreSample = await this.getRandomCraftableSample(
+          userId,
+          userBottles,
+          exploreExcluded,
+          exploreLimit,
+          exploreSpiritConstraint
+        );
+
+        // Dedupe guard (mirrors the SECOND PASS block above): the relaxed re-pass
+        // inside getRandomCraftableSample runs with skipAlreadyRecommended=false, so
+        // it can re-offer a recipe the keyword passes already placed in
+        // processedRecipes. Only append names not already present.
+        const freshExplore = exploreSample.processedRecipes.filter(r => !processedRecipes.includes(r));
+
+        if (freshExplore.length > 0) {
+          formatted += exploreSample.formatted;
+          // Counts merged as-is: slight over-count in the rare duplicate case is
+          // acceptable and matches the existing second-pass behavior.
+          craftableCount += exploreSample.craftableCount;
+          nearMissCount += exploreSample.nearMissCount;
+          processedRecipes.push(...freshExplore);
+          spiritMismatchCount += exploreSample.spiritMismatchCount;
+          previouslyRecommendedIncluded.push(...exploreSample.previouslyRecommendedIncluded);
+
+          logger.info('[AI-EXPLORE] Explore fallback added recipes', {
+            added: freshExplore.length,
+            newTotal: processedRecipes.length,
+          });
+        }
+
+        exploreFailed = !exploreSample.ok;
+      }
+
       // Step 3c: Format final context
       if (formatted.length > 0) {
         ingredientMatchContext = `\n\n## 🎯 MATCHED RECIPES (PRIORITIZE THESE)\n`;
@@ -1904,6 +1971,12 @@ IMPORTANT:
             ingredientMatchContext += `\n*Note: ${previouslyRecommendedIncluded.length} recipes marked 🔄 were suggested before. Prefer NEW recipes when possible, but these are OK if they're the best match.*\n`;
           }
         }
+      } else if (exploreFailed) {
+        // DB failure during explore with nothing else matched: tell Claude the truth
+        // instead of letting an empty context read as "user has no recipes".
+        ingredientMatchContext = `\n\n## ⚠️ RECIPE SEARCH UNAVAILABLE\n`;
+        ingredientMatchContext += `Recipe lookups failed temporarily. Tell the user you're having trouble accessing their recipe collection right now. `;
+        ingredientMatchContext += `Do NOT say they have no recipes, and do NOT invent or recall recipes from training data.\n`;
       }
 
       // Step 4: Await MemMachine results (already running in parallel with DB queries)

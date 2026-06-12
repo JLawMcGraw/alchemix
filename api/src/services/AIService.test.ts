@@ -744,6 +744,130 @@ describe('AIService', () => {
       expect(result.size).toBe(0);
     });
   });
+
+  describe('buildContextAwarePrompt explore fallback', () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    const inventory = [{
+      id: 1, user_id: 1, name: 'Plantation 3 Stars', type: 'Rum', stock_number: 1,
+      spirit_classification: null, profile_nose: null, palate: null, finish: null, abv: '41',
+    }];
+    const rumBottles = [{ name: 'Plantation 3 Stars', liquorType: 'rum', detailedClassification: null }];
+    const exploreRecipes = Array.from({ length: 5 }, (_, i) => ({
+      id: 100 + i, user_id: 1, name: `Explore Recipe ${i + 1}`, category: 'Sour',
+      ingredients: JSON.stringify(['rum', 'lime juice', 'sugar']), memmachine_uid: null,
+    }));
+
+    async function mockCommon(opts: { keywordRecipes?: unknown[]; exploreRecipes?: unknown[] } = {}) {
+      const dbModule = await import('../database/db');
+      const queryAllSpy = vi.spyOn(dbModule, 'queryAll').mockImplementation(async (sql: string) => {
+        if (sql.includes('FROM inventory_items')) return inventory;
+        if (sql.includes('FROM favorites')) return [];
+        if (sql.includes('ORDER BY RANDOM()') && sql.includes('LIMIT $2')) return opts.exploreRecipes ?? [];
+        if (sql.includes('FROM recipes')) return opts.keywordRecipes ?? [];
+        return [];
+      });
+      vi.spyOn(dbModule, 'queryOne').mockResolvedValue(null);
+      vi.spyOn(memoryServiceModule.memoryService, 'getEnhancedContext')
+        .mockResolvedValue({ userContext: null, chatContext: null });
+      vi.spyOn(shoppingListServiceModule.shoppingListService, 'isCraftable').mockReturnValue(true);
+      vi.spyOn(shoppingListServiceModule.shoppingListService, 'findMissingIngredients').mockReturnValue([]);
+      vi.spyOn(shoppingListServiceModule.shoppingListService, 'getUserBottles').mockResolvedValue(rumBottles);
+      return queryAllSpy;
+    }
+
+    it('should surface explore recipes when the query has no keywords (pure explore)', async () => {
+      await mockCommon({ exploreRecipes });
+
+      const [, dynamicBlock] = await aiService.buildContextAwarePrompt(1, "what haven't I tried?", []);
+
+      expect(dynamicBlock.text).toContain('ALLOWED RECIPE LIST');
+      expect(dynamicBlock.text).toContain('Explore Recipe');
+    });
+
+    it('should run the explore fallback when keyword search returns fewer than 3 good results', async () => {
+      await mockCommon({ keywordRecipes: [], exploreRecipes });
+
+      const [, dynamicBlock] = await aiService.buildContextAwarePrompt(1, 'any recommendations?', []);
+
+      expect(dynamicBlock.text).toContain('Explore Recipe');
+    });
+
+    it('should NOT run the explore query when keyword search already found enough recipes and no explore intent', async () => {
+      const keywordRecipes = Array.from({ length: 10 }, (_, i) => ({
+        id: i + 1, user_id: 1, name: `Rum Recipe ${i + 1}`, category: 'Sour',
+        ingredients: JSON.stringify(['rum', 'lime juice', 'sugar']), memmachine_uid: null,
+      }));
+      const queryAllSpy = await mockCommon({ keywordRecipes });
+
+      await aiService.buildContextAwarePrompt(1, 'rum cocktails', []);
+
+      const randomCalls = queryAllSpy.mock.calls.filter(
+        ([sql]) => typeof sql === 'string' && sql.includes('ORDER BY RANDOM()') && sql.includes('LIMIT $2')
+      );
+      expect(randomCalls).toHaveLength(0);
+      // With no assistant turns in history, the uncapped name-only query is skipped too
+      const nameOnlyCalls = queryAllSpy.mock.calls.filter(
+        ([sql]) => typeof sql === 'string' && sql.includes('SELECT name FROM recipes')
+      );
+      expect(nameOnlyCalls).toHaveLength(0);
+    });
+
+    it('should add a degraded-mode note instead of an empty context when explore fails and nothing else matched', async () => {
+      const dbModule = await import('../database/db');
+      await mockCommon({});
+      // Re-mock: explore query rejects, everything else as before
+      vi.spyOn(dbModule, 'queryAll').mockImplementation(async (sql: string) => {
+        if (sql.includes('FROM inventory_items')) return inventory;
+        if (sql.includes('ORDER BY RANDOM()') && sql.includes('LIMIT $2')) throw new Error('DB down');
+        return [];
+      });
+
+      const [, dynamicBlock] = await aiService.buildContextAwarePrompt(1, 'surprise me', []);
+
+      expect(dynamicBlock.text).toContain('RECIPE SEARCH UNAVAILABLE');
+      expect(dynamicBlock.text).not.toContain('ALLOWED RECIPE LIST');
+    });
+
+    it('should exclude history-recommended recipes beyond the capped display list (uncapped name-only query)', async () => {
+      const dbModule = await import('../database/db');
+      await mockCommon({});
+      // 'Deep Cut Daiquiri' simulates a recipe past the 500-row alphabetical cap:
+      // the capped display query does NOT return it, only the uncapped name-only
+      // query and the random explore sample do.
+      const queryAllSpy = vi.spyOn(dbModule, 'queryAll').mockImplementation(async (sql: string) => {
+        if (sql.includes('FROM inventory_items')) return inventory;
+        if (sql.includes('FROM favorites')) return [];
+        if (sql.includes('ORDER BY RANDOM()') && sql.includes('LIMIT $2')) {
+          return [
+            ...exploreRecipes,
+            {
+              id: 999, user_id: 1, name: 'Deep Cut Daiquiri', category: 'Sour',
+              ingredients: JSON.stringify(['rum', 'lime juice', 'sugar']), memmachine_uid: null,
+            },
+          ];
+        }
+        if (sql.includes('SELECT name FROM recipes')) return [{ name: 'Deep Cut Daiquiri' }];
+        if (sql.includes('FROM recipes')) return [];
+        return [];
+      });
+
+      const history = [
+        { role: 'assistant' as const, content: 'You should try the **Deep Cut Daiquiri** tonight!' },
+      ];
+
+      const [, dynamicBlock] = await aiService.buildContextAwarePrompt(1, "what haven't I tried?", history);
+
+      // The uncapped name-only query ran because history has an assistant turn
+      const nameOnlyCalls = queryAllSpy.mock.calls.filter(
+        ([sql]) => typeof sql === 'string' && sql.includes('SELECT name FROM recipes')
+      );
+      expect(nameOnlyCalls).toHaveLength(1);
+      // Explore output includes fresh recipes but excludes the history-recommended one
+      expect(dynamicBlock.text).toContain('• Explore Recipe 1');
+      expect(dynamicBlock.text).not.toContain('• Deep Cut Daiquiri');
+    });
+  });
 });
 
 describe('Query Expansion', () => {
