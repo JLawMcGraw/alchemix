@@ -1005,14 +1005,19 @@ class AIService {
       // re-offer prior recipes (🔄 marker) instead of returning an empty explore list.
       const MIN_GOOD = 3;
       const goodCount = result.craftableCount + result.nearMissCount;
-      if (goodCount < MIN_GOOD && excludeNames.size > 0) {
+      // Cap the re-pass by the caller's remaining budget too: with limit < MIN_GOOD,
+      // an uncapped re-pass would push the merged total past the requested limit.
+      const relaxedCap = Math.max(0, Math.min(MIN_GOOD - goodCount, limit - result.processedRecipes.length));
+      if (goodCount < MIN_GOOD && excludeNames.size > 0 && relaxedCap > 0) {
         const remaining = randomRecipes.filter(r => !result.processedRecipes.includes(r.name));
         const relaxed = this.processRecipesWithCraftability(remaining, userBottles, excludeNames, {
-          maxRecipes: MIN_GOOD - goodCount,
+          maxRecipes: relaxedCap,
           requiredSpiritType,
           skipAlreadyRecommended: false,
           includeMissingInOutput: false,
         });
+        // NOTE: spiritMismatchCount/missingCount are deliberately NOT merged — the
+        // relaxed pass re-scans rows the first pass already counted; merging would double-count.
         result.formatted += relaxed.formatted;
         result.craftableCount += relaxed.craftableCount;
         result.nearMissCount += relaxed.nearMissCount;
@@ -1117,20 +1122,23 @@ class AIService {
       }
     }
 
-    // Helper for fuzzy matching (handles "the X", "X Punch" vs "X", prefixes like "SC")
-    const findMatchingRecipe = (text: string): string | null => {
+    // Helper for fuzzy matching (handles "the X", "X Punch" vs "X", prefixes like "SC").
+    // Returns ALL matching DB names: the downstream skip check is an exact
+    // Set.has(recipe.name), so every variant ('Daiquiri' AND 'SC Daiquiri')
+    // must enter the set or variants leak past the exclusion.
+    const findMatchingRecipes = (text: string): string[] => {
       const cleaned = text.toLowerCase().trim()
         .replace(/\*\*/g, '')  // Remove bold markers
         .replace(/^(the|a)\s+/i, '')  // Remove leading articles
         .replace(/\s*#\d+$/i, '')  // Remove #N suffix
         .trim();
 
-      // Exact match
+      const matches = new Set<string>();
+
       if (recipeNameMap.has(cleaned)) {
-        return recipeNameMap.get(cleaned)!;
+        matches.add(recipeNameMap.get(cleaned)!);
       }
 
-      // Fuzzy match: check if any recipe name contains or is contained by the text
       for (const [lowerName, originalName] of recipeNameMap.entries()) {
         const strippedDbName = lowerName.replace(/^(sc|classic|traditional|original|the|a)\s+/i, '').trim();
         if (cleaned === strippedDbName ||
@@ -1138,10 +1146,10 @@ class AIService {
             lowerName.includes(cleaned) ||
             cleaned.includes(strippedDbName) ||
             strippedDbName.includes(cleaned)) {
-          return originalName;
+          matches.add(originalName);
         }
       }
-      return null;
+      return [...matches];
     };
 
     for (const entry of history) {
@@ -1151,23 +1159,20 @@ class AIService {
         if (recMatch) {
           const recList = recMatch[1].split(',').map(r => r.trim());
           for (const rec of recList) {
-            const match = findMatchingRecipe(rec);
-            if (match) recommended.add(match);
+            for (const match of findMatchingRecipes(rec)) recommended.add(match);
           }
         }
 
         // Extract bold text mentions (**Recipe Name**)
         const boldMatches = entry.content.matchAll(/\*\*([^*]+)\*\*/g);
         for (const match of boldMatches) {
-          const found = findMatchingRecipe(match[1]);
-          if (found) recommended.add(found);
+          for (const found of findMatchingRecipes(match[1])) recommended.add(found);
         }
 
         // Extract dash-formatted mentions (- **Name** — or - Name —)
         const dashMatches = entry.content.matchAll(/[-•]\s*\**([^—\n*]+)\**\s*[—-]/g);
         for (const match of dashMatches) {
-          const found = findMatchingRecipe(match[1]);
-          if (found) recommended.add(found);
+          for (const found of findMatchingRecipes(match[1])) recommended.add(found);
         }
       }
     }
@@ -1320,6 +1325,15 @@ IMPORTANT:
       [userId, MAX_RECIPES]
     );
 
+    // Name-only list for the already-recommended exclusion set. Deliberately
+    // UNCAPPED: the explore fallback samples the full table, so the exclusion
+    // set must cover every recipe — the MAX_RECIPES cap above only bounds the
+    // prompt's recipe display list. Names are tiny; this is cheap even at 10k rows.
+    const recipeNames = await queryAll<{ name: string }>(
+      'SELECT name FROM recipes WHERE user_id = $1',
+      [userId]
+    );
+
     const favorites = await queryAll<FavoriteRecord>(
       'SELECT * FROM favorites WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2',
       [userId, MAX_FAVORITES]
@@ -1398,7 +1412,7 @@ IMPORTANT:
       .join('\n');
 
     // Build alreadyRecommended from current conversation only
-    const alreadyRecommended = this.extractAlreadyRecommendedRecipes(conversationHistory, recipes);
+    const alreadyRecommended = this.extractAlreadyRecommendedRecipes(conversationHistory, recipeNames);
 
     if (alreadyRecommended.size > 0) {
       logger.info('[AI-DIVERSITY] Recipes already recommended this conversation', {

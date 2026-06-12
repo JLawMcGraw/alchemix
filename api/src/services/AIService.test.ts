@@ -616,6 +616,9 @@ describe('AIService', () => {
       expect(result.processedRecipes).toContain('Mai Tai');
       expect(result.previouslyRecommendedIncluded.length).toBeGreaterThan(0);
       expect(result.formatted).toContain('🔄');
+      // Pin the count/name merge: 1 fresh + 2 re-offered, all craftable
+      expect(result.craftableCount).toBe(3);
+      expect(result.processedRecipes).toEqual(expect.arrayContaining(['Daiquiri', 'Mojito']));
     });
 
     it('should respect a spirit type constraint when provided', async () => {
@@ -711,6 +714,23 @@ describe('AIService', () => {
       expect(sql).toContain('ORDER BY RANDOM()');
       expect(sql).toContain('LIMIT $2');
       expect(params).toEqual([7, 150]);
+    });
+  });
+
+  describe('extractAlreadyRecommendedRecipes', () => {
+    it('should add ALL fuzzy-matching DB variants, not just the first', () => {
+      const history = [
+        { role: 'assistant' as const, content: 'You should try the **Daiquiri** tonight!' },
+      ];
+      const recipes = [{ name: 'Daiquiri' }, { name: 'SC Daiquiri' }, { name: 'Martini' }];
+
+      const result = (aiService as any).extractAlreadyRecommendedRecipes(history, recipes);
+
+      // Both variants match "daiquiri" fuzzily; both must be excluded so the
+      // exact Set.has() check in processRecipesWithCraftability catches either.
+      expect(result.has('Daiquiri')).toBe(true);
+      expect(result.has('SC Daiquiri')).toBe(true);
+      expect(result.has('Martini')).toBe(false);
     });
   });
 });
