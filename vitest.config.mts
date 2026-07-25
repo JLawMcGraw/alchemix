@@ -25,6 +25,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      // Test against the taxonomy source, not the built dist.
+      '@alchemix/spirits': path.resolve(__dirname, './packages/spirits/src/index.ts'),
     },
   },
 });

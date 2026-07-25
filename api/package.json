@@ -31,6 +31,7 @@
   "author": "Jacob Lawrence",
   "license": "UNLICENSED",
   "dependencies": {
+    "@alchemix/spirits": "file:../packages/spirits",
     "@alchemix/types": "file:../packages/types",
     "@anthropic-ai/sdk": "^0.90.0",
     "bcrypt": "^5.1.1",

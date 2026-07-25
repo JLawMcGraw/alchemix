@@ -6,23 +6,25 @@
  */
 
 import type { SpiritCategory } from '@/lib/spirits';
+import { SPIRIT_FAMILIES, SPIRIT_FAMILY_KEYWORDS, SPIRIT_FAMILY_LABELS } from '@alchemix/spirits';
+
+/** Liqueurs are a frontend-only filter bucket, not a base-spirit family. */
+const LIQUEUR_KEYWORDS = [
+  'liqueur', 'amaretto', 'cointreau', 'triple sec', 'curacao', 'chartreuse',
+  'benedictine', 'campari', 'aperol', 'kahlua', 'baileys', 'frangelico',
+  'maraschino', 'absinthe', 'st germain', 'grand marnier', 'drambuie',
+  'midori', 'galliano', 'sambuca', 'limoncello',
+];
 
 /**
- * Spirit keywords for ingredient detection
+ * Spirit keywords for ingredient detection. Base families come from the shared
+ * @alchemix/spirits authority (keyed by display label); Liqueur is frontend-only.
  */
 export const SPIRIT_KEYWORDS: Record<string, string[]> = {
-  'Gin': ['gin', 'london dry', 'plymouth', 'navy strength', 'sloe gin'],
-  'Whiskey': ['whiskey', 'whisky', 'bourbon', 'rye', 'scotch', 'irish whiskey', 'japanese whisky'],
-  'Tequila': ['tequila', 'mezcal', 'blanco', 'reposado', 'anejo'],
-  'Rum': ['rum', 'rhum', 'white rum', 'dark rum', 'spiced rum', 'cachaca', 'agricole'],
-  'Vodka': ['vodka'],
-  'Brandy': ['brandy', 'cognac', 'armagnac', 'pisco', 'calvados', 'grappa'],
-  'Liqueur': [
-    'liqueur', 'amaretto', 'cointreau', 'triple sec', 'curacao', 'chartreuse',
-    'benedictine', 'campari', 'aperol', 'kahlua', 'baileys', 'frangelico',
-    'maraschino', 'absinthe', 'st germain', 'grand marnier', 'drambuie',
-    'midori', 'galliano', 'sambuca', 'limoncello'
-  ],
+  ...Object.fromEntries(
+    SPIRIT_FAMILIES.map((family) => [SPIRIT_FAMILY_LABELS[family], SPIRIT_FAMILY_KEYWORDS[family]])
+  ),
+  Liqueur: LIQUEUR_KEYWORDS,
 };
 
 /**

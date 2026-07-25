@@ -4,6 +4,7 @@
  */
 
 import type { PeriodicGroup, PeriodicPeriod } from '@/types';
+import { SPIRIT_FAMILY_KEYWORDS } from '@alchemix/spirits';
 
 /**
  * Category colors for inventory items
@@ -41,16 +42,11 @@ export const SPIRIT_COLORS: Record<string, string> = {
 };
 
 /**
- * Spirit detection keywords for recipe classification
+ * Spirit detection keywords for recipe classification.
+ * Sourced from the shared @alchemix/spirits authority so it never drifts from the
+ * rest of the app. Keyed by canonical family id.
  */
-export const SPIRIT_KEYWORDS: Record<string, string[]> = {
-  gin: ['gin', 'london dry', 'plymouth', 'navy strength'],
-  whiskey: ['whiskey', 'whisky', 'bourbon', 'rye', 'scotch'],
-  tequila: ['tequila', 'mezcal', 'blanco', 'reposado', 'anejo'],
-  rum: ['rum', 'rhum', 'cachaca', 'agricole'],
-  vodka: ['vodka'],
-  brandy: ['brandy', 'cognac', 'armagnac', 'pisco', 'calvados'],
-};
+export const SPIRIT_KEYWORDS: Record<string, string[]> = SPIRIT_FAMILY_KEYWORDS;
 
 /**
  * Periodic group colors - Light mode

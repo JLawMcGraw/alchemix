@@ -21,6 +21,12 @@ import { memoryService } from './MemoryService';
 import { shoppingListService } from './ShoppingListService';
 import { logger, logAIDiagnostic } from '../utils/logger';
 import { extractJsonObject } from '../utils/jsonSalvage';
+import {
+  normalizeSpiritType,
+  recipeMatchesSpiritConstraint,
+  SPIRIT_VARIANTS,
+  type SpiritFamily,
+} from '@alchemix/spirits';
 import cocktailData from '../data/cocktailIngredients.json';
 
 // Type for cocktail ingredients and concepts lookup
@@ -311,7 +317,7 @@ interface CraftabilityOptions {
   /** Max recipes in the formatted output (default 10) */
   maxRecipes?: number;
   /** Skip recipes whose base spirit doesn't match (default null = no constraint) */
-  requiredSpiritType?: string | null;
+  requiredSpiritType?: SpiritFamily | null;
   /** Skip recipes in the alreadyRecommended set (default true; false = relaxed pass) */
   skipAlreadyRecommended?: boolean;
   /** Include recipes with 2+ missing ingredients, relevance-sorted (flexible users; default false) */
@@ -621,85 +627,8 @@ class AIService {
     }
   }
 
-  /**
-   * Normalize spirit types for comparison
-   * Maps various rum/whiskey/etc names to canonical types
-   */
-  private normalizeSpiritType(spiritType: string | null): string | null {
-    if (!spiritType) return null;
-    const lower = spiritType.toLowerCase().trim();
-
-    // Map to canonical spirit types
-    const mappings: Record<string, string> = {
-      // Rum variants
-      'rum': 'rum', 'white rum': 'rum', 'light rum': 'rum', 'dark rum': 'rum',
-      'aged rum': 'rum', 'gold rum': 'rum', 'black rum': 'rum', 'overproof rum': 'rum',
-      'jamaican rum': 'rum', 'demerara rum': 'rum', 'rhum agricole': 'rum', 'agricole': 'rum',
-      // Whiskey variants
-      'bourbon': 'whiskey', 'bourbon whiskey': 'whiskey', 'rye': 'whiskey',
-      'rye whiskey': 'whiskey', 'whiskey': 'whiskey', 'whisky': 'whiskey',
-      'scotch': 'whiskey', 'scotch whisky': 'whiskey', 'irish whiskey': 'whiskey',
-      // Gin
-      'gin': 'gin', 'london dry gin': 'gin', 'old tom gin': 'gin', 'navy strength gin': 'gin',
-      // Vodka
-      'vodka': 'vodka',
-      // Tequila/Mezcal
-      'tequila': 'tequila', 'blanco tequila': 'tequila', 'reposado tequila': 'tequila',
-      'anejo tequila': 'tequila', 'mezcal': 'tequila',
-      // Brandy
-      'brandy': 'brandy', 'cognac': 'brandy', 'armagnac': 'brandy', 'pisco': 'brandy',
-    };
-
-    return mappings[lower] || null;
-  }
-
-  /**
-   * Check if a recipe's base spirit matches the user's mentioned spirit
-   * Returns true if recipe is compatible, false if it uses a different base spirit
-   */
-  private recipeMatchesSpiritConstraint(
-    ingredientsList: string,
-    requiredSpiritType: string | null
-  ): boolean {
-    if (!requiredSpiritType) return true; // No constraint
-
-    const lowerIngredients = ingredientsList.toLowerCase();
-
-    // Spirit synonyms for matching
-    const spiritSynonyms: Record<string, string[]> = {
-      'rum': ['rum', 'rhum', 'cachaça', 'cachaca'],
-      'whiskey': ['whiskey', 'whisky', 'bourbon', 'rye', 'scotch'],
-      'gin': ['gin'],
-      'vodka': ['vodka'],
-      'tequila': ['tequila', 'mezcal'],
-      'brandy': ['brandy', 'cognac', 'armagnac', 'pisco'],
-    };
-
-    // Check if the required spirit appears in ingredients
-    const requiredSynonyms = spiritSynonyms[requiredSpiritType] || [requiredSpiritType];
-    const hasRequiredSpirit = requiredSynonyms.some(syn => lowerIngredients.includes(syn));
-
-    if (hasRequiredSpirit) return true;
-
-    // Check if recipe uses a DIFFERENT base spirit (conflict)
-    // If recipe has any other base spirit, it's a mismatch
-    for (const [spirit, synonyms] of Object.entries(spiritSynonyms)) {
-      if (spirit !== requiredSpiritType) {
-        const hasOtherSpirit = synonyms.some(syn => lowerIngredients.includes(syn));
-        if (hasOtherSpirit) {
-          logger.debug('[AI-SEARCH] Recipe spirit mismatch', {
-            requiredSpirit: requiredSpiritType,
-            foundSpirit: spirit,
-            ingredientsPreview: ingredientsList.substring(0, 100)
-          });
-          return false; // Recipe uses different base spirit
-        }
-      }
-    }
-
-    // No clear base spirit found, allow it
-    return true;
-  }
+  // Spirit-family identity (normalizeSpiritType, recipeMatchesSpiritConstraint) now
+  // lives in the shared @alchemix/spirits authority — see the import above.
 
   /**
    * Process recipes and check craftability, returning formatted context and stats
@@ -767,7 +696,7 @@ class AIService {
       }
 
       // Check spirit type constraint
-      const matchesSpirit = this.recipeMatchesSpiritConstraint(ingredientsList, requiredSpiritType);
+      const matchesSpirit = recipeMatchesSpiritConstraint(ingredientsList, requiredSpiritType);
       if (!matchesSpirit) {
         spiritMismatchCount++;
         logger.debug('[AI-SEARCH] Skipping recipe - spirit mismatch', {
@@ -986,7 +915,7 @@ class AIService {
     userBottles: { name: string; liquorType: string | null; detailedClassification: string | null }[],
     excludeNames: Set<string>,
     limit: number = 20,
-    requiredSpiritType: string | null = null
+    requiredSpiritType: SpiritFamily | null = null
   ): Promise<CraftabilityResult & { ok: boolean }> {
     try {
       const randomRecipes = await this.queryRandomRecipes(userId, 150);
@@ -1575,11 +1504,11 @@ IMPORTANT:
       // Step 2c: Detect mentioned bottles and extract spirit type for filtering
       // This prevents recommending bourbon cocktails when user asks about rum
       const mentionedBottlesForSpirit = await this.detectBottleMentionsWithNotes(userId, userMessage);
-      let requiredSpiritType: string | null = null;
+      let requiredSpiritType: SpiritFamily | null = null;
       if (mentionedBottlesForSpirit.length > 0) {
         // Get the spirit type from the first mentioned bottle
         const firstBottle = mentionedBottlesForSpirit[0];
-        requiredSpiritType = this.normalizeSpiritType(firstBottle.spiritType);
+        requiredSpiritType = normalizeSpiritType(firstBottle.spiritType);
         if (requiredSpiritType) {
           logger.info('[AI-SEARCH] Spirit type constraint detected', {
             bottle: firstBottle.name,
@@ -1894,9 +1823,8 @@ IMPORTANT:
       // fires explore intent too — the sample MUST keep the user's spirit constraint,
       // either from a mentioned bottle (requiredSpiritType) or a base spirit named
       // in the query. Never sample unconstrained when the user named a spirit.
-      const EXPLORE_BASE_SPIRITS = ['rum', 'gin', 'vodka', 'whiskey', 'bourbon', 'rye', 'scotch', 'tequila', 'mezcal', 'brandy', 'cognac'];
-      const detectedBaseSpirit = detectedIngredients.find(i => EXPLORE_BASE_SPIRITS.includes(i.toLowerCase())) ?? null;
-      const exploreSpiritConstraint = requiredSpiritType ?? (detectedBaseSpirit ? this.normalizeSpiritType(detectedBaseSpirit) : null);
+      const detectedBaseSpirit = detectedIngredients.find(i => SPIRIT_VARIANTS.includes(i.toLowerCase())) ?? null;
+      const exploreSpiritConstraint = requiredSpiritType ?? (detectedBaseSpirit ? normalizeSpiritType(detectedBaseSpirit) : null);
       const isPureExplore = exploreIntent && detectedIngredients.length === 0 && matchedConcepts.length === 0 && !requiredSpiritType;
       const needsMoreRecipes = craftableCount + nearMissCount < 3;
       let exploreFailed = false;

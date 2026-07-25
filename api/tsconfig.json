@@ -13,6 +13,7 @@
     "types": ["node"],
     "baseUrl": ".",
     "paths": {
+      "@alchemix/spirits": ["../packages/spirits/src/index.ts"],
       "@alchemix/types": ["../packages/types/src/index.ts"],
       "@alchemix/types/*": ["../packages/types/src/*"]
     }

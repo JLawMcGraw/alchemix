@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@alchemix/recipe-molecule": "file:packages/recipe-molecule",
+    "@alchemix/spirits": "file:packages/spirits",
     "@alchemix/types": "file:packages/types",
     "axios": "^1.6.5",
     "d3-force": "^3.0.0",

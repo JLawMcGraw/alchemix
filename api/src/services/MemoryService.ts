@@ -27,6 +27,7 @@
 import { queryOne } from '../database/db';
 import { logger } from '../utils/logger';
 import { shoppingListService, BottleData } from './ShoppingListService';
+import { recipeMatchesSpiritConstraint, type SpiritFamily } from '@alchemix/spirits';
 import {
   AddMemoriesRequest,
   AddMemoriesResponse,
@@ -927,7 +928,7 @@ export class MemoryService {
     checkDatabase: boolean = false,
     limit: number = MAX_PROMPT_RECIPES,
     alreadyRecommended: Set<string> = new Set(),
-    requiredSpiritType: string | null = null
+    requiredSpiritType: SpiritFamily | null = null
   ): Promise<string> {
     if (!searchResult || (!searchResult.episodic?.length && !searchResult.semantic?.length)) {
       return '';
@@ -1019,40 +1020,14 @@ export class MemoryService {
       if (requiredSpiritType) {
         filteredRecipes = validRecipes.filter(({ episode, recipeName }) => {
           const ingredients = this.extractIngredientsFromContent(episode.content);
-          const ingredientText = ingredients.join(' ').toLowerCase();
-
-          // Spirit synonyms for matching
-          const spiritSynonyms: Record<string, string[]> = {
-            'rum': ['rum', 'rhum', 'cachaça', 'cachaca'],
-            'whiskey': ['whiskey', 'whisky', 'bourbon', 'rye', 'scotch'],
-            'gin': ['gin'],
-            'vodka': ['vodka'],
-            'tequila': ['tequila', 'mezcal'],
-            'brandy': ['brandy', 'cognac', 'armagnac', 'pisco'],
-          };
-
-          // Check if required spirit is in ingredients
-          const requiredSynonyms = spiritSynonyms[requiredSpiritType] || [requiredSpiritType];
-          const hasRequiredSpirit = requiredSynonyms.some(syn => ingredientText.includes(syn));
-
-          if (hasRequiredSpirit) return true;
-
-          // Check if recipe has a DIFFERENT base spirit (conflict)
-          for (const [spirit, synonyms] of Object.entries(spiritSynonyms)) {
-            if (spirit !== requiredSpiritType) {
-              const hasOtherSpirit = synonyms.some(syn => ingredientText.includes(syn));
-              if (hasOtherSpirit) {
-                logger.info('MemMachine: Filtered recipe - spirit mismatch', {
-                  recipeName,
-                  requiredSpirit: requiredSpiritType,
-                  foundSpirit: spirit
-                });
-                return false; // Recipe uses different base spirit
-              }
-            }
+          const matches = recipeMatchesSpiritConstraint(ingredients.join(' '), requiredSpiritType);
+          if (!matches) {
+            logger.info('MemMachine: Filtered recipe - spirit mismatch', {
+              recipeName,
+              requiredSpirit: requiredSpiritType,
+            });
           }
-
-          return true; // No clear base spirit, allow it
+          return matches;
         });
 
         logger.info('MemMachine: Spirit type filtering applied', {
