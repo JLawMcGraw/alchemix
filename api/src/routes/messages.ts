@@ -242,8 +242,17 @@ router.post('/stream', asyncHandler(async (req: Request, res: Response) => {
 
   logger.info('Starting streaming response', { userId });
 
+  // Abort the upstream Claude stream if the client disconnects mid-response, so we
+  // stop paying for tokens no one is reading (and skip storing a partial turn).
+  const controller = new AbortController();
+  res.on('close', () => {
+    if (!res.writableEnded) {
+      controller.abort();
+    }
+  });
+
   try {
-    const stream = aiService.sendMessageStream(userId, sanitizedMessage, sanitizedHistory);
+    const stream = aiService.sendMessageStream(userId, sanitizedMessage, sanitizedHistory, controller.signal);
     let chunkCount = 0;
 
     for await (const chunk of stream) {
@@ -263,12 +272,20 @@ router.post('/stream', asyncHandler(async (req: Request, res: Response) => {
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     res.end();
   } catch (error) {
+    // Client disconnect: the socket is already gone, nothing to write.
+    if (controller.signal.aborted) {
+      logger.info('Streaming aborted by client disconnect', { userId });
+      return;
+    }
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Streaming error', { error: errorMessage, userId });
 
-    // Send error as SSE event
-    res.write(`data: ${JSON.stringify({ error: errorMessage })}\n\n`);
-    res.end();
+    // Send error as SSE event (only if the connection is still open)
+    if (!res.writableEnded) {
+      res.write(`data: ${JSON.stringify({ error: errorMessage })}\n\n`);
+      res.end();
+    }
   }
 }));
 

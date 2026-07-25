@@ -2513,7 +2513,8 @@ ${hasRecipes ? `End with: RECOMMENDATIONS: Recipe Name 1, Recipe Name 2
   async *sendMessageStream(
     userId: number,
     message: string,
-    history: { role: 'user' | 'assistant'; content: string }[] = []
+    history: { role: 'user' | 'assistant'; content: string }[] = [],
+    signal?: AbortSignal
   ): AsyncGenerator<string, void, unknown> {
     const client = this.getClient();
     const systemPrompt = await this.buildContextAwarePrompt(userId, message, history);
@@ -2531,23 +2532,28 @@ ${hasRecipes ? `End with: RECOMMENDATIONS: Recipe Name 1, Recipe Name 2
 
     let fullResponse = '';
 
-    const stream = client.messages.stream({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 8192,
-      system: [
-        {
-          type: 'text' as const,
-          text: staticText,
-          cache_control: { type: 'ephemeral' as const },
-        },
-        {
-          type: 'text' as const,
-          text: dynamicText,
-        },
-      ],
-      messages,
-    });
+    const stream = client.messages.stream(
+      {
+        model: 'claude-sonnet-4-6',
+        max_tokens: 8192,
+        system: [
+          {
+            type: 'text' as const,
+            text: staticText,
+            cache_control: { type: 'ephemeral' as const },
+          },
+          {
+            type: 'text' as const,
+            text: dynamicText,
+          },
+        ],
+        messages,
+      },
+      { signal }
+    );
 
+    // On abort (client disconnect) the iterator throws before we reach the store
+    // below, so no partial turn is persisted.
     for await (const event of stream) {
       if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
         fullResponse += event.delta.text;
