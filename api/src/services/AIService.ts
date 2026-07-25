@@ -20,6 +20,7 @@ import { sanitizeString } from '../utils/inputValidator';
 import { memoryService } from './MemoryService';
 import { shoppingListService } from './ShoppingListService';
 import { logger, logAIDiagnostic } from '../utils/logger';
+import { extractJsonObject } from '../utils/jsonSalvage';
 import cocktailData from '../data/cocktailIngredients.json';
 
 // Type for cocktail ingredients and concepts lookup
@@ -2601,20 +2602,16 @@ ${hasRecipes ? `End with: RECOMMENDATIONS: Recipe Name 1, Recipe Name 2
       throw new Error(`Claude API error: ${errMsg}`);
     }
 
-    try {
-      const cleanedResponse = aiResponse.replace(/```json\n?|\n?```/g, '').trim();
-      const parsed = JSON.parse(cleanedResponse);
-      if (!parsed.greeting || !parsed.insight) {
-        throw new Error('Invalid response structure');
-      }
-      return parsed;
-    } catch {
-      logger.error('Failed to parse AI response', { aiResponse });
-      return {
-        greeting: 'Ready for your next experiment?',
-        insight: 'Check your inventory and explore new recipes to discover what you can create today.',
-      };
+    const parsed = extractJsonObject(aiResponse);
+    if (parsed && typeof parsed.greeting === 'string' && typeof parsed.insight === 'string') {
+      return { greeting: parsed.greeting, insight: parsed.insight };
     }
+
+    logger.error('Failed to parse AI response', { aiResponse });
+    return {
+      greeting: 'Ready for your next experiment?',
+      insight: 'Check your inventory and explore new recipes to discover what you can create today.',
+    };
   }
 }
 
