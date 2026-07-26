@@ -37,6 +37,11 @@ LABEL stage=builder
 COPY packages/types/ /packages/types/
 RUN cd /packages/types && npm install && npx tsc
 
+# Build shared spirits package (runtime code — the api build resolves its type
+# declarations, and the production runtime require()s its compiled output)
+COPY packages/spirits/ /packages/spirits/
+RUN cd /packages/spirits && npm install && npx tsc
+
 # Copy package files for dependency installation
 COPY api/package*.json ./
 
@@ -66,6 +71,12 @@ RUN adduser --system --uid 1001 api
 
 # Copy package files
 COPY --chown=api:nodejs api/package*.json ./
+
+# Shared spirits package: runtime code the app require()s at startup (unlike the
+# type-only @alchemix/types). Only package.json + built dist are needed — it has no
+# runtime dependencies — and it must exist before npm ci so the file: dep resolves.
+COPY --from=builder /packages/spirits/package.json /packages/spirits/package.json
+COPY --from=builder /packages/spirits/dist /packages/spirits/dist
 
 # Install production dependencies only
 RUN npm ci --omit=dev && npm cache clean --force
@@ -111,6 +122,10 @@ CMD ["node", "dist/server.js"]
 FROM node:20-alpine AS test
 
 WORKDIR /app
+
+# Shared spirits package source — the api vitest config aliases @alchemix/spirits to
+# ../packages/spirits/src, so the source must be present for tests to resolve it.
+COPY packages/spirits/ /packages/spirits/
 
 # Copy package files
 COPY api/package*.json ./
