@@ -25,6 +25,7 @@ export default function AIPage() {
     shoppingListStats,
     addFavorite,
     removeFavorite,
+    markRecipeMade,
     fetchRecipes,
     fetchFavorites,
     fetchItems,
@@ -464,6 +465,18 @@ export default function AIPage() {
               await addFavorite(selectedRecipe.name, selectedRecipe.id);
             }
             await fetchFavorites();
+          }}
+          timesMade={selectedRecipe.times_made ?? 0}
+          onToggleMade={async () => {
+            if (!selectedRecipe.id) return;
+            const currentlyMade = (selectedRecipe.times_made ?? 0) > 0;
+            await markRecipeMade(selectedRecipe.id, !currentlyMade);
+            // Keep the open modal in sync (selectedRecipe is a local snapshot).
+            setSelectedRecipe((prev) =>
+              prev
+                ? { ...prev, times_made: currentlyMade ? Math.max((prev.times_made ?? 1) - 1, 0) : (prev.times_made ?? 0) + 1 }
+                : prev
+            );
           }}
         />
       )}
