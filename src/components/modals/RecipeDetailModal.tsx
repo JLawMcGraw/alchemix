@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
-import { X, Star, Edit2, Save, Trash2, FolderOpen, Plus, Download } from 'lucide-react';
+import { X, Star, Edit2, Save, Trash2, FolderOpen, Plus, Download, Wine } from 'lucide-react';
 import { Button, useToast } from '@/components/ui';
 import { useStore } from '@/lib/store';
 import { RecipeMolecule } from '@/components/RecipeMolecule';
@@ -65,6 +65,8 @@ interface RecipeDetailModalProps {
   recipe: Recipe | null;
   isFavorited: boolean;
   onToggleFavorite: () => void;
+  timesMade?: number;
+  onToggleMade?: () => void;
   onRecipeUpdated?: (updatedRecipe: Recipe) => void;
 }
 
@@ -96,6 +98,8 @@ export function RecipeDetailModal({
   recipe,
   isFavorited,
   onToggleFavorite,
+  timesMade = 0,
+  onToggleMade,
   onRecipeUpdated
 }: RecipeDetailModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
@@ -1022,6 +1026,16 @@ export function RecipeDetailModal({
                 />
                 {isFavorited ? 'Favorited' : 'Add to Favorites'}
               </button>
+              {onToggleMade && (
+                <button
+                  onClick={onToggleMade}
+                  className={styles.madeBtn}
+                  title={timesMade > 0 ? `Made${timesMade > 1 ? ` ×${timesMade}` : ''} — click to undo` : 'Mark as made'}
+                >
+                  <Wine size={16} fill={timesMade > 0 ? 'currentColor' : 'none'} />
+                  {timesMade > 0 ? `Made${timesMade > 1 ? ` ×${timesMade}` : ''}` : 'I Made It'}
+                </button>
+              )}
               <div style={{ flex: 1 }} />
               <button onClick={handleExport} className={styles.exportBtn}>
                 <Download size={16} />

@@ -560,6 +560,33 @@
   background: #0F172A;
 }
 
+.madeBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 1px solid var(--border, #CBD5E1);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--fg-primary, #1E293B);
+  cursor: pointer;
+  padding: 10px 16px;
+  border-radius: 2px;
+  transition: color 0.1s ease, border-color 0.1s ease;
+}
+
+.madeBtn:hover {
+  border-color: #0EBB84;
+  color: #0EBB84;
+}
+
+:global([data-theme="dark"]) .madeBtn {
+  color: var(--fg-primary, #E2E8F0);
+  border-color: var(--border, #334155);
+}
+
 .exportBtn {
   display: flex;
   align-items: center;

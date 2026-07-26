@@ -456,11 +456,17 @@ export function useRecipesPage() {
     const currentlyMade = (recipe.times_made ?? 0) > 0;
     try {
       await markRecipeMade(recipe.id, !currentlyMade);
+      // Keep the open detail modal in sync (selectedRecipe is separate from the list).
+      setSelectedRecipe((prev) =>
+        prev && prev.id === recipe.id
+          ? { ...prev, times_made: currentlyMade ? Math.max((prev.times_made ?? 1) - 1, 0) : (prev.times_made ?? 0) + 1 }
+          : prev
+      );
       showToast('success', currentlyMade ? 'Unmarked as made' : 'Marked as made');
     } catch (error) {
       showToast('error', 'Failed to update made status');
     }
-  }, [markRecipeMade, showToast]);
+  }, [markRecipeMade, setSelectedRecipe, showToast]);
 
   const handleDeleteAll = useCallback(async () => {
     try {

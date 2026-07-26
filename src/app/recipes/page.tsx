@@ -309,6 +309,8 @@ function RecipesPageContent() {
           recipe={state.selectedRecipe}
           isFavorited={state.selectedRecipe ? state.isFavorited(state.selectedRecipe.id!) : false}
           onToggleFavorite={() => { if (state.selectedRecipe) state.handleToggleFavorite(state.selectedRecipe); }}
+          timesMade={state.selectedRecipe?.times_made ?? 0}
+          onToggleMade={() => { if (state.selectedRecipe) state.handleToggleMade(state.selectedRecipe); }}
           onRecipeUpdated={(updatedRecipe) => state.setSelectedRecipe(updatedRecipe)}
         />
 
