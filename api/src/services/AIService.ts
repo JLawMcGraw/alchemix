@@ -371,6 +371,28 @@ const RECIPE_COLUMNS = 'id, user_id, name, category, ingredients, memmachine_uid
 /** A recipe shown within this window counts as "recently shown" and is down-ranked. */
 const RECENTLY_SHOWN_MS = 72 * 60 * 60 * 1000; // 72 hours
 
+/** Hash an arbitrary string to a 32-bit seed (cyrb53-lite). */
+function hashStringToSeed(str: string): number {
+  let h = 1779033703 ^ str.length;
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return (h >>> 0) || 1;
+}
+
+/** Deterministic PRNG (mulberry32) — same seed yields the same sequence. */
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 interface CraftabilityOptions {
   /** Max recipes in the formatted output (default 10) */
   maxRecipes?: number;
@@ -405,6 +427,12 @@ interface CraftabilityOptions {
    * for something they haven't tried, so "made" recipes drop out. (default false)
    */
   excludeMade?: boolean;
+  /**
+   * Per-conversation seed. When set, the intra-tier shuffle is deterministic so the
+   * same conversation gets a stable candidate order across turns (no flip-flop),
+   * while different conversations still vary. (default: non-deterministic)
+   */
+  seed?: string;
 }
 
 type CraftabilityResult = {
@@ -498,17 +526,20 @@ class AIService {
    * Query SQLite for recipes by cocktail name
    * Used when concept matches (e.g., "spirit-forward") expand to specific cocktail names
    */
-  private async queryRecipesByName(userId: number, cocktailName: string): Promise<RecipeRecord[]> {
+  private async queryRecipesByName(userId: number, cocktailName: string, seed?: string): Promise<RecipeRecord[]> {
     try {
       const searchPattern = `%${cocktailName.toLowerCase()}%`;
+      const orderBy = seed
+        ? 'ORDER BY last_recommended_at ASC NULLS FIRST, md5(id::text || $3)'
+        : 'ORDER BY RANDOM()';
 
       const recipes = await queryAll<RecipeRecord>(`
         SELECT ${RECIPE_COLUMNS}
         FROM recipes
         WHERE user_id = $1 AND LOWER(name) LIKE $2
-        ORDER BY RANDOM()
+        ${orderBy}
         LIMIT 20
-      `, [userId, searchPattern]);
+      `, seed ? [userId, searchPattern, seed] : [userId, searchPattern]);
 
       if (recipes.length > 0) {
         logger.info('Hybrid search: Found recipes by name', {
@@ -536,17 +567,20 @@ class AIService {
    * concept ("spirit-forward", "tropical") pull on-theme recipes from the user's own
    * collection even when they don't own the specific named cocktails the concept maps to.
    */
-  private async queryRecipesByCategory(userId: number, categories: string[], limit: number = 40): Promise<RecipeRecord[]> {
+  private async queryRecipesByCategory(userId: number, categories: string[], limit: number = 40, seed?: string): Promise<RecipeRecord[]> {
     if (categories.length === 0) return [];
     try {
       const patterns = categories.map(c => `%${c.toLowerCase()}%`);
+      const orderBy = seed
+        ? 'ORDER BY last_recommended_at ASC NULLS FIRST, md5(id::text || $4)'
+        : 'ORDER BY RANDOM()';
       const recipes = await queryAll<RecipeRecord>(`
         SELECT ${RECIPE_COLUMNS}
         FROM recipes
         WHERE user_id = $1 AND LOWER(category) LIKE ANY($2::text[])
-        ORDER BY RANDOM()
+        ${orderBy}
         LIMIT $3
-      `, [userId, patterns, limit]);
+      `, seed ? [userId, patterns, limit, seed] : [userId, patterns, limit]);
       return recipes;
     } catch (error) {
       logger.error('Hybrid search: Failed to query recipes by category', {
@@ -562,18 +596,21 @@ class AIService {
    * Query SQLite for recipes containing specific ingredients
    * This provides exact matches that semantic search may miss
    */
-  private async queryRecipesWithIngredient(userId: number, ingredient: string): Promise<RecipeRecord[]> {
+  private async queryRecipesWithIngredient(userId: number, ingredient: string, seed?: string): Promise<RecipeRecord[]> {
     try {
       const searchPattern = `%${ingredient.toLowerCase()}%`;
+      const orderBy = seed
+        ? 'ORDER BY last_recommended_at ASC NULLS FIRST, md5(id::text || $3)'
+        : 'ORDER BY RANDOM()';
 
       // Search for ingredient in the ingredients JSON field
       const recipes = await queryAll<RecipeRecord>(`
         SELECT ${RECIPE_COLUMNS}
         FROM recipes
         WHERE user_id = $1 AND LOWER(ingredients) LIKE $2
-        ORDER BY RANDOM()
+        ${orderBy}
         LIMIT 100
-      `, [userId, searchPattern]);
+      `, seed ? [userId, searchPattern, seed] : [userId, searchPattern]);
 
       logger.info('Hybrid search: Found recipes with ingredient', {
         userId,
@@ -602,14 +639,21 @@ class AIService {
    * Throws on DB failure — the caller is responsible for error handling
    * so it can distinguish "DB down" from "user has no recipes".
    */
-  private async queryRandomRecipes(userId: number, limit: number): Promise<RecipeRecord[]> {
+  private async queryRandomRecipes(userId: number, limit: number, seed?: string): Promise<RecipeRecord[]> {
+    // Seeded: least-recently-shown first (progressive reveal), with a per-conversation
+    // stable pseudo-random tiebreak so the same chat sees a consistent pool across turns.
+    // Unseeded: fall back to plain random sampling.
+    const orderBy = seed
+      ? 'ORDER BY last_recommended_at ASC NULLS FIRST, md5(id::text || $3)'
+      : 'ORDER BY RANDOM()';
+    const params = seed ? [userId, limit, seed] : [userId, limit];
     return queryAll<RecipeRecord>(`
       SELECT ${RECIPE_COLUMNS}
       FROM recipes
       WHERE user_id = $1
-      ORDER BY RANDOM()
+      ${orderBy}
       LIMIT $2
-    `, [userId, limit]);
+    `, params);
   }
 
   /**
@@ -639,10 +683,10 @@ class AIService {
   /**
    * Shuffle array using Fisher-Yates algorithm for variety in recommendations
    */
-  private shuffleArray<T>(array: T[]): T[] {
+  private shuffleArray<T>(array: T[], rng: () => number = Math.random): T[] {
     const shuffled = [...array];
     for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = Math.floor(rng() * (i + 1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
     return shuffled;
@@ -815,8 +859,11 @@ class AIService {
       includeMissingInOutput = true,
       favoriteSpiritCounts,
       excludeMade = false,
+      seed,
     } = options;
     const applyTasteBias = !!favoriteSpiritCounts && favoriteSpiritCounts.size > 0;
+    // Deterministic shuffle within a conversation (stable across turns) when seeded.
+    const rng = seed ? mulberry32(hashStringToSeed(seed)) : Math.random;
     let formatted = '';
     let craftableCount = 0;
     let nearMissCount = 0;
@@ -927,8 +974,8 @@ class AIService {
     }
 
     // Separate by status and shuffle each group for variety
-    const craftableRecipes = this.shuffleArray(recipesWithStatus.filter(r => r.status === 'craftable'));
-    const nearMissRecipes = this.shuffleArray(recipesWithStatus.filter(r => r.status === 'near-miss'));
+    const craftableRecipes = this.shuffleArray(recipesWithStatus.filter(r => r.status === 'craftable'), rng);
+    const nearMissRecipes = this.shuffleArray(recipesWithStatus.filter(r => r.status === 'near-miss'), rng);
 
     // Taste bias: order favored-spirit recipes ahead within their tier. Array.sort is
     // stable, so the shuffle above still randomizes ties (recipes of equal taste weight).
@@ -945,7 +992,7 @@ class AIService {
     
     // When includeMissingRecipes is true, include recipes with up to maxMissingIngredients missing
     // Otherwise, only include them for display purposes (they'll be at the end anyway)
-    let missingRecipes = this.shuffleArray(recipesWithStatus.filter(r => r.status === 'missing'));
+    let missingRecipes = this.shuffleArray(recipesWithStatus.filter(r => r.status === 'missing'), rng);
     if (includeMissingRecipes) {
       // Filter to only reasonable missing recipes (not too many ingredients missing)
       missingRecipes = missingRecipes.filter(r => r.missingIngredientCount <= maxMissingIngredients);
@@ -1112,10 +1159,11 @@ class AIService {
     limit: number = 20,
     requiredSpiritType: SpiritFamily | null = null,
     excludeMade: boolean = false,
-    includeMissing: boolean = false
+    includeMissing: boolean = false,
+    seed?: string
   ): Promise<CraftabilityResult & { ok: boolean }> {
     try {
-      const randomRecipes = await this.queryRandomRecipes(userId, 150);
+      const randomRecipes = await this.queryRandomRecipes(userId, 150, seed);
 
       logger.debug('[AI-EXPLORE] Random sample fetched', {
         total: randomRecipes.length,
@@ -1132,6 +1180,7 @@ class AIService {
         maxMissingIngredients: 4,
         includeMissingInOutput: false,
         excludeMade,
+        seed,
       });
 
       // Relaxed re-pass: when nearly everything craftable was already recommended,
@@ -1154,6 +1203,7 @@ class AIService {
           includeMissingRecipes: includeMissing,
           maxMissingIngredients: 4,
           includeMissingInOutput: false,
+          seed,
         });
         // NOTE: spiritMismatchCount/missingCount are deliberately NOT merged — the
         // relaxed pass re-scans rows the first pass already counted; merging would double-count.
@@ -1551,6 +1601,11 @@ IMPORTANT:
       // Apply taste bias only when the user isn't explicitly asking to branch out —
       // "surprise me / something new" should broaden, not lean into their usual spirits.
       const tasteCounts = exploreIntent ? new Map<string, number>() : favoriteSpiritCounts;
+      // Per-conversation seed: derived from the FIRST user turn (constant across the
+      // whole conversation) so candidate ordering stays stable turn-to-turn — no
+      // recipe flip-flopping in/out — while different conversations still vary.
+      const firstUserTurn = conversationHistory.find(e => e.role === 'user');
+      const conversationSeed = ((firstUserTurn?.content || userMessage || 'default').slice(0, 200)) || 'default';
       const memMachinePromise = memoryService.getEnhancedContext(userId, expandedQuery)
         .catch((err: Error) => {
           logger.warn('MemMachine unavailable', { error: err.message });
@@ -1574,7 +1629,7 @@ IMPORTANT:
 
           // Search user's recipes for cocktails matching this concept
           for (const cocktailName of cocktails) {
-            const matches = await this.queryRecipesByName(userId, cocktailName);
+            const matches = await this.queryRecipesByName(userId, cocktailName, conversationSeed);
             for (const recipe of matches) {
               if (!conceptRecipes.some(r => r.id === recipe.id)) {
                 conceptRecipes.push(recipe);
@@ -1584,7 +1639,7 @@ IMPORTANT:
 
           // Also pull on-theme recipes from the user's own collection by category, so
           // a vibe isn't limited to a fixed list of named cocktails they may not own.
-          const categoryMatches = await this.queryRecipesByCategory(userId, CONCEPT_TO_CATEGORIES[concept.toLowerCase()] ?? []);
+          const categoryMatches = await this.queryRecipesByCategory(userId, CONCEPT_TO_CATEGORIES[concept.toLowerCase()] ?? [], 40, conversationSeed);
           for (const recipe of categoryMatches) {
             if (!conceptRecipes.some(r => r.id === recipe.id)) {
               conceptRecipes.push(recipe);
@@ -1636,7 +1691,7 @@ IMPORTANT:
         logger.info('Hybrid search: Prioritized ingredients', { specific: specificIngredientsList, generic: genericMatches });
 
         for (const ingredient of prioritizedIngredients) {
-          const matches = await this.queryRecipesWithIngredient(userId, ingredient);
+          const matches = await this.queryRecipesWithIngredient(userId, ingredient, conversationSeed);
           for (const recipe of matches) {
             // Avoid duplicates
             if (!allRecipes.some(r => r.id === recipe.id)) {
@@ -1660,7 +1715,7 @@ IMPORTANT:
           logger.info('Hybrid search: Trying direct keyword search (no ingredients detected)', { terms: potentialTerms });
 
           for (const term of potentialTerms.slice(0, 3)) { // Limit to first 3 terms
-            const matches = await this.queryRecipesWithIngredient(userId, term);
+            const matches = await this.queryRecipesWithIngredient(userId, term, conversationSeed);
             for (const recipe of matches) {
               if (!allRecipes.some(r => r.id === recipe.id)) {
                 allRecipes.push(recipe);
@@ -1723,7 +1778,7 @@ IMPORTANT:
           for (const term of spiritTypeTerms) {
             if (term.length < 4 || skipWords.has(term)) continue;
 
-            const matches = await this.queryRecipesWithIngredient(userId, term);
+            const matches = await this.queryRecipesWithIngredient(userId, term, conversationSeed);
             for (const recipe of matches) {
               if (!tier1Recipes.some(r => r.id === recipe.id)) {
                 tier1Recipes.push(recipe);
@@ -1753,7 +1808,7 @@ IMPORTANT:
             // Avoid re-searching terms already covered by spiritType tokenisation
             if (firstBottle.spiritType && firstBottle.spiritType.toLowerCase().includes(term)) continue;
 
-            const matches = await this.queryRecipesWithIngredient(userId, term);
+            const matches = await this.queryRecipesWithIngredient(userId, term, conversationSeed);
             tier1bSearchedTerms.add(term);
             for (const recipe of matches) {
               if (!tier1Recipes.some(r => r.id === recipe.id)) {
@@ -1780,7 +1835,7 @@ IMPORTANT:
             if (tier1bSearchedTerms.has(term)) continue;
             // Only search if it's a significant spirit-producing region
             if (significantLocations.some(loc => loc.includes(term) || term.includes(loc))) {
-              const matches = await this.queryRecipesWithIngredient(userId, term);
+              const matches = await this.queryRecipesWithIngredient(userId, term, conversationSeed);
               for (const recipe of matches) {
                 if (!tier1Recipes.some(r => r.id === recipe.id) &&
                     !tier2Recipes.some(r => r.id === recipe.id)) {
@@ -1797,7 +1852,7 @@ IMPORTANT:
 
         // TIER 3: Fall back to base spirit category
         if (requiredSpiritType && (tier1Recipes.length + tier2Recipes.length) < 5) {
-          const matches = await this.queryRecipesWithIngredient(userId, requiredSpiritType);
+          const matches = await this.queryRecipesWithIngredient(userId, requiredSpiritType, conversationSeed);
           for (const recipe of matches) {
             if (!tier1Recipes.some(r => r.id === recipe.id) &&
                 !tier2Recipes.some(r => r.id === recipe.id) &&
@@ -1843,6 +1898,7 @@ IMPORTANT:
           specificIngredients: specificIngredientsList,
           favoriteSpiritCounts: tasteCounts,
           excludeMade: exploreIntent,
+          seed: conversationSeed,
         });
 
       logger.info('[AI-SEARCH] First pass results (new recipes only)', {
@@ -1876,6 +1932,7 @@ IMPORTANT:
           skipAlreadyRecommended: false, // Re-offer previously recommended (🔄 marker)
           includeMissingRecipes: userIsFlexible,
           specificIngredients: specificIngredientsList,
+          seed: conversationSeed,
         });
 
         // Only add recipes we haven't already processed
@@ -1945,7 +2002,7 @@ IMPORTANT:
         const additionalRecipes: RecipeRecord[] = [];
         for (const term of broaderTerms) {
           // Search by name (for cocktail types like "daiquiri", "sour")
-          const nameMatches = await this.queryRecipesByName(userId, term);
+          const nameMatches = await this.queryRecipesByName(userId, term, conversationSeed);
           for (const recipe of nameMatches) {
             if (!ingredientRecipes.some(r => r.id === recipe.id) &&
                 !additionalRecipes.some(r => r.id === recipe.id)) {
@@ -1954,7 +2011,7 @@ IMPORTANT:
           }
 
           // Search by ingredient
-          const ingredientMatches = await this.queryRecipesWithIngredient(userId, term);
+          const ingredientMatches = await this.queryRecipesWithIngredient(userId, term, conversationSeed);
           for (const recipe of ingredientMatches) {
             if (!ingredientRecipes.some(r => r.id === recipe.id) &&
                 !additionalRecipes.some(r => r.id === recipe.id)) {
@@ -1982,6 +2039,7 @@ IMPORTANT:
               favoriteSpiritCounts: tasteCounts,
               excludeMade: exploreIntent,
               specificIngredients: specificIngredientsList,
+              seed: conversationSeed,
             }
           );
 
@@ -2040,7 +2098,8 @@ IMPORTANT:
           exploreLimit,
           exploreSpiritConstraint,
           exploreIntent, // exclude already-made recipes when the user asked for something new
-          userIsFlexible // include 2-3-ingredients-away recipes when the user is flexible
+          userIsFlexible, // include 2-3-ingredients-away recipes when the user is flexible
+          conversationSeed // stable per-conversation ordering (no flip-flop across turns)
         );
 
         // Dedupe guard (mirrors the SECOND PASS block above): the relaxed re-pass

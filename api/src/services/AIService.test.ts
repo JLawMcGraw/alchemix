@@ -774,7 +774,7 @@ describe('AIService', () => {
         if (sql.includes('FROM inventory_items')) return inventory;
         if (sql.includes('FROM favorites')) return [];
         // SQL shape comes from queryRandomRecipes (AIService.ts) — update this discriminator if that query changes
-        if (sql.includes('ORDER BY RANDOM()') && sql.includes('LIMIT $2')) return opts.exploreRecipes ?? [];
+        if (sql.includes('FROM recipes') && sql.includes('LIMIT $2') && !sql.includes('LIKE')) return opts.exploreRecipes ?? [];
         if (sql.includes('FROM recipes')) return opts.keywordRecipes ?? [];
         return [];
       });
@@ -814,7 +814,7 @@ describe('AIService', () => {
       await aiService.buildContextAwarePrompt(1, 'rum cocktails', []);
 
       const randomCalls = queryAllSpy.mock.calls.filter(
-        ([sql]) => typeof sql === 'string' && sql.includes('ORDER BY RANDOM()') && sql.includes('LIMIT $2')
+        ([sql]) => typeof sql === 'string' && sql.includes('FROM recipes') && sql.includes('LIMIT $2') && !sql.includes('LIKE')
       );
       expect(randomCalls).toHaveLength(0);
       // With no assistant turns in history, the uncapped name-only query is skipped too
@@ -830,7 +830,7 @@ describe('AIService', () => {
       // Re-mock: explore query rejects, everything else as before
       vi.spyOn(dbModule, 'queryAll').mockImplementation(async (sql: string) => {
         if (sql.includes('FROM inventory_items')) return inventory;
-        if (sql.includes('ORDER BY RANDOM()') && sql.includes('LIMIT $2')) throw new Error('DB down');
+        if (sql.includes('FROM recipes') && sql.includes('LIMIT $2') && !sql.includes('LIKE')) throw new Error('DB down');
         return [];
       });
 
@@ -849,7 +849,7 @@ describe('AIService', () => {
       const queryAllSpy = vi.spyOn(dbModule, 'queryAll').mockImplementation(async (sql: string) => {
         if (sql.includes('FROM inventory_items')) return inventory;
         if (sql.includes('FROM favorites')) return [];
-        if (sql.includes('ORDER BY RANDOM()') && sql.includes('LIMIT $2')) {
+        if (sql.includes('FROM recipes') && sql.includes('LIMIT $2') && !sql.includes('LIKE')) {
           return [
             ...exploreRecipes,
             {
