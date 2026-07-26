@@ -133,6 +133,7 @@ interface FavoriteRecord {
   id: number;
   user_id: number;
   recipe_name: string;
+  recipe_id?: number | null;
   created_at: string;
 }
 
@@ -337,6 +338,13 @@ interface CraftabilityOptions {
   maxMissingIngredients?: number;
   /** Specific/rare ingredients to prioritize for relevance scoring (default []) */
   specificIngredients?: string[];
+  /**
+   * Base-spirit → weight map derived from the user's favorites. When non-empty,
+   * candidates whose base spirit the user favors are ordered ahead of others within
+   * their craftability tier (taste bias). Pass empty ({}/undefined) to disable — e.g.
+   * in explore/"surprise me" mode, where we want breadth over taste. (default none)
+   */
+  favoriteSpiritCounts?: Map<string, number>;
   /**
    * When false, recipes with 2+ missing ingredients are omitted from the output
    * entirely instead of backfilling after craftable/near-miss (default true,
@@ -575,6 +583,40 @@ class AIService {
   }
 
   /**
+   * Build a base-spirit → count map from the user's favorited recipes, used as a
+   * taste signal to weight recommendations toward the styles they favor. Looks up the
+   * favorites' ingredients (one query) and derives each one's base spirit. Returns an
+   * empty map when there are no id-linked favorites.
+   */
+  private async computeFavoriteSpiritCounts(
+    userId: number,
+    favorites: FavoriteRecord[]
+  ): Promise<Map<string, number>> {
+    const counts = new Map<string, number>();
+    const ids = favorites
+      .map((f) => f.recipe_id)
+      .filter((id): id is number => typeof id === 'number');
+    if (ids.length === 0) return counts;
+
+    const rows = await queryAll<{ ingredients: string }>(
+      'SELECT ingredients FROM recipes WHERE user_id = $1 AND id = ANY($2)',
+      [userId, ids]
+    );
+    for (const row of rows) {
+      let text = row.ingredients;
+      try {
+        const parsed = JSON.parse(row.ingredients);
+        if (Array.isArray(parsed)) text = parsed.join(', ');
+      } catch {
+        // non-JSON ingredients — use the raw string
+      }
+      const family = this.deriveSpiritFamily(text);
+      if (family !== 'other') counts.set(family, (counts.get(family) ?? 0) + 1);
+    }
+    return counts;
+  }
+
+  /**
    * Detect bottle mentions in user's query and fetch their tasting notes AND spirit type
    * This enriches the semantic search with flavor profile information
    * Also returns spirit types for filtering recipes by base spirit
@@ -674,7 +716,9 @@ class AIService {
       maxMissingIngredients = 4,
       specificIngredients = [],
       includeMissingInOutput = true,
+      favoriteSpiritCounts,
     } = options;
+    const applyTasteBias = !!favoriteSpiritCounts && favoriteSpiritCounts.size > 0;
     let formatted = '';
     let craftableCount = 0;
     let nearMissCount = 0;
@@ -693,6 +737,8 @@ class AIService {
       wasPreviouslyRecommended: boolean;
       missingIngredientCount: number;
       relevanceScore: number; // How many specific ingredients this recipe contains
+      spiritFamily: string; // Derived base spirit (for taste bias + diversity)
+      tasteScore: number; // Weight from the user's favorite-spirit distribution
     }> = [];
 
     for (const recipe of recipes) {
@@ -766,12 +812,23 @@ class AIService {
         }
       }
 
-      recipesWithStatus.push({ recipe, ingredientsList, status, statusPrefix, matchesSpirit, wasPreviouslyRecommended, missingIngredientCount, relevanceScore });
+      const spiritFamily = this.deriveSpiritFamily(ingredientsList);
+      const tasteScore = favoriteSpiritCounts?.get(spiritFamily) ?? 0;
+
+      recipesWithStatus.push({ recipe, ingredientsList, status, statusPrefix, matchesSpirit, wasPreviouslyRecommended, missingIngredientCount, relevanceScore, spiritFamily, tasteScore });
     }
 
     // Separate by status and shuffle each group for variety
     const craftableRecipes = this.shuffleArray(recipesWithStatus.filter(r => r.status === 'craftable'));
     const nearMissRecipes = this.shuffleArray(recipesWithStatus.filter(r => r.status === 'near-miss'));
+
+    // Taste bias: order favored-spirit recipes ahead within their tier. Array.sort is
+    // stable, so the shuffle above still randomizes ties (recipes of equal taste weight).
+    // Skipped in explore mode (empty favoriteSpiritCounts) so "surprise me" stays broad.
+    if (applyTasteBias) {
+      craftableRecipes.sort((a, b) => b.tasteScore - a.tasteScore);
+      nearMissRecipes.sort((a, b) => b.tasteScore - a.tasteScore);
+    }
     
     // When includeMissingRecipes is true, include recipes with up to maxMissingIngredients missing
     // Otherwise, only include them for display purposes (they'll be at the end anyway)
@@ -860,7 +917,7 @@ class AIService {
       sortedRecipes,
       maxRecipes,
       (r) => ({
-        spirit: this.deriveSpiritFamily(r.ingredientsList),
+        spirit: r.spiritFamily,
         category: (r.recipe.category || 'other').toLowerCase(),
       })
     );
@@ -1318,6 +1375,9 @@ IMPORTANT:
       [userId, MAX_FAVORITES]
     );
 
+    // Taste signal: which base spirits the user favors (from their favorited recipes).
+    const favoriteSpiritCounts = await this.computeFavoriteSpiritCounts(userId, favorites);
+
     // Build inventory entries
     const inventoryEntries = inventory
       .map((bottle) => {
@@ -1371,6 +1431,9 @@ IMPORTANT:
       // Start MemMachine and getUserBottles immediately — independent of ingredient detection
       const expandedQuery = expandSearchQuery(userMessage);
       const exploreIntent = this.detectExploreIntent(userMessage);
+      // Apply taste bias only when the user isn't explicitly asking to branch out —
+      // "surprise me / something new" should broaden, not lean into their usual spirits.
+      const tasteCounts = exploreIntent ? new Map<string, number>() : favoriteSpiritCounts;
       const memMachinePromise = memoryService.getEnhancedContext(userId, expandedQuery)
         .catch((err: Error) => {
           logger.warn('MemMachine unavailable', { error: err.message });
@@ -1652,6 +1715,7 @@ IMPORTANT:
           requiredSpiritType,
           includeMissingRecipes: userIsFlexible,
           specificIngredients: specificIngredientsList,
+          favoriteSpiritCounts: tasteCounts,
         });
 
       logger.info('[AI-SEARCH] First pass results (new recipes only)', {
@@ -1788,6 +1852,7 @@ IMPORTANT:
               maxRecipes: MAX_CANDIDATE_RECIPES - processedRecipes.length, // Fill up to the candidate cap
               requiredSpiritType, // Apply same spirit constraint to broader search
               includeMissingRecipes: userIsFlexible,
+              favoriteSpiritCounts: tasteCounts,
               specificIngredients: specificIngredientsList,
             }
           );
@@ -2289,7 +2354,7 @@ Help them get started! Be welcoming and educational.
 
     // Ingredient matches, then MemMachine semantic results, then BAR STOCK at END for recency
     const dynamicContent = `${modeInstructions}
-${favoriteEntries ? `\n## USER'S FAVORITES:\n${favoriteEntries}\n` : ''}${alreadyRecommendedList}
+${favoriteEntries ? `\n## USER'S FAVORITES (taste signal)\nThese are drinks the user has favorited — they reflect the user's taste. For open-ended requests, lean toward similar styles and spirits. BUT if the user asks for something new, different, adventurous, or to stretch, deliberately branch AWAY from these. Never present one of the user's favorites as a novel discovery.\n${favoriteEntries}\n` : ''}${alreadyRecommendedList}
 ${ingredientMatchContext}
 ${memoryContext}
 
