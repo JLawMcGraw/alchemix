@@ -1,7 +1,7 @@
 'use client';
 
 import React, { memo, useMemo } from 'react';
-import { Star, Check } from 'lucide-react';
+import { Star, Check, Wine } from 'lucide-react';
 import type { Recipe } from '@/types';
 import { RecipeMolecule } from '@/components/RecipeMolecule';
 import { SPIRIT_COLORS, detectSpiritTypes } from '@/lib/colors';
@@ -14,9 +14,11 @@ interface RecipeCardProps {
   isSelected?: boolean;
   isCraftable?: boolean;
   missingIngredients?: string[];
+  timesMade?: number;
   onSelect?: () => void;
   onToggleSelection?: () => void;
   onToggleFavorite?: () => void;
+  onToggleMade?: () => void;
 }
 
 function RecipeCardComponent({
@@ -25,10 +27,13 @@ function RecipeCardComponent({
   isSelected = false,
   isCraftable = false,
   missingIngredients = [],
+  timesMade = 0,
   onSelect,
   onToggleSelection,
   onToggleFavorite,
+  onToggleMade,
 }: RecipeCardProps) {
+  const isMade = timesMade > 0;
   // Memoize expensive parsing/detection operations
   const ingredients = useMemo(() => parseIngredients(recipe.ingredients), [recipe.ingredients]);
   const spiritTypes = useMemo(() =>
@@ -79,6 +84,21 @@ function RecipeCardComponent({
               <p className={styles.formula}>{recipe.formula}</p>
             )}
           </div>
+
+          {/* Mark as made */}
+          {onToggleMade && (
+            <button
+              className={`${styles.madeBtn} ${isMade ? styles.madeBtnActive : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleMade();
+              }}
+              aria-label={isMade ? "Unmark as made" : "Mark as made"}
+              title={isMade ? `Made${timesMade > 1 ? ` ×${timesMade}` : ''} — click to undo` : 'Mark as made'}
+            >
+              <Wine size={16} fill={isMade ? 'currentColor' : 'none'} strokeWidth={2} />
+            </button>
+          )}
 
           {/* Favorite */}
           {onToggleFavorite && (
@@ -145,6 +165,7 @@ export const RecipeCard = memo(RecipeCardComponent, (prevProps, nextProps) => {
     prevProps.recipe.ingredients === nextProps.recipe.ingredients &&
     prevProps.recipe.formula === nextProps.recipe.formula &&
     prevProps.isFavorited === nextProps.isFavorited &&
+    prevProps.timesMade === nextProps.timesMade &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isCraftable === nextProps.isCraftable &&
     prevProps.missingIngredients?.length === nextProps.missingIngredients?.length &&

@@ -42,6 +42,7 @@ export function useRecipesPage() {
     updateCollection,
     deleteCollection,
     updateRecipe,
+    markRecipeMade,
     bulkDeleteRecipes,
     shoppingListStats,
     craftableRecipes,
@@ -450,6 +451,17 @@ export function useRecipesPage() {
     }
   }, [favoritesArray, removeFavorite, addFavorite, showToast]);
 
+  const handleToggleMade = useCallback(async (recipe: Recipe) => {
+    if (!recipe.id) return;
+    const currentlyMade = (recipe.times_made ?? 0) > 0;
+    try {
+      await markRecipeMade(recipe.id, !currentlyMade);
+      showToast('success', currentlyMade ? 'Unmarked as made' : 'Marked as made');
+    } catch (error) {
+      showToast('error', 'Failed to update made status');
+    }
+  }, [markRecipeMade, showToast]);
+
   const handleDeleteAll = useCallback(async () => {
     try {
       const result = await recipeApi.deleteAll();
@@ -690,6 +702,7 @@ export function useRecipesPage() {
     handleAddRecipe,
     handleCSVUpload,
     handleToggleFavorite,
+    handleToggleMade,
     handleDeleteAll,
     handleCollectionSubmit,
     handleDeleteCollection,

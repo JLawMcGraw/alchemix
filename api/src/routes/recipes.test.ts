@@ -24,6 +24,8 @@ vi.mock('../services/RecipeService', () => ({
     syncMemMachine: vi.fn(),
     clearMemMachine: vi.fn(),
     seedClassics: vi.fn(),
+    markMade: vi.fn(),
+    unmarkMade: vi.fn(),
   },
 }));
 
@@ -603,6 +605,58 @@ describe('Recipes Routes', () => {
       const res = await request(app).post('/api/recipes/seed-classics');
 
       expect(res.status).toBe(500);
+      expect(res.body.success).toBe(false);
+    });
+  });
+
+  describe('POST /api/recipes/:id/made', () => {
+    it('marks a recipe as made and returns the counters', async () => {
+      (recipeService.markMade as ReturnType<typeof vi.fn>).mockResolvedValue({
+        times_made: 1,
+        last_made_at: '2026-07-26T00:00:00.000Z',
+      });
+
+      const res = await request(app).post('/api/recipes/42/made');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.times_made).toBe(1);
+      expect(recipeService.markMade).toHaveBeenCalledWith(42, 1);
+    });
+
+    it('returns 400 for an invalid id', async () => {
+      const res = await request(app).post('/api/recipes/abc/made');
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    });
+
+    it('returns 404 when the recipe is not found', async () => {
+      (recipeService.markMade as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      const res = await request(app).post('/api/recipes/999/made');
+      expect(res.status).toBe(404);
+      expect(res.body.success).toBe(false);
+    });
+  });
+
+  describe('DELETE /api/recipes/:id/made', () => {
+    it('undoes a made mark and returns the counters', async () => {
+      (recipeService.unmarkMade as ReturnType<typeof vi.fn>).mockResolvedValue({
+        times_made: 0,
+        last_made_at: null,
+      });
+
+      const res = await request(app).delete('/api/recipes/42/made');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.times_made).toBe(0);
+      expect(recipeService.unmarkMade).toHaveBeenCalledWith(42, 1);
+    });
+
+    it('returns 404 when the recipe is not found', async () => {
+      (recipeService.unmarkMade as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      const res = await request(app).delete('/api/recipes/999/made');
+      expect(res.status).toBe(404);
       expect(res.body.success).toBe(false);
     });
   });

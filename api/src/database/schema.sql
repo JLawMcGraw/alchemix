@@ -124,6 +124,10 @@ CREATE TABLE IF NOT EXISTS recipes (
   -- MemMachine integration (semantic search)
   memmachine_uid TEXT,
 
+  -- Mark-as-made tracking (drives "haven't tried" filtering in the AI bartender)
+  times_made INTEGER NOT NULL DEFAULT 0,
+  last_made_at TIMESTAMP,
+
   created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -213,6 +217,24 @@ BEGIN
     WHERE table_name = 'users' AND column_name = 'has_seeded_classics'
   ) THEN
     ALTER TABLE users ADD COLUMN has_seeded_classics BOOLEAN NOT NULL DEFAULT FALSE;
+  END IF;
+END
+$$;
+
+-- Add mark-as-made tracking to recipes for existing databases
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'recipes' AND column_name = 'times_made'
+  ) THEN
+    ALTER TABLE recipes ADD COLUMN times_made INTEGER NOT NULL DEFAULT 0;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'recipes' AND column_name = 'last_made_at'
+  ) THEN
+    ALTER TABLE recipes ADD COLUMN last_made_at TIMESTAMP;
   END IF;
 END
 $$;

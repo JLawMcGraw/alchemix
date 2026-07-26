@@ -275,6 +275,43 @@ export class RecipeService {
   }
 
   /**
+   * Record that the user made this recipe: increment times_made and stamp last_made_at.
+   * Returns the updated counters, or null if the recipe isn't found / not theirs.
+   */
+  async markMade(
+    recipeId: number,
+    userId: number
+  ): Promise<{ times_made: number; last_made_at: string } | null> {
+    const row = await queryOne<{ times_made: number; last_made_at: string }>(
+      `UPDATE recipes
+       SET times_made = times_made + 1, last_made_at = NOW()
+       WHERE id = $1 AND user_id = $2
+       RETURNING times_made, last_made_at`,
+      [recipeId, userId]
+    );
+    return row ?? null;
+  }
+
+  /**
+   * Undo a "made" mark: decrement times_made (floored at 0) and clear last_made_at
+   * once the count returns to zero. Returns updated counters, or null if not found.
+   */
+  async unmarkMade(
+    recipeId: number,
+    userId: number
+  ): Promise<{ times_made: number; last_made_at: string | null } | null> {
+    const row = await queryOne<{ times_made: number; last_made_at: string | null }>(
+      `UPDATE recipes
+       SET times_made = GREATEST(times_made - 1, 0),
+           last_made_at = CASE WHEN times_made - 1 <= 0 THEN NULL ELSE last_made_at END
+       WHERE id = $1 AND user_id = $2
+       RETURNING times_made, last_made_at`,
+      [recipeId, userId]
+    );
+    return row ?? null;
+  }
+
+  /**
    * Validate collection belongs to user
    */
   async validateCollection(collectionId: number, userId: number): Promise<boolean> {

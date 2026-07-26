@@ -135,6 +135,8 @@ export interface Recipe {
   compatibility?: number;
   missing?: string[];
   formula?: string;
+  times_made?: number;
+  last_made_at?: string | null;
   created_at?: string;
 }
 

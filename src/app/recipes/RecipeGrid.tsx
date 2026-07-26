@@ -16,6 +16,7 @@ interface RecipeGridProps {
   onSelectRecipe: (recipe: Recipe) => void;
   onToggleSelection: (recipeId: number) => void;
   onToggleFavorite: (recipe: Recipe) => void;
+  onToggleMade?: (recipe: Recipe) => void;
 }
 
 export function RecipeGrid({
@@ -26,6 +27,7 @@ export function RecipeGrid({
   onSelectRecipe,
   onToggleSelection,
   onToggleFavorite,
+  onToggleMade,
 }: RecipeGridProps) {
   return (
     <div className={styles.recipesGrid}>
@@ -36,9 +38,11 @@ export function RecipeGrid({
           isFavorited={isFavorited(recipe.id!)}
           isSelected={selectedRecipes.has(recipe.id!)}
           isCraftable={isRecipeCraftable(recipe)}
+          timesMade={recipe.times_made}
           onSelect={() => onSelectRecipe(recipe)}
           onToggleSelection={() => onToggleSelection(recipe.id!)}
           onToggleFavorite={() => onToggleFavorite(recipe)}
+          onToggleMade={onToggleMade ? () => onToggleMade(recipe) : undefined}
         />
       ))}
     </div>

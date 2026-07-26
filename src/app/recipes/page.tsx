@@ -129,6 +129,7 @@ function RecipesPageContent() {
                   onSelectRecipe={state.setSelectedRecipe}
                   onToggleSelection={state.toggleRecipeSelection}
                   onToggleFavorite={state.handleToggleFavorite}
+                  onToggleMade={state.handleToggleMade}
                 />
                 <PaginationControls
                   currentPage={state.uncategorizedPage}
@@ -177,6 +178,7 @@ function RecipesPageContent() {
               onSelectRecipe={state.setSelectedRecipe}
               onToggleSelection={state.toggleRecipeSelection}
               onToggleFavorite={state.handleToggleFavorite}
+              onToggleMade={state.handleToggleMade}
             />
             <PaginationControls
               currentPage={state.collectionPage}
@@ -220,6 +222,7 @@ function RecipesPageContent() {
                 onSelectRecipe={state.setSelectedRecipe}
                 onToggleSelection={state.toggleRecipeSelection}
                 onToggleFavorite={state.handleToggleFavorite}
+                onToggleMade={state.handleToggleMade}
               />
             )}
 
@@ -271,6 +274,7 @@ function RecipesPageContent() {
                 onSelectRecipe={state.setSelectedRecipe}
                 onToggleSelection={state.toggleRecipeSelection}
                 onToggleFavorite={state.handleToggleFavorite}
+                onToggleMade={state.handleToggleMade}
               />
             )}
           </>

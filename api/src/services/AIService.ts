@@ -127,6 +127,7 @@ interface RecipeRecord {
   spirit_type?: string;
   ingredients?: string;
   memmachine_uid?: string;
+  times_made?: number;
 }
 
 interface FavoriteRecord {
@@ -323,7 +324,7 @@ const EXPLORE_PATTERNS: RegExp[] = [
 ];
 
 /** Column list shared by every recipes SELECT in this service (matches RecipeRecord). */
-const RECIPE_COLUMNS = 'id, user_id, name, category, ingredients, memmachine_uid';
+const RECIPE_COLUMNS = 'id, user_id, name, category, ingredients, memmachine_uid, times_made';
 
 interface CraftabilityOptions {
   /** Max recipes in the formatted output (default 10) */
@@ -354,6 +355,11 @@ interface CraftabilityOptions {
    * already filters by maxMissingIngredients).
    */
   includeMissingInOutput?: boolean;
+  /**
+   * Skip recipes the user has already made (times_made > 0). Set when the user asks
+   * for something they haven't tried, so "made" recipes drop out. (default false)
+   */
+  excludeMade?: boolean;
 }
 
 type CraftabilityResult = {
@@ -717,6 +723,7 @@ class AIService {
       specificIngredients = [],
       includeMissingInOutput = true,
       favoriteSpiritCounts,
+      excludeMade = false,
     } = options;
     const applyTasteBias = !!favoriteSpiritCounts && favoriteSpiritCounts.size > 0;
     let formatted = '';
@@ -751,6 +758,12 @@ class AIService {
       // Skip already recommended if skipAlreadyRecommended is true
       if (skipAlreadyRecommended && wasPreviouslyRecommended) {
         logger.debug('[AI-SEARCH] Skipping previously recommended recipe', { recipe: recipe.name });
+        continue;
+      }
+
+      // Skip recipes the user has already made when they asked for something new
+      if (excludeMade && (recipe.times_made ?? 0) > 0) {
+        logger.debug('[AI-SEARCH] Skipping already-made recipe (explore)', { recipe: recipe.name });
         continue;
       }
 
@@ -1007,7 +1020,8 @@ class AIService {
     userBottles: { name: string; liquorType: string | null; detailedClassification: string | null }[],
     excludeNames: Set<string>,
     limit: number = 20,
-    requiredSpiritType: SpiritFamily | null = null
+    requiredSpiritType: SpiritFamily | null = null,
+    excludeMade: boolean = false
   ): Promise<CraftabilityResult & { ok: boolean }> {
     try {
       const randomRecipes = await this.queryRandomRecipes(userId, 150);
@@ -1021,6 +1035,7 @@ class AIService {
         maxRecipes: limit,
         requiredSpiritType,
         includeMissingInOutput: false,
+        excludeMade,
       });
 
       // Relaxed re-pass: when nearly everything craftable was already recommended,
@@ -1716,6 +1731,7 @@ IMPORTANT:
           includeMissingRecipes: userIsFlexible,
           specificIngredients: specificIngredientsList,
           favoriteSpiritCounts: tasteCounts,
+          excludeMade: exploreIntent,
         });
 
       logger.info('[AI-SEARCH] First pass results (new recipes only)', {
@@ -1853,6 +1869,7 @@ IMPORTANT:
               requiredSpiritType, // Apply same spirit constraint to broader search
               includeMissingRecipes: userIsFlexible,
               favoriteSpiritCounts: tasteCounts,
+              excludeMade: exploreIntent,
               specificIngredients: specificIngredientsList,
             }
           );
@@ -1910,7 +1927,8 @@ IMPORTANT:
           userBottles,
           exploreExcluded,
           exploreLimit,
-          exploreSpiritConstraint
+          exploreSpiritConstraint,
+          exploreIntent // exclude already-made recipes when the user asked for something new
         );
 
         // Dedupe guard (mirrors the SECOND PASS block above): the relaxed re-pass

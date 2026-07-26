@@ -31,6 +31,7 @@ export interface RecipesSlice {
   fetchRecipes: (page?: number, limit?: number) => Promise<Recipe[]>;
   addRecipe: (recipe: Recipe) => Promise<void>;
   updateRecipe: (id: number, recipe: Partial<Recipe>) => Promise<void>;
+  markRecipeMade: (id: number, made: boolean) => Promise<void>;
   deleteRecipe: (id: number) => Promise<void>;
   bulkDeleteRecipes: (ids: number[]) => Promise<number>;
 
@@ -145,6 +146,19 @@ export const createRecipesSlice: StateCreator<
       }));
     } catch (error) {
       throw new Error(getErrorMessage(error, 'Failed to update recipe'));
+    }
+  },
+
+  markRecipeMade: async (id, made) => {
+    try {
+      const result = made ? await recipeApi.markMade(id) : await recipeApi.unmarkMade(id);
+      set((state) => ({
+        recipes: state.recipes.map((r) =>
+          r.id === id ? { ...r, times_made: result.times_made, last_made_at: result.last_made_at } : r
+        ),
+      }));
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Failed to update made status'));
     }
   },
 

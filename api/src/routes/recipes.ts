@@ -639,4 +639,57 @@ router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
   });
 }));
 
+/**
+ * POST /api/recipes/:id/made - Mark a recipe as made
+ *
+ * Increments times_made and stamps last_made_at. Powers "haven't tried" filtering
+ * in the AI bartender.
+ *
+ * Response (200 OK): { success: true, data: { times_made, last_made_at } }
+ */
+router.post('/:id/made', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ success: false, error: 'Authentication required' });
+  }
+
+  const recipeId = parseInt(req.params.id, 10);
+  if (isNaN(recipeId) || recipeId <= 0) {
+    return res.status(400).json({ success: false, error: 'Invalid recipe ID' });
+  }
+
+  const result = await recipeService.markMade(recipeId, userId);
+  if (!result) {
+    return res.status(404).json({ success: false, error: 'Recipe not found' });
+  }
+
+  res.json({ success: true, data: result });
+}));
+
+/**
+ * DELETE /api/recipes/:id/made - Undo a "made" mark
+ *
+ * Decrements times_made (floored at 0), clearing last_made_at once it reaches 0.
+ *
+ * Response (200 OK): { success: true, data: { times_made, last_made_at } }
+ */
+router.delete('/:id/made', asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ success: false, error: 'Authentication required' });
+  }
+
+  const recipeId = parseInt(req.params.id, 10);
+  if (isNaN(recipeId) || recipeId <= 0) {
+    return res.status(400).json({ success: false, error: 'Invalid recipe ID' });
+  }
+
+  const result = await recipeService.unmarkMade(recipeId, userId);
+  if (!result) {
+    return res.status(404).json({ success: false, error: 'Recipe not found' });
+  }
+
+  res.json({ success: true, data: result });
+}));
+
 export default router;

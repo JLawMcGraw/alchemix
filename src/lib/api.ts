@@ -401,6 +401,16 @@ export const recipeApi = {
     await apiClient.delete(`/api/recipes/${id}`);
   },
 
+  async markMade(id: number): Promise<{ times_made: number; last_made_at: string | null }> {
+    const { data } = await apiClient.post<{ success: boolean; data: { times_made: number; last_made_at: string | null } }>(`/api/recipes/${id}/made`);
+    return data.data;
+  },
+
+  async unmarkMade(id: number): Promise<{ times_made: number; last_made_at: string | null }> {
+    const { data } = await apiClient.delete<{ success: boolean; data: { times_made: number; last_made_at: string | null } }>(`/api/recipes/${id}/made`);
+    return data.data;
+  },
+
   async deleteBulk(ids: number[]): Promise<{ deleted: number }> {
     const { data } = await apiClient.delete<{ success: boolean; deleted: number }>('/api/recipes/bulk', {
       data: { ids },

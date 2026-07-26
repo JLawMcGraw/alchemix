@@ -132,6 +132,28 @@
   color: #F59E0B;
 }
 
+.madeBtn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #CBD5E1;
+  flex-shrink: 0;
+  transition: color 0.1s ease;
+}
+
+.madeBtn:hover {
+  color: #0EBB84;
+}
+
+.madeBtnActive {
+  color: #0EBB84;
+}
+
 /* Badges Row */
 .badgesRow {
   margin-top: 12px;
