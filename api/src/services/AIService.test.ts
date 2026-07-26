@@ -548,6 +548,16 @@ describe('AIService', () => {
       expect((aiService as any).detectIngredientFlexibility('I don’t care about missing ingredients')).toBe(true);
     });
 
+    it('should detect flexibility from "ingredients away" / "ingredient or two" phrasing', () => {
+      const flex = (q: string) => (aiService as any).detectIngredientFlexibility(q);
+      expect(flex('anything else even if its 2 or 3 ingredients away')).toBe(true);
+      expect(flex('show me stuff a couple ingredients away')).toBe(true);
+      expect(flex('if I need an ingredient or two that is ok')).toBe(true);
+      expect(flex('even if I have to grab an ingredient')).toBe(true);
+      // Still not flexible for a plain craftable request
+      expect(flex('make me a daiquiri')).toBe(false);
+    });
+
     it('should still detect explore phrasing on spirit-constrained follow-ups (constraint is handled by the caller)', () => {
       // These intentionally return true — the wiring inherits the spirit constraint (see Task 6)
       expect((aiService as any).detectExploreIntent('show me more rum drinks')).toBe(true);
