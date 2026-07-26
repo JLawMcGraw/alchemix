@@ -15,7 +15,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import { queryOne, queryAll } from '../database/db';
+import { queryOne, queryAll, execute } from '../database/db';
 import { sanitizeString } from '../utils/inputValidator';
 import { memoryService } from './MemoryService';
 import { shoppingListService } from './ShoppingListService';
@@ -128,6 +128,7 @@ interface RecipeRecord {
   ingredients?: string;
   memmachine_uid?: string;
   times_made?: number;
+  last_recommended_at?: string | null;
 }
 
 interface FavoriteRecord {
@@ -324,7 +325,10 @@ const EXPLORE_PATTERNS: RegExp[] = [
 ];
 
 /** Column list shared by every recipes SELECT in this service (matches RecipeRecord). */
-const RECIPE_COLUMNS = 'id, user_id, name, category, ingredients, memmachine_uid, times_made';
+const RECIPE_COLUMNS = 'id, user_id, name, category, ingredients, memmachine_uid, times_made, last_recommended_at';
+
+/** A recipe shown within this window counts as "recently shown" and is down-ranked. */
+const RECENTLY_SHOWN_MS = 72 * 60 * 60 * 1000; // 72 hours
 
 interface CraftabilityOptions {
   /** Max recipes in the formatted output (default 10) */
@@ -623,6 +627,25 @@ class AIService {
   }
 
   /**
+   * Stamp last_recommended_at = NOW() for the recipes just shown, so later turns and
+   * sessions can down-rank them for cross-session variety. Best-effort: a failure here
+   * must never break the chat response.
+   */
+  private async stampRecommended(userId: number, recipeNames: string[]): Promise<void> {
+    if (recipeNames.length === 0) return;
+    try {
+      await execute(
+        'UPDATE recipes SET last_recommended_at = NOW() WHERE user_id = $1 AND name = ANY($2)',
+        [userId, recipeNames]
+      );
+    } catch (error) {
+      logger.warn('[AI-SEARCH] Failed to stamp last_recommended_at', {
+        error: error instanceof Error ? error.message : 'unknown',
+      });
+    }
+  }
+
+  /**
    * Detect bottle mentions in user's query and fetch their tasting notes AND spirit type
    * This enriches the semantic search with flavor profile information
    * Also returns spirit types for filtering recipes by base spirit
@@ -746,6 +769,7 @@ class AIService {
       relevanceScore: number; // How many specific ingredients this recipe contains
       spiritFamily: string; // Derived base spirit (for taste bias + diversity)
       tasteScore: number; // Weight from the user's favorite-spirit distribution
+      recentlyShown: boolean; // Shown by the bartender within RECENTLY_SHOWN_MS
     }> = [];
 
     for (const recipe of recipes) {
@@ -827,8 +851,11 @@ class AIService {
 
       const spiritFamily = this.deriveSpiritFamily(ingredientsList);
       const tasteScore = favoriteSpiritCounts?.get(spiritFamily) ?? 0;
+      const recentlyShown = recipe.last_recommended_at
+        ? Date.now() - Date.parse(recipe.last_recommended_at) < RECENTLY_SHOWN_MS
+        : false;
 
-      recipesWithStatus.push({ recipe, ingredientsList, status, statusPrefix, matchesSpirit, wasPreviouslyRecommended, missingIngredientCount, relevanceScore, spiritFamily, tasteScore });
+      recipesWithStatus.push({ recipe, ingredientsList, status, statusPrefix, matchesSpirit, wasPreviouslyRecommended, missingIngredientCount, relevanceScore, spiritFamily, tasteScore, recentlyShown });
     }
 
     // Separate by status and shuffle each group for variety
@@ -842,6 +869,11 @@ class AIService {
       craftableRecipes.sort((a, b) => b.tasteScore - a.tasteScore);
       nearMissRecipes.sort((a, b) => b.tasteScore - a.tasteScore);
     }
+
+    // Cross-session variety: sink recipes shown recently so fresh ones surface first.
+    // Applied last (stable), so it's the primary order over taste and shuffle.
+    craftableRecipes.sort((a, b) => Number(a.recentlyShown) - Number(b.recentlyShown));
+    nearMissRecipes.sort((a, b) => Number(a.recentlyShown) - Number(b.recentlyShown));
     
     // When includeMissingRecipes is true, include recipes with up to maxMissingIngredients missing
     // Otherwise, only include them for display purposes (they'll be at the end anyway)
@@ -1995,11 +2027,15 @@ IMPORTANT:
           ingredientMatchContext += processedRecipes.map(name => `• ${name}`).join('\n');
           ingredientMatchContext += `\n\n**Total allowed: ${processedRecipes.length} recipes. Any recipe NOT in this list = DO NOT RECOMMEND.**\n`;
 
-          // Note if some are previously recommended
+          // Honest downgrade: never silently re-serve previously-suggested recipes as new.
           if (previouslyRecommendedIncluded.length > 0) {
-            ingredientMatchContext += `\n*Note: ${previouslyRecommendedIncluded.length} recipes marked 🔄 were suggested before. Prefer NEW recipes when possible, but these are OK if they're the best match.*\n`;
+            ingredientMatchContext += `\n*${previouslyRecommendedIncluded.length} recipes are marked 🔄 (already suggested earlier). Do NOT present a 🔄 recipe as a new discovery. If the fresh options are running out, be honest — tell the user they've now seen the craftable options that fit, and pivot to near-miss recipes worth a quick shopping trip (or ask what to adjust) rather than recycling.*\n`;
           }
         }
+
+        // Cross-session novelty: stamp everything we just showed so later turns/sessions
+        // can down-rank it. Best-effort — never block the response on this write.
+        await this.stampRecommended(userId, processedRecipes);
       } else if (exploreFailed) {
         // DB failure during explore with nothing else matched: tell Claude the truth
         // instead of letting an empty context read as "user has no recipes".
@@ -2318,7 +2354,7 @@ The user can click the recipe name to see full ingredients. Focus on FLAVOR and 
 
     // Dynamic content
     const alreadyRecommendedList = alreadyRecommended.size > 0
-      ? `\n## ALREADY SUGGESTED THIS CONVERSATION:\n${Array.from(alreadyRecommended).map(r => `- ${r}`).join('\n')}\nPrefer NEW recipes when options exist. BUT: if the user's follow-up question confirms, narrows, or asks about a previous recommendation — re-confirm it confidently. Re-confirming the right answer is not recycling. Only avoid these if genuinely better alternatives exist.\n`
+      ? `\n## ALREADY SUGGESTED THIS CONVERSATION:\n${Array.from(alreadyRecommended).map(r => `- ${r}`).join('\n')}\nDo NOT re-suggest these as new ideas. If the user's follow-up confirms, narrows, or asks about one of them — re-confirm it confidently (that is not recycling). But when they want more/other options and the fresh choices are thin, be honest: tell them they've now seen the options that fit, and steer to near-misses (a quick shopping trip) or ask what to change — do not pad the list by recycling these.\n`
       : '';
 
     // Build mode-specific instructions

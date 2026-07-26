@@ -128,6 +128,9 @@ CREATE TABLE IF NOT EXISTS recipes (
   times_made INTEGER NOT NULL DEFAULT 0,
   last_made_at TIMESTAMP,
 
+  -- When this recipe was last shown by the AI bartender (cross-session novelty)
+  last_recommended_at TIMESTAMP,
+
   created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -235,6 +238,12 @@ BEGIN
     WHERE table_name = 'recipes' AND column_name = 'last_made_at'
   ) THEN
     ALTER TABLE recipes ADD COLUMN last_made_at TIMESTAMP;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'recipes' AND column_name = 'last_recommended_at'
+  ) THEN
+    ALTER TABLE recipes ADD COLUMN last_recommended_at TIMESTAMP;
   END IF;
 END
 $$;
