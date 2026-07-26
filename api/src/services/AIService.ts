@@ -24,14 +24,25 @@ import { extractJsonObject } from '../utils/jsonSalvage';
 import {
   normalizeSpiritType,
   recipeMatchesSpiritConstraint,
+  matchesSpiritFamily,
+  SPIRIT_FAMILIES,
   SPIRIT_VARIANTS,
   type SpiritFamily,
 } from '@alchemix/spirits';
+import { selectDiverse } from './recipeDiversity';
 import cocktailData from '../data/cocktailIngredients.json';
 
 // Type for cocktail ingredients and concepts lookup
 const COCKTAIL_INGREDIENTS: Record<string, string[]> = cocktailData.cocktails;
 const COCKTAIL_CONCEPTS: Record<string, string[]> = (cocktailData as { concepts?: Record<string, string[]> }).concepts || {};
+
+/**
+ * How many recipe candidates to surface to the model per turn. Raised from the old
+ * hard cap of 20 so more of a large collection is reachable; combined with the
+ * spirit/category diversity selector this is the core "same 20" fix. Kept
+ * token-budget-aware (entries are terse and the static prompt is cached).
+ */
+const MAX_CANDIDATE_RECIPES = 40;
 
 /**
  * Expand search query with ingredients from known cocktails and concept mappings
@@ -475,7 +486,7 @@ class AIService {
         FROM recipes
         WHERE user_id = $1 AND LOWER(ingredients) LIKE $2
         ORDER BY RANDOM()
-        LIMIT 50
+        LIMIT 100
       `, [userId, searchPattern]);
 
       logger.info('Hybrid search: Found recipes with ingredient', {
@@ -549,6 +560,18 @@ class AIService {
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
     return shuffled;
+  }
+
+  /**
+   * Derive a recipe's base spirit family from its ingredient text, using the shared
+   * @alchemix/spirits authority. Returns 'other' when no base spirit is detected.
+   * Used to diversify the candidate set across spirits.
+   */
+  private deriveSpiritFamily(ingredientsText: string): string {
+    for (const family of SPIRIT_FAMILIES) {
+      if (matchesSpiritFamily(ingredientsText, family)) return family;
+    }
+    return 'other';
   }
 
   /**
@@ -830,8 +853,20 @@ class AIService {
       spiritConstraint: requiredSpiritType
     });
 
-    // Format the top maxRecipes
-    for (const { recipe, ingredientsList, status, statusPrefix, wasPreviouslyRecommended } of sortedRecipes.slice(0, maxRecipes)) {
+    // Select up to maxRecipes with diversity caps so one spirit/category can't dominate
+    // the shown set (the "700 recipes but always the same ~20" fix). Input is already
+    // tier-ordered (craftable first), and selectDiverse preserves that order.
+    const diverseSelection = selectDiverse(
+      sortedRecipes,
+      maxRecipes,
+      (r) => ({
+        spirit: this.deriveSpiritFamily(r.ingredientsList),
+        category: (r.recipe.category || 'other').toLowerCase(),
+      })
+    );
+
+    // Format the selected recipes
+    for (const { recipe, ingredientsList, status, statusPrefix, wasPreviouslyRecommended } of diverseSelection) {
       // Track counts
       if (status === 'craftable') craftableCount++;
       else if (status === 'near-miss') nearMissCount++;
@@ -1254,7 +1289,6 @@ IMPORTANT:
     conversationHistory: { role: 'user' | 'assistant'; content: string }[] = []
   ): Promise<ContentBlock[]> {
     const MAX_INVENTORY_ITEMS = 500;
-    const MAX_RECIPES = 500;
     const MAX_FAVORITES = 100;
 
     const inventory = await queryAll<InventoryItemRecord>(
@@ -1262,15 +1296,18 @@ IMPORTANT:
       [userId, MAX_INVENTORY_ITEMS]
     );
 
-    const recipes = await queryAll<RecipeRecord>(
-      'SELECT * FROM recipes WHERE user_id = $1 ORDER BY name LIMIT $2',
-      [userId, MAX_RECIPES]
+    // Total recipe count for mode selection + the "User has N recipes" display.
+    // A COUNT (not a capped SELECT *) so large collections report accurately and we
+    // avoid fetching hundreds of rows the prompt no longer uses.
+    const recipeCountRow = await queryOne<{ count: string | number }>(
+      'SELECT COUNT(*)::int AS count FROM recipes WHERE user_id = $1',
+      [userId]
     );
+    const recipeCount = Number(recipeCountRow?.count ?? 0);
 
     // Name-only list for the already-recommended exclusion set. Deliberately
     // UNCAPPED: the explore fallback samples the full table, so the exclusion
-    // set must cover every recipe — the MAX_RECIPES cap above only bounds the
-    // prompt's recipe display list. Names are tiny; this is cheap even at 10k rows.
+    // set must cover every recipe. Names are tiny; this is cheap even at 10k rows.
     // Skipped when no assistant turns exist — the extractor returns an empty set anyway.
     const recipeNames = conversationHistory.some(e => e.role === 'assistant')
       ? await queryAll<{ name: string }>('SELECT name FROM recipes WHERE user_id = $1', [userId])
@@ -1305,43 +1342,6 @@ IMPORTANT:
         if (tastingParts.length > 0) {
           line += ` | ${tastingParts.join(' | ')}`;
         }
-        return line;
-      })
-      .filter(Boolean)
-      .join('\n');
-
-    // Build recipe entries
-    const recipeEntries = recipes
-      .map((recipe) => {
-        const name = this.sanitizeContextField(recipe.name, 'recipe.name', userId);
-        if (!name) return null;
-        const category = this.sanitizeContextField(recipe.category, 'recipe.category', userId);
-
-        let ingredientsList = '';
-        try {
-          const ingredientsValue = typeof recipe.ingredients === 'string' ? recipe.ingredients : JSON.stringify(recipe.ingredients);
-          const ingredients = this.sanitizeContextField(ingredientsValue, 'recipe.ingredients', userId);
-
-          let parsedIngredients: string[];
-          try {
-            parsedIngredients = JSON.parse(ingredients);
-          } catch {
-            parsedIngredients = ingredients.split(',').map((i) => i.trim());
-          }
-
-          if (Array.isArray(parsedIngredients)) {
-            ingredientsList = parsedIngredients
-              .map((ing) => ing.replace(/^\d+(\.\d+)?\s*(oz|ml|cl|dash(es)?|drop(s)?|barspoon(s)?|tsp|tbsp|cup(s)?|part(s)?|splash(es)?|float|rinse|top|fill)?\s*/i, '').replace(/^\d+\/\d+\s*(oz|ml|cl)?\s*/i, '').trim())
-              .filter(Boolean)
-              .join(', ');
-          }
-        } catch {
-          ingredientsList = '';
-        }
-
-        let line = `- ${name}`;
-        if (category) line += ` [${category}]`;
-        if (ingredientsList) line += `: ${ingredientsList}`;
         return line;
       })
       .filter(Boolean)
@@ -1648,7 +1648,7 @@ IMPORTANT:
       // Pass specificIngredientsList for relevance scoring (prioritize recipes with green chartreuse over generic gin matches)
       let { formatted, craftableCount, nearMissCount, missingCount, processedRecipes, spiritMismatchCount, previouslyRecommendedIncluded } =
         this.processRecipesWithCraftability(ingredientRecipes, userBottles, alreadyRecommended, {
-          maxRecipes: 20,
+          maxRecipes: MAX_CANDIDATE_RECIPES,
           requiredSpiritType,
           includeMissingRecipes: userIsFlexible,
           specificIngredients: specificIngredientsList,
@@ -1785,7 +1785,7 @@ IMPORTANT:
             userBottles,
             new Set([...alreadyRecommended, ...processedRecipes]),
             {
-              maxRecipes: 20 - processedRecipes.length, // Fill up to 20 total
+              maxRecipes: MAX_CANDIDATE_RECIPES - processedRecipes.length, // Fill up to the candidate cap
               requiredSpiritType, // Apply same spirit constraint to broader search
               includeMissingRecipes: userIsFlexible,
               specificIngredients: specificIngredientsList,
@@ -1838,7 +1838,7 @@ IMPORTANT:
         });
 
         const exploreExcluded = new Set([...alreadyRecommended, ...processedRecipes]);
-        const exploreLimit = Math.max(20 - processedRecipes.length, 5);
+        const exploreLimit = Math.max(MAX_CANDIDATE_RECIPES - processedRecipes.length, 5);
 
         const exploreSample = await this.getRandomCraftableSample(
           userId,
@@ -2013,7 +2013,7 @@ IMPORTANT:
     }
 
     // Determine recipe mode for conditional instructions
-    const hasRecipes = recipes.length > 0;
+    const hasRecipes = recipeCount > 0;
     const hasInventory = inventory.length > 0;
 
     // Static content (cacheable) - MOVED BAR STOCK to dynamicContent for recency
@@ -2246,7 +2246,7 @@ The user can click the recipe name to see full ingredients. Focus on FLAVOR and 
       // Rules are in staticContent, just add user-specific counts here
       modeInstructions = `
 ## YOUR CONTEXT
-**User has ${recipes.length} recipes and ${inventory.length} bottles.**
+**User has ${recipeCount} recipes and ${inventory.length} bottles.**
 Relevant recipes are shown in SEARCH RESULTS below.`;
 
     } else if (hasInventory && !hasRecipes) {
