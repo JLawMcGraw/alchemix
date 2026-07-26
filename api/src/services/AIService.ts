@@ -37,6 +37,42 @@ const COCKTAIL_INGREDIENTS: Record<string, string[]> = cocktailData.cocktails;
 const COCKTAIL_CONCEPTS: Record<string, string[]> = (cocktailData as { concepts?: Record<string, string[]> }).concepts || {};
 
 /**
+ * Vibe/concept → recipe categories. Used to pull on-theme recipes straight from the
+ * user's own collection by category (robust when they don't own the specific named
+ * cocktails a concept maps to). Matched as a substring against recipes.category.
+ */
+const CONCEPT_TO_CATEGORIES: Record<string, string[]> = {
+  'spirit-forward': ['sour', 'stirred', 'neat', 'old fashioned', 'manhattan'],
+  'spirit forward': ['sour', 'stirred', 'neat', 'old fashioned', 'manhattan'],
+  'boozy': ['stirred', 'old fashioned', 'manhattan', 'negroni'],
+  'strong': ['stirred', 'old fashioned', 'manhattan'],
+  'simple': ['sour', 'highball', 'collins'],
+  'easy': ['sour', 'highball', 'collins'],
+  'classic': ['sour', 'martini', 'old fashioned', 'stirred'],
+  'tiki': ['punch', 'swizzle', 'tiki', 'colada'],
+  'tropical': ['punch', 'swizzle', 'tiki', 'colada', 'daiquiri'],
+  'fruity': ['sour', 'punch', 'daiquiri', 'colada'],
+  'refreshing': ['collins', 'fizz', 'highball', 'spritz', 'rickey'],
+  'light': ['collins', 'highball', 'spritz', 'fizz'],
+  'citrus': ['sour', 'fizz', 'collins'],
+  'citrusy': ['sour', 'fizz', 'collins'],
+  'sour': ['sour', 'fizz', 'daiquiri'],
+  'bitter': ['stirred', 'negroni', 'spritz'],
+  'bittersweet': ['stirred', 'negroni', 'spritz'],
+  'herbal': ['stirred', 'sour'],
+  'creamy': ['flip', 'dessert', 'colada'],
+  'dessert': ['flip', 'dessert', 'colada'],
+  'after-dinner': ['flip', 'dessert', 'stirred'],
+  'bubbly': ['spritz', 'fizz', 'champagne', 'highball'],
+  'sparkling': ['spritz', 'fizz', 'champagne', 'highball'],
+  'celebratory': ['spritz', 'champagne', 'fizz'],
+  'brunch': ['highball', 'collins', 'fizz', 'spritz'],
+  'warm': ['hot', 'toddy', 'flip'],
+  'cozy': ['hot', 'toddy', 'flip'],
+  'winter': ['hot', 'toddy', 'stirred'],
+};
+
+/**
  * How many recipe candidates to surface to the model per turn. Raised from the old
  * hard cap of 20 so more of a large collection is reachable; combined with the
  * spirit/category diversity selector this is the core "same 20" fix. Kept
@@ -485,6 +521,33 @@ class AIService {
         error: errorMessage,
         userId,
         cocktailName
+      });
+      return [];
+    }
+  }
+
+  /**
+   * Query recipes whose category matches any of the given vibe categories. Lets a
+   * concept ("spirit-forward", "tropical") pull on-theme recipes from the user's own
+   * collection even when they don't own the specific named cocktails the concept maps to.
+   */
+  private async queryRecipesByCategory(userId: number, categories: string[], limit: number = 40): Promise<RecipeRecord[]> {
+    if (categories.length === 0) return [];
+    try {
+      const patterns = categories.map(c => `%${c.toLowerCase()}%`);
+      const recipes = await queryAll<RecipeRecord>(`
+        SELECT ${RECIPE_COLUMNS}
+        FROM recipes
+        WHERE user_id = $1 AND LOWER(category) LIKE ANY($2::text[])
+        ORDER BY RANDOM()
+        LIMIT $3
+      `, [userId, patterns, limit]);
+      return recipes;
+    } catch (error) {
+      logger.error('Hybrid search: Failed to query recipes by category', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        userId,
+        categories,
       });
       return [];
     }
@@ -1017,19 +1080,9 @@ class AIService {
       }
     }
 
-    // Add category-based terms from concepts
-    const conceptToCategories: Record<string, string[]> = {
-      'spirit-forward': ['sour', 'stirred', 'neat'],
-      'spirit forward': ['sour', 'stirred', 'neat'],
-      'boozy': ['stirred', 'old fashioned', 'manhattan'],
-      'simple': ['sour', 'highball', 'collins'],
-      'classic': ['sour', 'martini', 'old fashioned'],
-      'tiki': ['punch', 'swizzle', 'tiki'],
-      'refreshing': ['collins', 'fizz', 'highball', 'spritz'],
-    };
-
+    // Add category-based terms from concepts (shared vibe → category map)
     for (const concept of matchedConcepts) {
-      const categories = conceptToCategories[concept.toLowerCase()];
+      const categories = CONCEPT_TO_CATEGORIES[concept.toLowerCase()];
       if (categories) {
         broaderTerms.push(...categories);
       }
@@ -1509,6 +1562,15 @@ IMPORTANT:
               if (!conceptRecipes.some(r => r.id === recipe.id)) {
                 conceptRecipes.push(recipe);
               }
+            }
+          }
+
+          // Also pull on-theme recipes from the user's own collection by category, so
+          // a vibe isn't limited to a fixed list of named cocktails they may not own.
+          const categoryMatches = await this.queryRecipesByCategory(userId, CONCEPT_TO_CATEGORIES[concept.toLowerCase()] ?? []);
+          for (const recipe of categoryMatches) {
+            if (!conceptRecipes.some(r => r.id === recipe.id)) {
+              conceptRecipes.push(recipe);
             }
           }
         }
