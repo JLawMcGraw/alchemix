@@ -34,6 +34,7 @@ export default function ShoppingListPage() {
     favorites,
     addFavorite,
     removeFavorite,
+    markRecipeMade,
     fetchFavorites,
     inventoryVersion,
   } = useStore();
@@ -573,6 +574,17 @@ export default function ShoppingListPage() {
             : false
         }
         onToggleFavorite={handleToggleFavorite}
+        timesMade={selectedRecipe?.times_made ?? 0}
+        onToggleMade={async () => {
+          if (!selectedRecipe?.id) return;
+          const currentlyMade = (selectedRecipe.times_made ?? 0) > 0;
+          await markRecipeMade(selectedRecipe.id, !currentlyMade);
+          setSelectedRecipe((prev) =>
+            prev
+              ? { ...prev, times_made: currentlyMade ? Math.max((prev.times_made ?? 1) - 1, 0) : (prev.times_made ?? 0) + 1 }
+              : prev
+          );
+        }}
       />
 
       {/* Item Detail Modal */}
