@@ -4,6 +4,38 @@ Technical decisions, gotchas, and lessons learned during development of AlcheMix
 
 ---
 
+## 2026-08-01 - Candidate Padding Must Carry Provenance
+
+### The Problem
+"Give me options with honey syrup" returned drinks containing no honey syrup.
+
+### Root Cause
+Three independent passes feed the candidate pool — the ingredient/concept search, the
+broader-term retry, and the explore fallback — but only the first is a real answer to the
+question. They were concatenated into one flat ALLOWED RECIPE LIST under "These recipes
+match the user's request." The model was faithfully reporting a prompt that lied.
+
+### The Fix
+Recipes carry provenance into the prompt. The list splits into ✅ CONTAINS / ⛔ DOES NOT.
+
+### The Gotchas
+1. **Provenance beats content-inspection here.** `queryRecipesWithIngredient` LIKE-scans
+   the entire recipes table, not the candidate subset — so a recipe that arrived via the
+   explore pass but genuinely contains the ingredient still lands in the ✅ set. Had the
+   query been scoped to candidates, provenance would have produced false negatives.
+2. **A union needs a union heading.** Membership across multiple named ingredients is OR,
+   not AND. `CONTAINS HONEY SYRUP + ORGEAT` would reintroduce the same false claim.
+3. **Widening a keyword list surfaces latent subsumption bugs.** Adding `ginger beer` made
+   substring-based subsumption drop `gin` from "gin and ginger beer". Any "is this keyword
+   already covered by a longer one" check must be word-aware, not substring-based.
+
+### Lesson
+When several retrieval passes with different semantics merge into one list an LLM reads as
+homogeneous, the merge point is where correctness is lost. Label the source, or the model
+will confidently over-claim on your behalf.
+
+---
+
 ## 2025-12-27 - Tiered Bottle Search for AI Bartender
 
 ### The Problem

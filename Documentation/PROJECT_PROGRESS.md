@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2026-08-01 (Session 32)
+Last updated: 2026-08-01 (Session 33)
 
 ---
 
@@ -12,10 +12,10 @@ Last updated: 2026-08-01 (Session 32)
 **Blockers**: None
 
 **Test Coverage**:
-- Backend: 1008 tests (37 test files)
+- Backend: 1013 tests (37 test files)
 - Frontend: 465 tests (18 test files)
 - Recipe-Molecule: 298 tests (6 test files)
-- **Total: 1771 tests**
+- **Total: 1776 tests**
 
 **Redesign Progress**:
 - Phase 1-4 (Batch A - Foundation): **Complete**
@@ -33,6 +33,68 @@ Last updated: 2026-08-01 (Session 32)
 - Inventory Auto-Classification: **Complete** (9 categories with backfill)
 
 **PostgreSQL Migration**: **Complete** (Phase 1-5 done, Phase 6 Deploy pending)
+
+---
+
+## Recent Session (2026-08-01, Session 33): AI Bartender — Ingredient Match Integrity
+
+### Summary
+Fixed the bartender recommending drinks that don't contain the ingredient the user
+asked for ("options with honey syrup" returning rum punches with none). The ingredient
+search was correct all along — the context assembly was lying about what matched.
+
+### Work Completed
+
+#### 1. Fallback padding presented as ingredient matches
+**Problem**: When the keyword pass came up short, two later passes padded the candidate
+pool — the broader-term retry (`rum` → daiquiri/mojito/punch/sour) and the explore
+fallback. All three sources were flattened into one undifferentiated ALLOWED RECIPE LIST
+under a header reading "These recipes match the user's request." The model wasn't
+hallucinating; the prompt asserted the padding matched. Documented at the time as a
+"known limitation (deliberate)" on the reasoning that padding is spirit-constrained —
+true for spirit queries, worthless for an ingredient query.
+**Solution**: Track which recipes came back from the specific-ingredient query and split
+the list into `✅ CONTAINS <ingredient>` vs `⛔ DOES NOT CONTAIN`. Authoritative rather
+than heuristic — `queryRecipesWithIngredient` LIKE-scans the whole recipes table, so a
+padding recipe that *does* contain the ingredient is still classified correctly.
+
+#### 2. Union vs conjunction in multi-ingredient labels
+**Problem**: Membership is a union across named ingredients, so "honey syrup or orgeat"
+admits a recipe with either. A heading reading `CONTAINS HONEY SYRUP + ORGEAT` would be
+the same false claim relocated.
+**Solution**: `CONTAINS AT LEAST ONE OF: …` plus a per-recipe `— has:` note. Ingredients
+that matched nothing are dropped from the heading entirely.
+
+#### 3. Prompt no longer asserts an unchecked match
+**Problem**: Section intro claimed every candidate matched the request.
+**Solution**: Reworded to "some direct, some fallback — check each recipe's own printed
+ingredients." Added standing rules: never claim an ingredient absent from a recipe's own
+list; prefer a short honest answer over a padded one.
+
+#### 4. Ingredient keyword coverage
+**Problem**: ~50 keywords meant most named ingredients missed the specific path.
+**Solution**: Widened to ~120 — liqueurs (green/yellow chartreuse, cherry heering, amari),
+syrups (simple, agave, coconut cream), produce (mint, ginger, cucumber), bitters variants,
+fortified/sparkling, mixers, spirit sub-types (jamaican rum, rhum agricole, sloe gin).
+
+#### 5. Subsumption dropped real mentions (surfaced by #4)
+**Problem**: A shorter keyword was skipped when a longer detected one merely *contained
+its letters*. With `ginger beer` in the list, "gin and ginger beer" silently lost the
+gin — the user's base spirit.
+**Solution**: Word-aware subsumption — `honey syrup` still subsumes `honey`,
+`ginger beer` no longer swallows `gin`.
+
+### Files Changed
+```
+api/src/services/AIService.ts        (provenance map, split list, prompt rules, keywords, subsumption)
+api/src/services/AIService.test.ts   (5 new tests, all confirmed RED first)
+```
+
+### Next Steps
+- Live check: the widened keyword list makes the specific-ingredient path fire on queries
+  that previously fell through, so the split list will appear more often. Watch for a ✅
+  group that looks too thin — may indicate the LIKE match is too strict for an ingredient.
+- Confirm CI is green on `main` (buildx path still unverified locally from last session)
 
 ---
 
