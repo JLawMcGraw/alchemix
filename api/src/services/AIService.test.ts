@@ -918,6 +918,142 @@ describe('AIService', () => {
       expect(dynamicBlock.text).not.toContain('MATCHED RECIPES (PRIORITIZE THESE)');
     });
   });
+
+  describe('buildContextAwarePrompt ingredient provenance', () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    const inventory = [{
+      id: 1, user_id: 1, name: 'Plantation 3 Stars', type: 'Rum', stock_number: 1,
+      spirit_classification: null, profile_nose: null, palate: null, finish: null, abv: '41',
+    }];
+    const rumBottles = [{ name: 'Plantation 3 Stars', liquorType: 'rum', detailedClassification: null }];
+
+    // Genuine honey syrup recipes — what the LIKE '%honey syrup%' query returns
+    const honeyRecipes = [
+      {
+        id: 1, user_id: 1, name: "Bee's Knees", category: 'Sour',
+        ingredients: JSON.stringify(['gin', 'lemon juice', 'honey syrup']), memmachine_uid: null,
+      },
+      {
+        id: 2, user_id: 1, name: 'Three Dots and a Dash', category: 'Tiki',
+        ingredients: JSON.stringify(['rum', 'honey syrup', 'lime juice']), memmachine_uid: null,
+      },
+    ];
+    // Padding the broader-term / explore passes bolt on — zero honey syrup
+    const fillerRecipes = Array.from({ length: 4 }, (_, i) => ({
+      id: 50 + i, user_id: 1, name: `Filler Punch ${i + 1}`, category: 'Punch',
+      ingredients: JSON.stringify(['rum', 'lime juice', 'sugar']), memmachine_uid: null,
+    }));
+
+    async function mockHoneyBar() {
+      const dbModule = await import('../database/db');
+      vi.spyOn(dbModule, 'queryAll').mockImplementation(async (sql: string, params?: unknown[]) => {
+        if (sql.includes('FROM inventory_items')) return inventory;
+        if (sql.includes('FROM favorites')) return [];
+        if (sql.includes('LOWER(ingredients) LIKE')) {
+          return String(params?.[1] ?? '').includes('honey syrup') ? honeyRecipes : fillerRecipes;
+        }
+        if (sql.includes('FROM recipes') && sql.includes('LIMIT $2')) return fillerRecipes;
+        return [];
+      });
+      vi.spyOn(dbModule, 'queryOne').mockResolvedValue(null);
+      vi.spyOn(memoryServiceModule.memoryService, 'getEnhancedContext')
+        .mockResolvedValue({ userContext: null, chatContext: null });
+      vi.spyOn(shoppingListServiceModule.shoppingListService, 'isCraftable').mockReturnValue(true);
+      vi.spyOn(shoppingListServiceModule.shoppingListService, 'findMissingIngredients').mockReturnValue([]);
+      vi.spyOn(shoppingListServiceModule.shoppingListService, 'getUserBottles').mockResolvedValue(rumBottles);
+    }
+
+    it('should split the allowed list so fallback padding is not presented as an ingredient match', async () => {
+      await mockHoneyBar();
+
+      const [, dynamicBlock] = await aiService.buildContextAwarePrompt(
+        1, 'i have honey syrup now, give me some options with it', []
+      );
+      const text = dynamicBlock.text;
+
+      expect(text).toContain('CONTAINS HONEY SYRUP');
+      expect(text).toContain('DOES **NOT** CONTAIN HONEY SYRUP');
+
+      // Real matches sit under the ✅ heading, padding under the ⛔ heading
+      const containsIdx = text.indexOf('CONTAINS HONEY SYRUP');
+      const notIdx = text.indexOf('DOES **NOT** CONTAIN HONEY SYRUP');
+      const beesKneesIdx = text.indexOf("• Bee's Knees");
+      const fillerIdx = text.indexOf('• Filler Punch 1');
+
+      expect(containsIdx).toBeGreaterThan(-1);
+      expect(beesKneesIdx).toBeGreaterThan(containsIdx);
+      expect(beesKneesIdx).toBeLessThan(notIdx);
+      expect(fillerIdx).toBeGreaterThan(notIdx);
+    });
+
+    it('should keep a flat allowed list when no specific ingredient was named', async () => {
+      await mockHoneyBar();
+
+      const [, dynamicBlock] = await aiService.buildContextAwarePrompt(1, 'surprise me', []);
+
+      expect(dynamicBlock.text).toContain('ALLOWED RECIPE LIST');
+      expect(dynamicBlock.text).not.toContain('DOES **NOT** CONTAIN');
+    });
+
+    it('should not present a union of two ingredients as a conjunctive match', async () => {
+      const dbModule = await import('../database/db');
+      const honeyOnly = [{
+        id: 1, user_id: 1, name: 'Honey Only Sour', category: 'Sour',
+        ingredients: JSON.stringify(['gin', 'lemon juice', 'honey syrup']), memmachine_uid: null,
+      }];
+      const orgeatOnly = [{
+        id: 2, user_id: 1, name: 'Orgeat Only Mai Tai', category: 'Tiki',
+        ingredients: JSON.stringify(['rum', 'orgeat', 'lime juice']), memmachine_uid: null,
+      }];
+      vi.spyOn(dbModule, 'queryAll').mockImplementation(async (sql: string, params?: unknown[]) => {
+        if (sql.includes('FROM inventory_items')) return inventory;
+        if (sql.includes('FROM favorites')) return [];
+        if (sql.includes('LOWER(ingredients) LIKE')) {
+          const p = String(params?.[1] ?? '');
+          if (p.includes('honey syrup')) return honeyOnly;
+          if (p.includes('orgeat')) return orgeatOnly;
+          return [];
+        }
+        return [];
+      });
+      vi.spyOn(dbModule, 'queryOne').mockResolvedValue(null);
+      vi.spyOn(memoryServiceModule.memoryService, 'getEnhancedContext')
+        .mockResolvedValue({ userContext: null, chatContext: null });
+      vi.spyOn(shoppingListServiceModule.shoppingListService, 'isCraftable').mockReturnValue(true);
+      vi.spyOn(shoppingListServiceModule.shoppingListService, 'findMissingIngredients').mockReturnValue([]);
+      vi.spyOn(shoppingListServiceModule.shoppingListService, 'getUserBottles').mockResolvedValue(rumBottles);
+
+      const [, dynamicBlock] = await aiService.buildContextAwarePrompt(
+        1, 'what can I make with honey syrup or orgeat?', []
+      );
+      const text = dynamicBlock.text;
+
+      // Membership is a union, so the heading must say so and each line must
+      // declare which ingredient it actually has.
+      expect(text).toContain('CONTAINS AT LEAST ONE OF');
+      expect(text).toContain('• Honey Only Sour — has: honey syrup');
+      expect(text).toContain('• Orgeat Only Mai Tai — has: orgeat');
+    });
+  });
+
+  describe('detectIngredientMentions subsumption', () => {
+    it('should keep a shorter ingredient that is only a substring, not a word, of a longer one', () => {
+      // 'ginger beer' contains the letters "gin" but not the word — dropping the
+      // real gin mention would silently lose the user's base spirit.
+      const detected = (aiService as any).detectIngredientMentions('gin and ginger beer');
+
+      expect(detected).toContain('ginger beer');
+      expect(detected).toContain('gin');
+    });
+
+    it('should still subsume a shorter ingredient contained as a whole word', () => {
+      const detected = (aiService as any).detectIngredientMentions('a drink with honey syrup');
+
+      expect(detected).toContain('honey syrup');
+      expect(detected).not.toContain('honey');
+    });
+  });
 });
 
 describe('Query Expansion', () => {

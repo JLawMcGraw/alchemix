@@ -292,18 +292,39 @@ const MAX_HISTORY_ITEMS = 10;
 const INGREDIENT_KEYWORDS = [
   // Spirits
   'rum', 'vodka', 'gin', 'tequila', 'mezcal', 'whiskey', 'bourbon', 'rye', 'scotch', 'brandy', 'cognac',
+  'cachaca', 'cachaça', 'pisco', 'aquavit', 'akvavit', 'genever', 'calvados', 'armagnac', 'applejack',
+  'apple brandy', 'grappa', 'sake', 'soju', 'shochu', 'irish whiskey', 'japanese whisky', 'rhum agricole',
+  'jamaican rum', 'overproof rum', 'white rum', 'dark rum', 'aged rum', 'blackstrap rum', 'demerara rum',
+  'blanco tequila', 'reposado', 'anejo', 'añejo', 'sloe gin', 'navy strength gin', 'old tom gin',
   // Liqueurs
-  'allspice dram', 'falernum', 'velvet falernum', 'chartreuse', 'benedictine', 'campari', 'aperol',
-  'cointreau', 'triple sec', 'curacao', 'maraschino', 'luxardo', 'amaretto', 'kahlua', 'baileys',
+  'allspice dram', 'falernum', 'velvet falernum', 'chartreuse', 'green chartreuse', 'yellow chartreuse',
+  'benedictine', 'campari', 'aperol',
+  'cointreau', 'triple sec', 'curacao', 'blue curacao', 'maraschino', 'luxardo', 'amaretto', 'kahlua', 'baileys',
   'st germain', 'elderflower', 'amaro', 'fernet', 'cynar', 'suze', 'lillet', 'dubonnet',
-  // Syrups
-  'orgeat', 'demerara', 'honey syrup', 'grenadine', 'passion fruit', 'cinnamon syrup', 'vanilla syrup',
-  // Juices
+  'cherry heering', 'drambuie', 'galliano', 'chambord', 'midori', 'chartreuse vep', 'strega', 'sambuca',
+  'grand marnier', 'licor 43', 'frangelico', 'disaronno', 'creme de cacao', 'creme de menthe',
+  'creme de violette', 'creme de cassis', 'creme de mure', 'coffee liqueur', 'banana liqueur',
+  'apricot liqueur', 'peach schnapps', 'averna', 'montenegro', 'nonino', 'ramazzotti', 'braulio',
+  'pimms', 'becherovka', 'zucca', 'aperitivo',
+  // Syrups & sweeteners
+  'orgeat', 'demerara', 'honey syrup', 'honey', 'grenadine', 'passion fruit', 'cinnamon syrup', 'vanilla syrup',
+  'simple syrup', 'rich simple syrup', 'gum syrup', 'gomme', 'agave', 'agave nectar', 'maple syrup',
+  'raspberry syrup', 'ginger syrup', 'coconut cream', 'cream of coconut', 'brown sugar', 'sugar cube',
+  // Juices & produce
   'lime', 'lemon', 'orange juice', 'grapefruit', 'pineapple', 'cranberry',
+  'lime juice', 'lemon juice', 'pineapple juice', 'grapefruit juice', 'passion fruit puree',
+  'mint', 'basil', 'cucumber', 'ginger', 'coconut', 'watermelon', 'strawberry', 'blackberry',
+  'raspberry', 'peach', 'cherry',
   // Bitters
-  'angostura', 'peychauds', 'orange bitters',
+  'angostura', 'peychauds', "peychaud's", 'orange bitters', 'chocolate bitters', 'mole bitters',
+  'celery bitters', 'tiki bitters', 'grapefruit bitters',
+  // Fortified & sparkling
+  'vermouth', 'dry vermouth', 'sweet vermouth', 'blanc vermouth', 'sherry', 'fino', 'oloroso',
+  'port', 'madeira', 'champagne', 'prosecco', 'sparkling wine', 'cava',
   // Other
-  'absinthe', 'pernod', 'vermouth', 'dry vermouth', 'sweet vermouth'
+  'absinthe', 'pernod', 'herbsaint', 'egg white', 'whole egg', 'heavy cream', 'milk',
+  'coffee', 'espresso', 'cold brew', 'tea', 'soda water', 'club soda', 'tonic', 'tonic water',
+  'ginger beer', 'ginger ale', 'cinnamon', 'nutmeg', 'salt', 'saline',
 ];
 
 /**
@@ -473,8 +494,10 @@ class AIService {
       const escapedIngredient = ingredient.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regex = new RegExp(`\\b${escapedIngredient}\\b`, 'i');
       if (regex.test(lowerQuery)) {
-        // Don't add if a longer version was already detected
-        const alreadyHasLonger = detected.some(d => d.includes(ingredient));
+        // Don't add if a longer version was already detected. Word-aware: 'honey syrup'
+        // subsumes 'honey', but 'ginger beer' must NOT subsume 'gin' — plain substring
+        // containment silently drops a real gin mention from "gin and ginger beer".
+        const alreadyHasLonger = detected.some(d => regex.test(d));
         if (!alreadyHasLonger) {
           detected.push(ingredient);
         }
@@ -1679,6 +1702,19 @@ IMPORTANT:
       const genericIngredientSet = new Set(['gin', 'vodka', 'rum', 'tequila', 'whiskey', 'bourbon', 'lime', 'lemon', 'orange']);
       const specificIngredientsList = detectedIngredients.filter(i => !genericIngredientSet.has(i.toLowerCase()));
 
+      // Provenance: names of recipes that genuinely contain the user's SPECIFIC named
+      // ingredients (honey syrup, chartreuse…). Later passes — the broader-term retry and
+      // the explore fallback — pad the candidate pool with recipes that contain none of
+      // them, and everything used to land in one flat ALLOWED RECIPE LIST under a header
+      // reading "these recipes match the user's request". The model can't tell the groups
+      // apart, so it confidently offers rum punches as "honey syrup options".
+      // Authoritative because queryRecipesWithIngredient LIKE-scans the whole recipes
+      // table, not just the candidate subset — a padding recipe that does contain the
+      // ingredient still lands here and is classified correctly.
+      // Maps recipe name -> which of those ingredients it actually has, so a multi-
+      // ingredient query can't credit a recipe with one it doesn't contain.
+      const specificIngredientMatches = new Map<string, Set<string>>();
+
       if (detectedIngredients.length > 0) {
         logger.info('Hybrid search: Detected ingredient keywords', { ingredients: detectedIngredients });
 
@@ -1692,7 +1728,16 @@ IMPORTANT:
 
         for (const ingredient of prioritizedIngredients) {
           const matches = await this.queryRecipesWithIngredient(userId, ingredient, conversationSeed);
+          const isSpecific = specificIngredientsList.includes(ingredient);
           for (const recipe of matches) {
+            if (isSpecific) {
+              const matched = specificIngredientMatches.get(recipe.name);
+              if (matched) {
+                matched.add(ingredient);
+              } else {
+                specificIngredientMatches.set(recipe.name, new Set([ingredient]));
+              }
+            }
             // Avoid duplicates
             if (!allRecipes.some(r => r.id === recipe.id)) {
               allRecipes.push(recipe);
@@ -2145,7 +2190,10 @@ IMPORTANT:
           : `## 🎯 MATCHED RECIPES (PRIORITIZE THESE)`;
         const sectionIntro = isPureExplore
           ? `The user wants variety or something new. These are randomly sampled craftable recipes from their full collection:\n`
-          : `${searchDescription}\nThese recipes match the user's request:\n`;
+          // Deliberately not "these recipes match the user's request" — when the keyword
+          // passes come up short, broader-term and explore padding is appended here too.
+          // The ALLOWED RECIPE LIST below splits real matches from padding.
+          : `${searchDescription}\nCandidate recipes from the user's collection. Some are direct matches; others are broader fallback results — check each recipe's own ingredient list before claiming it contains anything:\n`;
 
         ingredientMatchContext = `\n\n${sectionHeader}\n`;
         ingredientMatchContext += sectionIntro;
@@ -2161,10 +2209,58 @@ IMPORTANT:
 
         // Add explicit list of allowed recipes - this is the ONLY list AI can recommend from
         if (processedRecipes.length > 0) {
+          // When the user named a specific ingredient, split the list by whether the
+          // recipe actually contains it. A flat list lets the fallback padding read as
+          // "matches your request" and get recommended as such.
+          const hasIngredientFocus = specificIngredientsList.length > 0 && specificIngredientMatches.size > 0;
+          // Only label with ingredients that actually matched something — a detected
+          // ingredient with zero hits must not appear in a "CONTAINS" heading.
+          const matchedIngredients = [...new Set(
+            [...specificIngredientMatches.values()].flatMap(set => [...set])
+          )];
+          const isMultiIngredient = matchedIngredients.length > 1;
+          const ingredientLabel = matchedIngredients.join(', ');
+          const directMatches = hasIngredientFocus
+            ? processedRecipes.filter(name => specificIngredientMatches.has(name))
+            : [];
+          const paddingRecipes = hasIngredientFocus
+            ? processedRecipes.filter(name => !specificIngredientMatches.has(name))
+            : processedRecipes;
+
           ingredientMatchContext += `\n## 🚨 ALLOWED RECIPE LIST (YOU MAY ONLY RECOMMEND THESE)\n`;
           ingredientMatchContext += `**CRITICAL: ONLY recommend recipes from this exact list. Do NOT invent recipes from your training data.**\n\n`;
-          ingredientMatchContext += processedRecipes.map(name => `• ${name}`).join('\n');
-          ingredientMatchContext += `\n\n**Total allowed: ${processedRecipes.length} recipes. Any recipe NOT in this list = DO NOT RECOMMEND.**\n`;
+
+          if (hasIngredientFocus) {
+            const upper = ingredientLabel.toUpperCase();
+            // Membership is a UNION across the named ingredients, so a conjunctive
+            // heading would itself be the false claim we're preventing.
+            ingredientMatchContext += isMultiIngredient
+              ? `### ✅ CONTAINS AT LEAST ONE OF: ${upper} (${directMatches.length})\n`
+              : `### ✅ CONTAINS ${upper} (${directMatches.length})\n`;
+            ingredientMatchContext += `${directMatches.map(name => {
+              if (!isMultiIngredient) return `• ${name}`;
+              const has = [...(specificIngredientMatches.get(name) ?? [])].join(', ');
+              return `• ${name} — has: ${has}`;
+            }).join('\n')}\n`;
+            if (isMultiIngredient) {
+              ingredientMatchContext += `\n**Each recipe above has ONLY what its "has:" note lists. Never credit a recipe with an ingredient missing from its own note.**\n`;
+            }
+
+            if (paddingRecipes.length > 0) {
+              ingredientMatchContext += `\n### ⛔ DOES **NOT** CONTAIN ${isMultiIngredient ? `ANY OF: ${upper}` : upper} (${paddingRecipes.length})\n`;
+              ingredientMatchContext += `These came from a broader fallback search, NOT from the ${ingredientLabel} search. `;
+              ingredientMatchContext += `They are allowed recipes, but NEVER describe one as a ${ingredientLabel} drink or list it as an answer to a ${ingredientLabel} question. `;
+              ingredientMatchContext += `Offer one only after plainly saying you've moved beyond ${ingredientLabel}.\n`;
+              ingredientMatchContext += `${paddingRecipes.map(name => `• ${name}`).join('\n')}\n`;
+            }
+
+            ingredientMatchContext += `\n**For a ${ingredientLabel} request the ✅ group is your ONLY source. When it runs out, say so plainly — never fill the gap from the ⛔ group and call it a match.**\n`;
+          } else {
+            ingredientMatchContext += processedRecipes.map(name => `• ${name}`).join('\n');
+            ingredientMatchContext += `\n`;
+          }
+
+          ingredientMatchContext += `\n**Total allowed: ${processedRecipes.length} recipes. Any recipe NOT in this list = DO NOT RECOMMEND.**\n`;
 
           // Flexibility override: the user opted into a shopping trip, so ❌ MISSING
           // (2-3 away) recipes become first-class recommendations here, not a last resort.
@@ -2452,8 +2548,20 @@ If ANY recipe in search results has ✅ [CRAFTABLE], prioritize it.
 - ❌ NEVER say "you can make [recipe]" unless it has ✅ marker
 - ❌ NEVER suggest substituting the BASE SPIRIT of a cocktail (e.g., "use rum instead of bourbon")
 - ❌ NEVER recommend a recipe that is NOT in the "ALLOWED RECIPE LIST" section below
+- ❌ NEVER claim a recipe contains an ingredient unless that ingredient appears in THAT recipe's own printed ingredient list
 - ✅ DO lead with what they CAN make, not what they can't
 - ✅ ONLY recommend recipes from the explicit list provided in search results
+
+**🍯 WHEN THE USER ASKS FOR DRINKS WITH A SPECIFIC INGREDIENT:**
+The ALLOWED RECIPE LIST may be split into a "✅ CONTAINS <ingredient>" group and a
+"⛔ DOES NOT CONTAIN <ingredient>" group. The ⛔ group exists because the search padded
+your options with fallback results — those recipes do NOT have the ingredient.
+
+- Answer the request using the ✅ group ONLY.
+- Read each recipe's printed ingredient list before you name it. If the ingredient isn't there, it isn't an answer.
+- When the ✅ group is short, a short honest answer is correct: "that's what your collection has with honey syrup." Three real matches beat eight with five wrong ones.
+- NEVER pad the list to look generous. A wrong recipe destroys the user's trust in every other one.
+- If you catch yourself reaching for a recipe you "know" uses it, stop — check the printed ingredients.
 
 **🚫 RECIPE RECOMMENDATION SOURCE:**
 You have access to search results showing the user's own recipes. You must ONLY recommend:
