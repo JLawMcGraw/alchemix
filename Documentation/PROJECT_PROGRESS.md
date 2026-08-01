@@ -1,6 +1,6 @@
 # Project Development Progress
 
-Last updated: 2026-06-12 (Session 30)
+Last updated: 2026-08-01 (Session 32)
 
 ---
 
@@ -12,10 +12,10 @@ Last updated: 2026-06-12 (Session 30)
 **Blockers**: None
 
 **Test Coverage**:
-- Backend: 985 tests (35 test files)
-- Frontend: 466 tests (18 test files)
+- Backend: 1008 tests (37 test files)
+- Frontend: 465 tests (18 test files)
 - Recipe-Molecule: 298 tests (6 test files)
-- **Total: 1749 tests**
+- **Total: 1771 tests**
 
 **Redesign Progress**:
 - Phase 1-4 (Batch A - Foundation): **Complete**
@@ -33,6 +33,100 @@ Last updated: 2026-06-12 (Session 30)
 - Inventory Auto-Classification: **Complete** (9 categories with backfill)
 
 **PostgreSQL Migration**: **Complete** (Phase 1-5 done, Phase 6 Deploy pending)
+
+---
+
+## Recent Session (2026-08-01): Liftable-Patterns Lift + AI Bartender Complete Overhaul
+
+### Summary
+Two major work streams, all merged to `main` and pushed. First: reviewed the external
+`dev-liftable-patterns` catalog against the codebase and lifted 3 patterns (new shared
+`@alchemix/spirits` package consolidating a 6-way-drifted spirit taxonomy, LLM-JSON
+salvage, SSE stream-abort). Second: a 5-phase AI Bartender recommendation overhaul plus
+live-session fixes, addressing "700 recipes but always the same ~20," no personalization,
+no "made" tracking, and turn-to-turn flip-flop.
+
+### Work Completed
+
+#### 1. @alchemix/spirits — consolidate drifting spirit taxonomy
+**Problem**: "Which family does this spirit belong to?" was answered by 6 independent
+keyword lists (backend ×3 incl. a byte-identical MemoryService copy, frontend ×3) that
+had drifted (cachaça, ron, genever, calvados, grappa each present in some, missing others).
+**Solution**: New workspace package `@alchemix/spirits` as the single authority (vocabulary
++ word-boundary matching); all consumers import it. Fixed latent substring bugs (ron/citron,
+gin/ginger). Pattern: collapse-drifting-identity-predicates.
+
+#### 2. Bartender salvage + stream-abort (liftable patterns)
+**Problem**: `getDashboardInsight` dropped to a static fallback on any prose-wrapped JSON;
+the SSE route never aborted the paid Claude stream on client disconnect.
+**Solution**: Tiered `extractJsonObject` salvage util (`api/src/utils/jsonSalvage.ts`);
+`AbortController` wired to `res.on('close')` → `client.messages.stream({ signal })`.
+
+#### 3. Bartender overhaul — Phase 1: variety ("same 20")
+**Problem**: The full recipe list was computed but never injected; the model was locked to
+a craftable-first slice of ~20. 680/700 recipes were invisible AND forbidden.
+**Solution**: Diversity selector (`recipeDiversity.ts`) caps candidates per spirit/category;
+injected cap 20→40; removed dead `recipeEntries` + wasteful `SELECT * LIMIT 500` (→ COUNT).
+
+#### 4. Bartender overhaul — Phase 2: personalization
+**Problem**: Favorites were an unlabeled prompt list the model ignored.
+**Solution**: Labeled taste directive + favorite-spirit distribution biases within-tier
+ranking (gated off in explore mode).
+
+#### 5. Bartender overhaul — Phase 3: mark-as-made
+**Problem**: No data for "something I haven't tried."
+**Solution**: `recipes.times_made`/`last_made_at` columns, `/made` endpoints,
+`RecipeService.markMade`, "I Made It" control on recipe grid + detail modal + AI
+suggestions + dashboard + shopping-list; made recipes excluded from explore.
+
+#### 6. Bartender overhaul — Phase 4: cross-session novelty + honest downgrade
+**Problem**: Novelty reset every chat; when options ran low it silently re-served old drinks.
+**Solution**: `recipes.last_recommended_at` stamp + 72h recency down-rank; rewrote prompt
+to never present repeats as new and to speak from the collection, not the tooling. Pattern:
+lock-the-deliverable-promise-never-silently-downgrade.
+
+#### 7. Bartender overhaul — Phase 5: vibe relevance
+**Problem**: Vibe queries only searched a fixed cocktail-name list.
+**Solution**: `CONCEPT_TO_CATEGORIES` (6→~28 vibes) + `queryRecipesByCategory` pulls
+on-theme recipes from the user's own collection by category.
+
+#### 8. Live-session fixes
+**Problem**: "even if it's 2-3 ingredients away" surfaced nothing then falsely claimed
+"you've seen everything"; the model narrated its internals ("the random sample I'm
+working from"); candidates flip-flopped between turns.
+**Solution**: New flexibility patterns + explore path includes missing-2-3 recipes +
+prompt override to recommend ❌ MISSING when flexible; "never narrate your machinery" rule;
+per-conversation seed (`mulberry32` shuffle + `md5(id||seed)` SQL ordering) makes candidate
+order stable within a chat, varied across chats.
+
+#### 9. Docker/CI fix
+**Problem**: CI production build failed — `TS2307: Cannot find module '@alchemix/spirits'`.
+**Solution**: `api/Dockerfile` builds spirits in the builder stage and ships its compiled
+dist to production (runtime code, unlike the type-only `@alchemix/types`). Verified locally:
+image builds and `require('@alchemix/spirits')` resolves at runtime.
+
+### Files Changed
+```
+packages/spirits/**                              (NEW package: src, dist, tests, config)
+packages/types/src/domain.ts                     (Recipe: times_made/last_made_at)
+api/src/services/AIService.ts                    (overhaul: diversity, taste, made, recency, vibe, seed, prompts)
+api/src/services/recipeDiversity.ts + .test.ts   (NEW)
+api/src/utils/jsonSalvage.ts + .test.ts          (NEW)
+api/src/services/MemoryService.ts, RecipeService.ts
+api/src/routes/messages.ts, recipes.ts (+ tests)
+api/src/database/schema.sql                       (made + recommended columns)
+api/Dockerfile                                    (spirits build/ship)
+src/lib/spirits.ts, colors.ts, api.ts, store/createRecipesSlice.ts
+src/components/RecipeCard/**, modals/RecipeDetailModal.*
+src/app/recipes/**, ai/page.tsx, dashboard/page.tsx, shopping-list/page.tsx
+next.config.js, tsconfig(.build).json, vitest configs, package.json(s)
+```
+
+### Next Steps
+- Watch the CI re-run to confirm the buildx path is green (local build only verified via
+  legacy builder — a dual-`.dockerignore` quirk blocked buildx locally)
+- Live smoke test the bartender: variety across fresh chats, mark-as-made drops recipes from
+  "haven't tried," honest downgrade when exhausted, no per-turn flip-flop
 
 ---
 
