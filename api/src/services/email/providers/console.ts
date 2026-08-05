@@ -9,7 +9,7 @@
  * - Body preview is limited to 500 characters
  */
 
-import { EmailProvider } from '../types';
+import { EmailProvider, EmailOptions } from '../types';
 import { getVerificationEmailContent, getPasswordResetEmailContent, getPasswordChangedEmailContent, redactForLogging } from '../templates';
 import { logger } from '../../../utils/logger';
 
@@ -26,26 +26,27 @@ export class ConsoleProvider implements EmailProvider {
 
   async sendVerificationEmail(to: string, token: string): Promise<void> {
     const { subject, html } = getVerificationEmailContent(token);
-    this.logEmail(to, subject, html);
+    await this.sendEmail({ to, subject, html });
   }
 
   async sendPasswordResetEmail(to: string, token: string): Promise<void> {
     const { subject, html } = getPasswordResetEmailContent(token);
-    this.logEmail(to, subject, html);
+    await this.sendEmail({ to, subject, html });
   }
 
   async sendPasswordChangedNotification(to: string): Promise<void> {
     const { subject, html } = getPasswordChangedEmailContent();
-    this.logEmail(to, subject, html);
+    await this.sendEmail({ to, subject, html });
   }
 
-  private logEmail(to: string, subject: string, html: string): void {
-    const bodyPreview = redactForLogging(html);
+  async sendEmail(options: EmailOptions): Promise<void> {
+    const { to, subject, html, attachments } = options;
 
     logger.info('EMAIL (no provider configured - logging to console)', {
       to,
       subject,
-      bodyPreview,
+      bodyPreview: redactForLogging(html),
+      attachments: attachments?.length ?? 0,
     });
   }
 }

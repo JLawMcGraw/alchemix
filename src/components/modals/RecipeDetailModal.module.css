@@ -473,10 +473,20 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--space-2);
+  /* Five buttons in view mode can exceed the 680px modal — wrap instead of
+     squeezing, and tighten the gap so they fit on one row at full width */
+  flex-wrap: wrap;
+  gap: var(--space-1);
   padding: 16px 24px;
   border-top: 1px solid var(--color-border-default);
   background: var(--color-ui-bg-base);
+}
+
+/* Labels are uppercase mono with wide tracking; never let them compress or
+   break mid-label when the row gets tight */
+.footer button {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .deleteBtn {
@@ -604,8 +614,13 @@
   transition: border-color 0.1s ease;
 }
 
-.exportBtn:hover {
+.exportBtn:hover:not(:disabled) {
   border-color: var(--fg-primary);
+}
+
+.exportBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .closeTextBtn {

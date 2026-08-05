@@ -33,6 +33,9 @@ import { authMiddleware } from '../middleware/auth';
 import { validateNumber } from '../utils/inputValidator';
 import { asyncHandler } from '../utils/asyncHandler';
 import { recipeService } from '../services/RecipeService';
+import { emailService } from '../services/email';
+import { getRecipeShareEmailContent } from '../services/email/templates';
+import { recipeEmailLimiter } from '../config/rateLimiter';
 import { logger } from '../utils/logger';
 import { queryOne } from '../database/db';
 
@@ -691,5 +694,112 @@ router.delete('/:id/made', asyncHandler(async (req: Request, res: Response) => {
 
   res.json({ success: true, data: result });
 }));
+
+/**
+ * Maximum size of the base64 image payload, in characters.
+ *
+ * Sits under express.json({ limit: '10mb' }) (server.ts) with room for the
+ * JSON envelope and base64's ~33% overhead.
+ */
+const MAX_IMAGE_BASE64_BYTES = 6 * 1024 * 1024;
+
+const PNG_DATA_URL_PREFIX = 'data:image/png;base64,';
+
+/**
+ * POST /api/recipes/:id/email - Email a recipe to the account owner
+ *
+ * Delivers the recipe's ingredients and instructions as a readable email so the
+ * user can follow it on their phone, with the styled PNG attached.
+ *
+ * The recipient is always the address on the caller's own token — never a value
+ * from the request body — so this cannot be used to mail arbitrary strangers.
+ *
+ * Body: { image?: string }  // "data:image/png;base64,..." (optional)
+ * Response (200 OK): { success: true }
+ */
+router.post('/:id/email', recipeEmailLimiter, asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  const email = req.user?.email;
+  if (!userId || !email) {
+    return res.status(401).json({ success: false, error: 'Authentication required' });
+  }
+
+  const recipeId = parseInt(req.params.id, 10);
+  if (isNaN(recipeId) || recipeId <= 0) {
+    return res.status(400).json({ success: false, error: 'Invalid recipe ID' });
+  }
+
+  // Validate the optional image before doing any work
+  const { image } = req.body ?? {};
+  let attachmentBase64: string | null = null;
+
+  if (image !== undefined && image !== null) {
+    if (typeof image !== 'string' || !image.startsWith(PNG_DATA_URL_PREFIX)) {
+      return res.status(400).json({ success: false, error: 'Image must be a PNG data URL' });
+    }
+
+    attachmentBase64 = image.slice(PNG_DATA_URL_PREFIX.length);
+
+    if (attachmentBase64.length > MAX_IMAGE_BASE64_BYTES) {
+      return res.status(400).json({ success: false, error: 'Image is too large' });
+    }
+  }
+
+  // Ownership is enforced here: getById is scoped to the user, so another
+  // user's recipe is indistinguishable from a missing one.
+  const recipe = await recipeService.getById(recipeId, userId);
+  if (!recipe) {
+    return res.status(404).json({ success: false, error: 'Recipe not found' });
+  }
+
+  // Recipe.ingredients is `string | string[]`; getById parses JSON but swallows
+  // failures, so normalize defensively here.
+  const ingredients = parseIngredientList(recipe.ingredients);
+
+  const { subject, html, text } = getRecipeShareEmailContent({
+    name: recipe.name,
+    ingredients,
+    instructions: recipe.instructions,
+    glass: recipe.glass,
+  });
+
+  const filename = `${recipe.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase() || 'recipe'}-recipe.png`;
+
+  await emailService.sendEmail({
+    to: email,
+    subject,
+    html,
+    text,
+    ...(attachmentBase64
+      ? { attachments: [{ filename, content: attachmentBase64, contentType: 'image/png' }] }
+      : {}),
+  });
+
+  logger.info('Recipe emailed to account owner', {
+    userId,
+    recipeId,
+    hasAttachment: Boolean(attachmentBase64),
+  });
+
+  res.json({ success: true });
+}));
+
+/**
+ * Normalize a stored ingredients value into a display list.
+ *
+ * Mirrors parseIngredients in RecipeDetailModal.tsx so the emailed copy matches
+ * what the user sees on screen.
+ */
+function parseIngredientList(ingredients: string | string[] | undefined): string[] {
+  if (!ingredients) return [];
+  if (Array.isArray(ingredients)) return ingredients;
+
+  try {
+    const parsed = JSON.parse(ingredients);
+    return Array.isArray(parsed) ? parsed : [ingredients];
+  } catch {
+    return ingredients.split(',').map((item) => item.trim()).filter(Boolean);
+  }
+}
 
 export default router;

@@ -18,7 +18,7 @@
  */
 
 import { Resend } from 'resend';
-import { EmailProvider } from '../types';
+import { EmailProvider, EmailOptions } from '../types';
 import { getVerificationEmailContent, getPasswordResetEmailContent, getPasswordChangedEmailContent } from '../templates';
 import { logger } from '../../../utils/logger';
 
@@ -44,23 +44,25 @@ export class ResendProvider implements EmailProvider {
 
   async sendVerificationEmail(to: string, token: string): Promise<void> {
     const { subject, html } = getVerificationEmailContent(token);
-    await this.sendEmail(to, subject, html);
+    await this.sendEmail({ to, subject, html });
   }
 
   async sendPasswordResetEmail(to: string, token: string): Promise<void> {
     const { subject, html } = getPasswordResetEmailContent(token);
-    await this.sendEmail(to, subject, html);
+    await this.sendEmail({ to, subject, html });
   }
 
   async sendPasswordChangedNotification(to: string): Promise<void> {
     const { subject, html } = getPasswordChangedEmailContent();
-    await this.sendEmail(to, subject, html);
+    await this.sendEmail({ to, subject, html });
   }
 
-  private async sendEmail(to: string, subject: string, html: string): Promise<void> {
+  async sendEmail(options: EmailOptions): Promise<void> {
     if (!this.client) {
       throw new Error('Resend provider not configured');
     }
+
+    const { to, subject, html, text, attachments } = options;
 
     try {
       const { error } = await this.client.emails.send({
@@ -68,6 +70,16 @@ export class ResendProvider implements EmailProvider {
         to,
         subject,
         html,
+        ...(text ? { text } : {}),
+        // Resend takes the file contents as a base64 STRING (not a Buffer)
+        ...(attachments?.length
+          ? {
+              attachments: attachments.map((attachment) => ({
+                filename: attachment.filename,
+                content: attachment.content,
+              })),
+            }
+          : {}),
       });
 
       if (error) {

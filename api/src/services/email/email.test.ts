@@ -19,12 +19,16 @@ vi.mock('../../utils/logger', () => ({
   },
 }));
 
+// Shared transport spies so tests can assert on the payload each provider builds
+const mockSendMail = vi.fn().mockResolvedValue({ messageId: 'test-id' });
+const mockResendSend = vi.fn().mockResolvedValue({ data: { id: 'test-id' }, error: null });
+
 // Mock nodemailer
 vi.mock('nodemailer', () => ({
   default: {
     createTransport: vi.fn(() => ({
       verify: vi.fn((callback) => callback(null)),
-      sendMail: vi.fn().mockResolvedValue({ messageId: 'test-id' }),
+      sendMail: mockSendMail,
     })),
   },
 }));
@@ -33,7 +37,7 @@ vi.mock('nodemailer', () => ({
 vi.mock('resend', () => ({
   Resend: vi.fn().mockImplementation(() => ({
     emails: {
-      send: vi.fn().mockResolvedValue({ data: { id: 'test-id' }, error: null }),
+      send: mockResendSend,
     },
   })),
 }));
@@ -47,6 +51,8 @@ describe('Email Service', () => {
     mockWarn.mockClear();
     mockError.mockClear();
     mockDebug.mockClear();
+    mockSendMail.mockClear();
+    mockResendSend.mockClear();
     // Clear all email-related env vars
     delete process.env.RESEND_API_KEY;
     delete process.env.EMAIL_FROM;
@@ -452,6 +458,210 @@ describe('Email Service', () => {
       const html = 'A'.repeat(1000);
       const redacted = redactForLogging(html);
       expect(redacted.length).toBeLessThanOrEqual(500);
+    });
+  });
+
+  describe('escapeHtml', () => {
+    it('should escape all five HTML-significant characters', async () => {
+      const { escapeHtml } = await import('./templates');
+      expect(escapeHtml(`&<>"'`)).toBe('&amp;&lt;&gt;&quot;&#39;');
+    });
+
+    it('should escape the ampersand first so entities are not double-encoded', async () => {
+      const { escapeHtml } = await import('./templates');
+      // Naive ordering would turn "<" into "&lt;" then the "&" into "&amp;lt;"
+      expect(escapeHtml('a < b & c')).toBe('a &lt; b &amp; c');
+    });
+
+    it('should leave ordinary text untouched', async () => {
+      const { escapeHtml } = await import('./templates');
+      expect(escapeHtml('2 oz gin')).toBe('2 oz gin');
+    });
+  });
+
+  describe('getRecipeShareEmailContent', () => {
+    const recipe = {
+      name: 'Negroni',
+      ingredients: ['1 oz gin', '1 oz Campari', '1 oz sweet vermouth'],
+      instructions: 'Stir with ice, strain over a large cube.',
+      glass: 'Rocks',
+    };
+
+    it('should put the recipe name in the subject', async () => {
+      const { getRecipeShareEmailContent } = await import('./templates');
+      const { subject } = getRecipeShareEmailContent(recipe);
+      expect(subject).toContain('Negroni');
+    });
+
+    it('should render every ingredient line in the HTML body', async () => {
+      const { getRecipeShareEmailContent } = await import('./templates');
+      const { html } = getRecipeShareEmailContent(recipe);
+      for (const ingredient of recipe.ingredients) {
+        expect(html).toContain(ingredient);
+      }
+    });
+
+    it('should render instructions and glass in the HTML body', async () => {
+      const { getRecipeShareEmailContent } = await import('./templates');
+      const { html } = getRecipeShareEmailContent(recipe);
+      expect(html).toContain('Stir with ice, strain over a large cube.');
+      expect(html).toContain('Rocks');
+    });
+
+    it('should render every ingredient line in the plaintext body', async () => {
+      const { getRecipeShareEmailContent } = await import('./templates');
+      const { text } = getRecipeShareEmailContent(recipe);
+      for (const ingredient of recipe.ingredients) {
+        expect(text).toContain(ingredient);
+      }
+      expect(text).toContain('Negroni');
+    });
+
+    it('should escape user text in the HTML body', async () => {
+      const { getRecipeShareEmailContent } = await import('./templates');
+      const { html } = getRecipeShareEmailContent({
+        name: 'Gin & Tonic <b>',
+        ingredients: ['2 oz gin & ice'],
+        instructions: 'Build <in> glass',
+        glass: 'Highball & Co',
+      });
+
+      expect(html).toContain('Gin &amp; Tonic &lt;b&gt;');
+      expect(html).toContain('2 oz gin &amp; ice');
+      expect(html).toContain('Build &lt;in&gt; glass');
+      expect(html).toContain('Highball &amp; Co');
+      // The injected tag must not survive as markup
+      expect(html).not.toContain('Tonic <b>');
+    });
+
+    it('should NOT escape user text in the subject or plaintext body', async () => {
+      const { getRecipeShareEmailContent } = await import('./templates');
+      const { subject, text } = getRecipeShareEmailContent({
+        name: 'Gin & Tonic',
+        ingredients: ['2 oz gin & ice'],
+      });
+
+      // Escaping plaintext would show the reader a literal "&amp;"
+      expect(subject).toContain('Gin & Tonic');
+      expect(subject).not.toContain('&amp;');
+      expect(text).toContain('2 oz gin & ice');
+      expect(text).not.toContain('&amp;');
+    });
+
+    it('should handle a recipe with no instructions or glass', async () => {
+      const { getRecipeShareEmailContent } = await import('./templates');
+      const { html, text } = getRecipeShareEmailContent({
+        name: 'Mystery',
+        ingredients: ['gin'],
+      });
+      expect(html).toContain('gin');
+      expect(text).toContain('gin');
+      expect(html).not.toContain('undefined');
+      expect(text).not.toContain('undefined');
+    });
+  });
+
+  describe('sendEmail with attachments', () => {
+    const attachment = {
+      filename: 'negroni-recipe.png',
+      content: 'aGVsbG8=', // base64 for "hello"
+      contentType: 'image/png',
+    };
+
+    it('ResendProvider should pass attachment content through as a base64 string', async () => {
+      process.env.RESEND_API_KEY = 're_test_key';
+      const { ResendProvider } = await import('./providers/resend');
+      const provider = new ResendProvider();
+
+      await provider.sendEmail({
+        to: 'test@example.com',
+        subject: 'Your recipe',
+        html: '<p>hi</p>',
+        text: 'hi',
+        attachments: [attachment],
+      });
+
+      expect(mockResendSend).toHaveBeenCalledTimes(1);
+      const payload = mockResendSend.mock.calls[0][0];
+      expect(payload.to).toBe('test@example.com');
+      expect(payload.text).toBe('hi');
+      expect(payload.attachments).toHaveLength(1);
+      expect(payload.attachments[0].filename).toBe('negroni-recipe.png');
+      // Resend takes a base64 STRING, not a Buffer
+      expect(payload.attachments[0].content).toBe('aGVsbG8=');
+      expect(typeof payload.attachments[0].content).toBe('string');
+    });
+
+    it('SmtpProvider should convert attachment content to a Buffer', async () => {
+      process.env.SMTP_HOST = 'smtp.test.com';
+      process.env.SMTP_USER = 'user@test.com';
+      process.env.SMTP_PASS = 'password';
+
+      const { SmtpProvider } = await import('./providers/smtp');
+      const provider = new SmtpProvider();
+
+      await provider.sendEmail({
+        to: 'test@example.com',
+        subject: 'Your recipe',
+        html: '<p>hi</p>',
+        text: 'hi',
+        attachments: [attachment],
+      });
+
+      expect(mockSendMail).toHaveBeenCalledTimes(1);
+      const payload = mockSendMail.mock.calls[0][0];
+      expect(payload.text).toBe('hi');
+      expect(payload.attachments).toHaveLength(1);
+      expect(payload.attachments[0].filename).toBe('negroni-recipe.png');
+      // Nodemailer takes a Buffer, NOT a base64 string
+      expect(Buffer.isBuffer(payload.attachments[0].content)).toBe(true);
+      expect(payload.attachments[0].content.toString('utf8')).toBe('hello');
+      expect(payload.attachments[0].contentType).toBe('image/png');
+    });
+
+    it('should omit the attachments key entirely when there are none', async () => {
+      process.env.RESEND_API_KEY = 're_test_key';
+      const { ResendProvider } = await import('./providers/resend');
+      const provider = new ResendProvider();
+
+      await provider.sendEmail({
+        to: 'test@example.com',
+        subject: 'No attachment',
+        html: '<p>hi</p>',
+      });
+
+      const payload = mockResendSend.mock.calls[0][0];
+      expect(payload.attachments).toBeUndefined();
+    });
+
+    it('ConsoleProvider should log the attachment count', async () => {
+      const { ConsoleProvider } = await import('./providers/console');
+      const provider = new ConsoleProvider();
+
+      await provider.sendEmail({
+        to: 'test@example.com',
+        subject: 'Your recipe',
+        html: '<p>hi</p>',
+        attachments: [attachment],
+      });
+
+      expect(mockInfo).toHaveBeenCalled();
+      const logged = mockInfo.mock.calls.find((call) => call[1] && 'attachments' in call[1]);
+      expect(logged).toBeDefined();
+      expect(logged![1].attachments).toBe(1);
+    });
+
+    it('should still route the three notification emails through sendEmail', async () => {
+      process.env.RESEND_API_KEY = 're_test_key';
+      const { ResendProvider } = await import('./providers/resend');
+      const provider = new ResendProvider();
+
+      await provider.sendVerificationEmail('test@example.com', 'token123');
+
+      expect(mockResendSend).toHaveBeenCalledTimes(1);
+      const payload = mockResendSend.mock.calls[0][0];
+      expect(payload.to).toBe('test@example.com');
+      expect(payload.html).toContain('token123');
     });
   });
 });

@@ -308,3 +308,40 @@ export const bulkOperationsLimiter = rateLimit({
     return userId ? `bulk:${userId}` : `bulk:${req.ip || 'unknown'}`;
   },
 });
+
+/**
+ * Recipe Email Rate Limiter
+ *
+ * Prevents using the "send recipe to my phone" endpoint as an inbox-spam vector.
+ * Limit: 10 emails per 15 minutes per user.
+ *
+ * IMPORTANT: Attach this as *route* middleware inside the recipes router
+ * (`router.post('/:id/email', recipeEmailLimiter, ...)`), NOT via `app.use()` in
+ * server.ts. App-level mounts run before the router's `authMiddleware`, so
+ * `req.user` would be undefined and the keyGenerator below would silently fall
+ * back to IP — putting everyone behind one NAT in a single shared bucket.
+ *
+ * Uses its own key prefix so it does not share a budget with bulkOperationsLimiter.
+ *
+ * Use case: Email cost control and inbox abuse prevention
+ */
+export const recipeEmailLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 emails per window
+  message: 'Too many recipe emails.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipInTest,
+  handler: (req: Request, res: Response) => {
+    res.status(429).json({
+      success: false,
+      error: 'Too many recipe emails',
+      message: 'Please wait before emailing another recipe',
+      retryAfter: 900,
+    });
+  },
+  keyGenerator: (req) => {
+    const userId = req.user?.userId;
+    return userId ? `recipe-email:${userId}` : `recipe-email:${req.ip || 'unknown'}`;
+  },
+});

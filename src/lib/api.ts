@@ -411,6 +411,14 @@ export const recipeApi = {
     return data.data;
   },
 
+  /**
+   * Email this recipe to the logged-in user's own account address.
+   * @param image - Optional PNG data URL ("data:image/png;base64,...") to attach
+   */
+  async emailRecipe(id: number, image?: string): Promise<void> {
+    await apiClient.post(`/api/recipes/${id}/email`, { image });
+  },
+
   async deleteBulk(ids: number[]): Promise<{ deleted: number }> {
     const { data } = await apiClient.delete<{ success: boolean; deleted: number }>('/api/recipes/bulk', {
       data: { ids },

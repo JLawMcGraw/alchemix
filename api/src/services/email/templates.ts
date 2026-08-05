@@ -15,6 +15,34 @@
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3001';
 
 /**
+ * Escape HTML-significant characters in user-supplied text.
+ *
+ * Every template above this line interpolates only tokens and URLs we generate
+ * ourselves. Recipe sharing is the first template to inject free-form user text
+ * (names, ingredients, instructions), which arrives via manual entry, CSV import,
+ * and AI generation.
+ *
+ * This is a correctness fix before it is a security one: an unescaped `&` in an
+ * everyday ingredient line ("Bombay & Tonic") already corrupts the rendered markup.
+ *
+ * Apply to HTML bodies ONLY. Plaintext (`text`) and `subject` must stay raw, or
+ * the reader sees a literal "&amp;".
+ *
+ * @param value - Untrusted text to escape
+ * @returns The text with &, <, >, ", and ' replaced by entities
+ */
+export function escapeHtml(value: string): string {
+  // Ampersand MUST be replaced first, or the entities emitted below get
+  // double-encoded ("<" -> "&lt;" -> "&amp;lt;").
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
  * Generate HTML email template with consistent styling
  * Matches TopNav design: molecule icon + wordmark + tagline
  */
@@ -189,6 +217,92 @@ export function getPasswordChangedEmailContent(): { subject: string; html: strin
   return {
     subject: 'Your AlcheMix Password Was Changed',
     html: generateEmailTemplate(content),
+  };
+}
+
+/**
+ * Generate recipe share email content
+ *
+ * Sent to the recipe owner's own account address so they can read the recipe on
+ * their phone. The styled PNG rides along as an attachment (added by the caller);
+ * this body carries the readable text.
+ *
+ * @param recipe - Recipe fields to render (ingredients already parsed to an array)
+ * @returns Object with subject, HTML content, and a plaintext fallback
+ */
+export function getRecipeShareEmailContent(recipe: {
+  name: string;
+  ingredients: string[];
+  instructions?: string;
+  glass?: string;
+}): { subject: string; html: string; text: string } {
+  const { name, ingredients, instructions, glass } = recipe;
+
+  const ingredientItems = ingredients
+    .map(
+      (ingredient) => `
+      <li style="margin: 0 0 10px 0; color: #1E293B; font-size: 15px; line-height: 1.6;">
+        ${escapeHtml(ingredient)}
+      </li>`
+    )
+    .join('');
+
+  const glassChip = glass
+    ? `
+    <p style="margin: 24px 0 0 0;">
+      <span style="display: inline-block; padding: 6px 14px; background-color: #F1F5F9; border: 1px solid #E2E8F0; border-radius: 999px; color: #475569; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase;">
+        ${escapeHtml(glass)}
+      </span>
+    </p>`
+    : '';
+
+  const instructionsBlock = instructions
+    ? `
+    <h3 style="margin: 32px 0 12px 0; color: #1E293B; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;">
+      Method
+    </h3>
+    <p style="margin: 0; color: #475569; font-size: 15px; line-height: 1.7;">
+      ${escapeHtml(instructions)}
+    </p>`
+    : '';
+
+  const content = `
+    <h2 style="margin: 0 0 8px 0; color: #1E293B; font-size: 22px; font-weight: 600; font-family: 'Inria Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      ${escapeHtml(name)}
+    </h2>
+    <p style="margin: 0 0 28px 0; color: #94A3B8; font-size: 13px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      Your recipe, ready for the bar.
+    </p>
+    <h3 style="margin: 0 0 12px 0; color: #1E293B; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;">
+      Ingredients
+    </h3>
+    <ul style="margin: 0; padding: 0 0 0 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      ${ingredientItems}
+    </ul>
+    ${instructionsBlock}
+    ${glassChip}
+  `;
+
+  // Plaintext fallback — deliberately NOT escaped.
+  const textLines = [
+    name,
+    '',
+    'INGREDIENTS',
+    ...ingredients.map((ingredient) => `- ${ingredient}`),
+  ];
+
+  if (instructions) {
+    textLines.push('', 'METHOD', instructions);
+  }
+
+  if (glass) {
+    textLines.push('', `Glass: ${glass}`);
+  }
+
+  return {
+    subject: `Your AlcheMix Recipe: ${name}`,
+    html: generateEmailTemplate(content),
+    text: textLines.join('\n'),
   };
 }
 

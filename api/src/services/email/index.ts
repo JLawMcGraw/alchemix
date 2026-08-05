@@ -58,4 +58,4 @@ function selectProvider(): EmailProvider {
 export const emailService: EmailProvider = selectProvider();
 
 // Re-export types for convenience
-export type { EmailProvider, EmailOptions } from './types';
+export type { EmailProvider, EmailOptions, EmailAttachment } from './types';

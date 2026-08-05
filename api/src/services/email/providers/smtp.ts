@@ -18,7 +18,7 @@
  */
 
 import nodemailer from 'nodemailer';
-import { EmailProvider } from '../types';
+import { EmailProvider, EmailOptions } from '../types';
 import { getVerificationEmailContent, getPasswordResetEmailContent, getPasswordChangedEmailContent } from '../templates';
 import { logger } from '../../../utils/logger';
 
@@ -71,23 +71,25 @@ export class SmtpProvider implements EmailProvider {
 
   async sendVerificationEmail(to: string, token: string): Promise<void> {
     const { subject, html } = getVerificationEmailContent(token);
-    await this.sendEmail(to, subject, html);
+    await this.sendEmail({ to, subject, html });
   }
 
   async sendPasswordResetEmail(to: string, token: string): Promise<void> {
     const { subject, html } = getPasswordResetEmailContent(token);
-    await this.sendEmail(to, subject, html);
+    await this.sendEmail({ to, subject, html });
   }
 
   async sendPasswordChangedNotification(to: string): Promise<void> {
     const { subject, html } = getPasswordChangedEmailContent();
-    await this.sendEmail(to, subject, html);
+    await this.sendEmail({ to, subject, html });
   }
 
-  private async sendEmail(to: string, subject: string, html: string): Promise<void> {
+  async sendEmail(options: EmailOptions): Promise<void> {
     if (!this.transporter) {
       throw new Error('SMTP provider not configured');
     }
+
+    const { to, subject, html, text, attachments } = options;
 
     try {
       await this.transporter.sendMail({
@@ -95,6 +97,17 @@ export class SmtpProvider implements EmailProvider {
         to,
         subject,
         html,
+        ...(text ? { text } : {}),
+        // Nodemailer takes a Buffer, so decode the base64 payload here
+        ...(attachments?.length
+          ? {
+              attachments: attachments.map((attachment) => ({
+                filename: attachment.filename,
+                content: Buffer.from(attachment.content, 'base64'),
+                contentType: attachment.contentType,
+              })),
+            }
+          : {}),
       });
       logger.info('Email sent successfully via SMTP', { to });
     } catch (error) {

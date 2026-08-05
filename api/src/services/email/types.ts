@@ -5,12 +5,27 @@
  */
 
 /**
+ * A file attached to an outgoing email
+ */
+export interface EmailAttachment {
+  /** Filename shown to the recipient (e.g. "negroni-recipe.png") */
+  filename: string;
+  /** Base64-encoded file contents, WITHOUT a `data:` URL prefix */
+  content: string;
+  /** MIME type (e.g. "image/png"). Providers may infer from the filename if omitted. */
+  contentType?: string;
+}
+
+/**
  * Email options for sending a generic email
  */
 export interface EmailOptions {
   to: string;
   subject: string;
   html: string;
+  /** Plaintext fallback for clients that don't render HTML */
+  text?: string;
+  attachments?: EmailAttachment[];
 }
 
 /**
@@ -42,6 +57,17 @@ export interface EmailProvider {
    * @param to - Recipient email address
    */
   sendPasswordChangedNotification(to: string): Promise<void>;
+
+  /**
+   * Send a generic email
+   *
+   * The general-purpose escape hatch used by callers that build their own
+   * subject/body (e.g. sharing a recipe). The three methods above are thin
+   * wrappers over this.
+   *
+   * @param options - Recipient, subject, body, and optional attachments
+   */
+  sendEmail(options: EmailOptions): Promise<void>;
 
   /**
    * Check if provider is properly configured

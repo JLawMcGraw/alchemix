@@ -26,6 +26,14 @@ vi.mock('../services/RecipeService', () => ({
     seedClassics: vi.fn(),
     markMade: vi.fn(),
     unmarkMade: vi.fn(),
+    getById: vi.fn(),
+  },
+}));
+
+// Mock the email service
+vi.mock('../services/email', () => ({
+  emailService: {
+    sendEmail: vi.fn(),
   },
 }));
 
@@ -68,6 +76,8 @@ vi.mock('../utils/logger', () => ({
 }));
 
 import { recipeService } from '../services/RecipeService';
+import { emailService } from '../services/email';
+import { authMiddleware } from '../middleware/auth';
 
 // Helper to create mock recipe
 const createMockRecipe = (overrides: Partial<{
@@ -114,9 +124,14 @@ describe('Recipes Routes', () => {
     (recipeService.deleteAll as ReturnType<typeof vi.fn>).mockResolvedValue(0);
     (recipeService.sanitizeCreateInput as ReturnType<typeof vi.fn>).mockResolvedValue({ valid: true, data: {} });
 
+    (recipeService.getById as ReturnType<typeof vi.fn>).mockResolvedValue(createMockRecipe());
+    (emailService.sendEmail as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+
     // Create fresh app with routes
     app = express();
-    app.use(express.json());
+    // Match server.ts:416 — the recipe-email route accepts a base64 PNG, so the
+    // default 100kb body limit would 413 before the handler's own cap ran.
+    app.use(express.json({ limit: '10mb' }));
 
     // Import routes fresh (auth is already mocked)
     const { default: recipesRouter } = await import('./recipes');
@@ -657,6 +672,139 @@ describe('Recipes Routes', () => {
       (recipeService.unmarkMade as ReturnType<typeof vi.fn>).mockResolvedValue(null);
       const res = await request(app).delete('/api/recipes/999/made');
       expect(res.status).toBe(404);
+      expect(res.body.success).toBe(false);
+    });
+  });
+
+  describe('POST /api/recipes/:id/email', () => {
+    const PNG_PREFIX = 'data:image/png;base64,';
+    const smallPng = `${PNG_PREFIX}aGVsbG8=`;
+
+    it('emails the recipe to the authenticated account address', async () => {
+      (recipeService.getById as ReturnType<typeof vi.fn>).mockResolvedValue(
+        createMockRecipe({ id: 42, name: 'Negroni', ingredients: ['1 oz gin', '1 oz Campari'] })
+      );
+
+      const res = await request(app).post('/api/recipes/42/email').send({ image: smallPng });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(emailService.sendEmail).toHaveBeenCalledTimes(1);
+
+      const options = (emailService.sendEmail as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      // Always the token's own address — never a value from the request body
+      expect(options.to).toBe('test@example.com');
+      expect(options.subject).toContain('Negroni');
+      expect(options.html).toContain('1 oz gin');
+      expect(options.text).toContain('1 oz Campari');
+    });
+
+    it('scopes the lookup to the authenticated user', async () => {
+      await request(app).post('/api/recipes/42/email').send({});
+      expect(recipeService.getById).toHaveBeenCalledWith(42, 1);
+    });
+
+    it('attaches the PNG with the data: prefix stripped', async () => {
+      const res = await request(app).post('/api/recipes/42/email').send({ image: smallPng });
+
+      expect(res.status).toBe(200);
+      const options = (emailService.sendEmail as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(options.attachments).toHaveLength(1);
+      expect(options.attachments[0].content).toBe('aGVsbG8=');
+      expect(options.attachments[0].content).not.toContain('data:');
+      expect(options.attachments[0].contentType).toBe('image/png');
+      expect(options.attachments[0].filename).toMatch(/\.png$/);
+    });
+
+    it('sends a text-only email when no image is supplied', async () => {
+      const res = await request(app).post('/api/recipes/42/email').send({});
+
+      expect(res.status).toBe(200);
+      const options = (emailService.sendEmail as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(options.attachments ?? []).toHaveLength(0);
+      expect(options.html).toBeTruthy();
+    });
+
+    it('parses ingredients stored as a JSON string', async () => {
+      (recipeService.getById as ReturnType<typeof vi.fn>).mockResolvedValue(
+        createMockRecipe({ ingredients: JSON.stringify(['2 oz rye', '0.5 oz vermouth']) as never })
+      );
+
+      const res = await request(app).post('/api/recipes/42/email').send({});
+
+      expect(res.status).toBe(200);
+      const options = (emailService.sendEmail as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(options.html).toContain('2 oz rye');
+      expect(options.html).toContain('0.5 oz vermouth');
+    });
+
+    it('returns 400 for an invalid id', async () => {
+      const res = await request(app).post('/api/recipes/abc/email').send({});
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(emailService.sendEmail).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 when the recipe is not found or belongs to another user', async () => {
+      (recipeService.getById as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      const res = await request(app).post('/api/recipes/999/email').send({});
+
+      expect(res.status).toBe(404);
+      expect(res.body.success).toBe(false);
+      expect(emailService.sendEmail).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 for an image that is not a PNG data URL', async () => {
+      const res = await request(app)
+        .post('/api/recipes/42/email')
+        .send({ image: 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(emailService.sendEmail).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 for an image field that is not a string', async () => {
+      const res = await request(app).post('/api/recipes/42/email').send({ image: { evil: true } });
+
+      expect(res.status).toBe(400);
+      expect(emailService.sendEmail).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 for an oversized image', async () => {
+      // Just over the 6 MB base64 cap
+      const oversized = `${PNG_PREFIX}${'A'.repeat(6 * 1024 * 1024 + 1024)}`;
+
+      const res = await request(app).post('/api/recipes/42/email').send({ image: oversized });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(emailService.sendEmail).not.toHaveBeenCalled();
+    });
+
+    it('returns 401 when unauthenticated', async () => {
+      (authMiddleware as ReturnType<typeof vi.fn>).mockImplementationOnce(
+        (req: express.Request & { user?: unknown }, _res: express.Response, next: express.NextFunction) => {
+          req.user = undefined;
+          next();
+        }
+      );
+
+      const res = await request(app).post('/api/recipes/42/email').send({});
+
+      expect(res.status).toBe(401);
+      expect(emailService.sendEmail).not.toHaveBeenCalled();
+    });
+
+    it('surfaces a provider failure rather than reporting success', async () => {
+      (emailService.sendEmail as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error('Failed to send email. Please try again later.')
+      );
+
+      const res = await request(app).post('/api/recipes/42/email').send({});
+
+      expect(res.status).toBe(500);
       expect(res.body.success).toBe(false);
     });
   });

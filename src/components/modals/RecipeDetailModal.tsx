@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
-import { X, Star, Edit2, Save, Trash2, FolderOpen, Plus, Download, Wine } from 'lucide-react';
+import { X, Star, Edit2, Save, Trash2, FolderOpen, Plus, Download, Wine, Smartphone } from 'lucide-react';
 import { Button, useToast } from '@/components/ui';
 import { useStore } from '@/lib/store';
+import { recipeApi } from '@/lib/api';
 import { RecipeMolecule } from '@/components/RecipeMolecule';
 import { GlassSelector } from '@/components/GlassSelector';
 import { classifyIngredient, parseIngredient, generateFormula, toOunces, TYPE_COLORS, type IngredientType } from '@alchemix/recipe-molecule';
@@ -108,7 +109,8 @@ export function RecipeDetailModal({
   const [editedRecipe, setEditedRecipe] = useState<Partial<Recipe>>({});
   const [showCollectionSelect, setShowCollectionSelect] = useState(false);
   const [selectedCollectionId, setSelectedCollectionId] = useState<number | null>(null);
-  const { updateRecipe, deleteRecipe, collections, fetchCollections, fetchShoppingList } = useStore();
+  const [isSending, setIsSending] = useState(false);
+  const { updateRecipe, deleteRecipe, collections, fetchCollections, fetchShoppingList, user } = useStore();
   const { showToast } = useToast();
 
   // Helper function to parse ingredients
@@ -268,9 +270,36 @@ export function RecipeDetailModal({
     });
   };
 
-  // Handle export as styled PNG (Instagram Story format 1080x1920)
-  const handleExport = useCallback(async () => {
-    if (!recipe || !moleculeSvgRef.current) return;
+  /**
+   * Render the recipe as a styled PNG (Instagram Story format 1080x1920).
+   *
+   * Resolves with a PNG data URL, or null if the image could not be built.
+   *
+   * IMPORTANT: every exit path must settle the promise. Callers await this, and
+   * an unsettled promise leaves "Send to my phone" spinning forever with no way
+   * to recover — a `finally` block cannot help, because the await never returns.
+   * The `settle` helper below is the only way this function may resolve.
+   */
+  const renderRecipeImage = useCallback((): Promise<string | null> => {
+    if (!recipe || !moleculeSvgRef.current) return Promise.resolve(null);
+
+    let resolveResult!: (value: string | null) => void;
+    const result = new Promise<string | null>((resolve) => {
+      resolveResult = resolve;
+    });
+
+    let settled = false;
+
+    // Image load callbacks are not guaranteed to fire at all (a wedged decode
+    // never calls onload OR onerror), so cap the wait.
+    const timeoutId = setTimeout(() => settle(null), 10000);
+
+    function settle(value: string | null) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutId);
+      resolveResult(value);
+    }
 
     const ingredients = parseIngredients(recipe.ingredients);
     const formula = ingredients.length > 0 ? generateFormula(ingredients) : '';
@@ -286,7 +315,10 @@ export function RecipeDetailModal({
     canvas.width = canvasWidth * scale;
     canvas.height = canvasHeight * scale;
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    if (!ctx) {
+      settle(null);
+      return result;
+    }
 
     ctx.scale(scale, scale);
 
@@ -568,23 +600,13 @@ export function RecipeDetailModal({
         ctx.drawImage(logoImg, logoX, logoY, logoWidth, logoHeight);
         URL.revokeObjectURL(logoUrl);
 
-        // === DOWNLOAD ===
-        const link = document.createElement('a');
-        link.download = `${recipe.name.replace(/\s+/g, '-').toLowerCase()}-recipe.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-
-        showToast('success', 'Recipe exported successfully');
+        settle(canvas.toDataURL('image/png'));
       };
 
       logoImg.onerror = () => {
         URL.revokeObjectURL(logoUrl);
-        // Still download even if logo fails
-        const link = document.createElement('a');
-        link.download = `${recipe.name.replace(/\s+/g, '-').toLowerCase()}-recipe.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-        showToast('success', 'Recipe exported');
+        // The canvas is still valid without the logo — keep the image
+        settle(canvas.toDataURL('image/png'));
       };
 
       logoImg.src = logoUrl;
@@ -592,11 +614,47 @@ export function RecipeDetailModal({
 
     img.onerror = () => {
       URL.revokeObjectURL(svgUrl);
-      showToast('error', 'Failed to export recipe');
+      settle(null);
     };
 
     img.src = svgUrl;
-  }, [recipe, showToast, parseIngredients]);
+
+    return result;
+  }, [recipe, parseIngredients]);
+
+  // Handle export as styled PNG — downloads the rendered image
+  const handleExport = useCallback(async () => {
+    const dataUrl = await renderRecipeImage();
+
+    if (!dataUrl) {
+      showToast('error', 'Failed to export recipe');
+      return;
+    }
+
+    const link = document.createElement('a');
+    link.download = `${recipe?.name.replace(/\s+/g, '-').toLowerCase() ?? 'recipe'}-recipe.png`;
+    link.href = dataUrl;
+    link.click();
+
+    showToast('success', 'Recipe exported successfully');
+  }, [recipe, renderRecipeImage, showToast]);
+
+  // Email the recipe to the logged-in user's own account address
+  const handleSendToPhone = useCallback(async () => {
+    if (!recipe?.id) return;
+
+    setIsSending(true);
+    try {
+      // A null image is not fatal — the email still carries the readable recipe
+      const dataUrl = await renderRecipeImage();
+      await recipeApi.emailRecipe(recipe.id, dataUrl ?? undefined);
+      showToast('success', user?.email ? `Recipe sent to ${user.email}` : 'Recipe sent to your email');
+    } catch {
+      showToast('error', 'Failed to send recipe');
+    } finally {
+      setIsSending(false);
+    }
+  }, [recipe, renderRecipeImage, showToast, user]);
 
   // Focus management and keyboard shortcuts
   useEffect(() => {
@@ -1024,7 +1082,7 @@ export function RecipeDetailModal({
                   size={16}
                   fill={isFavorited ? 'currentColor' : 'none'}
                 />
-                {isFavorited ? 'Favorited' : 'Add to Favorites'}
+                {isFavorited ? 'Favorited' : 'Favorite'}
               </button>
               {onToggleMade && (
                 <button
@@ -1037,6 +1095,15 @@ export function RecipeDetailModal({
                 </button>
               )}
               <div style={{ flex: 1 }} />
+              <button
+                onClick={handleSendToPhone}
+                className={styles.exportBtn}
+                disabled={isSending}
+                title="Email this recipe to yourself"
+              >
+                <Smartphone size={16} />
+                {isSending ? 'Sending…' : 'To Phone'}
+              </button>
               <button onClick={handleExport} className={styles.exportBtn}>
                 <Download size={16} />
                 Export
